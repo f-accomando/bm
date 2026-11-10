@@ -1051,6 +1051,49 @@ check(sees("this sprite"), "the menu row opens the chooser")
 key("esc")
 key("f1")
 
+----------------------------------------------------------------- Import a PNG from /docs
+do
+  local pic_w, pic_h, img_calls = 128, 256, {}
+  E.image_file = function(path, sx, sy, fw, fh)
+    img_calls[#img_calls + 1] = { path = path, fw = fw, fh = fh }
+    if path:find("nope", 1, true) then return nil, path .. ": no such file" end
+    local w, h = math.min(pic_w, fw), math.min(pic_h, fh)
+    for y = 0, h - 1 do for x = 0, w - 1 do E.sset(sx + x, sy + y, 0x112233) end end
+    return { x = sx, y = sy, w = w, h = h, sw = pic_w, sh = pic_h }
+  end
+  key("f2")
+  E.sset(0, 0, 0xAABBCC)
+  local sw0, sh0 = E.cart_sheet()
+  key("\t")
+  check(sees("Import a PNG from /docs..."), "F2 Tab: the commands list has the import")
+  for _ = 1, 9 do key("down") end
+  key("\n")
+  check(sees("PNG name in /docs"), "the import asks for a name")
+  for _ = 1, 8 do key("\b") end
+  key("n", "o", "p", "e", ".", "p", "n", "g", "\n")
+  check(status():find("import failed: /docs/nope.png: no such file", 1, true), "a missing file: the reason shows: " .. status())
+  check(E.sget(0, 0) == q565(0xAABBCC), "a failed import leaves pixel 0,0 as it was")
+  key("f2", "\t")
+  for _ = 1, 9 do key("down") end
+  key("\n")
+  key("\n")                                   -- the default name spr1.png
+  check(img_calls[#img_calls].path == "/docs/spr1.png" and img_calls[#img_calls].fw == 128 and img_calls[#img_calls].fh == 256, "the picture is read at its own size")
+  check(E.sget(5, 5) == q565(0x112233) and E.sget(200, 5) ~= q565(0x112233), "the picture is at the top left of the sheet")
+  check(status():find("imported 128x256 from /docs/spr1.png", 1, true), "the status shows the size: " .. status())
+  key("^z")
+  check(E.sget(0, 0) == q565(0xAABBCC) and E.sget(5, 5) ~= q565(0x112233), "undo puts the old pixels back")
+  -- a picture bigger than the sheet: the sheet grows
+  pic_w, pic_h = 320, 300
+  key("f2", "\t")
+  for _ = 1, 9 do key("down") end
+  key("\n")
+  key("\n")
+  local sw1, sh1 = E.cart_sheet()
+  check(sw1 == 320 and sh1 == 304, "a bigger picture makes the sheet " .. sw1 .. "x" .. sh1 .. " (320x304)")
+  E.image_file = nil
+  key("f1")
+end
+
 -- the fixed chip "F12 keys" on the hint bar of every page
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm Pixel", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,

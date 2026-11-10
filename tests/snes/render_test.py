@@ -8,7 +8,7 @@ Checks: the ROM list shows the file; after A the picture holds the checkerboard 
 border and the orange sprite; the sprite moves to the right between two frames (NMI and OAM work);
 the right border is a staircase (HDMA changes the scroll in bands).
 """
-import os, struct, subprocess, sys, tempfile, zlib
+import os, shutil, struct, subprocess, sys, tempfile, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -63,9 +63,11 @@ def main():
     subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/sfc/bmtest.sfc"],   # the ROM folder
                           stdout=subprocess.DEVNULL)
     script = ("5 shot browse\n10 pad 1 a\n12 pad 1 none\n60 shot f60\n200 shot f200\n"
-              "210 pad 1 l2 r2\n260 pad 1 none\n330 shot menu\n")
+              "210 pad 1 l2 r2\n260 pad 1 none\n330 shot menu\n"
+              "336 pad 1 down\n338 pad 1 none\n340 pad 1 down\n342 pad 1 none\n344 pad 1 down\n346 pad 1 none\n348 pad 1 down\n350 pad 1 none\n"
+              "354 pad 1 a\n356 pad 1 none\n400 shot after\n")
     open(tmp + "/in.txt", "w").write(script)
-    subprocess.check_call([host, cart, "--sd", tmp + "/sd", "--seconds", "6", "--shots", tmp + "/shots",
+    subprocess.check_call([host, cart, "--sd", tmp + "/sd", "--seconds", "8", "--shots", tmp + "/shots",
                            "--input", tmp + "/in.txt", "--quiet"], stdout=subprocess.DEVNULL)
     fails = []
     def check(name, ok):
@@ -92,6 +94,18 @@ def main():
         return None
     a, b = red_left(f200, 100), red_left(f200, 250)     # the picture is 224 lines at 1x: rows 68 to 291 of the 360 screen
     check("HDMA bands change the scroll", a is not None and b is not None and a != b)
+    # menu > Export sprites: a PNG of the sprite tiles in /docs, the orange of the sprite in it, the rest transparent
+    png = tmp + "/sd/docs/spr1.png"
+    if os.path.exists(png):
+        w, h, bpp, rows = read_png(png)
+        seen = {tuple(rows[y][x * bpp:x * bpp + 4]) for y in range(h) for x in range(w)}
+        check("sprite export is 128 x 256", (w, h) == (128, 256) and bpp == 4)
+        check("sprite export holds the orange sprite", any(c[3] == 255 and near(c[:3], orange) for c in seen))
+        check("sprite export is transparent elsewhere", any(c[3] == 0 for c in seen))
+    else:
+        check("sprite export wrote /docs/spr1.png", False)
+        print("docs:", os.listdir(tmp + "/sd/docs"), "shots:", sorted(os.listdir(tmp + "/shots")))
+        shutil.copy(tmp + "/shots/after.png", os.environ.get("SNES_DBG", "build/snes_fail.png"))
     print("snes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     sys.exit(1 if fails else 0)
 

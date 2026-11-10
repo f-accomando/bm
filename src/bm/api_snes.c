@@ -116,6 +116,51 @@ int l_snes_to_sheet(lua_State *L)
     return 1;
 }
 
+/* snes_tiles(addr, bpp, tiles, cols, [sx, sy, cgbase, pal]) -> w, h: the tiles of the video RAM as pictures in the cartridge's sprite sheet, to be
+ * exported (sheet_png) and drawn on in bm Pixel. addr: the byte address of the first tile; bpp 2, 4 or 8 (8, 32 or 64 bytes a tile); tiles: how many (up to 4096);
+ * cols: tiles in a row. The colours come from the colour RAM: entry cgbase + pal * 2^bpp + pixel (pal is ignored with 8 bpp; cgbase 128 for the sprites).
+ * Colour 0 of a tile is transparent. The rectangle at (sx, sy) must lie in the sheet. */
+int l_snes_tiles(lua_State *L)
+{
+    const unsigned addr = (unsigned)luaL_checkinteger(L, 1) & 0xFFFF;
+    const int bpp = (int)luaL_checkinteger(L, 2), tiles = (int)luaL_checkinteger(L, 3), cols = (int)luaL_checkinteger(L, 4);
+    const int sx = (int)luaL_optinteger(L, 5, 0), sy = (int)luaL_optinteger(L, 6, 0);
+    const int cgbase = (int)luaL_optinteger(L, 7, 0), pal = (int)luaL_optinteger(L, 8, 0);
+    if (bpp != 2 && bpp != 4 && bpp != 8)
+        return luaL_error(L, "snes_tiles: bpp is 2, 4 or 8");
+    if (tiles < 1 || tiles > 4096 || cols < 1 || cols > 64)
+        return luaL_error(L, "snes_tiles: 1 to 4096 tiles, 1 to 64 in a row");
+    const int rows = (tiles + cols - 1) / cols, w = cols * 8, h = rows * 8;
+    g16_sheet_t *s = &rt.sheet;
+    if (!s->px || sx < 0 || sy < 0 || sx + w > s->w || sy + h > s->h)
+        return luaL_error(L, "snes_tiles: the sprite sheet must hold %d x %d pixels at (%d, %d)", w, h, sx, sy);
+    const int tb = bpp * 8;                              /* bytes a tile */
+    uint16_t colour[256];
+    for (int i = 0; i < (1 << bpp); i++) {
+        uint8_t c[2];
+        const int idx = (cgbase + (bpp == 8 ? 0 : pal << bpp) + i) & 255;
+        snes_cgram_peek((uint16_t)(idx * 2), c, 2);
+        const unsigned v = (unsigned)c[0] | (unsigned)c[1] << 8;
+        const unsigned r = v & 31, g = (v >> 5) & 31, b = (v >> 10) & 31;
+        colour[i] = (uint16_t)((r << 11) | (g << 6) | (g >> 4) << 5 | b);
+    }
+    for (int t = 0; t < tiles; t++) {
+        uint8_t d[64];
+        snes_vram_peek((uint16_t)(addr + (unsigned)t * (unsigned)tb), d, tb);
+        const int ox = sx + (t % cols) * 8, oy = sy + (t / cols) * 8;
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++) {
+                int p = 0;
+                for (int pl = 0; pl < bpp; pl++)       /* planes in pairs: bytes 16 * (pl / 2) + 2 * y + (pl & 1) */
+                    p |= ((d[(pl >> 1) * 16 + y * 2 + (pl & 1)] >> (7 - x)) & 1) << pl;
+                g16_sheet_set(s, ox + x, oy + y, colour[p], p != 0);
+            }
+    }
+    lua_pushinteger(L, w);
+    lua_pushinteger(L, h);
+    return 2;
+}
+
 int l_snes_info(lua_State *L)
 {
     const snes_info_t *i = snes_info();

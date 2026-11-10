@@ -1985,7 +1985,7 @@ static const luaL_Reg api[] = {
     { "ai_ask", l_ai_ask }, { "ai_reply", l_ai_reply }, { "ai_info", l_ai_info },
     { "ai_setup", l_ai_setup }, { "ai_pair", l_ai_pair }, { "ai_pair_finish", l_ai_pair_finish },
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
-    { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet },
+    { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet }, { "snes_tiles", l_snes_tiles },
     { "snes_info", l_snes_info }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
     { "psx_list", l_psx_list }, { "psx_boot", l_psx_boot }, { "psx_reset", l_psx_reset }, { "psx_frame", l_psx_frame },
     { "psx_draw", l_psx_draw }, { "psx_info", l_psx_info }, { "psx_debug", l_psx_debug }, { "psx_tty", l_psx_tty }, { "psx_jit", l_psx_jit }, { "psx_selftest", l_psx_selftest },

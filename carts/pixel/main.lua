@@ -1246,6 +1246,36 @@ local function paste_here()
   say("pasted " .. w .. "x" .. h .. " at (" .. rx .. "," .. ry .. ")", C_DIM, 90)
 end
 
+-- Import a PNG of /docs (bm SNES writes one: menu > Export sprites) at the top left of the sheet. The sheet grows to hold it. A
+-- transparent pixel of the picture stays transparent. Undo puts the old pixels back.
+local function import_png()
+  ask("PNG name in /docs (8.3)", "spr1.png", function(t)
+    local name = t:match("([^/]+)$") or ""
+    if name == "" then return end
+    local path = "/docs/" .. name
+    local c0 = sget(0, 0)
+    local info, why = image_file(path, 0, 0, 1, 1, 100, 0)           -- the size of the picture (pixel 0,0 is used and put back)
+    sset(0, 0, c0)
+    if not info then say("import failed: " .. tostring(why), C_ERR, 300); return end
+    local w, h = min(info.sw, 4096), min(info.sh, 4096)
+    local nw, nh = max(sw, (w + 7) // 8 * 8), max(sh, (h + 7) // 8 * 8)
+    if nw ~= sw or nh ~= sh then
+      local ok, e = pcall(cart_sheet, nw, nh)
+      if not ok then say(tostring(e), C_ERR); return end
+      sw, sh = cart_sheet()
+      undo, redo = {}, {}
+    end
+    begin(0, 0, min(w, sw), min(h, sh))
+    local r, e2 = image_file(path, 0, 0, w, h, 100, 0)
+    if not r then say("import failed: " .. tostring(e2), C_ERR, 300); return end
+    fit_region()
+    sheet_reset()
+    dirty = true
+    say("imported " .. r.w .. "x" .. r.h .. " from " .. path, C_ACC, 300)
+  end)
+end
+shp.import_png = import_png
+
 function sheet_actions()
   choose("sheet " .. sw .. "x" .. sh, {
     { "Draw this sprite (Enter)", function() go("draw") end },
@@ -1257,6 +1287,7 @@ function sheet_actions()
     { "Zoom out (-)", function() sheet_key("-") end },
     { "Sheet size... (R)", resize },
     { "Export a PNG or GIF... (Ctrl+E)", function() shp.export_png() end },
+    { "Import a PNG from /docs...", import_png },
   })
 end
 

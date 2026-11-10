@@ -65,7 +65,7 @@ def main():
             lua = lua.replace("local show_fps = true", "local show_fps = false").replace("  if AUTO then   ", "  if false then   ").replace("local AUTO = true", "local AUTO = true")
     open(os.path.join(OUT, "main.lua"), "w").write(lua)
     sheet = os.path.join(OUT, "sheet.png")
-    png(sheet, 256, 240, lambda x, y: b"\x00\x00\x00\x00")      # room for the picture of snes_to_sheet (256 x 240)
+    png(sheet, 256, 512, lambda x, y: b"\x00\x00\x00\x00")      # room for the picture of snes_to_sheet (256 x 240, and room for the exported sprite tiles below it)
     cv = os.path.join(HERE, "..", "cover.png")
     if not os.path.exists(cv):
         cover(cv)

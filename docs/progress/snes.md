@@ -17,7 +17,7 @@ machine was written again in C. The RGB30 is not measured.
    A right, B bottom, X top, Y left. The RGB30 and Nintendo pads have the same names. On a keyboard or an Xbox pad the
    cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
    (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
-   Press Esc (keyboard), or hold L2 and R2 for half a second (pad), to open the emulator menu (resume, reset, FPS, scale, back to the list); Esc or B closes it. Q and E are
+   Press Esc (keyboard), or hold L2 and R2 for half a second (pad), to open the emulator menu (resume, reset, FPS, scale, export sprites, back to the list); Esc or B closes it. Q and E are
    only the game's L and R. The menu item "FPS" shows one line at the top left: `fps` (the draw loop), `upd/s` (emulated frames a second: 60 is full speed) and `pic 1/N` (a new picture every N frames).
    Scale in the menu: "sharp" (default), "native 256x256", "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". "native" asks for `screen(256, 256)` (the 8th mode of the Pi; the console
    puts a square screen in the middle of a 480x270 one): the picture is 1x in a 256x256 page, and a 1080p TV shows it 4x at whole pixels (1024 x 896), with no GPU work. Pi One: 59-60 updates a second
@@ -32,6 +32,10 @@ machine was written again in C. The RGB30 is not measured.
    in the menu and at exit.
 6. A game that keeps the screen off shows two orange lines at the bottom after 3 seconds: the PC of the CPU, the last registers it
    read, and the state of the sound CPU. Send it when a game stays black. The test build (`SNES_TEST=1`) shows the long debug lines (`fps`, `blank`, `tm`, the sound CPU).
+7. Sprites for bm Pixel: menu > "Export sprites to /docs" writes `/docs/sprN.png` (128 x 256, 16 tiles a row, the second name table below the first, transparent where no sprite
+   uses a tile) with the tiles the OAM sprites on the screen use, each with the palette of the sprite that uses it (`snes_tiles` decodes the 4 bpp tiles from the video RAM and the colour RAM,
+   `sheet_png` and `doc_write` write the PNG; the cart's sheet is 256 x 512, the tiles go below the picture). In bm Pixel, Sheet page > Tab > "Import a PNG from /docs..." puts it at the top left
+   of the sheet (the sheet grows if the picture is bigger; Undo takes it back). Export again in other scenes: the file number goes up. Only sprites (not the backgrounds) and only what is on the screen.
 
 ## What is in it
 

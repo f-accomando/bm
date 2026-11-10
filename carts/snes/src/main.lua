@@ -47,6 +47,51 @@ local function readpad(p)
   return v
 end
 
+-- Export the sprites the game shows now: each tile an OAM sprite uses, with the palette of that sprite, laid out as in the video RAM
+-- (16 tiles in a row, the second name table below the first) into a 128 x 256 PNG in /docs; bm Pixel imports it (Sheet > Import a PNG).
+local SPR_SIZES = { { 1, 2 }, { 1, 4 }, { 1, 8 }, { 2, 4 }, { 2, 8 }, { 4, 8 }, { 2, 4 }, { 2, 4 } }     -- tiles a side: small and large
+local toast, export_n = nil, 0
+function export_sprites()
+  local d = snes_debug()
+  local ob = tonumber(d.regs:match("obsel (%x+)"), 16) or 0
+  local base = (ob & 7) << 14
+  local gap = ((((ob >> 3) & 3) + 1) << 14)
+  local sz = SPR_SIZES[((ob >> 5) & 7) + 1]
+  local oam = d.oam
+  for y = 0, 255 do for x = 0, 127 do sset(x, 256 + y, nil) end end
+  local done, count = {}, 0
+  for i = 0, 127 do
+    local x, y, t, a = oam:byte(i * 4 + 1), oam:byte(i * 4 + 2), oam:byte(i * 4 + 3), oam:byte(i * 4 + 4)
+    local hi = (oam:byte(513 + (i >> 2)) >> ((i & 3) * 2)) & 3
+    local big = hi & 2 ~= 0
+    local tw = big and sz[2] or sz[1]
+    local x9 = x | ((hi & 1) << 8)
+    if x9 >= 256 then x9 = x9 - 512 end
+    if (y < 224 or y + tw * 8 > 256) and x9 > -tw * 8 and x9 < 256 then
+      for ty = 0, tw - 1 do
+        for tx = 0, tw - 1 do
+          local n = ((((t >> 4) + ty) & 15) << 4) | ((t + tx) & 15)
+          local table2 = a & 1
+          local key = table2 * 256 + n
+          if not done[key] then
+            done[key] = true
+            count = count + 1
+            local addr = base + table2 * gap + n * 32
+            snes_tiles(addr, 4, 1, 1, (n & 15) * 8, 256 + (table2 * 16 + (n >> 4)) * 8, 128, (a >> 1) & 7)
+          end
+        end
+      end
+    end
+  end
+  if count == 0 then toast = "no sprite on the screen"; return end
+  export_n = export_n + 1
+  local name = string.format("spr%d.png", export_n)
+  local bytes, why = sheet_png(0, 256, 128, 256)
+  if not bytes then toast = "export failed: " .. tostring(why); return end
+  local ok, err = doc_write(name, bytes)
+  toast = ok and (count .. " tile(s) in /docs/" .. name) or ("export failed: " .. tostring(err))
+end
+
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
 local scr
@@ -213,7 +258,7 @@ function _update()
     local esc_edge = esc_now and not esc_prev
     esc_prev = esc_now
     if btn("l2") and btn("r2") then holdmenu = holdmenu + 1 else holdmenu = 0 end
-    if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; save_sram(); return end
+    if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; toast = nil; save_sram(); return end
     local bench = AUTO and frames >= 600 and frames < 3200      -- the test build: every frame in this range is drawn, and the time of the parts is summed: the same frames in every run
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
@@ -232,12 +277,13 @@ function _update()
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
     if btnp("up") then menusel = math.max(1, menusel - 1) end
-    if btnp("down") then menusel = math.min(5, menusel + 1) end
+    if btnp("down") then menusel = math.min(6, menusel + 1) end
     if btnp("a") then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); snes_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
       elseif menusel == 4 then next_mode()
+      elseif menusel == 5 then export_sprites()
       else save_sram(); state = "browse"; list_roms() end
     end
     local esc_now = keydown(0x29)
@@ -285,9 +331,10 @@ function _draw()
     if not GPU_EMPTY then sspr(0, 0, 256, lines, dx, dy, false, false, gpu_zoom) end
     if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
     if state == "menu" then
-      rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
-      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Back to the list" }
-      for i = 1, 5 do print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
+      rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0x101820)
+      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Export sprites to /docs", "Back to the list" }
+      for i = 1, 6 do print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
+      if toast then print(toast, SCREEN_W // 2 - 104, SCREEN_H // 2 + 106, 0xFFD050) end
     end
     return
   end
@@ -356,13 +403,14 @@ function _draw()
   end
   if MINI or (show_fps and not AUTO) then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end   -- one line: the loop, the machine (updates a second), the picture rate
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0x101820)
-    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 164, 0xFFD050)
+    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0x101820)
+    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0xFFD050)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), "Back to the list" }
-    for i = 1, 5 do
+                    mode_label(), "Export sprites to /docs", "Back to the list" }
+    for i = 1, 6 do
       print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(snes_info().title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 66, 0x8090A0)
+    print(snes_info().title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 90, 0x8090A0)
+    if toast then print(toast, SCREEN_W // 2 - 104, SCREEN_H // 2 + 106, 0xFFD050) end
   end
 end
