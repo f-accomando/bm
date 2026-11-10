@@ -1,0 +1,82 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2248-g53eb4e56-dirty
+branch: antigravity/fix-gpu-probe-menu-1080p
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-59e54f_freeze_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a key, frame 0, 80 s after boot, kernel v0.2.5-2248-g53eb4e56-dirty, ring 5795, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+T 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: the V3D did not finish:
+CT0CS   00000000  CT0CA   42b1809a  CT0EA   42b1809a  CT1CS   00000000
+CT1CA   42b58033  CT1EA   42b58033  PCS     00000004  BFC     00000000
+RFC     00000000  INTCTL  0000000f  BPCA    41d1a080  BPCS    003fd000
+BPOA    42118000  BPOS    00200000  ERRSTAT 00001030  DBGE    00000000
+FDBGO   00000006  FDBGB   1c00001d  FDBGR   595d68fd  FDBGS   1246f1ef
+gpu3d: the GPU did not finish a frame (registers in the log); the 3D is drawn by the ARM again
+gpu3d: the two-thread shaders' probe: the GPU did not end its job; that stays off, the rest goes on
+menu: 1920x1080, drawn by the GPU
+net: not served for 509 ms (up 9000 ms), while: boot
+covers: all 22 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-10 12:25 UTC
+menu idle: 300/300 frames, 144 of 610 ms taken, 1.8 ms past a frame; covers 130 ms (+3.1, stk 0.8/16K); min slack -43090 us, paced 0
+menu idle: sd first word <1ms 154 <3ms 8 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 15069 us, enlarge 0 us, flip 96 us, free time used 481 us (300 frames)
+menu frame: 1x, a frame averages draw 13441 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13354 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13590 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13371 us, enlarge 0 us, flip 97 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13894 us, enlarge 0 us, flip 97 us, free time used 41 us (300 frames)
+
+net: console opened from 192.168.1.97
+> back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
+report: 20261110-122553_log_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt saved as bm/reports/rpt00001.txt
+tls: 21 root certificates
+report: sending 20261110-122553_log_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-fix-gpu-probe-menu-1080p/20261110-122553_log_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.97
+> :
+:b3d tests=1 profiles=1
+: b3d tests=1 profiles=1
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 45.4 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261110-122630_bench3d_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt saved as bm/reports/rpt00001.txt
+report: sending 20261110-122630_bench3d_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-fix-gpu-probe-menu-1080p/20261110-122630_bench3d_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (6677548 bytes)...
+net: kernel 0% (0 of 6521 KB)
+net: kernel 10% (661 of 6521 KB)
+net: kernel 20% (1306 of 6521 KB)
+net: kernel 30% (1959 of 6521 KB)
+net: kernel 40% (2609 of 6521 KB)
+net: kernel 50% (3270 of 6521 KB)
+net: kernel 60% (3915 of 6521 KB)
+net: kernel 70% (4571 of 6521 KB)
+net: kernel 80% (5218 of 6521 KB)
+net: kernel 90% (5877 of 6521 KB)
