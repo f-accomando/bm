@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-snes_t S;
 int snes_clk;
 
 #define LINE_CLK 1364
@@ -503,7 +502,6 @@ void snes_reset(void)
     cpu_reset();
 }
 
-uint32_t (*snes_now_us)(void);
 #define now_us snes_now_us
 static uint32_t avg_frame, avg_ppu, avg_spc;
 void snes_set_clock(uint32_t (*f)(void)) { now_us = f; }

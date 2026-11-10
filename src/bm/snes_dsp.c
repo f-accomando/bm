@@ -10,9 +10,20 @@
 
 #include <string.h>
 
-/* the RAM and the registers of snes_spc.c */
-extern uint8_t *spc_ram_ptr(void);
-extern uint8_t *spc_dsp_ptr(void);
+/* Standalone/shared DSP memory: defaults to internal buffers unless spc_reset() or snes16 binds its own. */
+static uint8_t dsp_fallback_ram[65536];
+static uint8_t dsp_fallback_regs[128];
+static uint8_t *dsp_ram_ptr = dsp_fallback_ram;
+static uint8_t *dsp_reg_ptr = dsp_fallback_regs;
+
+void dsp_set_mem(uint8_t *ram64k, uint8_t *regs128)
+{
+    dsp_ram_ptr = ram64k ? ram64k : dsp_fallback_ram;
+    dsp_reg_ptr = regs128 ? regs128 : dsp_fallback_regs;
+}
+
+uint8_t *dsp_ram_mem(void) { return dsp_ram_ptr; }
+uint8_t *dsp_reg_mem(void) { return dsp_reg_ptr; }
 
 typedef struct {
     int state;                  /* 0 off, 1 attack, 2 decay, 3 sustain, 4 release */
@@ -93,7 +104,7 @@ static inline int clamp16(int v) { return v > 32767 ? 32767 : v < -32768 ? -3276
 /* the start of the sample n of the directory */
 static uint16_t dir_addr(int srcn, int loop)
 {
-    const uint8_t *ram = spc_ram_ptr(), *d = spc_dsp_ptr();
+    const uint8_t *ram = dsp_ram_ptr, *d = dsp_reg_ptr;
     const unsigned a = ((unsigned)d[0x5D] << 8) + (unsigned)srcn * 4 + (loop ? 2 : 0);
     return (uint16_t)(ram[a & 0xFFFF] | (ram[(a + 1) & 0xFFFF] << 8));
 }
@@ -101,7 +112,7 @@ static uint16_t dir_addr(int srcn, int loop)
 /* decodes the block at v->addr into v->blk */
 static void brr_decode(voice_t *v)
 {
-    const uint8_t *ram = spc_ram_ptr();
+    const uint8_t *ram = dsp_ram_ptr;
     const unsigned hdr = ram[v->addr];
     const int range = hdr >> 4, filter = (hdr >> 2) & 3;
     v->endflag = hdr & 1; v->loopflag = (hdr >> 1) & 1;
@@ -129,13 +140,13 @@ static void brr_decode(voice_t *v)
 static void voice_key_on(int i)
 {
     voice_t *v = &vc[i];
-    v->addr = dir_addr(spc_dsp_ptr()[i * 16 + 4], 0);
+    v->addr = dir_addr(dsp_reg_ptr[i * 16 + 4], 0);
     v->p1 = v->p2 = 0;
     memset(v->hist, 0, sizeof v->hist);
     brr_decode(v);
     v->pos = 0; v->frac = 0;
     v->env = 0; v->state = 1;
-    spc_dsp_ptr()[0x7C] &= (uint8_t)~(1 << i);          /* the end flag of the voice is cleared */
+    dsp_reg_ptr[0x7C] &= (uint8_t)~(1 << i);          /* the end flag of the voice is cleared */
     n_kons++;
 }
 
@@ -144,9 +155,9 @@ static int16_t next_sample(voice_t *v, int i)
 {
     if (v->pos >= 16) {
         if (v->endflag) {
-            spc_dsp_ptr()[0x7C] |= (uint8_t)(1 << i);
+            dsp_reg_ptr[0x7C] |= (uint8_t)(1 << i);
             if (v->loopflag) {
-                v->addr = dir_addr(spc_dsp_ptr()[i * 16 + 4], 1);
+                v->addr = dir_addr(dsp_reg_ptr[i * 16 + 4], 1);
             } else {
                 v->state = 0; v->env = 0;               /* a sample that ends without a loop stops the voice */
                 return 0;
@@ -234,7 +245,7 @@ static void envelope(voice_t *v, const uint8_t *r, int koff)
 /* ------------------------------------------------------------------ one sample */
 void dsp_write(int reg, uint8_t v)
 {
-    uint8_t *d = spc_dsp_ptr();
+    uint8_t *d = dsp_reg_ptr;
     if (reg == 0x4C) kon_latch |= v;
     if (reg == 0x7C) { d[0x7C] = 0; return; }           /* a write to ENDX clears it */
     d[reg] = v;
@@ -250,7 +261,7 @@ void dsp_reset(void)
 void dsp_tick(void)
 {
     if (!fire_ready) fire_init();
-    uint8_t *d = spc_dsp_ptr();
+    uint8_t *d = dsp_reg_ptr;
     const uint8_t flg = d[0x6C];
     const int kon = kon_latch;
     kon_latch = 0;

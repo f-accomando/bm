@@ -117,6 +117,9 @@ typedef struct { uint16_t a, x, y, s, d, pc; uint8_t p; int e; uint8_t pb, db; }
 void cpu_get(cpu_regs_t *r);                    /* for the tests */
 
 /* snes_dsp.c */
+void dsp_set_mem(uint8_t *ram64k, uint8_t *regs128);
+uint8_t *dsp_ram_mem(void);
+uint8_t *dsp_reg_mem(void);
 void dsp_write(int reg, uint8_t v);
 void dsp_reset(void);
 void dsp_tick(void);                    /* one sample (every 32 cycles of the sound CPU) */

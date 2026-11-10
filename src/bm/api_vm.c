@@ -304,6 +304,12 @@ static void push_word_to_lua(lua_State *L, uint32_t w, uint8_t kind)
 }
 
 static lua_State *g_active_lua = NULL;
+static bmnative_host_fn g_fast_host = NULL;
+
+void api_vm_set_fast_host(bmnative_host_fn fn)
+{
+    g_fast_host = fn;
+}
 
 lua_State *bmnative_lua_set_state(lua_State *L)
 {
@@ -314,6 +320,8 @@ lua_State *bmnative_lua_set_state(lua_State *L)
 
 int32_t bmnative_lua_host_dispatch(int32_t host_id, const int32_t *args, int32_t nargs)
 {
+    if (g_fast_host && host_id >= BMN_HOST_S16_BASE)
+        return g_fast_host(host_id, args, nargs);
     lua_State *L = g_active_lua;
     if (!L)
         return 0;

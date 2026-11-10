@@ -113,6 +113,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/input.md](api/input.md) | Keys, gamepad, mouse, touch |
 | [api/system.md](api/system.md) | Time and system · Network (UDP) · Saves · Documents |
 | [api/snes.md](api/snes.md) | The SNES machine (bm SNES) |
+| [api/snes16.md](api/snes16.md) | Native ARM SNES-16 PPU + S-DSP engine |
 | [api/psx.md](api/psx.md) | The PlayStation 1 machine (bm PSX) |
 | [api/sound.md](api/sound.md) | Sound effects and music · Notes · Instruments, tone, room · The bank |
 | [api/tools.md](api/tools.md) | Keyboard and files · Assistant (M30) |

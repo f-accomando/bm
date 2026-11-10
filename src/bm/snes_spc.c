@@ -371,6 +371,7 @@ void spc_reset(void)
     memset(ram, 0, sizeof ram);
     memset(dsp, 0, sizeof dsp);
     ctl = 0x80; dspaddr = 0; halted = 0;
+    dsp_set_mem(ram, dsp);
     dsp_reset();
     memset(tgt, 0, sizeof tgt); memset(tout, 0, sizeof tout);
     memset(tstage, 0, sizeof tstage); memset(tenable, 0, sizeof tenable);

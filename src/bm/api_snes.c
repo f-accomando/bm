@@ -55,16 +55,15 @@ int l_snes_frame(lua_State *L)
     return 0;
 }
 
-int l_snes_draw(lua_State *L)
+int snes_blit_target(lua_State *L, const uint16_t *src, int lines, const char *who)
 {
-    int w, h, lines;
+    int w, h;
     uint16_t *dst = target_pixels(L, 1, &w, &h);
     if (!dst)
-        return luaL_error(L, "snes_draw: a render target is needed");
-    const uint16_t *src = snes_picture(&lines);
+        return luaL_error(L, "%s: a render target is needed", who);
     const int dw = (int)luaL_optinteger(L, 2, SNES_W), dh = (int)luaL_optinteger(L, 3, lines);
     if (dw < 1 || dh < 1 || dw > w || dh > h)
-        return luaL_error(L, "snes_draw: the size %dx%d does not fit the target (%dx%d)", dw, dh, w, h);
+        return luaL_error(L, "%s: the size %dx%d does not fit the target (%dx%d)", who, dw, dh, w, h);
     if (dw == SNES_W && dh == lines) {
         for (int y = 0; y < lines; y++)
             memcpy(dst + (size_t)y * (size_t)w, src + (size_t)y * SNES_W, SNES_W * sizeof(uint16_t));
@@ -72,7 +71,7 @@ int l_snes_draw(lua_State *L)
         /* nearest neighbour to dw x dh: a table of the source column of each column, and a row that repeats is a copy */
         static uint16_t xmap[1280];
         if (dw > 1280)
-            return luaL_error(L, "snes_draw: at most 1280 pixels wide");
+            return luaL_error(L, "%s: at most 1280 pixels wide", who);
         for (int x = 0; x < dw; x++)
             xmap[x] = (uint16_t)(x * SNES_W / dw);
         int prev = -1;
@@ -93,16 +92,21 @@ int l_snes_draw(lua_State *L)
     return 1;
 }
 
-/* snes_to_sheet([x, y]) -> lines: the picture (256 pixels wide, 224 or 239 lines) into the cartridge's sprite sheet at (x, y), opaque, so that `sspr`
- * draws it with a zoom (the GPU does it where it draws the 2D: no pixel of the big picture is written by the ARM). x and y are multiples of 8. */
-int l_snes_to_sheet(lua_State *L)
+int l_snes_draw(lua_State *L)
 {
-    const int dx = (int)luaL_optinteger(L, 1, 0), dy = (int)luaL_optinteger(L, 2, 0);
     int lines;
     const uint16_t *src = snes_picture(&lines);
+    return snes_blit_target(L, src, lines, "snes_draw");
+}
+
+/* snes_to_sheet([x, y]) -> lines: the picture (256 pixels wide, 224 or 239 lines) into the cartridge's sprite sheet at (x, y), opaque, so that `sspr`
+ * draws it with a zoom (the GPU does it where it draws the 2D: no pixel of the big picture is written by the ARM). x and y are multiples of 8. */
+int snes_blit_sheet(lua_State *L, const uint16_t *src, int lines, const char *who)
+{
+    const int dx = (int)luaL_optinteger(L, 1, 0), dy = (int)luaL_optinteger(L, 2, 0);
     g16_sheet_t *s = &rt.sheet;
     if (!s->px || dx < 0 || dy < 0 || (dx & 7) || (dy & 7) || dx + SNES_W > s->w || dy + lines > s->h)
-        return luaL_error(L, "snes_to_sheet: the sprite sheet must hold 256 x %d pixels at (%d, %d), x and y multiples of 8", lines, dx, dy);
+        return luaL_error(L, "%s: the sprite sheet must hold 256 x %d pixels at (%d, %d), x and y multiples of 8", who, lines, dx, dy);
     const int per_row = s->w / G16_CELL;
     for (int y = 0; y < lines; y++) {
         memcpy(s->px + (size_t)(dy + y) * (size_t)s->w + (size_t)dx, src + (size_t)y * SNES_W, SNES_W * sizeof(uint16_t));
@@ -114,6 +118,13 @@ int l_snes_to_sheet(lua_State *L)
     s->version++;
     lua_pushinteger(L, lines);
     return 1;
+}
+
+int l_snes_to_sheet(lua_State *L)
+{
+    int lines;
+    const uint16_t *src = snes_picture(&lines);
+    return snes_blit_sheet(L, src, lines, "snes_to_sheet");
 }
 
 /* snes_tiles(addr, bpp, tiles, cols, [sx, sy, cgbase, pal]) -> w, h: the tiles of the video RAM as pictures in the cartridge's sprite sheet, to be

@@ -76,10 +76,24 @@ enum {
     BMN_HOST_PRINT    = 13,
     BMN_HOST_SIN      = 14,
     BMN_HOST_COS      = 15,
-    BMN_HOST_ATAN2    = 16
+    BMN_HOST_ATAN2    = 16,
+    BMN_HOST_S16_BASE = 17,
+    BMN_HOST_S16_MODE = 17,
+    BMN_HOST_S16_SCROLL = 18,
+    BMN_HOST_S16_OAM  = 19,
+    BMN_HOST_S16_OAM_CLR = 20,
+    BMN_HOST_S16_M7   = 21,
+    BMN_HOST_S16_HDMA_GRAD = 22,
+    BMN_HOST_S16_HDMA_BAND = 23,
+    BMN_HOST_S16_HDMA_M7 = 24,
+    BMN_HOST_S16_RENDER = 25,
+    BMN_HOST_S16_SFX  = 26
 };
 
 typedef int32_t (*bmnative_host_fn)(int32_t host_id, const int32_t *args, int32_t nargs);
+
+/* Register the fast C host dispatcher for BMN_HOST_S16_* (api_vm.c). */
+void api_vm_set_fast_host(bmnative_host_fn fn);
 
 typedef struct {
     int              nfn;

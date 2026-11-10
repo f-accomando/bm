@@ -280,6 +280,17 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_tes
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
+# bm SNES-16 (carts/snes16): native ARM SNES-16 PPU + S-DSP demo with slim library and engine.b compiled by bmlc.c.
+$(BUILD)/carts/snes16.bm $(BUILD)/carts/snes16.bme: $(BUILD)/carts/snes16.%: carts/snes16/build/build.py $(wildcard carts/snes16/src/*.lua) carts/snes16/src/engine.b carts/snes16/bm.info scripts/mkbm.py
+	@mkdir -p $(dir $@)
+	$(PYTHON) carts/snes16/build/build.py $(BUILD)/snes16
+	cp $(BUILD)/snes16/snes16.$* $@
+
+test-snes16: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes16.bm tests/snes16/core_test.c tests/snes16/render_test.py
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes16_core_test tests/snes16/core_test.c src/bm/snes16.c src/bm/snes_ppu.c src/bm/snes_dsp.c
+	$(BUILD)/host/snes16_core_test
+	$(PYTHON) tests/snes16/render_test.py $< $(BUILD)/carts/snes16.bm
+
 # bm Tape (carts/tape): a studio for the Pi: synth, drums, sequencer, song (TAPE), MIX, FX and punch-in effects with sound (phase 3), a DJ preview scene.
 # build.py joins carts/tape/src/*.lua, puts engine.b (compiled on the console by native_compile) at its placeholder
 # line, makes the cover and packs the .bme and the .bm. Not in GAMES yet (docs/design/bm-tape.md).
@@ -815,7 +826,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \

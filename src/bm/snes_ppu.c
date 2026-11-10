@@ -15,6 +15,8 @@
 
 #include <string.h>
 
+snes_t S;
+uint32_t (*snes_now_us)(void);
 uint32_t ppu_us[5];                     /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) */
 static uint32_t pal_gen = 1;            /* grows with every palette write: the colour tables are made again */
 #define T0 uint32_t t_ = snes_now_us ? snes_now_us() : 0
