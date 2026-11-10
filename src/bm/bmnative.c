@@ -1021,6 +1021,43 @@ static void db_reg(dis_buf_t *d, uint32_t r)
     db_uint(d, r);
 }
 
+static void db_sreg(dis_buf_t *d, uint32_t s)
+{
+    db_ch(d, 's');
+    db_uint(d, s);
+}
+
+static void db_shift(dis_buf_t *d, uint32_t w)
+{
+    static const char *const sh[] = { "lsl", "lsr", "asr", "ror" };
+    uint32_t stype = (w >> 5) & 3u;
+    if ((w & 0x10u) == 0u) {
+        uint32_t simm = (w >> 7) & 0x1Fu;
+        if (simm == 0u && stype == 0u)
+            return;
+        db_str(d, ", ");
+        if (simm == 0u && stype == 3u) {
+            db_str(d, "rrx");
+            return;
+        }
+        db_str(d, sh[stype]);
+        db_str(d, " #");
+        db_uint(d, simm == 0u ? 32u : simm);
+    } else {
+        db_str(d, ", ");
+        db_str(d, sh[stype]);
+        db_ch(d, ' ');
+        db_reg(d, (w >> 8) & 0xFu);
+    }
+}
+
+static uint32_t db_ror_imm(uint32_t w)
+{
+    uint32_t rot = ((w >> 8) & 0xFu) * 2u;
+    uint32_t imm = w & 0xFFu;
+    return rot ? ((imm >> rot) | (imm << (32u - rot))) : imm;
+}
+
 void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
 {
     if (!buf || cap == 0)
@@ -1031,9 +1068,10 @@ void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
         "hi", "ls", "ge", "lt", "gt", "le", "", "nv"
     };
     const char *cc = conds[(w >> 28) & 0xFu];
+    uint32_t top4 = (w >> 24) & 0xFu;
 
     if (((w >> 25) & 7u) == 5u) {
-        int is_bl = (w >> 24) & 1u;
+        int is_bl = (int)((w >> 24) & 1u);
         int32_t imm24 = (int32_t)(w & 0xFFFFFFu);
         if (imm24 & 0x800000) imm24 -= 0x1000000;
         int32_t byte_off = (imm24 + 2) * 4;
@@ -1061,6 +1099,21 @@ void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
         db_str(&d, cc); db_ch(&d, ' ');
         db_reg(&d, rd); db_str(&d, ", "); db_reg(&d, rm); db_str(&d, ", "); db_reg(&d, rs);
         if (is_mla) { db_str(&d, ", "); db_reg(&d, rn); }
+    } else if ((w & 0x0E0000F0u) == 0x000000B0u) {
+        int is_ldr = (int)((w >> 20) & 1u);
+        int is_up = (int)((w >> 23) & 1u);
+        uint32_t rn = (w >> 16) & 0xFu;
+        uint32_t rd = (w >> 12) & 0xFu;
+        uint32_t imm8 = ((w >> 4) & 0xF0u) | (w & 0x0Fu);
+        db_str(&d, is_ldr ? "ldrh" : "strh");
+        db_str(&d, cc); db_ch(&d, ' ');
+        db_reg(&d, rd); db_str(&d, ", ["); db_reg(&d, rn);
+        if (imm8 != 0u || !is_up) {
+            db_str(&d, ", #");
+            if (!is_up) db_ch(&d, '-');
+            db_uint(&d, imm8);
+        }
+        db_ch(&d, ']');
     } else if (((w >> 26) & 3u) == 0u) {
         uint32_t op = (w >> 21) & 0xFu;
         uint32_t rn = (w >> 16) & 0xFu;
@@ -1070,41 +1123,144 @@ void bmnative_disasm_word(uint32_t w, char *buf, size_t cap)
             "tst", "teq", "cmp", "cmn", "orr", "mov", "bic", "mvn"
         };
         db_str(&d, ops[op]); db_str(&d, cc); db_ch(&d, ' ');
-        if (op == 13 || op == 15) {
+        if (op == 13u || op == 15u) {
             db_reg(&d, rd); db_str(&d, ", ");
-            if ((w >> 25) & 1u) {
-                uint32_t rot = ((w >> 8) & 0xFu) * 2u;
-                uint32_t imm = w & 0xFFu;
-                uint32_t val = rot ? ((imm >> rot) | (imm << (32u - rot))) : imm;
-                db_ch(&d, '#'); db_uint(&d, val);
-            } else {
-                db_reg(&d, w & 0xFu);
-            }
-        } else if (op >= 8 && op <= 11) {
+        } else if (op >= 8u && op <= 11u) {
             db_reg(&d, rn); db_str(&d, ", ");
-            if ((w >> 25) & 1u) { db_ch(&d, '#'); db_uint(&d, w & 0xFFu); }
-            else db_reg(&d, w & 0xFu);
         } else {
             db_reg(&d, rd); db_str(&d, ", "); db_reg(&d, rn); db_str(&d, ", ");
-            if ((w >> 25) & 1u) { db_ch(&d, '#'); db_uint(&d, w & 0xFFu); }
-            else db_reg(&d, w & 0xFu);
+        }
+        if ((w >> 25) & 1u) {
+            db_ch(&d, '#');
+            db_uint(&d, db_ror_imm(w));
+        } else {
+            db_reg(&d, w & 0xFu);
+            db_shift(&d, w);
         }
     } else if (((w >> 26) & 3u) == 1u) {
-        int is_load = (w >> 20) & 1u;
-        int is_byte = (w >> 22) & 1u;
+        int is_reg = (int)((w >> 25) & 1u);
+        int is_up = (int)((w >> 23) & 1u);
+        int is_byte = (int)((w >> 22) & 1u);
+        int is_load = (int)((w >> 20) & 1u);
         uint32_t rn = (w >> 16) & 0xFu;
         uint32_t rd = (w >> 12) & 0xFu;
-        uint32_t imm12 = w & 0xFFFu;
-        int is_up = (w >> 23) & 1u;
         db_str(&d, is_load ? "ldr" : "str");
         if (is_byte) db_ch(&d, 'b');
         db_str(&d, cc); db_ch(&d, ' ');
-        db_reg(&d, rd); db_str(&d, ", ["); db_reg(&d, rn); db_str(&d, ", #");
-        if (!is_up) db_ch(&d, '-');
-        db_uint(&d, imm12); db_ch(&d, ']');
-    } else if (((w >> 24) & 0xFu) >= 0xCu && ((w >> 8) & 0xFu) == 10u) {
-        db_str(&d, "vfp"); db_str(&d, cc); db_str(&d, " (cp10) 0x");
-        db_hex(&d, w, 8);
+        db_reg(&d, rd); db_str(&d, ", ["); db_reg(&d, rn);
+        if (!is_reg) {
+            uint32_t imm12 = w & 0xFFFu;
+            if (imm12 != 0u || !is_up) {
+                db_str(&d, ", #");
+                if (!is_up) db_ch(&d, '-');
+                db_uint(&d, imm12);
+            }
+        } else {
+            db_str(&d, ", ");
+            if (!is_up) db_ch(&d, '-');
+            db_reg(&d, w & 0xFu);
+            db_shift(&d, w & ~0x10u);
+        }
+        db_ch(&d, ']');
+    } else if ((top4 == 0xCu || top4 == 0xDu) && ((w >> 8) & 0xFu) == 10u) {
+        uint32_t p = (w >> 24) & 1u, u = (w >> 23) & 1u, dv = (w >> 22) & 1u;
+        uint32_t wb = (w >> 21) & 1u, l = (w >> 20) & 1u, rn = (w >> 16) & 0xFu;
+        uint32_t sd = (((w >> 12) & 0xFu) << 1) | dv;
+        uint32_t imm8 = w & 0xFFu;
+        if (p == 1u && wb == 0u) {
+            db_str(&d, l ? "vldr" : "vstr"); db_str(&d, cc); db_ch(&d, ' ');
+            db_sreg(&d, sd); db_str(&d, ", ["); db_reg(&d, rn);
+            if (imm8 != 0u || !u) {
+                db_str(&d, ", #");
+                if (!u) db_ch(&d, '-');
+                db_uint(&d, imm8 * 4u);
+            }
+            db_ch(&d, ']');
+        } else if (p == 1u && u == 0u && wb == 1u && l == 0u && rn == 13u && imm8 > 0u) {
+            db_str(&d, "vpush"); db_str(&d, cc); db_str(&d, " {");
+            db_sreg(&d, sd);
+            if (imm8 > 1u) { db_ch(&d, '-'); db_sreg(&d, sd + imm8 - 1u); }
+            db_ch(&d, '}');
+        } else if (p == 0u && u == 1u && wb == 1u && l == 1u && rn == 13u && imm8 > 0u) {
+            db_str(&d, "vpop"); db_str(&d, cc); db_str(&d, " {");
+            db_sreg(&d, sd);
+            if (imm8 > 1u) { db_ch(&d, '-'); db_sreg(&d, sd + imm8 - 1u); }
+            db_ch(&d, '}');
+        } else {
+            db_str(&d, l ? "vldm" : "vstm"); db_str(&d, u ? "ia" : "db");
+            db_str(&d, cc); db_ch(&d, ' ');
+            db_reg(&d, rn); if (wb) db_ch(&d, '!');
+            db_str(&d, ", {"); db_sreg(&d, sd);
+            if (imm8 > 1u) { db_ch(&d, '-'); db_sreg(&d, sd + imm8 - 1u); }
+            db_ch(&d, '}');
+        }
+    } else if (top4 == 0xEu && ((w >> 8) & 0xFu) == 10u) {
+        uint32_t sd = (((w >> 12) & 0xFu) << 1) | ((w >> 22) & 1u);
+        uint32_t sn = (((w >> 16) & 0xFu) << 1) | ((w >> 7) & 1u);
+        uint32_t sm = ((w & 0xFu) << 1) | ((w >> 5) & 1u);
+        if ((w & 0x0FFFFFFFu) == 0x0EF1FA10u) {
+            db_str(&d, "vmrs"); db_str(&d, cc); db_str(&d, " apsr_nzcv, fpscr");
+        } else if ((w & 0x10u) != 0u) {
+            uint32_t rt = (w >> 12) & 0xFu;
+            uint32_t opc = (w >> 20) & 0xFu;
+            if (opc == 0u) {
+                db_str(&d, "vmov"); db_str(&d, cc); db_ch(&d, ' ');
+                db_sreg(&d, sn); db_str(&d, ", "); db_reg(&d, rt);
+            } else if (opc == 1u) {
+                db_str(&d, "vmov"); db_str(&d, cc); db_ch(&d, ' ');
+                db_reg(&d, rt); db_str(&d, ", "); db_sreg(&d, sn);
+            } else {
+                db_str(&d, ".word 0x"); db_hex(&d, w, 8);
+            }
+        } else {
+            uint32_t pqr = (((w >> 23) & 1u) << 2) | (((w >> 21) & 1u) << 1) | ((w >> 20) & 1u);
+            uint32_t s_op = (w >> 6) & 1u;
+            int decoded = 1;
+            if (pqr == 0u || pqr == 2u || pqr == 3u || (pqr == 4u && s_op == 0u)) {
+                const char *mn = pqr == 0u ? (s_op ? "vmls" : "vmla")
+                               : pqr == 2u ? (s_op ? "vnmul" : "vmul")
+                               : pqr == 3u ? (s_op ? "vsub" : "vadd")
+                                           : "vdiv";
+                db_str(&d, mn); db_str(&d, cc); db_str(&d, ".f32 ");
+                db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sn); db_str(&d, ", "); db_sreg(&d, sm);
+            } else if (pqr == 7u && s_op == 1u) {
+                uint32_t opc2 = (w >> 16) & 0xFu;
+                uint32_t bit7 = (w >> 7) & 1u;
+                if (opc2 == 0u && bit7 == 0u) {
+                    db_str(&d, "vmov"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if (opc2 == 0u && bit7 == 1u) {
+                    db_str(&d, "vabs"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if (opc2 == 1u && bit7 == 0u) {
+                    db_str(&d, "vneg"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if (opc2 == 1u && bit7 == 1u) {
+                    db_str(&d, "vsqrt"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if (opc2 == 4u && bit7 == 0u) {
+                    db_str(&d, "vcmp"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if (opc2 == 5u && bit7 == 0u) {
+                    db_str(&d, "vcmpz"); db_str(&d, cc); db_str(&d, ".f32 ");
+                    db_sreg(&d, sd);
+                } else if (opc2 == 8u && bit7 == 1u) {
+                    db_str(&d, "vcvt"); db_str(&d, cc); db_str(&d, ".f32.s32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else if ((opc2 == 12u || opc2 == 13u) && bit7 == 1u) {
+                    db_str(&d, "vcvt"); db_str(&d, cc); db_str(&d, ".s32.f32 ");
+                    db_sreg(&d, sd); db_str(&d, ", "); db_sreg(&d, sm);
+                } else {
+                    decoded = 0;
+                }
+            } else {
+                decoded = 0;
+            }
+            if (!decoded) {
+                db_str(&d, ".word 0x");
+                db_hex(&d, w, 8);
+            }
+        }
     } else {
         db_str(&d, ".word 0x");
         db_hex(&d, w, 8);

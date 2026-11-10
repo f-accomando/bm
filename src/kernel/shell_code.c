@@ -691,13 +691,15 @@ static int sc_get_autocomplete_suggestion(const sc_tab_t *t, char *out_suffix, s
 
     /* 2. Language keywords, types, builtins (aligned per syntax) */
     static const char *const kw_b[] = {
-        "function", "local", "return", "while", "struct", "break",
-        "continue", "switch", "case", "default", "elseif", "else", "then",
-        "rectfill", "circfill", "print", "cls", "spr", "btn", "btnp", "line",
-        "circ", "rect", "sfx", "music", "time", "sin", "cos", "atan2",
-        "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset",
-        "i32", "int", "f32", "bool", "string", "void", "const", "enum",
-        NULL
+        "function", "fn", "end", "local", "if", "then", "else", "elseif",
+        "while", "do", "for", "return", "break", "continue", "struct",
+        "const", "enum", "switch", "case", "default", "and", "or", "not",
+        "true", "false", "rectfill", "circfill", "print", "cls", "spr",
+        "btn", "btnp", "line", "circ", "rect", "sfx", "music", "time",
+        "clamp", "lerp", "flr", "floor", "sqrt", "abs", "min", "max",
+        "sin", "cos", "atan2", "peek", "poke", "peek2", "poke2", "peek4",
+        "poke4", "memcpy", "memset", "i32", "int", "f32", "bool", "string",
+        "void", NULL
     };
     static const char *const kw_lua[] = {
         "function", "local", "return", "while", "break", "elseif", "else", "then",
@@ -745,7 +747,8 @@ static const char *const lua_kw[] = {
 static const char *const bm_api_kw[] = {
     "cls", "pset", "pix", "rectfill", "circfill", "rect", "circ", "line", "spr",
     "btn", "btnp", "sfx", "music", "time", "print", "screen", "SCREEN_W", "SCREEN_H",
-    "abs", "min", "max", "sqrt", "floor", "sin", "cos", "atan2",
+    "abs", "min", "max", "sqrt", "floor", "flr", "clamp", "lerp", "sin", "cos", "atan2",
+    "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset",
     "math", "table", "string", "ipairs", "pairs", "tostring", "tonumber"
 };
 
@@ -2062,6 +2065,65 @@ static int sc_run_lua(sc_tab_t *t)
     return 0;
 }
 
+static float sc_parse_f32(const char *s)
+{
+    if (!s) return 0.0f;
+    while (*s == ' ' || *s == '\t') s++;
+    int neg = 0;
+    if (*s == '-') { neg = 1; s++; }
+    else if (*s == '+') s++;
+    double val = 0.0;
+    while (*s >= '0' && *s <= '9') {
+        val = val * 10.0 + (double)(*s - '0');
+        s++;
+    }
+    if (*s == '.') {
+        s++;
+        double scale = 0.1;
+        while (*s >= '0' && *s <= '9') {
+            val += (double)(*s - '0') * scale;
+            scale *= 0.1;
+            s++;
+        }
+    }
+    return (float)(neg ? -val : val);
+}
+
+static void sc_format_f32(float v, char *buf, size_t cap)
+{
+    if (!buf || cap == 0) return;
+    uint32_t bits = 0;
+    memcpy(&bits, &v, 4);
+    int neg = (int)((bits >> 31) & 1u);
+    if ((bits & 0x7F800000u) == 0x7F800000u) {
+        if ((bits & 0x007FFFFFu) != 0u) snprintf(buf, cap, "nan");
+        else snprintf(buf, cap, "%sinf", neg ? "-" : "");
+        return;
+    }
+    float av = neg ? -v : v;
+    if (av == 0.0f) {
+        snprintf(buf, cap, "%s0.0", neg ? "-" : "");
+        return;
+    }
+    if (av >= 1000000000.0f) {
+        snprintf(buf, cap, "%s>1e9", neg ? "-" : "");
+        return;
+    }
+    uint32_t ip = (uint32_t)av;
+    uint32_t fp = (uint32_t)(((double)av - (double)ip) * 1000000.0 + 0.5);
+    if (fp >= 1000000u) {
+        ip++;
+        fp -= 1000000u;
+    }
+    char frac[8];
+    snprintf(frac, sizeof(frac), "%06lu", (unsigned long)fp);
+    int flen = 6;
+    while (flen > 1 && frac[flen - 1] == '0')
+        flen--;
+    frac[flen] = '\0';
+    snprintf(buf, cap, "%s%lu.%s", neg ? "-" : "", (unsigned long)ip, frac);
+}
+
 static int sc_run_b(sc_tab_t *t, const char *arg_str)
 {
     uint8_t *blob = NULL;
@@ -2146,10 +2208,15 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
     memset(args, 0, sizeof(args));
     int nargs = f->nparams;
 
-    if (nargs > 0 && arg_str && *arg_str) {
-        args[0] = (int32_t)atoi(arg_str);
-    } else if (nargs > 0) {
-        args[0] = 10;
+    if (nargs > 0) {
+        if (f->ptype[0] == BMN_F32) {
+            float farg = (arg_str && *arg_str) ? sc_parse_f32(arg_str) : 10.0f;
+            memcpy(&args[0], &farg, 4);
+        } else if (arg_str && *arg_str) {
+            args[0] = (int32_t)atoi(arg_str);
+        } else {
+            args[0] = 10;
+        }
     }
 
     g_shell_did_draw_gfx = 0;
@@ -2165,16 +2232,25 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
 
     bmnative_set_host_fn(prev_host);
 
+    char ret_str[32];
+    if (f->ret == BMN_F32) {
+        float fret = 0.0f;
+        memcpy(&fret, &ret, 4);
+        sc_format_f32(fret, ret_str, sizeof(ret_str));
+    } else {
+        snprintf(ret_str, sizeof(ret_str), "%ld", (long)ret);
+    }
+
     if (g_shell_did_draw_gfx) {
-        kprintf("\n\x1b[1;92m-- Grafica disegnata. %s() ha restituito %ld (%lu us). Premi un tasto --\x1b[0m\n",
-                f->name, (long)ret, (unsigned long)us);
+        kprintf("\n\x1b[1;92m-- Grafica disegnata. %s() ha restituito %s (%lu us). Premi un tasto --\x1b[0m\n",
+                f->name, ret_str, (unsigned long)us);
         input_getc();
         console_clear();
     }
 
     if (err == BMN_OK) {
-        snprintf(t->status, sizeof(t->status), "%s() = %ld (0x%lX) [%lu us]",
-                 f->name, (long)ret, (unsigned long)ret, (unsigned long)us);
+        snprintf(t->status, sizeof(t->status), "%s() = %s (0x%lX) [%lu us]",
+                 f->name, ret_str, (unsigned long)ret, (unsigned long)us);
     } else {
         snprintf(t->status, sizeof(t->status), "Trap runtime (%d) in %s", err, f->name);
     }
@@ -3064,12 +3140,38 @@ int shell_code_test_run(void)
         return 11;
     }
 
-    /* Test 9: Disassembly formatting */
+    /* Test 9: Disassembly formatting (ALU shifts, rotated imm12, ldr/str idx, mla, VFPv2 CP10) */
     char dis_buf[64];
-    bmnative_disasm_word(0xE2810002u, dis_buf, sizeof(dis_buf)); /* add r0, r1, #2 */
-    if (strstr(dis_buf, "add") == NULL) {
-        printf("FAIL: disasm opcode mismatch (%s)\n", dis_buf);
-        return 12;
+    static const struct { uint32_t w; const char *expect; } dis_cases[] = {
+        { 0xE2810002u, "add r0, r1, #2" },
+        { 0xE2810B01u, "add r0, r1, #1024" },
+        { 0xE1A00101u, "mov r0, r1, lsl #2" },
+        { 0xE08100C2u, "add r0, r1, r2, asr #1" },
+        { 0xE1710002u, "cmn r1, r2" },
+        { 0xE0203291u, "mla r0, r1, r2, r3" },
+        { 0xE7910102u, "ldr r0, [r1, r2, lsl #2]" },
+        { 0xE7010002u, "str r0, [r1, -r2]" },
+        { 0xED1B2A04u, "vldr s4, [r11, #-16]" },
+        { 0xEDDB2A02u, "vldr s5, [r11, #8]" },
+        { 0xED8B8A03u, "vstr s16, [r11, #12]" },
+        { 0xED2D8A04u, "vpush {s16-s19}" },
+        { 0xECBD8A04u, "vpop {s16-s19}" },
+        { 0xEE000A10u, "vmov s0, r0" },
+        { 0xEE100A90u, "vmov r0, s1" },
+        { 0xEE321A22u, "vadd.f32 s2, s4, s5" },
+        { 0xEE000A01u, "vmla.f32 s0, s0, s2" },
+        { 0xEEB52A40u, "vcmpz.f32 s4" },
+        { 0xEEF1FA10u, "vmrs apsr_nzcv, fpscr" },
+        { 0xEEB80AC0u, "vcvt.f32.s32 s0, s0" },
+        { 0xEEBD0AC0u, "vcvt.s32.f32 s0, s0" },
+    };
+    for (size_t di = 0; di < sizeof(dis_cases) / sizeof(dis_cases[0]); di++) {
+        bmnative_disasm_word(dis_cases[di].w, dis_buf, sizeof(dis_buf));
+        if (strcmp(dis_buf, dis_cases[di].expect) != 0) {
+            printf("FAIL: disasm 0x%08X -> '%s' (expected '%s')\n",
+                   (unsigned)dis_cases[di].w, dis_buf, dis_cases[di].expect);
+            return 12;
+        }
     }
 
     /* Test 10: Direct typing, Esc Popup Menu navigation and Exit */
@@ -3336,10 +3438,70 @@ int shell_code_test_run(void)
     }
     sc_tab_free(&lua_tab);
 
+    /* Test 16: f32 parsing, formatting, and native VFP compilation/call */
+    float pf = sc_parse_f32(" -2.25 ");
+    char fbuf[32];
+    sc_format_f32(pf, fbuf, sizeof(fbuf));
+    if (strcmp(fbuf, "-2.25") != 0) {
+        printf("FAIL: f32 format mismatch (%s != -2.25)\n", fbuf);
+        return 40;
+    }
+    const char *f32_src =
+        "fn mix_clamp(x: f32): f32\n"
+        "  return clamp(lerp(0.0, 10.0, x), 1.0, 8.0)\n"
+        "end\n";
+    sc_tab_set_text(&tab, f32_src, strlen(f32_src));
+    blob = NULL; blob_len = 0;
+    if (sc_compile_b(&tab, &blob, &blob_len) != 0 || !blob) {
+        printf("FAIL: compile f32 clamp/lerp failed (%s)\n", tab.status);
+        return 41;
+    }
+    m = NULL;
+    if (bmnative_load(&m, blob, blob_len, &why) != BMN_OK) {
+        printf("FAIL: load f32 module: %s\n", why);
+        free(blob);
+        return 42;
+    }
+    fn_idx = bmnative_find(m, "mix_clamp");
+    float farg = sc_parse_f32("0.5");
+    memcpy(&args[0], &farg, 4);
+    ret = 0;
+    if (fn_idx < 0 || bmnative_call(m, fn_idx, args, 1, &ret) != BMN_OK) {
+        printf("FAIL: bmnative_call f32\n");
+        bmnative_free(m);
+        free(blob);
+        return 43;
+    }
+    float fret = 0.0f;
+    memcpy(&fret, &ret, 4);
+    sc_format_f32(fret, fbuf, sizeof(fbuf));
+    if (strcmp(fbuf, "5.0") != 0) {
+        printf("FAIL: f32 mix_clamp(0.5) -> %s (expected 5.0)\n", fbuf);
+        bmnative_free(m);
+        free(blob);
+        return 44;
+    }
+    bmnative_free(m);
+    free(blob);
+
+    /* Test 17: New .b builtin completions (clamp, lerp, flr) */
+    sc_tab_set_text(&tab, "cla", 3);
+    tab.cy = 0; tab.cx = 3;
+    if (!sc_try_tab_complete(&tab) || strcmp(tab.lines[0].chars, "clamp") != 0) {
+        printf("FAIL: .b completion clamp (%s)\n", tab.lines[0].chars);
+        return 45;
+    }
+    sc_tab_set_text(&tab, "ler", 3);
+    tab.cy = 0; tab.cx = 3;
+    if (!sc_try_tab_complete(&tab) || strcmp(tab.lines[0].chars, "lerp") != 0) {
+        printf("FAIL: .b completion lerp (%s)\n", tab.lines[0].chars);
+        return 46;
+    }
+
     free(g_sc.clipboard);
     g_sc.clipboard = NULL;
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
-    printf("shell_code tests passed: 15/15 checks ok\n");
+    printf("shell_code tests passed: 17/17 checks ok\n");
     return 0;
 }
