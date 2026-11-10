@@ -97,8 +97,7 @@ All 9 stages of `tools/bml/bml.py` and the on-console C compiler `src/bm/bmlc.c`
 4. Complete the subset: structs. Decide the integer overflow first (C wraps at 32 bits, Lua at 64).
 5. Keep the data in C and call once a frame. Move the draw of the particles into C too, or the accessors take the gain back.
 6. Link the C into the kernel (a new API file in `src/bm/`, the table in `runtime.c`, the API in `docs/api/`). Write a test cartridge that runs the Lua and the C on the same scene and logs both times.
-7. Write the movement of the enemies of Dark Night in the language. Measure the frame on the Pi and on the RGB30. Decide road B with these numbers.
-8. Later and optional: `f32` for the VFP of the Pi (the test needs a tolerance) and a compiler on the console (a large project).
+7. Dark Night enemy movement/separation is written in `.b` (`tests/bml/darknight_enemy.b`); open: measure the frame on Pi Zero W and RGB30 hardware and decide road B with these numbers.
 
 Other open points:
 
