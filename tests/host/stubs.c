@@ -590,6 +590,12 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
     (void)flip_y;
     return 0;
 }
+int gpu3d_map_block(const g16_t *g, const g16_sheet_t *s, int block_px, int block_py,
+                    const map2d_vert_t *verts, int nverts)
+{
+    (void)g; (void)s; (void)block_px; (void)block_py; (void)verts; (void)nverts;
+    return 0;
+}
 int gpu3d_text2d(const g16_t *g, int x, int y, const char *str, uint16_t c, int scale)
 {
     (void)g; (void)x; (void)y; (void)str; (void)c; (void)scale;

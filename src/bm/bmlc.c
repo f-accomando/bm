@@ -337,7 +337,7 @@ static void tok_copy_str(const token_t *t, char *dst, size_t cap)
 static int is_keyword(const char *p, size_t n)
 {
     static const char *const kws[] = {
-        "function", "local", "for", "do", "while", "end",
+        "function", "fn", "local", "for", "do", "while", "end",
         "if", "then", "elseif", "else", "return", "break",
         "and", "or", "not", "true", "false", "struct",
         "const", "enum", "switch", "case", "default"
@@ -671,7 +671,7 @@ static uint8_t parse_type_annotation(bmlc_ctx_t *C, int allow_composite)
     C->ti++;
 
     uint8_t base = BMN_NONE;
-    if (strcmp(tname, "i32") == 0)
+    if (strcmp(tname, "i32") == 0 || strcmp(tname, "int") == 0)
         base = BMN_I32;
     else if (strcmp(tname, "bool") == 0)
         base = BMN_BOOL;
@@ -2031,7 +2031,7 @@ static void parse_struct_decl(bmlc_ctx_t *C)
     const token_t *sn = expect_name(C);
     char sname[32];
     tok_copy_str(sn, sname, sizeof sname);
-    if (strcmp(sname, "i32") == 0 || strcmp(sname, "bool") == 0 || strcmp(sname, "f32") == 0 || find_struct(C, sname) >= 0)
+    if (strcmp(sname, "i32") == 0 || strcmp(sname, "int") == 0 || strcmp(sname, "bool") == 0 || strcmp(sname, "f32") == 0 || find_struct(C, sname) >= 0)
         c_fail(C, sn->line, "struct '%s' is defined twice", sname);
     if (C->nstructs >= MAX_STRUCTS)
         c_fail(C, kw->line, "too many structs");
@@ -2082,13 +2082,18 @@ static int check_canonical_leaf_sum(const bmlc_ctx_t *C, const c_func_t *fn)
 
 static void parse_func_decl(bmlc_ctx_t *C)
 {
-    const token_t *kw = expect_tok(C, "function");
+    const token_t *kw = cur_tok(C);
+    if (tok_eq(kw, "function") || tok_eq(kw, "fn")) {
+        C->ti++;
+    } else {
+        c_fail(C, kw->line, "expected 'function' or 'fn'");
+    }
     uint8_t prefix_ret = BMN_NONE;
     const token_t *first = cur_tok(C);
     const token_t *second = peek_tok(C, 1);
     if (first->kind == TK_NAME && second->kind == TK_NAME &&
-        (tok_eq(first, "i32") || tok_eq(first, "f32") || tok_eq(first, "bool") || tok_eq(first, "void"))) {
-        if (tok_eq(first, "i32")) prefix_ret = BMN_I32;
+        (tok_eq(first, "i32") || tok_eq(first, "int") || tok_eq(first, "f32") || tok_eq(first, "bool") || tok_eq(first, "void"))) {
+        if (tok_eq(first, "i32") || tok_eq(first, "int")) prefix_ret = BMN_I32;
         else if (tok_eq(first, "f32")) prefix_ret = BMN_F32;
         else if (tok_eq(first, "bool")) prefix_ret = BMN_BOOL;
         else prefix_ret = BMN_NONE;
@@ -2941,7 +2946,7 @@ int bml_compile_native(const char *src, size_t src_len, uint8_t **out_blob, size
             parse_const_decl(C);
         else if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "enum"))
             parse_enum_decl(C);
-        else if (cur_tok(C)->kind == TK_KW && tok_eq(cur_tok(C), "function"))
+        else if (cur_tok(C)->kind == TK_KW && (tok_eq(cur_tok(C), "function") || tok_eq(cur_tok(C), "fn")))
             parse_func_decl(C);
         else
             c_fail(C, cur_tok(C)->line, "expected 'function', 'struct', 'const', or 'enum'");

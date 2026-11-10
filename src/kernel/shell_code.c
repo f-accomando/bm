@@ -504,15 +504,212 @@ static int sc_match_kw(const char *tok, int len, const char *const *list, int co
 }
 
 static const char *const b_kw[] = {
-    "function", "end", "local", "if", "then", "else", "elseif",
-    "while", "do", "for", "return", "break", "struct"
+    "function", "fn", "end", "local", "if", "then", "else", "elseif",
+    "while", "do", "for", "return", "break", "struct", "const", "enum",
+    "switch", "case", "default", "and", "or", "not"
 };
 static const char *const b_types[] = {
-    "i32", "f32", "bool"
+    "i32", "int", "f32", "bool", "string", "void"
 };
 static const char *const b_builtins[] = {
-    "cls", "pix", "rectfill", "spr", "btn", "abs", "min", "max", "sqrt", "floor"
+    "cls", "pix", "rectfill", "circfill", "spr", "btn", "abs", "min", "max", "sqrt", "floor",
+    "line", "rect", "circ", "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset", "print"
 };
+
+#define SC_MAX_DOC_FNS 64
+#define SC_FN_NAME_MAX 32
+
+typedef struct {
+    char names[SC_MAX_DOC_FNS][SC_FN_NAME_MAX];
+    int count;
+} sc_doc_fns_t;
+
+static void sc_doc_fns_add(sc_doc_fns_t *out, const char *name, int len)
+{
+    if (len <= 0 || len >= SC_FN_NAME_MAX || out->count >= SC_MAX_DOC_FNS)
+        return;
+    char buf[SC_FN_NAME_MAX];
+    memcpy(buf, name, (size_t)len);
+    buf[len] = '\0';
+
+    for (int k = 0; k < out->count; k++) {
+        if (strcmp(out->names[k], buf) == 0)
+            return;
+    }
+    if (strcmp(buf, "i32") == 0 || strcmp(buf, "int") == 0 ||
+        strcmp(buf, "bool") == 0 || strcmp(buf, "f32") == 0 ||
+        strcmp(buf, "void") == 0 || strcmp(buf, "string") == 0 ||
+        strcmp(buf, "if") == 0 || strcmp(buf, "while") == 0 ||
+        strcmp(buf, "for") == 0 || strcmp(buf, "return") == 0)
+        return;
+
+    snprintf(out->names[out->count], SC_FN_NAME_MAX, "%s", buf);
+    out->count++;
+}
+
+static void sc_extract_doc_functions(const sc_tab_t *t, sc_doc_fns_t *out)
+{
+    out->count = 0;
+    if (!t || t->nlines <= 0) return;
+
+    for (int y = 0; y < t->nlines && out->count < SC_MAX_DOC_FNS; y++) {
+        const sc_line_t *l = &t->lines[y];
+        const char *s = l->chars;
+        int len = l->len;
+        int i = 0;
+
+        while (i < len && out->count < SC_MAX_DOC_FNS) {
+            while (i < len && isspace((unsigned char)s[i])) i++;
+            if (i >= len) break;
+
+            if (i + 1 < len && ((s[i] == '-' && s[i+1] == '-') || (s[i] == '/' && s[i+1] == '/')))
+                break;
+
+            if (!is_ident_start(s[i])) {
+                i++;
+                continue;
+            }
+
+            int t0_start = i;
+            while (i < len && is_ident_part(s[i])) i++;
+            int t0_len = i - t0_start;
+
+            /* Check "function" or "fn" */
+            if ((t0_len == 8 && strncmp(s + t0_start, "function", 8) == 0) ||
+                (t0_len == 2 && strncmp(s + t0_start, "fn", 2) == 0)) {
+                while (i < len && isspace((unsigned char)s[i])) i++;
+                if (i >= len || !is_ident_start(s[i])) continue;
+
+                int t1_start = i;
+                while (i < len && is_ident_part(s[i])) i++;
+                int t1_len = i - t1_start;
+
+                int p = i;
+                while (p < len && isspace((unsigned char)s[p])) p++;
+                if (p < len && is_ident_start(s[p])) {
+                    /* t1 was return type (e.g. i32, int, void), next is fn name */
+                    int t2_start = p;
+                    while (p < len && is_ident_part(s[p])) p++;
+                    int t2_len = p - t2_start;
+                    sc_doc_fns_add(out, s + t2_start, t2_len);
+                    i = p;
+                } else {
+                    sc_doc_fns_add(out, s + t1_start, t1_len);
+                }
+                continue;
+            }
+
+            /* In C syntax: type name( ... ) */
+            if (t->syntax == SC_SYN_C) {
+                if ((t0_len == 3 && strncmp(s + t0_start, "int", 3) == 0) ||
+                    (t0_len == 4 && strncmp(s + t0_start, "void", 4) == 0) ||
+                    (t0_len == 4 && strncmp(s + t0_start, "char", 4) == 0) ||
+                    (t0_len == 5 && strncmp(s + t0_start, "float", 5) == 0) ||
+                    (t0_len == 6 && strncmp(s + t0_start, "static", 6) == 0) ||
+                    (t0_len == 7 && strncmp(s + t0_start, "uint8_t", 7) == 0) ||
+                    (t0_len == 8 && strncmp(s + t0_start, "uint32_t", 8) == 0) ||
+                    (t0_len == 7 && strncmp(s + t0_start, "int32_t", 7) == 0)) {
+                    while (i < len && (isspace((unsigned char)s[i]) || s[i] == '*')) i++;
+                    if (i < len && is_ident_start(s[i])) {
+                        int t1_start = i;
+                        while (i < len && is_ident_part(s[i])) i++;
+                        int t1_len = i - t1_start;
+                        int p = i;
+                        while (p < len && isspace((unsigned char)s[p])) p++;
+                        if (p < len && s[p] == '(') {
+                            sc_doc_fns_add(out, s + t1_start, t1_len);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+static int sc_is_doc_function(const sc_doc_fns_t *doc_fns, const char *tok, int len)
+{
+    if (!doc_fns) return 0;
+    for (int i = 0; i < doc_fns->count; i++) {
+        if ((int)strlen(doc_fns->names[i]) == len &&
+            strncmp(tok, doc_fns->names[i], (size_t)len) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+static int sc_get_autocomplete_suggestion(const sc_tab_t *t, char *out_suffix, size_t out_cap,
+                                          char *out_full, size_t out_full_cap)
+{
+    if (out_suffix && out_cap > 0) out_suffix[0] = '\0';
+    if (out_full && out_full_cap > 0) out_full[0] = '\0';
+    if (!t || t->cy < 0 || t->cy >= t->nlines) return 0;
+
+    const sc_line_t *cur = &t->lines[t->cy];
+    if (t->cx <= 0 || t->cx > cur->len) return 0;
+
+    if (t->cx < cur->len && is_ident_part(cur->chars[t->cx]))
+        return 0;
+
+    int start = t->cx;
+    while (start > 0 && is_ident_part(cur->chars[start - 1]))
+        start--;
+    int prefix_len = t->cx - start;
+    if (prefix_len < 2) return 0;
+
+    char prefix[64];
+    if (prefix_len >= (int)sizeof(prefix)) return 0;
+    memcpy(prefix, cur->chars + start, (size_t)prefix_len);
+    prefix[prefix_len] = '\0';
+
+    /* 1. Document functions match first */
+    sc_doc_fns_t doc_fns;
+    sc_extract_doc_functions(t, &doc_fns);
+    for (int i = 0; i < doc_fns.count; i++) {
+        const char *cand = doc_fns.names[i];
+        int clen = (int)strlen(cand);
+        if (clen > prefix_len && strncmp(cand, prefix, (size_t)prefix_len) == 0) {
+            const char *suf = cand + prefix_len;
+            if (out_suffix && out_cap > 0) {
+                strncpy(out_suffix, suf, out_cap - 1);
+                out_suffix[out_cap - 1] = '\0';
+            }
+            if (out_full && out_full_cap > 0) {
+                strncpy(out_full, cand, out_full_cap - 1);
+                out_full[out_full_cap - 1] = '\0';
+            }
+            return 1;
+        }
+    }
+
+    /* 2. Language keywords, types, builtins */
+    static const char *const kw_candidates[] = {
+        "function", "local", "return", "while", "struct", "break",
+        "continue", "switch", "case", "default", "elseif", "else", "then",
+        "rectfill", "circfill", "print", "cls", "spr", "btn", "line",
+        "peek", "poke", "peek2", "poke2", "peek4", "poke4", "memcpy", "memset",
+        "i32", "int", "f32", "bool", "string", "void",
+        NULL
+    };
+
+    for (int i = 0; kw_candidates[i]; i++) {
+        const char *cand = kw_candidates[i];
+        int clen = (int)strlen(cand);
+        if (clen > prefix_len && strncmp(cand, prefix, (size_t)prefix_len) == 0) {
+            const char *suf = cand + prefix_len;
+            if (out_suffix && out_cap > 0) {
+                strncpy(out_suffix, suf, out_cap - 1);
+                out_suffix[out_cap - 1] = '\0';
+            }
+            if (out_full && out_full_cap > 0) {
+                strncpy(out_full, cand, out_full_cap - 1);
+                out_full[out_full_cap - 1] = '\0';
+            }
+            return 1;
+        }
+    }
+
+    return 0;
+}
 
 static const char *const lua_kw[] = {
     "function", "end", "local", "if", "then", "else", "elseif",
@@ -558,7 +755,9 @@ static int sc_is_char_selected(const sc_tab_t *t, int file_line, int col)
 
 /* Formats line content with syntax highlighting and explicit inverse block cursor */
 static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
-                           int cursor_cx, int col_off, int max_cols, char *out, size_t max_len)
+                           int cursor_cx, int col_off, int max_cols,
+                           const sc_doc_fns_t *doc_fns, const char *sug_suffix,
+                           char *out, size_t max_len)
 {
     if (file_line < 0 || file_line >= t->nlines) {
         out[0] = '\0';
@@ -574,10 +773,22 @@ static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
 
     while (col < end_col) {
         if (is_cursor_line && col == cursor_cx) {
-            /* Render active block cursor: reverse video / negative */
-            char c = (col < len) ? s[col] : ' ';
-            pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", c);
-            col++;
+            if (sug_suffix && sug_suffix[0]) {
+                int sug_len = (int)strlen(sug_suffix);
+                /* Render active block cursor over first ghost character */
+                pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", sug_suffix[0]);
+                col++;
+                /* Render ghost suffix remainder in dim gray */
+                for (int si = 1; si < sug_len && col < end_col; si++) {
+                    pos += snprintf(out + pos, max_len - pos, "\x1b[90m%c\x1b[0m", sug_suffix[si]);
+                    col++;
+                }
+            } else {
+                /* Render active block cursor: reverse video / negative */
+                char c = (col < len) ? s[col] : ' ';
+                pos += snprintf(out + pos, max_len - pos, "\x1b[7;1;97m%c\x1b[0m", c);
+                col++;
+            }
             continue;
         }
         if (sc_is_char_selected(t, file_line, col)) {
@@ -660,12 +871,18 @@ static void sc_format_line(const sc_tab_t *t, int file_line, int is_cursor_line,
                 else if ((tok_len == 4 && strncmp(s + start, "true", 4) == 0) ||
                          (tok_len == 5 && strncmp(s + start, "false", 5) == 0))
                     color = "\x1b[35m";         /* magenta */
+                else if (doc_fns && sc_is_doc_function(doc_fns, s + start, tok_len))
+                    color = "\x1b[1;94m";       /* bright blue for user-defined functions */
             } else if (t->syntax == SC_SYN_LUA) {
                 if (sc_match_kw(s + start, tok_len, lua_kw, sizeof(lua_kw)/sizeof(lua_kw[0])))
                     color = "\x1b[1;93m";
+                else if (doc_fns && sc_is_doc_function(doc_fns, s + start, tok_len))
+                    color = "\x1b[1;94m";
             } else if (t->syntax == SC_SYN_C) {
                 if (sc_match_kw(s + start, tok_len, c_kw, sizeof(c_kw)/sizeof(c_kw[0])))
                     color = "\x1b[1;96m";
+                else if (doc_fns && sc_is_doc_function(doc_fns, s + start, tok_len))
+                    color = "\x1b[1;94m";
             }
 
             for (int k = start; k < col && k < end_col; k++) {
@@ -745,6 +962,12 @@ static void sc_draw_editor(void)
     int text_cols = cols - gw - 1;
     if (text_cols < 10) text_cols = 10;
 
+    sc_doc_fns_t doc_fns;
+    sc_extract_doc_functions(t, &doc_fns);
+
+    char sug_suffix[64] = {0};
+    int has_sug = sc_get_autocomplete_suggestion(t, sug_suffix, sizeof(sug_suffix), NULL, 0);
+
     char line_buf[512];
     char text_buf[512];
 
@@ -764,7 +987,9 @@ static void sc_draw_editor(void)
                 written += snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
                                     "\x1b[90m%*d\xb3\x1b[0m", gw - 1, file_line + 1);
             }
-            sc_format_line(t, file_line, is_cur, t->cx, t->col_off, text_cols, text_buf, sizeof(text_buf));
+            sc_format_line(t, file_line, is_cur, t->cx, t->col_off, text_cols,
+                           &doc_fns, (is_cur && has_sug) ? sug_suffix : NULL,
+                           text_buf, sizeof(text_buf));
             snprintf(line_buf + written, sizeof(line_buf) - (size_t)written, "%s\x1b[K", text_buf);
         } else {
             snprintf(line_buf + written, sizeof(line_buf) - (size_t)written,
@@ -1163,6 +1388,47 @@ static int32_t shell_code_host_dispatch(int32_t host_id, const int32_t *args, in
     }
     return 0;
 }
+
+static void sc_find_fn_name_on_line(const char *s, char *out_name, size_t out_cap)
+{
+    if (out_cap > 0) out_name[0] = '\0';
+    if (!s) return;
+    int len = (int)strlen(s);
+    int i = 0;
+    while (i < len && isspace((unsigned char)s[i])) i++;
+    if (i >= len) return;
+
+    const char *p = strstr(s, "function ");
+    int skip = 9;
+    if (!p) {
+        p = strstr(s, "fn ");
+        skip = 3;
+    }
+    if (p) {
+        p += skip;
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (!*p || !is_ident_start(*p)) return;
+        const char *t1 = p;
+        while (*p && is_ident_part(*p)) p++;
+        int t1_len = (int)(p - t1);
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (*p && is_ident_start(*p)) {
+            /* t1 was return type (e.g. i32, int, void), next is fn name */
+            const char *t2 = p;
+            while (*p && is_ident_part(*p)) p++;
+            int t2_len = (int)(p - t2);
+            if ((size_t)t2_len < out_cap) {
+                memcpy(out_name, t2, (size_t)t2_len);
+                out_name[t2_len] = '\0';
+            }
+        } else {
+            if ((size_t)t1_len < out_cap) {
+                memcpy(out_name, t1, (size_t)t1_len);
+                out_name[t1_len] = '\0';
+            }
+        }
+    }
+}
 #endif
 
 static int sc_run_b(sc_tab_t *t, const char *arg_str)
@@ -1183,18 +1449,10 @@ static int sc_run_b(sc_tab_t *t, const char *arg_str)
 
     int fn_idx = -1;
     if (t->cy < t->nlines) {
-        const char *line = t->lines[t->cy].chars;
-        const char *p = strstr(line, "function ");
-        if (p) {
-            char fname[32];
-            p += 9;
-            while (*p == ' ') p++;
-            int k = 0;
-            while (*p && (isalnum((unsigned char)*p) || *p == '_') && k < 31)
-                fname[k++] = *p++;
-            fname[k] = '\0';
+        char fname[64];
+        sc_find_fn_name_on_line(t->lines[t->cy].chars, fname, sizeof(fname));
+        if (fname[0])
             fn_idx = bmnative_find(m, fname);
-        }
     }
     if (fn_idx < 0) fn_idx = bmnative_find(m, "main");
     if (fn_idx < 0) fn_idx = bmnative_find(m, "run");
@@ -1631,44 +1889,34 @@ static void sc_word_skip_right(sc_tab_t *t)
         t->cx++;
 }
 
-static int sc_try_tab_complete(sc_tab_t *t)
+static int is_statement_kw(const char *name)
 {
-    sc_line_t *cur = &t->lines[t->cy];
-    if (t->cx == 0) return 0;
-    int start = t->cx;
-    while (start > 0 && (isalnum((unsigned char)cur->chars[start - 1]) || cur->chars[start - 1] == '_'))
-        start--;
-    int prefix_len = t->cx - start;
-    if (prefix_len < 2) return 0;
-
-    const char *prefix = cur->chars + start;
-    static const struct { const char *key; const char *compl; } kws[] = {
-        { "func", "function " },
-        { "fn",   "function " },
-        { "loc",  "local " },
-        { "ret",  "return " },
-        { "whi",  "while " },
-        { "str",  "struct " },
-        { "rec",  "rectfill(" },
-        { NULL, NULL }
+    static const char *const kw_spaces[] = {
+        "function", "local", "return", "while", "struct", "switch", "case", "default", NULL
     };
-    for (int i = 0; kws[i].key; i++) {
-        size_t klen = strlen(kws[i].key);
-        if ((size_t)prefix_len == klen && strncmp(prefix, kws[i].key, klen) == 0) {
-            for (int d = 0; d < prefix_len; d++) {
-                sc_line_delete_char(cur, start);
-            }
-            const char *c = kws[i].compl;
-            size_t clen = strlen(c);
-            for (size_t j = 0; j < clen; j++) {
-                sc_line_insert_char(cur, start + (int)j, c[j]);
-            }
-            t->cx = start + (int)clen;
-            t->dirty = 1;
-            return 1;
-        }
+    for (int i = 0; kw_spaces[i]; i++) {
+        if (strcmp(name, kw_spaces[i]) == 0) return 1;
     }
     return 0;
+}
+
+static int sc_try_tab_complete(sc_tab_t *t)
+{
+    char suf[64];
+    char full[64];
+    if (!sc_get_autocomplete_suggestion(t, suf, sizeof(suf), full, sizeof(full)))
+        return 0;
+
+    sc_line_t *cur = &t->lines[t->cy];
+    char to_insert[128];
+    snprintf(to_insert, sizeof(to_insert), "%s%s", suf, is_statement_kw(full) ? " " : "");
+    int ins_len = (int)strlen(to_insert);
+    for (int i = 0; i < ins_len; i++) {
+        sc_line_insert_char(cur, t->cx + i, to_insert[i]);
+    }
+    t->cx += ins_len;
+    t->dirty = 1;
+    return 1;
 }
 
 static void sc_execute_menu_action(void)
@@ -2316,10 +2564,69 @@ int shell_code_test_run(void)
     sc_handle_key(HID_KEY_DOWN);
     g_mock_alt = 0;
 
+    /* Test 12: Autocomplete, doc functions, and 'fn' / 'int' native execution */
+    /* Check 'fu' prefix completion */
+    sc_tab_set_text(&tab, "fu", 2);
+    tab.cy = 0;
+    tab.cx = 2;
+    if (!sc_try_tab_complete(&tab) || strcmp(tab.lines[0].chars, "function ") != 0) {
+        printf("FAIL: short prefix 'fu' tab completion (%s != function )\n", tab.lines[0].chars);
+        return 29;
+    }
+
+    /* Check doc function autocomplete: define 'fn draw_edges', then 'draw_' -> tab -> 'draw_edges' */
+    const char *doc_with_fn = "fn draw_edges(x: int): int\n  return x\nend\ndraw_";
+    sc_tab_set_text(&tab, doc_with_fn, strlen(doc_with_fn));
+    tab.cy = 3;
+    tab.cx = 5; /* end of "draw_" */
+    if (!sc_try_tab_complete(&tab) || strcmp(tab.lines[3].chars, "draw_edges") != 0) {
+        printf("FAIL: doc function tab completion (%s != draw_edges)\n", tab.lines[3].chars);
+        return 30;
+    }
+
+    /* Compile and run 'fn' and 'int' types natively */
+    const char *fn_int_src =
+        "fn calc(a: int): int\n"
+        "  local b: int = a * 2\n"
+        "  return b + 1\n"
+        "end\n";
+    sc_tab_set_text(&tab, fn_int_src, strlen(fn_int_src));
+    blob = NULL;
+    blob_len = 0;
+    rc = sc_compile_b(&tab, &blob, &blob_len);
+    if (rc != 0 || !blob) {
+        printf("FAIL: compile 'fn' and 'int' failed\n");
+        return 29;
+    }
+    m = NULL;
+    if (bmnative_load(&m, blob, blob_len, &why) != BMN_OK) {
+        printf("FAIL: load 'fn'/'int' module: %s\n", why);
+        free(blob);
+        return 30;
+    }
+    fn_idx = bmnative_find(m, "calc");
+    if (fn_idx < 0) {
+        printf("FAIL: bmnative_find 'calc'\n");
+        bmnative_free(m);
+        free(blob);
+        return 31;
+    }
+    args[0] = 20;
+    ret = 0;
+    crc = bmnative_call(m, fn_idx, args, 1, &ret);
+    if (crc != BMN_OK || ret != 41) {
+        printf("FAIL: calc(20) returned %ld (expected 41)\n", (long)ret);
+        bmnative_free(m);
+        free(blob);
+        return 32;
+    }
+    bmnative_free(m);
+    free(blob);
+
     free(g_sc.clipboard);
     g_sc.clipboard = NULL;
     sc_tab_free(&g_sc.tabs[0]);
     sc_tab_free(&tab);
-    printf("shell_code tests passed: 11/11 checks ok\n");
+    printf("shell_code tests passed: 12/12 checks ok\n");
     return 0;
 }

@@ -45,14 +45,14 @@ TOKEN_RE = re.compile(
 )
 
 KEYWORDS = {
-    "function", "local", "for", "do", "while", "end",
+    "function", "fn", "local", "for", "do", "while", "end",
     "if", "then", "elseif", "else", "return", "break",
     "and", "or", "not", "true", "false", "struct",
     "const", "enum", "switch", "case", "default",
 }
 
-TYPES = ("i32", "bool", "f32", "string")
-ARRAY_TYPES = ("i32[]", "bool[]", "f32[]")
+TYPES = ("i32", "bool", "f32", "string", "int")
+ARRAY_TYPES = ("i32[]", "bool[]", "f32[]", "int[]")
 COMPOUND_OPS = {
     "+=": "+",
     "-=": "-",
@@ -475,13 +475,18 @@ class Parser:
             rb = self.expect("]")
             end_pos = rb.end
             typ_s = f"{tname.text}[]"
+            if typ_s == "int[]":
+                typ_s = "i32[]"
             if not allow_composite or typ_s not in ARRAY_TYPES:
                 self.fail(f"unknown or disallowed array type '{typ_s}'", tname)
         elif typ_s in self.struct_names:
             if not allow_composite:
                 self.fail(f"struct type '{typ_s}' is not allowed here", tname)
-        elif typ_s not in TYPES:
-            self.fail(f"unknown type '{typ_s}' (expected i32, bool, or f32)", tname)
+        else:
+            if typ_s == "int":
+                typ_s = "i32"
+            if typ_s not in TYPES:
+                self.fail(f"unknown type '{typ_s}' (expected i32, bool, or f32)", tname)
         self.cuts.append((start_pos, end_pos))
         return typ_s
 
@@ -655,10 +660,14 @@ class Parser:
         return StructDecl(sname.text, fields, kw.line)
 
     def parse_function(self) -> FuncDecl:
-        kw = self.expect("function")
+        if self.cur().text == "fn":
+            kw = self.expect("fn")
+            self.cuts.append((kw.start, kw.end, "function"))
+        else:
+            kw = self.expect("function")
         prefix_ret: Optional[str] = None
         if self.cur().text in TYPES or self.cur().text == "void":
-            prefix_ret = self.cur().text if self.cur().text != "void" else None
+            prefix_ret = "i32" if self.cur().text in ("i32", "int") else (self.cur().text if self.cur().text != "void" else None)
             self.cuts.append((self.cur().start, self.cur().end))
             self.i += 1
         fname = self.expect_name()

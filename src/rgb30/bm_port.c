@@ -153,6 +153,12 @@ int gpu3d_blit2d(const g16_t *g, const g16_sheet_t *s, int sx, int sy, int sw, i
 {
     return mali_be ? mali_backend_blit2d(g, s, sx, sy, sw, sh, dx, dy, zoom, flip_x, flip_y) : 0;
 }
+int gpu3d_map_block(const g16_t *g, const g16_sheet_t *s, int block_px, int block_py,
+                    const map2d_vert_t *verts, int nverts)
+{
+    (void)g; (void)s; (void)block_px; (void)block_py; (void)verts; (void)nverts;
+    return 0;
+}
 int gpu3d_light2d(const g16_t *g, const float *amb, const gpu_lamp_t *lamp, int n)
 {
     (void)g; (void)amb; (void)lamp; (void)n;
