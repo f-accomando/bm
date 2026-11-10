@@ -1,0 +1,88 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-ea679a_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: moniart: the log to the SD, frame 0, 6253 s after boot, kernel dev, ring 49091, sink on
+--- the last lines printed ---
+net: console opened from 192.168.1.97
+> :
+:err
+: err
+err: none
+running: menu
+the line is done
+> 
+net: console closed
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+2d560
+bm: "Dark Night" suspended (A on its cover resumes it)
+bm: "Dark Night" 6 frames, 9.4 fps, 6 dropped
+     update+draw avg 104.56 ms (627% of frame), max 111.53 ms, Lua 242 KB
+     dev kit: Lua peak 242 KB, data 2289 KB, busiest frame 23k instructions, 6 frames over 16.7 ms, 11011 tokens
+menu: the GPU cannot draw 3x, 360p on the ARM
+bm: "Dark Night" closed, memory freed
+menu: closed darknigh.bm
+market: nearby consoles: listening as bm-108
+menu idle: sd first word <1ms 132 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 10067 us, enlarge 1 us, flip 98 us, free time used 32 us (300 frames)
+market: downloading games/darknight/darknight.bm (2193120 bytes)
+menu idle: 300/300 frames, 222 of 1583 ms taken, 51.1 ms past a frame; market 217 ms (+55.8, stk 4.0/128K); min slack -4621 us, paced 0
+menu stalls: tls handshake 1x last 166.2 worst 166.2 ms
+menu frame: 1x, a frame averages draw 10082 us, enlarge 1 us, flip 92 us, free time used 742 us (300 frames)
+menu idle: 300/300 frames, 2056 of 2034 ms taken, 1.4 ms past a frame; market 2049 ms (+1.4, stk 4.0/128K); min slack 4879 us, paced 0
+menu frame: 1x, a frame averages draw 8286 us, enlarge 1 us, flip 96 us, free time used 6854 us (300 frames)
+fiber: market did not yield: 112.6 ms past its slice
+market: games/darknight/darknight.bm -> /bm/darknigh.bm
+market: Dark Night installed
+covers: all 22 read
+menu idle: 300/300 frames, 1387 of 1630 ms taken, 110.1 ms past a frame; covers 7 ms (+1.8, stk 0.8/16K), market 1371 ms (+112.6, stk 4.0/128K); min slack -14308 us, paced 0
+menu idle: sd first word <1ms 127 <3ms 5 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9680 us, enlarge 1 us, flip 93 us, free time used 4624 us (300 frames)
+
+playing darknigh.bm
+play: /bm/darknigh.bm (2193120 bytes)
+bm: the 3D is drawn by the ARM as bm3d 0.2: the GPU stopped answering after a probe (registers in the log)
+darknight: 45 objects, 16 enemies (villager 6, huntsman 4, dog 6)
+load: Dark Night 236 ms (close 0, parse 53, assets+state 22, mode 8, audio 11, lua 139)
+bm: loaded in 395 ms, the splash over at 1800 ms
+bm: splash ticks: 48 frames, longest gap 32774 us at 377 ms (between 0x1326c0 and 0xcfb60)
+net: not served for 1809 ms (up 5416800 ms), while: cartridge menu
+net:   pc at 1s: 00094d88
+darknight: door opens
+darknight: door opens
+bm: "Dark Night" 303 frames, 10.6 fps, 302 dropped
+     update+draw avg 92.98 ms (557% of frame), max 116.08 ms, Lua 238 KB
+     dev kit: Lua peak 405 KB, data 2335 KB, busiest frame 28k instructions, 302 frames over 16.7 ms, 11933 tokens
+report: session_dark-night_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: the GPU cannot draw 3x, 360p on the ARM
+report: sending session_dark-night_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_dark-night_pi-zero-w.txt
+menu idle: 300/300 frames, 1105 of 1896 ms taken, 98.0 ms past a frame; reports 1090 ms (+98.0, stk 7.8/128K); min slack -6440 us, paced 0
+menu idle: sd first word <1ms 122 <3ms 4 (max 2.2 ms)
+menu stalls: tls handshake 1x last 313.1 worst 313.1 ms
+menu frame: 1x, a frame averages draw 8895 us, enlarge 0 us, flip 91 us, free time used 3684 us (300 frames)
+menu idle: sd first word <1ms 40 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 9419 us, enlarge 0 us, flip 91 us, free time used 21 us (300 frames)
+back to the monitor
+bm: 
+> net: transfer with a wrong password from 192.168.1.97
+net: receiving settings (2 bytes)...
+net: settings from the PC: 0 changed in bm/config.txt
+
+net: console opened from 192.168.1.97
+> :
+:log
+: log
+report: 20261110-121620_log_pi-zero-w_dev.txt saved as bm/reports/rpt00001.txt
+report: sending 20261110-121620_log_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/20261110-121620_log_pi-zero-w_dev.txt
+the line is done
+> 
+net: console c
