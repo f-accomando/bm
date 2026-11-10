@@ -902,15 +902,36 @@ However, `.b` has three narrow architectural paths where it can **match or outpe
 2. **Fusing cartridge logic without callback overhead**: Generic C subsystems (particle updaters, collision filters, custom sort comparators) must invoke a callback or return to Lua per element. Compiling the cartridge's custom inner loop as one `.b` function removes indirect calls and Lua crossings.
 3. **Targeted backend primitives**: Emitting ARMv6 integer SIMD (`uadd8`, `sadd16`, `usad8`) or word/block `ldm`/`stm` memory loops directly from `.b` builtins can beat portable scalar C written without compiler intrinsics or inline assembly.
 
-### 10.4 Optimization Roadmap for `bmlc.c` / `ARMv6Compiler`
+### 10.4 Optimization Roadmap for an ARMv6-Tuned `.b` Backend
 
-Ranked by expected speedup on Pi Zero W workloads (`f32` physics/3D loops and tight array scans):
+While general-purpose GCC `-O2`/`-O3` remains hard to beat on arbitrary programs, closing the gap on `bm`'s target workload (numeric/physics/3D loops on `vm_buf` arrays, targeting ~80–100% of C speed) comes down to **five concrete backend improvements**:
 
-1. **Keep `f32` values in VFP registers (`s0..s31`)**: Avoid `vmov` round-trips between ARM integer registers and `s0`/`s1` on every `OP_FADD`/`OP_FMUL`/compare; load/store directly with `vldr`/`vstr`.
-2. **Minimal prologue/epilogue and generic leaf optimization**: Track which of `r4..r10` and `lr` a function actually modifies and omit unnecessary stack saves/restores.
-3. **Constant folding, dead-branch elimination, and constant division**: Unlock runtime specialization with `native_compile`, fold `const` expressions, and lower division/modulo by known constants (`//`, `%`) to shifts or multiplicative inverses instead of calling `__bml_idivmod`.
-4. **Array induction and word-aligned `memcpy`/`memset`**: Hoist `(base - 4)` outside `for` loops or advance pointers (`+4` per step) instead of recomputing `(idx - 1) << 2` per access; replace the byte-by-byte `ldrb`/`strb` loops in [`bml_compile_native`](../../src/bm/bmlc.c) with word/`ldm`/`stm` copies.
-5. **Small-function inlining and direct C math fast-paths**: Inline small `.b` helpers and expose direct C/VFP entry points for `sin`, `cos`, and `atan2` without routing `OP_CALL_HOST` through `lua_host_dispatch`.
+1. **Keep `f32` values in VFPv2 registers (`s4..s31`)**:
+   - *Current bottleneck*: [`compile_armv6_fn`](../../src/bm/bmlc.c) stores `f32` locals in ARM integer registers (`r4..r10`) and emits `vmov` round-trips to `s0`/`s1` on every single float operation, stalling the ARM1176 pipeline.
+   - *Fix*: Allocate `f32` locals and expression temporaries directly in `s4..s31` and load/store `f32[]` arrays with `vldr`/`vstr`.
+   - *Loader requirement*: [`check_armv6_words`](../../src/bm/bmnative.c) currently allows CP10 (VFPv2) only for `top4 == 0xE` (register-to-register `CDP`/`MCR`/`MRC`) and rejects `0xC`/`0xD` (`vldm`/`vstm`, `vldr`/`vstr`); extend it to permit `cp == 10` on `0xC` and `0xD` as well.
+2. **Inline rotated immediates and ARM barrel-shifter indexing**:
+   - *Current bottleneck*: `x + 1` loads `1` into a scratch register before adding; `arr[i]` recomputes `(i - 1) << 2` and adds the base on every access (3 instructions).
+   - *Fix*: Fold 8-bit rotated constants directly into `add`/`sub`/`cmp` immediates (1 instruction). Hoist `(base - 4)` outside `for` loops and use ARMv6's free shifted-index addressing (`ldr rd, [base, idx, lsl #2]`), turning `arr[i]` inside loops into 1 instruction.
+3. **Minimal prologue/epilogue and generic leaf functions**:
+   - *Current bottleneck*: Every function except [`check_canonical_leaf_sum`](../../src/bm/bmlc.c) executes `push {r4-r10, fp, lr}` and `pop {r4-r10, fp, pc}` (saving 9 words even for trivial helpers).
+   - *Fix*: Save/restore only the subset of `r4..r10` actually touched by the function, and let small leaf functions (no `bl` calls) operate purely in `r0..r3, r12` with a bare `bx lr` and zero stack frame.
+4. **Low-cost local/peephole passes and word-block memory**:
+   - Fuse `a + b * c` into `mla` (`i32`) and `vmla.f32` (`f32`).
+   - Add constant folding and dead-branch elimination (unlocking runtime specialization via `native_compile`).
+   - Lower division/modulo (`//`, `%`) by power-of-2 constants to arithmetic shifts/masks instead of calling `__bml_idivmod`.
+   - Replace the byte-by-byte `ldrb`/`strb` loops for `OP_MEMCPY`/`OP_MEMSET` in [`bml_compile_native`](../../src/bm/bmlc.c) with word/block `ldm`/`stm` transfers.
+5. **Small-function inlining and direct C math fast-paths**:
+   - Inline small `.b` helper functions called inside hot loops and bind `sin`, `cos`, and `atan2` directly to C/VFP implementations instead of routing `OP_CALL_HOST` through [`lua_host_dispatch`](../../src/bm/api_vm.c).
+
+### 10.5 Two Implementation Paths (Combinable)
+
+Both paths emit the exact same `BMN1` binary container loaded by [`bmnative_load`](../../src/bm/bmnative.c), so they require no cartridge format changes:
+
+- **Path A — Upgrade [`src/bm/bmlc.c`](../../src/bm/bmlc.c) (On-Console Compiler)**:
+  Items 1–4 require ~1,000–1,500 lines of straightforward C (no full SSA optimizer needed) and keep instant in-RAM compilation on the Pi Zero W via `native_compile(src)` (including runtime constant specialization).
+- **Path B — Offline Optimizing Backend in [`tools/bml/bml.py`](../../tools/bml/bml.py) (PC Build-Time AOT)**:
+  During cartridge packaging on a PC, Python has no RAM/CPU constraints and can run full SSA passes, graph-coloring register allocation across `r0..r12` and `s0..s31`, loop-invariant code motion, and cross-function inlining, packing precompiled `BMN1` modules directly into `.bm` builds.
 
 
 
