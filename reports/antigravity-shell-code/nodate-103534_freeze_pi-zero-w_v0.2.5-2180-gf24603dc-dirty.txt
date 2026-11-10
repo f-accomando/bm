@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2180-gf24603dc-dirty
+branch: antigravity/shell-code
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-103534_freeze_pi-zero-w_v0.2.5-2180-gf24603dc-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: carttor line "code", frame 0, 203 s after boot, kernel v0.2.5-2180-gf24603dc-dirty, ring 6603, sink on
+--- the last lines printed ---
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 20 read
+menu idle: 300/300 frames, 128 of 655 ms taken, 1.7 ms past a frame; covers 117 ms (+3.0, stk 0.8/16K); min slack -44841 us, paced 0
+menu idle: sd first word <1ms 145 <3ms 4 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 14883 us, enlarge 0 us, flip 92 us, free time used 427 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-09 23:20 UTC
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 13180 us, enlarge 0 us, flip 94 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 13064 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 12983 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13003 us, enlarge 0 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13140 us, enlarge 0 us, flip 97 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13054 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 12971 us, enlarge 0 us, flip 97 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 13042 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13113 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13029 us, enlarge 0 us, flip 98 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12943 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+
+playing snes.bm
+play: /bm/snes.bm (40008 bytes)
+load: bm SNES 15 ms (close 0, parse 0, assets+state 1, mode 5, audio 1, lua 5)
+bm: loaded in 30 ms, the splash over at 1800 ms
+bm: splash ticks: 50 frames, longest gap 6763 us at 20 ms (between 0xbfbf4 and 0xbfcac)
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 4945 frames, 41.6 fps, 2426 dropped
+     update+draw avg 22.08 ms (132% of frame), max 98.47 ms, Lua 90 KB
+     dev kit: Lua peak 2152 KB, data 129 KB, busiest frame 2k instructions, 3880 frames over 16.7 ms, 1353 tokens
+     GPU 3D 3668 jobs, 2789 triangles a frame, 6.97 ms a frame (bin 7%), max job 9465 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 9.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.8 ms past its slice
+fiber: reports did not yield: 102.0 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-shell-code/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 416 of 614 ms taken, 104.6 ms past a frame; reports 395 ms (+102.0, stk 7.6/128K); min slack -36574 us, paced 0
+menu idle: sd first word <1ms 136 <3ms 4 (max 1.4 ms)
+menu stalls: tls handshake 1x last 285.9 worst 285.9 ms
+menu frame: 1x, a frame averages draw 14643 us, enlarge 0 us, flip 96 us, free time used 1388 us (300 frames)
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+menu idle: sd first word <1ms 26 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 13240 us, enlarge 0 us, flip 96 us, free time used 36 us (300 frames)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
