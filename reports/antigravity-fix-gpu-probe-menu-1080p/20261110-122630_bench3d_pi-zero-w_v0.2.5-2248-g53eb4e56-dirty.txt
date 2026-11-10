@@ -1,0 +1,33 @@
+bm report
+kind: bench3d
+kernel: v0.2.5-2248-g53eb4e56-dirty
+branch: antigravity/fix-gpu-probe-menu-1080p
+board: Pi Zero W
+date: 2026-11-10 12:26:30
+file: 20261110-122630_bench3d_pi-zero-w_v0.2.5-2248-g53eb4e56-dirty.txt
+
+bm 3D Bench
+kernel v0.2.5-2248-g53eb4e56-dirty
+drivers bm3d 7.36 (vs)
+date 2026-11-10 12:26 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 45.4 C, throttled 00000
+gpu bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders no, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes)
+probes before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447; vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0); vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0); the two-thread shaders' probe: the GPU did not end its job; that stays off, the rest goes on
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.36 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3d0094.txt
+only tests 1, profiles 1
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+score 0 (bm3d 7.36 as the games get it, 0 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 0; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.36,0,0,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,0,0,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 0 (none)
+total 0 s
