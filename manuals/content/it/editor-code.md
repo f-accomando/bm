@@ -2,11 +2,11 @@ title: bm Code
 accent: Code
 lang: it
 kicker: L'editor di codice
-subtitle: Scrivi il Lua del tuo gioco bm direttamente sulla console, eseguilo, fermalo su una riga e leggi i suoi errori.
+subtitle: Scrivi il codice Lua e .b del tuo gioco bm sulla console, compila, disassembla, esegui e leggi i suoi errori.
 footer: manuali bm - bm Code
 
 ::: readme
-**Cos'è questo.** Il manuale di bm Code, l'editor con cui scrivi il codice Lua di un gioco sulla console stessa.
+**Cos'è questo.** Il manuale di bm Code, l'editor con cui scrivi il codice Lua e `.b` di un gioco o di uno script autonomo sulla console stessa.
 
 **Come usarlo.** Leggi una volta i primi capitoli, poi segui i tutorial guidati nell'ordine. La tabella dei tasti serve per tornarci sopra.
 
@@ -15,7 +15,7 @@ footer: manuali bm - bm Code
 
 # Cos'è bm Code
 
-bm Code è l'editor di codice della suite bm. Apre una cartuccia, mostra il suo codice Lua, ti lascia modificarlo ed esegue il gioco dalla stessa schermata.
+bm Code è l'editor di codice della suite bm. Apre una cartuccia (`.bm`/`.bme` in Lua, `.b` o ibrida Lua+`.b`) oppure un file autonomo `/code-b/*.b` o `/code-lua/*.lua`, ti lascia modificarlo, controllarlo o disassemblarlo e lo esegue dalla stessa schermata.
 
 ## Cosa fa
 
@@ -48,11 +48,11 @@ Quando salvi un gioco, bm Code non lo tocca. Scrive una copia modificabile in `/
 
 ## Aprire una cartuccia
 
-Premi **Ctrl+O**. L'elenco mostra `+ New project...` e poi i progetti `.bme` di `/bme` e i file `.bm` e `.bme` di `/carts` e della radice della scheda. Muoviti con le frecce su e giù, premi **Enter** per aprire. Una cartuccia già aperta mostra semplicemente la sua scheda.
+Premi **Ctrl+O**. L'elenco mostra `+ New project / file...` e poi i progetti `.bme` di `/bme`, i file `.bm` e `.bme` di `/carts` e della radice della scheda, e gli script autonomi in `/code-b` (`.b`) e `/code-lua` (`.lua`). Muoviti con le frecce su e giù, premi **Enter** per aprire. Un file già aperto mostra semplicemente la sua scheda.
 
 ## Un nuovo progetto
 
-Premi **Ctrl+N**. Un elenco mostra i modelli: Empty, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D e 3D scene. Muoviti con le frecce su e giù, premi **Enter** per scegliere, **Esc** per uscire. Ogni modello tranne Empty è diviso in moduli (schede sulla seconda riga), e l'ultimo modulo, `loop`, contiene `_update` e `_draw`. Poi una riga chiede `New project, file name (8.3 in /bme):` e suggerisce `game1.bme`. Il nome deve essere 8.3: fino a otto lettere, cifre, `_` o `-`, e l'estensione `.BME`. Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. La nuova scheda ha il programma di partenza del modello; premi **Ctrl+S** per scrivere il file.
+Premi **Ctrl+N**. Un elenco mostra i modelli Lua (`Empty`, `Platform 2D`, `Top-down 2D`, `Shooter 2D`, `Versus 2D`, `3D scene`) oltre a `.b Game` (100% `.b` nativo), `Hybrid Lua+.b` (`main.lua` + `main.b`), `File .b` (`/code-b/`) e `File .lua` (`/code-lua/`). Muoviti con le frecce su e giù, premi **Enter** per scegliere, **Esc** per uscire. Ogni modello Lua multi-modulo è diviso in schede sulla seconda riga; `Hybrid Lua+.b` aggiunge la scheda modulo `main.b`. Poi una riga chiede il nome del file (8.3 in `/bme` per le cartucce, `/code-b` per `.b`, `/code-lua` per `.lua`). Se il file esiste già, bm Code lo dice e suggerisce Ctrl+O. Premi **Ctrl+S** per scrivere il file.
 
 **Ctrl+T** apre una nuova scheda vuota senza file: il primo salvataggio chiede un nome.
 
@@ -101,7 +101,7 @@ Quando un progetto ha moduli, sotto la barra in alto compare una seconda riga. M
 | clic destro su una scheda modulo | il menu dei moduli |
 | Esc, Modules... | lo stesso menu |
 
-Il menu dei moduli ha **New module...** (chiede un nome e lo aggiunge dopo quello in cui sei), **Rename module...** e **Merge into the one before** (le righe vanno in fondo al modulo precedente e la riga del marcatore sparisce; nessun codice si perde).
+Il menu dei moduli ha **New module...** (chiede un nome e lo aggiunge dopo quello in cui sei), **Add / Open main.b** (apre o aggiunge la sezione `.b` nativa di un progetto ibrido come scheda modulo `main.b`), **Rename module...** e **Merge into the one before** (le righe vanno in fondo al modulo precedente e la riga del marcatore sparisce; nessun codice si perde).
 
 Un nome ha lettere, cifre, `_`, `.` o `-`, fino a 24 caratteri. Ogni modulo ha il suo cursore, il suo annulla e i suoi breakpoint. Ctrl+S, F5 e Ctrl+W lavorano su tutto il progetto, non su un modulo. Il clic centrale su una scheda modulo non fa nulla; il clic centrale su una scheda file chiude il file. Quando il gioco si ferma con un errore, bm Code mostra il modulo e la riga al suo interno.
 
@@ -130,6 +130,8 @@ Un nome ha lettere, cifre, `_`, `.` o `-`, fino a 24 caratteri. Ogni modulo ha i
 | Go to line | Ctrl+L |
 | Assistant | F6 |
 | Explain the error | F9 |
+| Compile / Check | |
+| Disassemble .b | Ctrl+Shift+D |
 | Play the music (riff) | Ctrl+Enter |
 | Stop the music | Ctrl+. |
 | Word completion | on / off |
@@ -208,6 +210,7 @@ Scrivere `end`, `else`, `elseif`, `until` o `}` da soli su una riga li riporta a
 | F8 | breakpoint sulla riga |
 | F6 | l'assistente |
 | F9 | spiega l'errore del gioco |
+| Ctrl+Shift+D | compila e disassembla `.b` in istruzioni ARMv6 + VFPv2 |
 | Ctrl+Q | aiuto sulla funzione API sotto il cursore |
 | Ctrl+Enter | suona il codice come musica (riff) |
 | Ctrl+. | ferma la musica |
@@ -236,7 +239,8 @@ Mentre scrivi una parola, il resto della parola più probabile compare in grigio
 
 Le parole dipendono da dove sei:
 
-- nel codice: le parole di Lua, le funzioni di bm e i nomi che sono nella scheda;
+- nel codice `.lua`: le parole di Lua, le funzioni di bm e i nomi che sono nella scheda;
+- nel codice `.b`: le parole chiave `.b` (`fn`, `function`, `struct`, `const`, `enum`), i tipi (`i32`, `int`, `f32`, `bool`, `string`) e le primitive (`clamp`, `lerp`, `flr`, `peek`/`poke`, grafica e suoni);
 - in un commento (dopo `--`) e in una stringa: parole comuni, in italiano o in inglese;
 - dopo `#entry:` (vedi sotto): italiano e le domande per l'assistente.
 
@@ -326,15 +330,17 @@ riff è la notazione musicale di bm (vedi il manuale riff). In bm Code la scrivi
 
 ## Eseguire
 
-**F5** (o **Ctrl+R**, o *Run the game* nel menu) salva le schede con modifiche e suona il gioco della scheda corrente. La scheda deve avere un file: una scheda nuova senza nome ti chiede prima di salvare (`save it first (Esc, Save as)`).
+**F5** (o **Ctrl+R**, o *Run the game* nel menu) salva le schede con modifiche ed esegue la scheda corrente:
 
-Per uscire dal gioco premi **Start + Select** (o **Ctrl+Esc**). bm Code torna dove eri, con `back from the game` nella riga di stato.
+- su una cartuccia `.bm` o `.bme` (Lua, 100% `.b` o ibrida Lua+`.b`), compila prima eventuale codice `.b` e avvia la cartuccia (`Start + Select` o `Ctrl+Esc` torna indietro);
+- su un file autonomo `/code-b/*.b`, compila in codice nativo ed esegue l'anteprima interattiva `_init`/`_update`/`_draw` (`Esc` ferma) oppure la funzione alla riga del cursore mostrando risultato e microsecondi;
+- su un file autonomo `/code-lua/*.lua`, esegue lo script in sandbox (`tool_lua_run`, senza `dofile`/`loadfile`/`load`).
 
 ## Quando il gioco fallisce
 
 Se il gioco si ferma con un errore, bm Code torna e:
 
-- mette il cursore sulla riga dell'errore (letta da `main.lua:N:` nel messaggio);
+- mette il cursore sulla riga dell'errore (letta da `main.lua:N:` o `main.b:N:` nel messaggio, passando alla scheda modulo `main.b` quando serve);
 - colora quella riga con lo sfondo rossiccio;
 - mostra `the game stopped:` e il messaggio nella riga di stato, seguiti da `(F9: explain)`.
 

@@ -927,6 +927,17 @@ Both paths emit the exact same `BMN1` binary container loaded by [`bmnative_load
 - **Path B — Offline Optimizing Backend in [`tools/bml/bml.py`](../../tools/bml/bml.py) (PC Build-Time AOT)**:
   During cartridge packaging on a PC, Python has no RAM/CPU constraints and can run full SSA passes, graph-coloring register allocation across `r0..r12` and `s0..s31`, loop-invariant code motion, and cross-function inlining, packing precompiled `BMN1` modules directly into `.bm` builds.
 
+---
+
+## 11. Cartridge Integration (`BM_SEC_B = 17`), Disassembly, and Console Editors
+
+As of specification revision `7` ([`docs/spec/specs.toml`](../spec/specs.toml)), `.b` code can live directly inside `.bm` and `.bme` containers alongside or instead of Lua:
+
+1. **Container Section (`BM_SEC_B = 17`)**: [`src/bm/bm.h`](../../src/bm/bm.h), [`src/bm/format.c`](../../src/bm/format.c), and [`scripts/mkbm.py`](../../scripts/mkbm.py) (`--b`, alone or with `--lua`) pack `.b` source into `BM_SEC_B`. Pure `.b` cartridges define `_init`, `_update`, and `_draw` (each taking `()` or `(state: i32[])` backed by a persistent 256-word buffer in [`src/bm/runtime.c`](../../src/bm/runtime.c)). Hybrid cartridges expose compiled `.b` functions to Lua via `_B` and `B.<fn>(...)`.
+2. **Compile-Time Error Reporting**: [`bm_run()`](../../src/bm/runtime.c) compiles `cart.b` on load with [`bml_compile_native`](../../src/bm/bmlc.c) and reports syntax/type diagnostics as `main.b:<line>:<message>`, jumping the cursor in `bm Code` and `bm SDK` to the failing line.
+3. **Shared ARMv6 + VFPv2 Disassembler (`native_disasm`)**: [`bmnative_disasm_word`](../../src/bm/bmnative.c) provides a freestanding ARMv6 + VFPv2 CP10 decoder (`vldr`, `vstr`, `vpush`, `vpop`, `vmov`, `vadd`/`vsub`/`vmul`/`vdiv`/`vmla`/`vmls`/`vneg`/`vabs`/`vsqrt`/`vcvt`/`vcmp`/`vcmpz`/`vmrs`, `ldr`/`str` indexed with register offsets and shifts, `mla`/`mul`, rotated `imm12` and ALU shifts) shared by [`native_disasm(blob)`](../../src/bm/api_vm.c) in `bm Code` (`Ctrl+Shift+D`) and the serial shell editor [`src/kernel/shell_code.c`](../../src/kernel/shell_code.c).
+4. **Console Editors (`bm Code` & `shell_code`)**: Both [`carts/code/main.lua`](../../carts/code/main.lua) and [`src/kernel/shell_code.c`](../../src/kernel/shell_code.c) edit `.b` and `.lua` with syntax highlighting, language-specific completion, syntax checks (`native_compile` / `tool_lua_check`), sandboxed execution (`native_run` with `f32` I/O formatting in `shell_code`, `tool_lua_run`), and disassembly views.
+
 
 
 

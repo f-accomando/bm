@@ -2,11 +2,11 @@ title: bm Code
 accent: Code
 lang: en
 kicker: The code editor
-subtitle: Write the Lua of your bm game on the console, run it, stop it on a line and read its errors.
+subtitle: Write the Lua and .b code of your bm game on the console, compile, disassemble, run and read its errors.
 footer: bm manuals - bm Code
 
 ::: readme
-**What this is.** The manual of bm Code, the editor you use to write the Lua code of a game on the console itself.
+**What this is.** The manual of bm Code, the editor you use to write the Lua and `.b` code of a game or standalone script on the console itself.
 
 **How to use it.** Read the first chapters once, then follow the guided tutorials in order. The key table is there to come back to.
 
@@ -15,7 +15,7 @@ footer: bm manuals - bm Code
 
 # What bm Code is
 
-bm Code is the code editor of the bm suite. It opens a cartridge, shows its Lua code, lets you change it, and runs the game from the same screen.
+bm Code is the code editor of the bm suite. It opens a cartridge (`.bm`/`.bme` in Lua, `.b` or hybrid Lua+`.b`) or a standalone `/code-b/*.b` or `/code-lua/*.lua` file, lets you change it, check or disassemble it, and run it from the same screen.
 
 ## What it does
 
@@ -48,11 +48,11 @@ When you save a game, bm Code does not touch it. It writes an editable copy in `
 
 ## Opening a cartridge
 
-Press **Ctrl+O**. The list shows `+ New project...` and then the `.bme` projects of `/bme` and the `.bm` and `.bme` files of `/carts` and of the root of the card. Move with the up and down arrows, press **Enter** to open. A cartridge that is already open just shows its tab.
+Press **Ctrl+O**. The list shows `+ New project / file...` and then the `.bme` projects of `/bme`, the `.bm` and `.bme` files of `/carts` and of the root of the card, and standalone scripts in `/code-b` (`.b`) and `/code-lua` (`.lua`). Move with the up and down arrows, press **Enter** to open. A file that is already open just shows its tab.
 
 ## A new project
 
-Press **Ctrl+N**. A list shows the templates: Empty, Platform 2D, Top-down 2D, Shooter 2D, Versus 2D and 3D scene. Move with the up and down arrows, press **Enter** to choose, **Esc** to leave. Each template except Empty is split in modules (tabs on the second row), and the last module, `loop`, holds `_update` and `_draw`. Then a line asks `New project, file name (8.3 in /bme):` and suggests `game1.bme`. The name must be 8.3: up to eight letters, digits, `_` or `-`, and the extension `.BME`. If the file already exists, bm Code says so and suggests Ctrl+O. The new tab has the starter program of the template; press **Ctrl+S** to write the file.
+Press **Ctrl+N**. A list shows the Lua templates (`Empty`, `Platform 2D`, `Top-down 2D`, `Shooter 2D`, `Versus 2D`, `3D scene`) plus `.b Game` (100% `.b` native), `Hybrid Lua+.b` (`main.lua` + `main.b`), `File .b` (`/code-b/`) and `File .lua` (`/code-lua/`). Move with the up and down arrows, press **Enter** to choose, **Esc** to leave. Each multi-file Lua template is split in modules (tabs on the second row); `Hybrid Lua+.b` adds a `main.b` module tab. Then a line asks the file name (8.3 in `/bme` for cartridges, `/code-b` for `.b`, or `/code-lua` for `.lua`). If the file already exists, bm Code says so and suggests Ctrl+O. Press **Ctrl+S** to write the file.
 
 **Ctrl+T** opens a new empty tab with no file: the first save asks for a name.
 
@@ -101,7 +101,7 @@ When a project has modules, a second row appears under the top bar. It shows the
 | right click on a module tab | the module menu |
 | Esc, Modules... | the same menu |
 
-The module menu has **New module...** (asks a name, adds it after the one you are in), **Rename module...** and **Merge into the one before** (the lines go to the end of the previous module and the marker line goes; no code is lost).
+The module menu has **New module...** (asks a name, adds it after the one you are in), **Add / Open main.b** (opens or adds the native `.b` section of a hybrid project as a `main.b` module tab), **Rename module...** and **Merge into the one before** (the lines go to the end of the previous module and the marker line goes; no code is lost).
 
 A name has letters, digits, `_`, `.` or `-`, up to 24 characters. Each module keeps its own cursor, undo and breakpoints. Ctrl+S, F5 and Ctrl+W work on the whole project, not on one module. A middle click on a module tab does nothing; a middle click on a file tab closes the file. When the game stops with an error, bm Code shows the module and the line in it.
 
@@ -130,6 +130,8 @@ A name has letters, digits, `_`, `.` or `-`, up to 24 characters. Each module ke
 | Go to line | Ctrl+L |
 | Assistant | F6 |
 | Explain the error | F9 |
+| Compile / Check | |
+| Disassemble .b | Ctrl+Shift+D |
 | Play the music (riff) | Ctrl+Enter |
 | Stop the music | Ctrl+. |
 | Word completion | on / off |
@@ -208,6 +210,7 @@ Typing `end`, `else`, `elseif`, `until` or `}` alone on a line brings it back to
 | F8 | breakpoint on the line |
 | F6 | the assistant |
 | F9 | explain the error of the game |
+| Ctrl+Shift+D | compile and disassemble `.b` into ARMv6 + VFPv2 instructions |
 | Ctrl+Q | help on the API function under the cursor |
 | Ctrl+Enter | play the code as music (riff) |
 | Ctrl+. | stop the music |
@@ -236,7 +239,8 @@ While you type a word, the rest of the likeliest word appears in grey-blue after
 
 The words depend on where the cursor is:
 
-- in code: Lua's words, bm's functions and the names that are in the tab;
+- in `.lua` code: Lua's words, bm's functions and the names that are in the tab;
+- in `.b` code: `.b` keywords (`fn`, `function`, `struct`, `const`, `enum`), types (`i32`, `int`, `f32`, `bool`, `string`), and built-ins (`clamp`, `lerp`, `flr`, `peek`/`poke`, graphics/sound functions);
 - in a comment (after `--`) and in a string: ordinary words, in Italian or in English;
 - after `#entry:` (see below): Italian and the questions for the assistant.
 
@@ -326,15 +330,17 @@ riff is bm's music notation (see the riff manual). In bm Code you write it and h
 
 ## Running
 
-**F5** (or **Ctrl+R**, or *Run the game* in the menu) saves the tabs that have changes and plays the game of the current tab. The tab needs a file: a new tab with no name asks you to save it first (`save it first (Esc, Save as)`).
+**F5** (or **Ctrl+R**, or *Run the game* in the menu) saves the tabs that have changes and runs the current tab:
 
-To leave the game press **Start + Select** (or **Ctrl+Esc**). bm Code comes back where you were, with `back from the game` in the status line.
+- on a `.bm` or `.bme` cartridge (Lua, 100% `.b` or hybrid Lua+`.b`), it compiles any `.b` code first and starts the cartridge (`Start + Select` or `Ctrl+Esc` returns);
+- on a standalone `/code-b/*.b` file, it compiles natively and either runs the interactive `_init`/`_update`/`_draw` preview (`Esc` stops) or executes the function on the cursor line and prints its return value and timing;
+- on a standalone `/code-lua/*.lua` file, it runs the script inside a sandbox (`tool_lua_run`, without `dofile`/`loadfile`/`load`).
 
 ## When the game fails
 
 If the game stops with an error, bm Code comes back and:
 
-- puts the cursor on the line of the error (read from `main.lua:N:` in the message);
+- puts the cursor on the line of the error (read from `main.lua:N:` or `main.b:N:` in the message, switching to the `main.b` module tab when needed);
 - paints that line with a reddish background;
 - shows `the game stopped:` and the message in the status line, followed by `(F9: explain)`.
 

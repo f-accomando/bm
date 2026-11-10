@@ -308,8 +308,8 @@
     "title": "The sections of a cartridge"
    },
    "3": {
-    "en": "ff9db1d3dc54",
-    "it": "c8cccf3817ca",
+    "en": "6251b90dac03",
+    "it": "84f48b968589",
     "title": "The API for tools"
    },
    "4": {
@@ -329,10 +329,10 @@
    }
   },
   "sources": {
-   "docs/PROJECT-LAYOUT.md": "46e3a15b75ac",
-   "docs/RISORSE.md": "69354ea59894",
-   "docs/SCREENSHOTS.md": "819c2580bb7d",
-   "docs/api/tools.md": "e6bef351acd2"
+   "docs/PROJECT-LAYOUT.md": "760e5d610fea",
+   "docs/RISORSE.md": "2efaa037e033",
+   "docs/SCREENSHOTS.md": "e880a1831e45",
+   "docs/api/tools.md": "f1bd002d1338"
   }
  },
  "bml": {
@@ -343,13 +343,13 @@
     "title": "Why a language of bm"
    },
    "2": {
-    "en": "8010822da1d5",
-    "it": "8ee8a3c3aab8",
+    "en": "f802a78aef99",
+    "it": "325be265c68d",
     "title": "Syntax and type rules"
    },
    "3": {
-    "en": "59407fe8ab44",
-    "it": "7d8c0dd977df",
+    "en": "80cf25705452",
+    "it": "47ef03cd28e2",
     "title": "How the compiler works"
    },
    "4": {
@@ -364,10 +364,10 @@
    }
   },
   "sources": {
-   "docs/design/bml-manual.md": "b706c08ba2c9",
-   "docs/progress/typed.md": "530ff2b4b4e2",
+   "docs/design/bml-manual.md": "d4d4d615ff33",
+   "docs/progress/typed.md": "142463925d53",
    "src/bm/bmvm.h": "ba119d71aa28",
-   "tools/bml/bml.py": "30694abd405f"
+   "tools/bml/bml.py": "c3a6cada7afa"
   }
  },
  "boot-os": {
@@ -602,8 +602,8 @@
  "editor-code": {
   "chapters": {
    "1": {
-    "en": "362b2a49a630",
-    "it": "0dbafaf01aee",
+    "en": "4fe06a0d2be5",
+    "it": "ed4d85c1dde9",
     "title": "What bm Code is"
    },
    "10": {
@@ -612,23 +612,23 @@
     "title": "Tips and limits"
    },
    "2": {
-    "en": "1498aacde17a",
-    "it": "5397d948ed19",
+    "en": "6fa001353dc2",
+    "it": "25604cacec9b",
     "title": "Opening and saving"
    },
    "3": {
-    "en": "34a9f87b9d2e",
-    "it": "d85f5169642e",
+    "en": "4a18ac9c62fd",
+    "it": "075320ede936",
     "title": "The screen"
    },
    "4": {
-    "en": "ab16d590fee9",
-    "it": "73f6b20ee50c",
+    "en": "0805b8a2d799",
+    "it": "9a5443f44d76",
     "title": "Editing keys"
    },
    "5": {
-    "en": "488a9d6aab1d",
-    "it": "4223442f9eca",
+    "en": "56b5349a95ef",
+    "it": "13ebf19207dc",
     "title": "Completion and the assistant"
    },
    "6": {
@@ -642,8 +642,8 @@
     "title": "Playing riff with Ctrl+Enter"
    },
    "8": {
-    "en": "6177b545eaa9",
-    "it": "ffa32782c975",
+    "en": "19a42890decb",
+    "it": "1b5d4a053d3b",
     "title": "Running the game and reading errors"
    },
    "9": {
@@ -653,11 +653,11 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "5ea285b394a2",
-   "docs/RISORSE.md": "4b94efc50686",
+   "carts/code/main.lua": "c2a20d7b7590",
+   "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-code.md": "d03fa1579401",
-   "docs/progress/tools.md": "672103c80976",
-   "sdk/README.md": "f82ca797337d"
+   "docs/progress/tools.md": "a4a7fa37fea3",
+   "sdk/README.md": "2a6f102e097a"
   }
  },
  "editor-mesh": {

@@ -43,7 +43,7 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 |---|---|---|---|
 | `i32` | Signed 32-bit integer (2's complement wrap) | `0`, `42`, `0x1234`, `0xFFFFFFFF`, `-2147483648`, `2147483647` | 32-bit general-purpose register (`r0`..`r10`) |
 | `bool` | Strict truth value | `true`, `false` | `1` (`true`) or `0` (`false`) in a 32-bit register |
-| `f32` | IEEE-754 single-precision float | `0.0`, `1.5`, `-0.25` | 32-bit GP slot + VFPv2 coprocessor 10 `s0`..`s1` |
+| `f32` | IEEE-754 single-precision float | `0.0`, `1.5`, `-0.25` | Hardware VFPv2 registers `s0`..`s31` (`vldr`/`vstr`/`vpush`/`vpop`) |
 | `string` | Immutable string and constants in `.rodata` segment | `"text"`, `'text'` | 32-bit pointer in `.rodata` segment (PIC PC-relative, zero relocations) |
 | `i32[]`, `bool[]`, `f32[]` | 1-based typed arrays | `a[i]`, `a[i] = v` | Base pointer in 32-bit register (`ldr`/`str` at `base + (i - 1) * 4`) |
 | `struct Name ... end` | Fixed-layout record | `s.field`, `s.field = v` | Pointer to contiguous 32-bit field words (`offset = field_idx * 4`) |
@@ -85,8 +85,13 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 
 1. `compute_stack_depths()` computes the exact height of the evaluation stack before every instruction.
 2. `BMVMCompiler` maps parameters to `R[0..nparams-1]`, constants to `R[nparams..nparams+nconst-1]`, locals to `R[nparams+nconst..]`, and stack slots `S[k]` above locals, emitting a `BMV1` blob for `src/bm/bmvm.c`.
-3. `ARMv6Compiler` emits 32-bit ARMv6 A32 machine words following the AAPCS ABI (`r0`..`r3` arguments, `r0` return value, `r4`..`r10` callee-saved registers holding the first 7 local/stack slots, and `[fp, #-off]` stack slots for spills).
-4. `compile_native_blob()` (`--native`) packs the `BMN1` module for `src/bm/bmnative.c` (`native_load`, `native_fn`, `native_run`): `bmnative_load` validates the A32 instructions, copies them into 32-byte-aligned executable RAM, cleans the D-cache (`dcache_clean_range`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch target cache (`c7, c5, 6`), and executes `DSB` + `ISB`.
+3. `ARMv6Compiler` and `src/bm/bmlc.c` emit 32-bit ARMv6 A32 + VFPv2 machine words following the AAPCS ABI (`r0`..`r3` arguments, `r0` return value, callee-saved `r4`..`r10` and `s4`..`s31` with minimal frames, rotated `imm12` folding, `mla`/`vmla.f32` fusion, and `[base_m4, idx, lsl #2]` array indexing).
+4. `compile_native_blob()` (`--native`) and `native_compile(src)` pack the `BMN1` module for `src/bm/bmnative.c` (`native_load`, `native_fn`, `native_run`, `native_disasm`): `bmnative_load` validates A32 and CP10 VFPv2 words, copies them into 32-byte-aligned executable RAM, cleans the D-cache (`dcache_clean_range`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch target cache (`c7, c5, 6`), and executes `DSB` + `ISB`.
+
+## Cartridges in `.b`, disassembly, and editors
+
+- **Cartridge section (`BM_SEC_B = 17`, spec revision 7)**: pack `.b` source into a `.bm` or `.bme` with `scripts/mkbm.py --b main.b`. A **100% `.b` cartridge** defines `_init`, `_update`, and `_draw` (each with `()` or `(state: i32[])` backed by a 256-word persistent state buffer). A **hybrid Lua + `.b` cartridge** pairs `--lua` and `--b`: the runtime compiles `main.b` on load and exposes its functions to Lua as `B.<fn>(...)`.
+- **Console disassembler (`native_disasm`)**: `bmnative_disasm_word` decodes ARMv6 A32 and VFPv2 CP10 instructions (`vldr`, `vstr`, `vpush`, `vpop`, `vmov`, `vadd.f32`..`vdiv.f32`, `vmla.f32`, `vmls.f32`, `vcvt`, `vcmp`, `vcmpz`, `vmrs`, indexed `ldr`/`str`, `mla`, rotated immediates and shifts). View it inside **bm Code** (`Ctrl+Shift+D`) or from the serial `code` shell (`shell_code.c`, with `f32` CLI arguments and `f32` return values).
 
 # Practical code examples: BML, C, and ARMv6 ASM
 
