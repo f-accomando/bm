@@ -14,7 +14,7 @@ The CI of `bm-core` was red for more than 100 runs. These tests were removed fro
 - Menu and shell (older than the round tab icons of 6 Nov and the bm shell): `test_console_ansi_and_status`, `test_shell_menu`, `test_home_ui`, `test_sdk_template_pi`, `test_usb_mouse`, `test_bt_mouse_classic`, `test_sd_cartridges`, `test_mouse_cart`, `test_make_image` (it also takes 5 minutes), `test_editor_mouse` (the status line no longer shows `ln 3/`, `col 6`). They read tab names and titles from fixed text rows (`screen_text`) that the new menu does not draw.
 - RGB30 QEMU tests (`tests/rgb30/qemu_test.py`), 21 removed, each red on CI against the new menu (round tab icons, Inter font): `test_bench3d`, `test_bluetooth_page_without_chip`, `test_bm_cartridge`, `test_covers_background`, `test_display_modes`, `test_market_b16`, `test_menu_input_page`, `test_menu_tab_keys`, `test_screen_console`, `test_sdk_layers_b16`, `test_sdk_map3d_roundtrip`, `test_sdk_pad_build`, `test_sdk_pad_code`, `test_sdk_pad_lib`, `test_sdk_pad_map`, `test_sdk_pad_sfx`, `test_sdk_pad_sound`, `test_sdk_pad_sprite`, `test_sound`, `test_wifi_page_without_chip`, `test_y_goes_back`. Not all are menu tests: for `test_sound`, `test_bench3d`, `test_display_modes` and `test_bm_cartridge` the cause is not checked, so a real regression may be hidden. The wait helpers already ignore the tab names (`TAB_NAMES`); the text reader knows the Inter glyphs (`load_font` in `tests/qemu_test.py`).
 - Game: `test_hero` (Hero Stress, the `d` key does not reach `lod=auto`).
-- Not removed, flaky on CI and green locally: `test_code_api`, `test_code_modules`. Also fixed: `make test-spec` (BM_SPEC_REV is 7, spec 8 is the refused one).
+- Removed because they failed at times on CI and passed locally (a key sent before the editor had drawn): `test_code_api`, `test_code_modules`. Also fixed: `make test-spec` (BM_SPEC_REV is 7, spec 8 is the refused one).
 
 ## System, menu and Overbit: tracker (28 Oct 2026)
 Roadmap codes: SYS-21 (native menu layout), SYS-23 (the screen stream), SYS-17 (USB hotplug), SYS-18 (covers), SYS-19 (the shell), SYS-16 (file layout), SYS-15 (remap in the games).
@@ -132,7 +132,7 @@ Decisions of the user, 25 Oct 2026 (`docs/design/kernel8-alignment.md`). Each it
 - `gpu3d_qpu`: make it ON by default on the Pi (ARM fallback) after the 10 minute Yharnam soak of the user.
 - Small leftovers (26 Oct 2026, none blocks the 1.0.0 gate):
   - Add KB entries for `screen_modes`, `_screen`, `lib.view`, `lib.anchor`, `lib.safe_clip`, `lib.fit` in `src/ai/kb/*.txt` and run `make ai-model` (rule in `docs/progress/lua.md`).
-  - Remove `irq_count` and `irq_busy_us` (dead). First make `test_code_modules` robust: it reads the editor status text and fails when the QEMU frame rate is higher.
+  - Remove `irq_count` and `irq_busy_us` (dead). `test_code_modules` was removed from the CI (see the list at the top): put it back first, made robust (it reads the editor status text and fails when the QEMU frame rate is higher).
   - Decide on four support files that only a test or a doc names: `scripts/config_readin.py`, `scripts/make-ca.sh`, `tools/pi_soak.py`, `tools/bm_robot.py`.
   - The Pi menu still scans the root `/`, `/bm` and `/bme`; the user may want the root scan gone.
   - A grey cartridge starts with no question in the text-only Pi menu, the Monitor `play` command and net-play.
