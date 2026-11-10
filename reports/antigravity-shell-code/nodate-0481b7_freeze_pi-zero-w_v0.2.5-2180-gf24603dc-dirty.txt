@@ -1,0 +1,59 @@
+bm report
+kind: freeze
+kernel: v0.2.5-2180-gf24603dc-dirty
+branch: antigravity/shell-code
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-0481b7_freeze_pi-zero-w_v0.2.5-2180-gf24603dc-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: cartoCore firmware does not answer (mailbox, frame 0, 7074 s after boot, kernel v0.2.5-2180-gf24603dc-dirty, ring 160077, sink on
+--- the last lines printed ---
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+s (300 frames)
+menu frame: 1x, a frame averages draw 13043 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12984 us, enlarge 0 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13201 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13116 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13029 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12993 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13181 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13095 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13025 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13073 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13166 us, enlarge 0 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13079 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12996 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13086 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13150 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13062 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13009 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13142 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13135 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13047 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 12961 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13174 us, enlarge 0 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 13110 us, enlarge 0 us, flip 96 us, free time used 38 us (300 frames)
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 20.6 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+fiber: market did not yield: 58.8 ms past its slice
+menu idle: 300/300 frames, 169 of 688 ms taken, 61.2 ms past a frame; market 154 ms (+58.8, stk 2.7/128K); min slack -40221 us, paced 0
+menu idle: sd first word <1ms 36 (max 1.5 ms)
+menu stalls: tls handshake 1x last 220.8 worst 220.8 ms
+menu frame: 1x, a frame averages draw 15119 us, enlarge 0 us, flip 95 us, free time used 565 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: catalog 20261110085354, 28 games
+fiber: market did not yield: 241.4 ms past its slice
+market: cover of psx
+menu idle: 300/300 frames, 1229 of 772 ms taken, 241.7 ms past a frame; market 1217 ms (+241.4, stk 4.0/128K, stop 10.1); min slack -40126 us, paced 0
+menu idle: sd first word <1ms 217 <3ms 5 (max 1.5 ms)
+menu stalls: tls handshake 1x last 170.0 worst 170.0 ms
+menu frame: 1x, a frame averages draw 20603 us, enlarge 0 us, flip 96 us, free time used 4098 us (300 frames)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2004 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+
+playing snes.bm
+play: /bm/snes.
