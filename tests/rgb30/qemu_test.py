@@ -188,12 +188,20 @@ def make_sd(tmp, files, declare=True):
     return out
 
 
+# The menu tabs are round icons since 2026-11-06 (df050a96): their names are not on the screen.
+TAB_NAMES = ("Market", "Games", "Dev", "Settings")
+
+
+def _words(want):
+    return [w for w in want if w not in TAB_NAMES]
+
+
 def wait_screen(q, want, tries=80):
     """Poll the screen until all the words of `want` are on it (the menu's row must be there BEFORE Enter)."""
     text = ""
     for _ in range(tries):
         text = screen_all(q.screendump())
-        if all(w in text for w in want):
+        if all(w in text for w in _words(want)):
             return text
         time.sleep(0.25)
     raise AssertionError(f"want {want} on the screen:\n{text}")
@@ -211,7 +219,7 @@ def press(q, k, want, tries=6, wait=6.0):
         end = time.time() + wait
         while time.time() < end:
             text = screen_all(q.screendump())
-            if all(w in text for w in want):
+            if all(w in text for w in _words(want)):
                 return text
             time.sleep(0.25)
     raise AssertionError(f"key {k!r}: {want} never came on the screen:\n{text}")
@@ -1244,7 +1252,7 @@ def test_market_b16(b, opts):
     def screen(want, gone=(), tries=40):
         for _ in range(tries):
             text = screen_all(q.screendump())
-            if all(w in text for w in want) and not any(g in text for g in gone):
+            if all(w in text for w in _words(want)) and not any(g in text for g in gone):
                 return text
             time.sleep(0.2)
         raise AssertionError(f"want {want}, not {gone}, on the screen:\n{text}")
@@ -1342,7 +1350,7 @@ def test_game_send(b, opts):
     def screen(want, tries=80):
         for _ in range(tries):
             text = screen_all(q.screendump())
-            if all(w in text for w in want):
+            if all(w in text for w in _words(want)):
                 return text
             time.sleep(0.25)
         raise AssertionError(f"want {want} on the screen:\n{text}")
@@ -1400,7 +1408,7 @@ def sdk_session(b, tmp, files=None):
 def sdk_screen(q, want, tries=80):
     for _ in range(tries):
         text = screen_all(q.screendump())
-        if all(w in text for w in want):
+        if all(w in text for w in _words(want)):
             return text
         time.sleep(0.25)
     raise AssertionError(f"want {want} on the screen:\n{text}")

@@ -94,7 +94,8 @@ def studio3d(sd, kit):
     wall = [t for t in tris if t not in red and t not in block]
     check(len(tris) == 16 and len(block) == 12 and len(red) == 2 and len(wall) == 2,
           f"a block, a red floor tile, a wall tile: {len(block)}, {len(red)}, {len(wall)} of {len(tris)} triangles")
-    grass = all(t[4] == (0.0, 16.0, 0.0, 0.0, 16.0, 0.0) or t[4] == (0.0, 16.0, 16.0, 0.0, 16.0, 16.0)
+    # the two triangles of a square cut it along either diagonal: only the corners of the tile (0, 0, 16, 16) count
+    grass = all(set(t[4]) <= {0.0, 16.0} and len(set(zip(t[4][0::2], t[4][1::2]))) == 3
                 for t in block + wall)
     check(grass, "the block and the wall tile: the grass tile (0, 0, 16, 16)")
     out = all(sum(n * (c - 0.5) for n, c in zip(normal(v, t), centre(v, t))) > 0 for t in block)

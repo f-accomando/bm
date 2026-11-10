@@ -361,7 +361,7 @@ function _draw() S:draw() end
 | `M:update()` | up and down (repeating) move, skipping the `off` items, left and right call `change`, ok chooses (`ok(item)`; it returns the item and `"ok"`), back returns `nil, "back"` |
 | `M:draw(x, y, [opt])` | the rows from `x, y`: `w` (width: the values on the right), `c`, `sel_c`, `bar`, `dim`, `scale`, `gap` |
 | `lib.pause([opt])` | the **pause menu** every game had: Start (Esc) opens it when `opt.when()` is true (always if missing); RESUME, VOLUME (the console's: left and right), the rows of `opt.rows`, QUIT (`opt.quit()`, if given). `opt.color`, `opt.title`, `opt.scale` |
-| `P:update()` / `P:draw()` | in `_update`: `if pause:update() then return end` (while it is open the game stands still); in `_draw`, after the game |
+| `pause:update()` / `pause:draw()` | in `_update`: `if pause:update() then return end` (while it is open the game stands still); in `_draw`, after the game |
 
 ```lua
 local pause = lib.pause({ when = function() return S:is("play") end,
