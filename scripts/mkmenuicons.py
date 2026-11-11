@@ -77,10 +77,16 @@ def cable(pen):
 
 def market(pen):
     c = DISCS["market"] + (255,)
-    pen.rect(56, 36, 136, 156, 9, WHITE, corners=(True, True, True, False))        # slightly rounded; the bottom-left is cut
-    pen.poly([(56, 124), (56, 157), (89, 157)], c)                                  # the cut: the disc shows through
-    pen.poly([(56, 124), (88, 156), (56, 156)], c)
-    pen.poly([(80, 112), (112, 112), (96, 130)], c)                                 # the arrow of the card
+    x0, y0, x1, y1, cut, r = 52, 30, 140, 162, 38, 10
+    # the card: the top corners and the bottom-right corner rounded a little, the bottom-left corner cut
+    pts = [(x0, y0 + r), (x0 + r, y0), (x1 - r, y0), (x1, y0 + r), (x1, y1 - r), (x1 - r, y1), (x0 + cut, y1), (x0, y1 - cut)]
+    pen.poly(pts, WHITE)
+    for cx, cy in ((x0 + r, y0 + r), (x1 - r, y0 + r), (x1 - r, y1 - r)):
+        pen.circle(cx, cy, r, WHITE)
+    pen.rect(x0, y0 + r, x1, y1 - r, 0, WHITE)
+    pen.rect(x0 + r, y0, x1 - r, y1, 0, WHITE)
+    pen.poly([(x0, y1 - cut), (x0 + cut, y1), (x0, y1)], c)                         # the cut: the disc shows through
+    pen.poly([(76, 98), (116, 98), (96, 124)], c)                                   # the arrow of the card
 
 
 def nes(pen):
@@ -154,12 +160,15 @@ def settings(pen):
     for i in range(8):
         a = i * math.pi / 4
         c, s = math.cos(a), math.sin(a)
-        hw, r0, r1 = 11, 40, 64
-        pts = [(cx + c * r0 - s * hw, cy + s * r0 + c * hw), (cx + c * r1 - s * (hw - 2), cy + s * r1 + c * (hw - 2)),
-               (cx + c * r1 + s * (hw - 2), cy + s * r1 - c * (hw - 2)), (cx + c * r0 + s * hw, cy + s * r0 - c * hw)]
-        pen.poly(pts, WHITE)
-    pen.circle(cx, cy, 50, WHITE)
-    pen.circle(cx, cy, 22, DISCS["settings"] + (255,))
+        hw0, hw1, r0, r1 = 17, 12, 40, 70
+        def pt(r, h):
+            return (cx + c * r - s * h, cy + s * r + c * h)
+        pen.poly([pt(r0, hw0), pt(r1, hw1), pt(r1, -hw1), pt(r0, -hw0)], WHITE)
+        for h in (hw1 - 4, -(hw1 - 4)):                                             # round the outer corners
+            x, y = pt(r1 - 4, h)
+            pen.circle(x, y, 4, WHITE)
+    pen.circle(cx, cy, 54, WHITE)
+    pen.circle(cx, cy, 27, DISCS["settings"] + (255,))
 
 
 GLYPHS = {"market": market, "nes": nes, "snes": snes, "psx": psx, "bm": bm, "settings": settings}
