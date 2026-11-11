@@ -29,7 +29,7 @@ CPU and bus alone: 2.98 ms (35% of the measured frame). A drawn frame has the PP
 
 ## G1: the parts of the PPU (fifth Pi Zero W play, Super Castlevania IV, kernel v0.3.0-18, 96 log lines)
 
-Only these ROMs count (the others are not tuned for the SNES core yet). Each part is the mean for a drawn frame, in ms, with the cost of the timer reads taken off; the line holds the ROM (`rom=`) and the scene (`scn=` mode/main layers/sub layers). The median of 92 lines with a drawn frame: PPU 9.06 ms, and the five parts add up to it.
+The ROM of reference is Super Mario World (the next table); Super Castlevania IV is kept to compare (it is not tuned for the SNES core yet). Each part is the mean for a drawn frame, in ms, with the cost of the timer reads taken off; the line holds the ROM (`rom=`) and the scene (`scn=` mode/main layers/sub layers). The median of 92 lines with a drawn frame: PPU 9.06 ms, and the five parts add up to it.
 
 | Scene (`scn`) | Lines | PPU | bg | obj | win | comp | mix | CPU | HDMA |
 |---|---|---|---|---|---|---|---|---|---|
@@ -39,3 +39,17 @@ Only these ROMs count (the others are not tuned for the SNES core yet). Each par
 | Mode 1 with colour math and HDMA (`m1/17/36`) | 2 | 10.4 | 4.2 | 1.5 | 0.1 | 2.1 | 2.4 | 4.0 | 0.07 |
 
 Reading: in the plain scene the layers (`draw_bg`) are 47% of the PPU time, the priority list (`comp`) 25%, the sprites 17%. Colour math (`mix`) is small (0.7 ms) until the sub screen blends (2.4 to 2.9 ms). Mode 7 costs as much as Mode 1, and its CPU part is twice as large (6.6 ms against 3.4 ms): a Mode 7 scene is limited by the CPU as much as by the PPU. The controller held `pic` 1/2 (69 lines) and 1/3 (24); 5 lines had fps under 55. Open: the same table for Super Mario World.
+
+## G1: Super Mario World (sixth Pi Zero W play, kernel v0.3.0-18, 110 log lines, `rom=smw.sfc`)
+
+Median of the 109 lines with a drawn frame, in ms: PPU 8.88, CPU and bus 3.29, sound 1.61, HDMA 0.001, 60 fps. `pic` 1/2 in 93 lines, 1/3 in 15, 1/1 in 2; 3 lines under 55 fps. The scene is the same in 108 lines (`m1/15/02`: Mode 1, layers and sprites on the main screen, BG2 on the sub screen), so the colour math blends with the sub screen all the time.
+
+| Part | Median (ms) | Share |
+|---|---|---|
+| bg (layers) | 3.79 | 43% |
+| mix (colour math, line write) | 2.59 | 29% |
+| obj (sprites) | 1.51 | 17% |
+| comp (priority list) | 0.94 | 11% |
+| win (windows) | 0.11 | 1% |
+
+Reading: in SMW the layers and the mix are 72% of the PPU time; `mix` is 2.6 ms in every line because the sub screen is on. The priority list is small (0.9 ms; 2.3 ms in Super Castlevania IV). G6 (colour math in a shader) pays more here than in SC4; G5 (layers) pays in both. The level with a parallax background (the second level) shows the same scene code, so the layers cost 3.8 ms with or without it. Open: Mode 7 and HDMA scenes of SMW (the bosses of the castles).
