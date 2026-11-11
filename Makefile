@@ -369,6 +369,21 @@ test-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$<
 bench-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$< bench
+# The assembly loop of the CPU (snes_cpu_arm.S) on an ARM1176 in QEMU (needs qemu-system-arm and arm-none-eabi-gcc): the golden hashes, and one random instruction
+# at a time against the C reference (tests/snes/cpu_diff.c). The PC build does not use the assembly.
+SNES_ARM_CC := arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -mfloat-abi=soft -O2 -std=gnu11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Isrc/bm -Itests/snes -w
+SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c tests/snes/arm_mmu.c
+SNES_ARM_REF := -DSNES_CPU_C -Dcpu_run=ref_run -Dcpu_step=ref_step -Dcpu_reset=ref_reset -Dcpu_get=ref_get -Dcpu_set=ref_set -Dcpu_info=ref_info -Dcpu_waiting=ref_waiting -Dcpu_stopped=ref_stopped
+SNES_ARM_RUN := qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel
+test-snes-cpu-arm: tests/snes/cpu_golden_arm.c tests/snes/cpu_diff.c src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
+	@mkdir -p $(BUILD)/arm
+	$(SNES_ARM_CC) $(SNES_ARM_REF) -c src/bm/snes_cpu.c -o $(BUILD)/arm/ref.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/golden.elf tests/snes/cpu_golden_arm.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/diff.elf tests/snes/cpu_diff.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ref.o $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	$(SNES_ARM_RUN) $(BUILD)/arm/golden.elf | tee $(BUILD)/arm/golden.out | tail -3; grep -q 'cpu golden arm: ok' $(BUILD)/arm/golden.out
+	$(SNES_ARM_RUN) $(BUILD)/arm/diff.elf | tee $(BUILD)/arm/diff.out | tail -3; grep -q ': ok' $(BUILD)/arm/diff.out
 # The S-DSP on random voices, against the hashes of the code before the speed work (tests/snes/dsp_golden.c).
 $(BUILD)/host/snes_dsp_golden: tests/snes/dsp_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host

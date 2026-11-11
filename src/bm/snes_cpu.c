@@ -10,6 +10,12 @@
  */
 #include "snes_int.h"
 
+/* On the ARMv6 console (Pi Zero W, Pi One) the hot opcodes run in assembly (snes_cpu_arm.S) and the others come back here (exec_op, out of line).
+ * The C loop below is the reference and runs on the PC, on the RGB30 (AArch64) and with -DSNES_CPU_C: the golden test must give the same hashes. */
+#if defined(__arm__) && !defined(__aarch64__) && !defined(SNES_CPU_C)
+#define SNES_CPU_ASM 1
+#endif
+
 #define AI static inline __attribute__((always_inline))
 
 typedef struct {
@@ -19,6 +25,7 @@ typedef struct {
     unsigned m:1, xf:1, dec:1, i:1, e:1;/* the flags M, X, D, I and the emulation bit: changed seldom, packed in one word (xf is X, dec is D) */
     int clk;                            /* the master clock while cpu_run works */
 } cpu_t;
+_Static_assert(__builtin_offsetof(cpu_t, db) == 12 && __builtin_offsetof(cpu_t, pb) == 16 && __builtin_offsetof(cpu_t, n) == 20 && __builtin_offsetof(cpu_t, clk) == 40, "cpu_t layout is used by snes_cpu_arm.S");
 
 static cpu_t C = { .m = 1, .xf = 1, .i = 1, .e = 1 };
 int cpu_waiting, cpu_stopped;
@@ -115,6 +122,17 @@ void cpu_get(cpu_regs_t *r)
     cpu_t *cu = &C;
     r->a = cu->a; r->x = cu->x; r->y = cu->y; r->s = cu->s; r->d = cu->d; r->pc = cu->pc; r->p = getP(cu); r->e = cu->e;
     r->pb = (uint8_t)(cu->pb >> 16); r->db = (uint8_t)(cu->db >> 16);
+}
+
+/* for the tests: set the registers (the flag P as setP does: emulation mode forces M and X) */
+void cpu_set(const cpu_regs_t *r)
+{
+    cpu_t *cu = &C;
+    cu->a = r->a; cu->x = r->x; cu->y = r->y; cu->s = r->s; cu->d = r->d; cu->pc = r->pc;
+    cu->e = r->e != 0;
+    cu->pb = (uint32_t)r->pb << 16; cu->db = (uint32_t)r->db << 16;
+    setP(cu, r->p);
+    cpu_waiting = cpu_stopped = 0;
 }
 
 void cpu_info(uint32_t *pc, int *flags)
@@ -290,44 +308,31 @@ enum { M_INDX, M_DP, M_ABS, M_INDY, M_DPX, M_ABSY, M_ABSX, M_DPY, M_IND, M_SR, M
 enum { K_SH = 8, K_TSB = 14, K_TRB, K_BIT, K_LDY, K_LDX, K_STY, K_STX, K_STZ, K_CPX, K_CPY };   /* kinds 0..7 are the ALU operations (aaa) */
 #define MEM(m, k) do { mode = (m); kind = (k); goto mem; } while (0)
 
-int cpu_run(int limit)
+/* one instruction after its opcode is fetched: the C loop inlines it; the assembly loop (snes_cpu_arm.S) calls it out of line for the opcodes it does not do itself */
+#ifdef SNES_CPU_ASM
+#define EXEC __attribute__((noinline, section(".text.snes_cpu_cold")))
+#else
+#define EXEC AI
+#endif
+EXEC void exec_op(cpu_t *cu, uint8_t op)
 {
-    cpu_t c = C, *cu = &c;
-    int n = 0;
-    cu->clk = snes_clk;
-    while (cu->clk < limit) {
-        n++;
-        S.line_clk = cu->clk;                       /* the slow bus reads the position in the line (the H and V counters) */
-        if (S.nmi_pending || (S.irq_pending && !cu->i)) {
-            uint16_t ivn = 0xFFEE, ive = 0xFFFE;
-            if (S.nmi_pending) { S.nmi_pending = 0; ivn = 0xFFEA; ive = 0xFFFA; }
-            interrupt(cu, ivn, ive, 0);
-        }
-    if (cpu_waiting) {
-        if (S.irq_pending) cpu_waiting = 0;       /* an IRQ wakes WAI even when I is set */
-        else { cu->clk += 8; continue; }
-    }
-    if (cpu_stopped) { cu->clk += 8; continue; }
-
-    cu->clk += 6;                                  /* the internal cycle of an instruction (on average) */
-    const uint8_t op = fetch8(cu);
     uint32_t a;
     uint16_t v;
     int kind, mode;
     switch (op) {
-    case 0x89: bit(cu, fetchM(cu), 1); continue;
+    case 0x89: bit(cu, fetchM(cu), 1); return;
     /* the operations on a memory operand: the opcode gives a mode and a kind, the address and the operation are computed once, below */
-    case 0x06: MEM(M_DP, K_SH + 0);   case 0x0A: accshift(cu, 0); continue;   case 0x0E: MEM(M_ABS, K_SH + 0);
+    case 0x06: MEM(M_DP, K_SH + 0);   case 0x0A: accshift(cu, 0); return;   case 0x0E: MEM(M_ABS, K_SH + 0);
     case 0x16: MEM(M_DPX, K_SH + 0);  case 0x1E: MEM(M_ABSX, K_SH + 0);
-    case 0x46: MEM(M_DP, K_SH + 1);   case 0x4A: accshift(cu, 1); continue;   case 0x4E: MEM(M_ABS, K_SH + 1);
+    case 0x46: MEM(M_DP, K_SH + 1);   case 0x4A: accshift(cu, 1); return;   case 0x4E: MEM(M_ABS, K_SH + 1);
     case 0x56: MEM(M_DPX, K_SH + 1);  case 0x5E: MEM(M_ABSX, K_SH + 1);
-    case 0x26: MEM(M_DP, K_SH + 2);   case 0x2A: accshift(cu, 2); continue;   case 0x2E: MEM(M_ABS, K_SH + 2);
+    case 0x26: MEM(M_DP, K_SH + 2);   case 0x2A: accshift(cu, 2); return;   case 0x2E: MEM(M_ABS, K_SH + 2);
     case 0x36: MEM(M_DPX, K_SH + 2);  case 0x3E: MEM(M_ABSX, K_SH + 2);
-    case 0x66: MEM(M_DP, K_SH + 3);   case 0x6A: accshift(cu, 3); continue;   case 0x6E: MEM(M_ABS, K_SH + 3);
+    case 0x66: MEM(M_DP, K_SH + 3);   case 0x6A: accshift(cu, 3); return;   case 0x6E: MEM(M_ABS, K_SH + 3);
     case 0x76: MEM(M_DPX, K_SH + 3);  case 0x7E: MEM(M_ABSX, K_SH + 3);
-    case 0xE6: MEM(M_DP, K_SH + 4);   case 0x1A: accshift(cu, 4); continue;   case 0xEE: MEM(M_ABS, K_SH + 4);
+    case 0xE6: MEM(M_DP, K_SH + 4);   case 0x1A: accshift(cu, 4); return;   case 0xEE: MEM(M_ABS, K_SH + 4);
     case 0xF6: MEM(M_DPX, K_SH + 4);  case 0xFE: MEM(M_ABSX, K_SH + 4);
-    case 0xC6: MEM(M_DP, K_SH + 5);   case 0x3A: accshift(cu, 5); continue;   case 0xCE: MEM(M_ABS, K_SH + 5);
+    case 0xC6: MEM(M_DP, K_SH + 5);   case 0x3A: accshift(cu, 5); return;   case 0xCE: MEM(M_ABS, K_SH + 5);
     case 0xD6: MEM(M_DPX, K_SH + 5);  case 0xDE: MEM(M_ABSX, K_SH + 5);
     case 0x04: MEM(M_DP, K_TSB);
     case 0x0C: MEM(M_ABS, K_TSB);
@@ -359,84 +364,84 @@ int cpu_run(int limit)
     case 0xEC: MEM(M_ABS, K_CPX);
     case 0xC4: MEM(M_DP, K_CPY);
     case 0xCC: MEM(M_ABS, K_CPY);
-    case 0xA0: v = fetchX(cu); cu->y = v; NZX(v); continue;
-    case 0xA2: v = fetchX(cu); cu->x = v; NZX(v); continue;
-    case 0xE0: v = fetchX(cu); do_cmp(cu, cu->x, v, cu->xf); continue;
-    case 0xC0: v = fetchX(cu); do_cmp(cu, cu->y, v, cu->xf); continue;
-    case 0xE8: if (cu->xf) { cu->x = (cu->x + 1) & 0xFF; nz8(cu, (uint8_t)cu->x); } else { cu->x++; nz16(cu, cu->x); } continue;
-    case 0xC8: if (cu->xf) { cu->y = (cu->y + 1) & 0xFF; nz8(cu, (uint8_t)cu->y); } else { cu->y++; nz16(cu, cu->y); } continue;
-    case 0xCA: if (cu->xf) { cu->x = (cu->x - 1) & 0xFF; nz8(cu, (uint8_t)cu->x); } else { cu->x--; nz16(cu, cu->x); } continue;
-    case 0x88: if (cu->xf) { cu->y = (cu->y - 1) & 0xFF; nz8(cu, (uint8_t)cu->y); } else { cu->y--; nz16(cu, cu->y); } continue;
+    case 0xA0: v = fetchX(cu); cu->y = v; NZX(v); return;
+    case 0xA2: v = fetchX(cu); cu->x = v; NZX(v); return;
+    case 0xE0: v = fetchX(cu); do_cmp(cu, cu->x, v, cu->xf); return;
+    case 0xC0: v = fetchX(cu); do_cmp(cu, cu->y, v, cu->xf); return;
+    case 0xE8: if (cu->xf) { cu->x = (cu->x + 1) & 0xFF; nz8(cu, (uint8_t)cu->x); } else { cu->x++; nz16(cu, cu->x); } return;
+    case 0xC8: if (cu->xf) { cu->y = (cu->y + 1) & 0xFF; nz8(cu, (uint8_t)cu->y); } else { cu->y++; nz16(cu, cu->y); } return;
+    case 0xCA: if (cu->xf) { cu->x = (cu->x - 1) & 0xFF; nz8(cu, (uint8_t)cu->x); } else { cu->x--; nz16(cu, cu->x); } return;
+    case 0x88: if (cu->xf) { cu->y = (cu->y - 1) & 0xFF; nz8(cu, (uint8_t)cu->y); } else { cu->y--; nz16(cu, cu->y); } return;
     /* transfers */
-    case 0xAA: cu->x = setXY(cu, cu->a); continue;
-    case 0xA8: cu->y = setXY(cu, cu->a); continue;
-    case 0x9B: cu->y = setXY(cu, cu->x); continue;
-    case 0xBB: cu->x = setXY(cu, cu->y); continue;
-    case 0xBA: cu->x = setXY(cu, cu->s); continue;
-    case 0x8A: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->x & 0xFF); nz8(cu, (uint8_t)cu->x); } else { cu->a = cu->x; nz16(cu, cu->a); } continue;
-    case 0x98: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->y & 0xFF); nz8(cu, (uint8_t)cu->y); } else { cu->a = cu->y; nz16(cu, cu->a); } continue;
-    case 0x9A: cu->s = cu->e ? (uint16_t)(0x100 | (cu->x & 0xFF)) : cu->x; continue;
-    case 0x1B: cu->s = cu->e ? (uint16_t)(0x100 | (cu->a & 0xFF)) : cu->a; continue;
-    case 0x3B: cu->a = cu->s; nz16(cu, cu->a); continue;
-    case 0x5B: cu->d = cu->a; nz16(cu, cu->d); continue;
-    case 0x7B: cu->a = cu->d; nz16(cu, cu->a); continue;
-    case 0xEB: cu->a = (uint16_t)((cu->a << 8) | (cu->a >> 8)); nz8(cu, (uint8_t)cu->a); continue;
+    case 0xAA: cu->x = setXY(cu, cu->a); return;
+    case 0xA8: cu->y = setXY(cu, cu->a); return;
+    case 0x9B: cu->y = setXY(cu, cu->x); return;
+    case 0xBB: cu->x = setXY(cu, cu->y); return;
+    case 0xBA: cu->x = setXY(cu, cu->s); return;
+    case 0x8A: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->x & 0xFF); nz8(cu, (uint8_t)cu->x); } else { cu->a = cu->x; nz16(cu, cu->a); } return;
+    case 0x98: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->y & 0xFF); nz8(cu, (uint8_t)cu->y); } else { cu->a = cu->y; nz16(cu, cu->a); } return;
+    case 0x9A: cu->s = cu->e ? (uint16_t)(0x100 | (cu->x & 0xFF)) : cu->x; return;
+    case 0x1B: cu->s = cu->e ? (uint16_t)(0x100 | (cu->a & 0xFF)) : cu->a; return;
+    case 0x3B: cu->a = cu->s; nz16(cu, cu->a); return;
+    case 0x5B: cu->d = cu->a; nz16(cu, cu->d); return;
+    case 0x7B: cu->a = cu->d; nz16(cu, cu->a); return;
+    case 0xEB: cu->a = (uint16_t)((cu->a << 8) | (cu->a >> 8)); nz8(cu, (uint8_t)cu->a); return;
     /* the stack */
-    case 0x48: if (cu->m) push8(cu, (uint8_t)cu->a); else push16(cu, cu->a); continue;
-    case 0x68: if (cu->m) { uint8_t b = pull8(cu); cu->a = (cu->a & 0xFF00) | b; nz8(cu, b); } else { cu->a = pull16(cu); nz16(cu, cu->a); } continue;
-    case 0xDA: if (cu->xf) push8(cu, (uint8_t)cu->x); else push16(cu, cu->x); continue;
-    case 0x5A: if (cu->xf) push8(cu, (uint8_t)cu->y); else push16(cu, cu->y); continue;
-    case 0xFA: if (cu->xf) { cu->x = pull8(cu); nz8(cu, (uint8_t)cu->x); } else { cu->x = pull16(cu); nz16(cu, cu->x); } continue;
-    case 0x7A: if (cu->xf) { cu->y = pull8(cu); nz8(cu, (uint8_t)cu->y); } else { cu->y = pull16(cu); nz16(cu, cu->y); } continue;
-    case 0x08: push8(cu, getP(cu)); continue;
-    case 0x28: setP(cu, pull8(cu)); continue;
-    case 0x0B: push16(cu, cu->d); continue;
-    case 0x2B: cu->d = pull16(cu); nz16(cu, cu->d); continue;
-    case 0x8B: push8(cu, (uint8_t)(cu->db >> 16)); continue;
-    case 0xAB: { uint8_t b = pull8(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); continue; }
-    case 0x4B: push8(cu, (uint8_t)(cu->pb >> 16)); continue;
-    case 0xF4: push16(cu, fetch16(cu)); continue;
-    case 0xD4: push16(cu, rd16b0(cu, DPA(fetch8(cu)))); continue;
-    case 0x62: { uint16_t o = fetch16(cu); push16(cu, (uint16_t)(cu->pc + o)); continue; }
+    case 0x48: if (cu->m) push8(cu, (uint8_t)cu->a); else push16(cu, cu->a); return;
+    case 0x68: if (cu->m) { uint8_t b = pull8(cu); cu->a = (cu->a & 0xFF00) | b; nz8(cu, b); } else { cu->a = pull16(cu); nz16(cu, cu->a); } return;
+    case 0xDA: if (cu->xf) push8(cu, (uint8_t)cu->x); else push16(cu, cu->x); return;
+    case 0x5A: if (cu->xf) push8(cu, (uint8_t)cu->y); else push16(cu, cu->y); return;
+    case 0xFA: if (cu->xf) { cu->x = pull8(cu); nz8(cu, (uint8_t)cu->x); } else { cu->x = pull16(cu); nz16(cu, cu->x); } return;
+    case 0x7A: if (cu->xf) { cu->y = pull8(cu); nz8(cu, (uint8_t)cu->y); } else { cu->y = pull16(cu); nz16(cu, cu->y); } return;
+    case 0x08: push8(cu, getP(cu)); return;
+    case 0x28: setP(cu, pull8(cu)); return;
+    case 0x0B: push16(cu, cu->d); return;
+    case 0x2B: cu->d = pull16(cu); nz16(cu, cu->d); return;
+    case 0x8B: push8(cu, (uint8_t)(cu->db >> 16)); return;
+    case 0xAB: { uint8_t b = pull8(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); return; }
+    case 0x4B: push8(cu, (uint8_t)(cu->pb >> 16)); return;
+    case 0xF4: push16(cu, fetch16(cu)); return;
+    case 0xD4: push16(cu, rd16b0(cu, DPA(fetch8(cu)))); return;
+    case 0x62: { uint16_t o = fetch16(cu); push16(cu, (uint16_t)(cu->pc + o)); return; }
     /* flags */
-    case 0x18: cu->cf = 0; continue;
-    case 0x38: cu->cf = 1; continue;
-    case 0x58: cu->i = 0; continue;
-    case 0x78: cu->i = 1; continue;
-    case 0xB8: cu->v = 0; continue;
-    case 0xD8: cu->dec = 0; continue;
-    case 0xF8: cu->dec = 1; continue;
-    case 0xC2: setP(cu, (uint8_t)(getP(cu) & ~fetch8(cu))); continue;
-    case 0xE2: setP(cu, (uint8_t)(getP(cu) | fetch8(cu))); continue;
-    case 0xFB: { int e = cu->e; cu->e = cu->cf; cu->cf = e; if (cu->e) { cu->m = cu->xf = 1; cu->x &= 0xFF; cu->y &= 0xFF; cu->s = 0x100 | (cu->s & 0xFF); } continue; }
-    case 0xEA: continue;
-    case 0x42: fetch8(cu); continue;
-    case 0xCB: cpu_waiting = 1; continue;
-    case 0xDB: cpu_stopped = 1; continue;
-    case 0x00: fetch8(cu); interrupt(cu, 0xFFE6, 0xFFFE, 1); continue;
-    case 0x02: fetch8(cu); interrupt(cu, 0xFFE4, 0xFFF4, 1); continue;
+    case 0x18: cu->cf = 0; return;
+    case 0x38: cu->cf = 1; return;
+    case 0x58: cu->i = 0; return;
+    case 0x78: cu->i = 1; return;
+    case 0xB8: cu->v = 0; return;
+    case 0xD8: cu->dec = 0; return;
+    case 0xF8: cu->dec = 1; return;
+    case 0xC2: setP(cu, (uint8_t)(getP(cu) & ~fetch8(cu))); return;
+    case 0xE2: setP(cu, (uint8_t)(getP(cu) | fetch8(cu))); return;
+    case 0xFB: { int e = cu->e; cu->e = cu->cf; cu->cf = e; if (cu->e) { cu->m = cu->xf = 1; cu->x &= 0xFF; cu->y &= 0xFF; cu->s = 0x100 | (cu->s & 0xFF); } return; }
+    case 0xEA: return;
+    case 0x42: fetch8(cu); return;
+    case 0xCB: cpu_waiting = 1; return;
+    case 0xDB: cpu_stopped = 1; return;
+    case 0x00: fetch8(cu); interrupt(cu, 0xFFE6, 0xFFFE, 1); return;
+    case 0x02: fetch8(cu); interrupt(cu, 0xFFE4, 0xFFF4, 1); return;
     /* branches and jumps */
-    case 0x10: branch(cu, !cu->n); continue;
-    case 0x30: branch(cu, cu->n); continue;
-    case 0x50: branch(cu, !cu->v); continue;
-    case 0x70: branch(cu, cu->v); continue;
-    case 0x90: branch(cu, !cu->cf); continue;
-    case 0xB0: branch(cu, cu->cf); continue;
-    case 0xD0: branch(cu, !cu->z); continue;
-    case 0xF0: branch(cu, cu->z); continue;
-    case 0x80: branch(cu, 1); continue;
-    case 0x82: { uint16_t o = fetch16(cu); cu->pc = (uint16_t)(cu->pc + o); continue; }
-    case 0x4C: cu->pc = fetch16(cu); continue;
-    case 0x5C: a = fetch24(cu); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; continue;
-    case 0x6C: cu->pc = rd16b0(cu, fetch16(cu)); continue;
-    case 0x7C: cu->pc = rd16(cu, cu->pb | (uint16_t)(fetch16(cu) + cu->x)); continue;
-    case 0xDC: { uint16_t p = fetch16(cu); a = rd16b0(cu, p) | ((uint32_t)rd8(cu, (uint16_t)(p + 2)) << 16); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; continue; }
-    case 0x20: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = t; continue; }
-    case 0xFC: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = rd16(cu, cu->pb | (uint16_t)(t + cu->x)); continue; }
-    case 0x22: a = fetch24(cu); push8(cu, (uint8_t)(cu->pb >> 16)); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; continue;
-    case 0x60: cu->pc = (uint16_t)(pull16(cu) + 1); continue;
-    case 0x6B: cu->pc = (uint16_t)(pull16(cu) + 1); cu->pb = (uint32_t)pull8(cu) << 16; continue;
-    case 0x40: setP(cu, pull8(cu)); cu->pc = pull16(cu); if (!cu->e) cu->pb = (uint32_t)pull8(cu) << 16; continue;
+    case 0x10: branch(cu, !cu->n); return;
+    case 0x30: branch(cu, cu->n); return;
+    case 0x50: branch(cu, !cu->v); return;
+    case 0x70: branch(cu, cu->v); return;
+    case 0x90: branch(cu, !cu->cf); return;
+    case 0xB0: branch(cu, cu->cf); return;
+    case 0xD0: branch(cu, !cu->z); return;
+    case 0xF0: branch(cu, cu->z); return;
+    case 0x80: branch(cu, 1); return;
+    case 0x82: { uint16_t o = fetch16(cu); cu->pc = (uint16_t)(cu->pc + o); return; }
+    case 0x4C: cu->pc = fetch16(cu); return;
+    case 0x5C: a = fetch24(cu); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return;
+    case 0x6C: cu->pc = rd16b0(cu, fetch16(cu)); return;
+    case 0x7C: cu->pc = rd16(cu, cu->pb | (uint16_t)(fetch16(cu) + cu->x)); return;
+    case 0xDC: { uint16_t p = fetch16(cu); a = rd16b0(cu, p) | ((uint32_t)rd8(cu, (uint16_t)(p + 2)) << 16); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return; }
+    case 0x20: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = t; return; }
+    case 0xFC: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = rd16(cu, cu->pb | (uint16_t)(t + cu->x)); return; }
+    case 0x22: a = fetch24(cu); push8(cu, (uint8_t)(cu->pb >> 16)); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return;
+    case 0x60: cu->pc = (uint16_t)(pull16(cu) + 1); return;
+    case 0x6B: cu->pc = (uint16_t)(pull16(cu) + 1); cu->pb = (uint32_t)pull8(cu) << 16; return;
+    case 0x40: setP(cu, pull8(cu)); cu->pc = pull16(cu); if (!cu->e) cu->pb = (uint32_t)pull8(cu) << 16; return;
     case 0x54: case 0x44: {
         int dir = op == 0x54 ? 1 : -1;
         uint8_t db = fetch8(cu), sb = fetch8(cu);
@@ -446,7 +451,7 @@ int cpu_run(int limit)
         cu->db = (uint32_t)db << 16;
         cu->clk += 12;
         if (cu->a != 0xFFFF) cu->pc -= 3;
-        continue;
+        return;
     }
     default: break;
     }
@@ -457,11 +462,11 @@ int cpu_run(int limit)
         const int aaa = op >> 5, bbb = (op >> 2) & 7;
         kind = aaa;
         if ((op & 3) == 1) {
-            if (bbb == 2) { if (aaa == 4) continue; v = fetchM(cu); goto do_alu; }
+            if (bbb == 2) { if (aaa == 4) return; v = fetchM(cu); goto do_alu; }
             mode = m01[bbb];
         } else if ((op & 0x1F) == 0x12) mode = M_IND;
         else if ((op & 3) == 3) mode = m11[bbb];
-        else continue;
+        else return;
     }
 mem:
     switch (mode) {
@@ -482,11 +487,11 @@ mem:
     default: a = a_longx(cu); break;
     }
     if (kind < 8) {
-        if (kind == 4) { writeM(cu, a, cu->a); continue; }
+        if (kind == 4) { writeM(cu, a, cu->a); return; }
         v = readM(cu, a);
     do_alu:
         alu(cu, kind, v);
-        continue;
+        return;
     }
     switch (kind) {
     case K_SH: case K_SH + 1: case K_SH + 2: case K_SH + 3: case K_SH + 4: case K_SH + 5: rmw(cu, a, kind - K_SH); break;
@@ -502,9 +507,89 @@ mem:
     default: v = readX(cu, a); do_cmp(cu, cu->y, v, cu->xf); break;      /* K_CPY */
     }
     }
+
+#ifdef SNES_CPU_ASM
+int cpu_rc, cpu_pg;                             /* what the slow bus helpers hand back to the assembly: the clock and the attention flag */
+static cpu_t *cur;
+static int pend_of(const cpu_t *cu) { return S.nmi_pending || (S.irq_pending && !cu->i) || cpu_waiting || cpu_stopped; }
+int cpu_run_asm(cpu_t *cu, int limit, int pend);        /* snes_cpu_arm.S: returns the count of instructions */
+/* the slow bus (a register, not plain memory), called by the assembly with the clock of the moment */
+__attribute__((noinline, section(".text.snes_cpu_cold"))) uint8_t cpu_sr(uint32_t a, int clk, int start)
+{
+    snes_clk = clk; S.line_clk = start;
+    const uint8_t v = snes_read(a);
+    cpu_rc = snes_clk; cpu_pg = pend_of(cur);
+    return v;
+}
+__attribute__((noinline, section(".text.snes_cpu_cold"))) void cpu_sw(uint32_t a, uint8_t v, int clk, int start)
+{
+    snes_clk = clk; S.line_clk = start;
+    snes_write(a, v);
+    cpu_rc = snes_clk; cpu_pg = pend_of(cur);
+}
+/* an opcode that the assembly does not do: the registers are in the struct, the clock is after the fetch of the opcode; returns the attention flag */
+__attribute__((noinline, section(".text.snes_cpu_cold"))) int cpu_cold(cpu_t *cu, int op, int start)
+{
+    S.line_clk = start;
+    exec_op(cu, (uint8_t)op);
+    return pend_of(cu);
+}
+/* an interrupt, WAI or STP is pending: the top of the C loop; returns 1 when this step only idles; the attention flag goes to cpu_pg */
+__attribute__((noinline, section(".text.snes_cpu_cold"))) int cpu_attn(cpu_t *cu, int start)
+{
+    int skip = 0;
+    S.line_clk = start;
+    if (S.nmi_pending || (S.irq_pending && !cu->i)) {
+        uint16_t ivn = 0xFFEE, ive = 0xFFFE;
+        if (S.nmi_pending) { S.nmi_pending = 0; ivn = 0xFFEA; ive = 0xFFFA; }
+        interrupt(cu, ivn, ive, 0);
+    }
+    if (cpu_waiting) {
+        if (S.irq_pending) cpu_waiting = 0;       /* an IRQ wakes WAI even when I is set */
+        else { cu->clk += 8; skip = 1; }
+    }
+    if (!skip && cpu_stopped) { cu->clk += 8; skip = 1; }
+    cpu_pg = pend_of(cu);
+    return skip;
+}
+int cpu_run(int limit)
+{
+    cpu_t c = C;
+    c.clk = snes_clk;
+    cur = &c;
+    const int n = cpu_run_asm(&c, limit, pend_of(&c));
+    C = c;
+    snes_clk = c.clk;
+    return n;
+}
+#else
+int cpu_run(int limit)
+{
+    cpu_t c = C, *cu = &c;
+    int n = 0;
+    cu->clk = snes_clk;
+    while (cu->clk < limit) {
+        n++;
+        S.line_clk = cu->clk;                       /* the slow bus reads the position in the line (the H and V counters) */
+        if (S.nmi_pending || (S.irq_pending && !cu->i)) {
+            uint16_t ivn = 0xFFEE, ive = 0xFFFE;
+            if (S.nmi_pending) { S.nmi_pending = 0; ivn = 0xFFEA; ive = 0xFFFA; }
+            interrupt(cu, ivn, ive, 0);
+        }
+    if (cpu_waiting) {
+        if (S.irq_pending) cpu_waiting = 0;       /* an IRQ wakes WAI even when I is set */
+        else { cu->clk += 8; continue; }
+    }
+    if (cpu_stopped) { cu->clk += 8; continue; }
+
+    cu->clk += 6;                                  /* the internal cycle of an instruction (on average) */
+    exec_op(cu, fetch8(cu));
+    }
     C = c;
     snes_clk = cu->clk;
     return n;
 }
+
+#endif
 
 void cpu_step(void) { cpu_run(snes_clk + 1); }          /* one instruction: it adds at least 6 clocks */

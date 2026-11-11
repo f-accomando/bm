@@ -13,7 +13,7 @@ P = priority 0 to 9 (0 is the highest). T = time to do it 0 to 9 (9 is the longe
 | C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | 0 | 2 | FPS line read in the scenes that drop |
 | C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | 0 | 2 | a table of ms a frame for each part (done 2026-11-11: CPU and bus 3.0 ms a frame, see [snes-measure.md](snes-measure.md); C2 to C5 free at most 2.4 ms) |
 | C2 | Registers in ARM registers, inside the interpreter | 4 | 4 | `make test-snes-cpu`, `make test-snes`. Code done 2026-11-11 (see "C2: profile and result"); the time on the Pi waits for the logger line `cpu` |
-| C3 | Threaded interpreter in assembly (each opcode jumps to the next) | 3 | 5 | same tests, and a timing against C1 |
+| C3 | Hot path in assembly (a table of mode and operation routines, cold opcodes in C) | 3 | 5 | same tests, and a timing against C1. Code done 2026-11-11 (see [snes-cpu-c3.md](snes-cpu-c3.md)); the time on the Pi waits for the logger |
 | C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | 5 | 9 | same tests, and a timing against C1 |
 | C5 | Static recompiler for one game (a tool that reads the ROM) | 8 | 9 | same tests, and the game picture byte for byte |
 | C6 | Writes to PPU registers queued as events (clock, register, value) | 6 | 5 | `make test-snes`, `make test-snes-ppu` |

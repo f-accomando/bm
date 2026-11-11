@@ -117,6 +117,7 @@ void cpu_info(uint32_t *pc, int *flags);
 extern int cpu_waiting, cpu_stopped;
 typedef struct { uint16_t a, x, y, s, d, pc; uint8_t p; int e; uint8_t pb, db; } cpu_regs_t;
 void cpu_get(cpu_regs_t *r);                    /* for the tests */
+void cpu_set(const cpu_regs_t *r);                  /* for the tests */
 
 /* snes_dsp.c */
 void dsp_set_mem(uint8_t *ram64k, uint8_t *regs128);
