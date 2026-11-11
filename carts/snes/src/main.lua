@@ -14,9 +14,12 @@ local BTNS = { { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start"
 -- same. On a keyboard or an Xbox pad bm's A is the bottom button and X the left one: swap them.
 local SWAP = { a = "b", b = "a", x = "y", y = "x" }
 local swap = false
+-- The keyboard (read with keydown) plays player 1, or player 2 when a pad is player 1: one person on the keyboard and one on a pad can play together.
+local kbp = 1                 -- the player the keyboard keys play
 local function pad_layout()
   local c = controller and controller(1)
   swap = not (c and c.layout == "nintendo")
+  kbp = (c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
 end
 
 local frames = 0
@@ -57,7 +60,7 @@ local function ok_arm() if not ok_armed and not ok_held() then ok_armed = true e
 local function readpad(p)
   if (AUTO or AUTOPLAY) and p == 1 then return auto_pad(frames) end
   local v = 0
-  if p == 1 then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
+  if p == kbp then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
   for i = 1, #BTNS do
     local e = BTNS[i]
     local name = swap and SWAP[e[1]] or e[1]

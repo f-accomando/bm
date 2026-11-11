@@ -10,10 +10,13 @@ local PAD_A, PAD_B, PAD_SELECT, PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT
 -- The NES has two buttons: B on the left, A on the right. On a pad the bottom and the right buttons are A, the left and the top
 -- buttons are B (both work, so any hand fits). bm's names: on the RGB30 (and Nintendo pads) bottom is "b", right "a", left "y", top "x";
 -- on a keyboard or an Xbox pad bottom is "a", right "b", left "x", top "y".
+-- The keyboard (read with keydown) plays player 1, or player 2 when a pad is player 1: one person on the keyboard and one on a pad can play together.
 local nintendo = false
+local kbp = 1                 -- the player the keyboard keys play
 local function pad_layout()
   local c = controller and controller(1)
   nintendo = c and c.layout == "nintendo"
+  kbp = (c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
 end
 
 local frames = 0
@@ -49,7 +52,7 @@ local function ok_arm() if not ok_armed and not ok_held() then ok_armed = true e
 local function readpad(p)
   if AUTOPLAY and p == 1 then return auto_pad(frames) end
   local v = 0
-  if p == 1 then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
+  if p == kbp then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
   if btn("up", p) then v = v | PAD_UP end
   if btn("down", p) then v = v | PAD_DOWN end
   if btn("left", p) then v = v | PAD_LEFT end
