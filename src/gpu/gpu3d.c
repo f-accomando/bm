@@ -2791,6 +2791,11 @@ void gpu3d_drop(void)
  * V3D held (the Pi Zero W freeze at the start of a cartridge, 11 Nov 2026: the mode change
  * after a GPU-drawn menu got no answer, ERRSTAT 00007030). No mailbox call: a QPU power
  * cycle with the V3D stuck stops the firmware. */
+void gpu3d_trace(const char *where)
+{
+    v3d_trace(where);
+}
+
 void gpu3d_quiesce(const char *where)
 {
     GPU_PRE();

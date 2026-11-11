@@ -52,6 +52,7 @@ void gpu3d_page(int uniform, uint16_t c);
  * the last call (a cls() the ARM did not have to draw, bm3d 4.2); then 0 */
 int gpu3d_cleared(void);
 void gpu3d_drop(void);
+void gpu3d_trace(const char *where);   /* the V3D's error registers in the log (nothing if it is not in use) */
 void gpu3d_quiesce(const char *where);  /* no job, V3D registers reset, before a video mode change */              /* forgets them and the depth (the cartridge ended) */
 
 /* Draws the waiting triangles into g's page. keep: the 3D goes on in this

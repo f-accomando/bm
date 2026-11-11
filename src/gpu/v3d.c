@@ -134,6 +134,7 @@ int v3d_init(void)
     regs_init();
     status = "ready";
     ready = 1;
+    v3d_trace("v3d_init done");
     return 0;
 }
 
@@ -372,6 +373,30 @@ int v3d_busy(void)
     return !done;
 }
 
+static uint32_t watch_last, watch_jobs;
+
+void v3d_trace(const char *where)
+{
+    if (!ready)
+        return;
+    char regs[160];
+    v3d_errors(regs, sizeof regs);
+    kprintf("v3d: %s: %s (t %lu ms, %lu jobs)\n", where, regs, (unsigned long)(timer_ticks() / 1000), (unsigned long)watch_jobs);
+}
+
+static void watch_errstat(void)
+{
+    watch_jobs++;
+    dmb();
+    const uint32_t es = rd(V3D_ERRSTAT);
+    dmb();
+    if (es != watch_last) {
+        kprintf("v3d: ERRSTAT %08lx -> %08lx after job %lu (t %lu ms)\n", (unsigned long)watch_last, (unsigned long)es, (unsigned long)watch_jobs,
+                (unsigned long)(timer_ticks() / 1000));
+        watch_last = es;
+    }
+}
+
 int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
 {
     if (bin_us) *bin_us = 0;
@@ -410,6 +435,7 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
         dmb();
     }
     cache_all(&cost.inval_cyc);
+    watch_errstat();
     return err;
 }
 

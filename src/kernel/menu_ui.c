@@ -1568,7 +1568,9 @@ static void close_menu(framebuffer_t *fb, int console)
         gpu3d_quiesce("the menu closes");
         gpu_draw = gpu_big = 0;
     }
+    gpu3d_trace("before the menu's video mode");
     fb_init(fb, con_w, con_h, 2);
+    gpu3d_trace("after the menu's video mode");
     if (console)
         console_suspend(0);
 }

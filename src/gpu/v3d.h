@@ -113,6 +113,10 @@ void v3d_dump(char *buf, size_t n);
  * shader that draws nothing left behind) */
 void v3d_errors(char *buf, size_t n);
 
+/* The trace of the error register (the Pi Zero W freeze at the start of a cartridge): v3d_trace logs ERRSTAT and its friends with the time since
+ * boot and the number of jobs that ended (nothing if the V3D is not in use); every wait for a job also logs the line when ERRSTAT changed. */
+void v3d_trace(const char *where);
+
 /* ---------------------------------------------------------------- lists */
 
 typedef struct {

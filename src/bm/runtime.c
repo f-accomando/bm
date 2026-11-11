@@ -3052,7 +3052,9 @@ int bm_video_enter(framebuffer_t *fb, int w, int h, g16_t *g)
     const uint32_t fw = boxed ? bh * 16 / 9 : (uint32_t)w, fh = boxed ? bh : (uint32_t)h;
     box = 0;
     gpu3d_quiesce("the cartridge's video mode");
+    gpu3d_trace("before the cartridge's video mode");
     int fb_err = fb_init_depth(fb, fw, fh, 3, 16);
+    gpu3d_trace(fb_err ? "the cartridge's video mode failed" : "after the cartridge's video mode");
     if (fb_err != 0) {
         /* one more try after the V3D is quiet again (a late answer lands in the static buffer) */
         gpu3d_quiesce("the second try");
