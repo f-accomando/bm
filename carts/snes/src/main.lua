@@ -237,8 +237,13 @@ function log_draw(dm)
   if now - lg.t0 >= 1 then
     local n = math.max(1, frames - lg.f0)
     local d2 = dbg
-    log(string.format("snes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s rom=%s | %s | %s",
-      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode, rom_name,
+    local scene = "-"                          -- the PPU mode and the layers on (main and sub screen): the scene a line was in
+    do
+      local m, tm, ts = string.match((d2 and d2.regs) or "", "mode (%d) obsel %x+ tm (%x+) ts (%x+)")
+      if m then scene = "m" .. m .. "/" .. tm .. "/" .. ts end
+    end
+    log(string.format("snes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s rom=%s scn=%s | %s | %s",
+      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode, rom_name, scene,
       d2 and d2.us or "-", d2 and d2.us_ppu or "-"))
     log_reset(now)
   end
