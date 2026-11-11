@@ -434,17 +434,31 @@ int spc_run(int cycles)
     if (!running) ipl_sync();
     int n = 0;
     if (running && !halted) {
+        /* The timers and the DSP follow the program every 16 cycles, not at the end of the run: a program that polls a timer, or that writes
+         * KOFF and clears it a little later, must see them move while it runs. (The sound CPU now runs in bursts of up to 16 lines: with the
+         * timers and the DSP advanced after the whole burst a note-off pulse was lost and the note went on.) */
+        unsigned pend = 0;
         while (n < cycles) {
             if (rPC >= 0xFFC0 && (ctl & 0x80)) { ipl_start(); break; }     /* the program went back to the boot ROM */
             step();
             n += 3;
+            pend += 3;
+            if (pend >= 16) {
+                timers(pend);
+                dsp_acc += pend;                        /* the DSP makes a sample every 32 cycles */
+                pend = 0;
+                while (dsp_acc >= 32) { dsp_tick(); dsp_acc -= 32; }
+            }
             if (halted) break;
         }
-        timers((unsigned)n);
+        if (pend) {
+            timers(pend);
+            dsp_acc += pend;
+        }
     } else {
         n = cycles;
+        dsp_acc += (unsigned)n;
     }
-    dsp_acc += (unsigned)n;                             /* the DSP makes a sample every 32 cycles */
     while (dsp_acc >= 32) { dsp_tick(); dsp_acc -= 32; }
     return n;
 }
