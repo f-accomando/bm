@@ -22,7 +22,7 @@ FW_DIR  := firmware
 PORT    ?= /dev/ttyUSB0
 BAUD    ?= 115200
 
-VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # the branch, for the reports' names (CI checks out a commit: its variables say which)
 BRANCH := $(or $(GITHUB_HEAD_REF),$(GITHUB_REF_NAME),$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null),unknown)
 
@@ -1105,7 +1105,7 @@ install: sdcard
 	$$S cp -r $(DIST)/carts/* $(SD)/carts/ && \
 	for g in $(SD)/carts/*.bm $(SD)/carts/*.b16; do [ -f "$$g" ] && $$S mv -n "$$g" $(SD)/bm/; done; \
 	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
-	sync && echo "installed on $(SD): kernel $$(git describe --always --dirty), carts, bm/ firmware" && \
+	sync && echo "installed on $(SD): kernel $$(git describe --tags --always --dirty), carts, bm/ firmware" && \
 	ls $(SD)/bm
 
 sdcard-chainloader:

@@ -177,9 +177,9 @@ static void scroll_tests(void)
     CHECK("scroll registers: all 1024 values", bad == 0);
 }
 
-/* C1: the time of a frame in its parts. A fake clock that moves one microsecond at every read: the parts exist and the CPU runs instructions. */
-static uint32_t fake_us;
-static uint32_t fake_clock(void) { return fake_us++; }
+/* C1: the time of a frame in its parts. A fake clock that follows the emulated time (a master clock is a quarter of a microsecond): the CPU part is nearly all of the frame, and one frame in 8 is timed. */
+extern int snes_clk;
+static uint32_t fake_clock(void) { return (uint32_t)(((S.frames * 262 + S.line) * 1364 + snes_clk) / 4); }   /* the emulated time: a read costs nothing */
 static void timing_tests(void)
 {
     static const uint8_t loop[] = { 0x80, 0xFE };           /* BRA -2: the CPU spins */

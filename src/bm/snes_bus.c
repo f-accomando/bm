@@ -508,15 +508,22 @@ void snes_reset(void)
 
 #define now_us snes_now_us
 static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
-void snes_set_clock(uint32_t (*f)(void)) { now_us = f; }
+/* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
+ * So one frame of 8 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
+ * a timed frame and taken off each part (every part holds one read of every line). */
+static uint32_t (*clock_fn)(void);
+void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
 
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
     if (!S.rom) return;
-    const uint32_t t_start = now_us ? now_us() : 0;
-    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0;
+    const int timed = clock_fn && (S.frames & 7) == 0;
+    now_us = timed ? clock_fn : NULL;
+    uint32_t rc10 = 0;                             /* the cost of one clock read, in tenths of a microsecond */
+    if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
+    const uint32_t t_start = timed ? clock_fn() : 0;
+    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0;
     uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
-    const int time_hdma = now_us && (S.frames & 7) == 0;   /* the HDMA is timed alone in one frame of 8 */
     acc_dma = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
@@ -535,7 +542,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         }
         if (L < S.lines) {
             if (S.hdmaen) {
-                if (time_hdma) { uint32_t a = now_us(); snes_hdma_line(); t_hdma += now_us() - a; }
+                if (timed) { uint32_t a = now_us(); snes_hdma_line(); t_hdma += now_us() - a; n_hl++; }
                 else snes_hdma_line();
             }
         }
@@ -568,17 +575,19 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         }
     }
     S.frames++;
-    if (now_us) {
+    if (timed) {
+        const uint32_t over = rc10 * 262 / 10;                 /* the reads in one part over the frame */
         const uint32_t tot = now_us() - t_start;
-        avg_frame = (uint32_t)((int32_t)avg_frame + ((int32_t)tot - (int32_t)avg_frame) / 8);
-        avg_ppu = (uint32_t)((int32_t)avg_ppu + ((int32_t)t_ppu - (int32_t)avg_ppu) / 8);
-        avg_spc = (uint32_t)((int32_t)avg_spc + ((int32_t)t_spc - (int32_t)avg_spc) / 8);
-        avg_cpu = (uint32_t)((int32_t)avg_cpu + ((int32_t)t_cpu - (int32_t)avg_cpu) / 8);
-        avg_dma = (uint32_t)((int32_t)avg_dma + ((int32_t)acc_dma - (int32_t)avg_dma) / 8);
-        avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);
-        if (time_hdma) avg_hdma = (uint32_t)((int32_t)avg_hdma + ((int32_t)t_hdma - (int32_t)avg_hdma) / 2);
-        if (S.frames < 4) { avg_frame = tot; avg_ppu = t_ppu; avg_spc = t_spc; avg_cpu = t_cpu; avg_dma = acc_dma; avg_instr = n_instr; avg_hdma = t_hdma; }
+#define OFF(v, o) ((v) > (o) ? (v) - (o) : 0)
+        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, over), c = OFF(t_cpu, over);
+        /* a sample every 8 frames: the average moves by half of the difference; the first sample is taken as it is */
+        const int first = avg_frame == 0;
+#define AVG(a, v) ((a) = first ? (v) : (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2))
+        AVG(avg_frame, f); AVG(avg_ppu, p); AVG(avg_spc, sp); AVG(avg_cpu, c); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
+#undef AVG
+#undef OFF
     }
+    avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);   /* the instructions are counted in every frame */
 }
 
 /* ------------------------------------------------------------------ the loader and the small API */

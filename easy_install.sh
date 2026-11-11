@@ -518,7 +518,7 @@ job_net() {
     save_conf
     new=$(sed -n 's/.*running bm \([^ ]*\).*/\1/p' <<< "$out" | tail -1)
     [ -n "$new" ] || die "the kernel did not go, or the console did not come back: see above"
-    if [ "$new" = "$old" ] && [ "$(git describe --always --dirty)" != "$old" ]; then
+    if [ "$new" = "$old" ] && [ "$(git describe --tags --always --dirty)" != "$old" ]; then
         warn "$name came back with the same kernel: it did not start the one sent."
         [ "$board" != rgb30 ] || warn "An RGB30 kernel from before 2026-10-04 writes what it receives as kernel.img, which U-Boot \
 does not start: put kernel8.img on its card once (2 [SD] update kernel, with the RGB30's card in the reader)."

@@ -133,11 +133,11 @@ if [ "$SD_STEP" = 1 ]; then
         ls "$SD" | head -10
         ask "$SD does not look like bm's SD card (no config.txt): write on it anyway?" || die "stopped"
     fi
-    ask "Install this kernel ($(git describe --always --dirty)) and the games on $SD?" || die "stopped"
+    ask "Install this kernel ($(git describe --tags --always --dirty)) and the games on $SD?" || die "stopped"
     run make install SD="$SD"
     run sync
     ok "Done: eject the card in Windows, put it in the Pi and start it."
-    ok "Settings > System shows version $(git describe --always --dirty): a build of the sources,"
+    ok "Settings > System shows version $(git describe --tags --always --dirty): a build of the sources,"
     ok "which the release may replace."
 fi
 

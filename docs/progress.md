@@ -42,6 +42,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [snes-cpu](progress/snes-cpu.md) | bm SNES: notes on speed (faster 65C816 core, work items C0 to C7, other emulators, assembly or C), estimates only, no code | `src/bm/snes_cpu.c`, `src/bm/snes_ppu.c` |
 | [snes-gpu](progress/snes-gpu.md) | bm SNES: notes on the PPU on the V3D GPU (fixed-function PPU, shader design, work items G1 to G11), estimates only, no code | `src/bm/snes_ppu.c`, `tests/gpu/v3d_emu.c` |
 | [snes-convert](progress/snes-convert.md) | bm SNES: notes on converting a ROM to ARM code (static recompiler and JIT, instruction mapping), estimates only, no code | `src/bm/snes_cpu.c` |
+| [snes-measure](progress/snes-measure.md) | bm SNES: the time of a frame in its parts (CPU with the bus, DMA, HDMA, PPU, sound), the sampled timer and the first Pi Zero W table (C1) | `src/bm/snes_bus.c`, `tests/snes/core_test.c` |
 | [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `scripts/smw_extract.py`, `scripts/smw_capture.py` |
 | [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |
 | [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md), [suite](progress/tools-suite.md), [code templates](progress/tools-code-templates.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
