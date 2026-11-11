@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.3.0-47-g7c409104
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-c624d4_freeze_pi-zero-w_v0.3.0-47-g7c409104.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, 769 s after boot, kernel v0.3.0-47-g7c409104, ring 124150, sink on
+--- the last lines printed ---
+the line is done
+> 
+net: console closed
+
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 3x, 360p on the ARM
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ averages draw 13556 us, enlarge 0 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13682 us, enlarge 0 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13668 us, enlarge 0 us, flip 97 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13585 us, enlarge 0 us, flip 97 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13501 us, enlarge 0 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13718 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13651 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13577 us, enlarge 0 us, flip 98 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13511 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13734 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13644 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13569 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13588 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13728 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13633 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13564 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13621 us, enlarge 0 us, flip 99 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13725 us, enlarge 0 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13626 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13547 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13673 us, enlarge 0 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13711 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13646 us, enlarge 0 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13541 us, enlarge 0 us, flip 94 us, free time used 40 us (300 frames)
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 13709 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+
+net: console opened from 192.168.1.115
+> gpu3d: quiet before the menu closes: ERRSTAT 00007100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2009 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+back to the monitor
+> :
+:net: not served for 2087 ms (up 769400 ms), while: cartridge menu
+net:   pc at 1s: 0012ab98
+net:   pc at 2s: 0012ab98
+log
+: log
+report: 20261111-183754_log_pi-zero-w_v0.3.0-47-g7c409104.txt saved as bm/reports/rpt00001.txt
+report: sending 20261111-183754_log_pi-zero-w_v0.3.0-47-g7c409104.txt
