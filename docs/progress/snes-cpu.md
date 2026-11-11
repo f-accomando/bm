@@ -1,4 +1,4 @@
-# bm SNES: exploration of a faster CPU core
+# bm SNES: exploration of speed (CPU core, PPU, other emulators)
 
 Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (ARMv6, 32 bit). The numbers are estimates, not measurements.
 
@@ -47,3 +47,64 @@ A JIT that takes the CPU from about 4.5 ms to about 1 ms frees 3 to 3.5 ms of 22
 1. Measure CPU and bus time apart from the PPU and the DSP in the test build. The 4 to 5 ms figure is a subtraction.
 2. Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)). A JIT does not help if the CPU is not the limit.
 3. If the CPU is the limit, build a minimal JIT: registers in ARM registers, flags in the CPSR, clocks added once a block, the interpreter as fallback. Gate: `make test-snes` and `make test-snes-cpu` (the golden hashes).
+
+## The PPU has no opcodes
+
+Status: notes from a talk on 2026-11-11. Nothing is built. The figures are estimates.
+
+- The CPU runs a program, so its instructions can be translated. The PPU is fixed-function hardware. The game writes registers, VRAM, OAM and CGRAM, and the PPU makes pixels from them. There is nothing to map to ARM opcodes.
+- The work is to find, for each line, the tile under each pixel of each layer, the winning sprite, the priority, the windows, the colour math and the brightness (`ppu_line` in `snes_ppu.c`).
+- The real SNES has two PPU chips (PPU1 and PPU2). The repo has one `snes_ppu.c` for both. The chip names are from memory: check a public source before you quote them.
+- "Closer to the metal" means to use units that do this kind of work. The ARMv6 SIMD (UADD8, SEL, UQADD8, UQSUB8, UHADD8) is in use already.
+
+### Ideas (GPU V3D of the Pi)
+
+The kernel drives the V3D already ([v3d.md](v3d.md): textured fill 1.65 ns a pixel, a QPU driver that passes on the Pi Zero W). Today the GPU only scales the finished picture (GPU 2x and 3x).
+
+1. Each layer as a texture: a BG is a quad, sprites are small quads, the palette is a lookup texture. Mode 7 fits best: it is an affine transform of a texture.
+2. Colour math as blending. The SNES colour math depends on the sub screen, the windows and one bit a pixel, so the standard blend is not enough without a shader.
+3. A `ppu_line` in QPU code (`qpuasm.py` exists and a test passes).
+4. The DMA of the Pi for copies of line buffers. It helps only for copies.
+
+Risks: HDMA changes scroll, mode and colour on each line (224 strips for the GPU); the sprite limits (32 sprites and 34 tiles a line); four interleaved priority levels (many passes); the exact result (`make test-snes-ppu` compares byte for byte, a GPU path needs the same gate); the fixed cost of one GPU job (about 0.3 ms for a fill).
+Best first candidate: Mode 7. A full GPU path is a project on its own. Measure first which part of `ppu_line` costs most in which game: the test build prints `bg`, `obj`, `win`, `comp` and `mix` apart.
+
+## How other emulators did it
+
+From memory, not from the repo. Check the details before you quote them.
+
+| Emulator | Aim | Technique |
+|---|---|---|
+| ZSNES | speed | CPU and PPU in x86 assembly, whole-line rendering, shortcuts; wrong timing in some games |
+| Snes9x | portability, compatibility | C and C++, separate opcode tables for each M and X state (no flag test at run time), renderers specialised by mode |
+| bsnes, higan, ares | cycle accuracy | each chip emulated cycle by cycle and kept in step; slow, but exact |
+
+- The speed contest moved: PCs became fast enough for accuracy, and exact emulators won.
+- No JIT for the SNES CPU in these emulators, as far as I know. The 65C816 is 3.58 MHz at most and an interpreter is enough on a PC. JITs are common for heavier consoles (PSX, N64) and for weak hosts. The Pi Zero W is a weak host.
+- Catch-up (bsnes): a chip runs only when another chip touches it or a result is needed. It is a cousin of idea 4 above (queue the PPU register writes).
+- Closest ARM precedent: Cyclone (a 68000 core in ARM assembly, used in PicoDrive). It maps the 68000 flags to the ARM flags, as the `A<<16` and `ADDS` idea does for the 65C816.
+
+## Assembly or C
+
+Pi One, Super Mario World, real PPU time a frame (from "Open work" in [snes.md](snes.md)):
+
+| Step | Time |
+|---|---|
+| First C version | about 12100 us |
+| SIMD in C | about 9800 us |
+| Mix loop in assembly | about 9100 us (about 7% less) |
+| Tile cache | about 7700 us (about 15% less) |
+
+The algorithm change gave twice the gain of the assembly. Change the algorithm and the data first. Write assembly after.
+
+Assembly helps when:
+- The compiler does not make the instruction itself: UADD8, SEL and the other lane instructions (4 pixels at a time).
+- A hot loop needs fixed registers: an interpreter with the CPU registers in ARM registers, or a JIT.
+- The flags must live in the CPSR. C cannot do this.
+- A threaded interpreter (each opcode jumps to the next) can replace the central `switch`, which is an indirect branch. The ARM1176 predicts such branches badly. Not measured here.
+
+Assembly does not help for the bus, the memory map, DMA and IRQ code. It is logic, and the compiler does well there.
+
+Rule that the repo already follows: a C reference, an assembly version, and an equivalence test (`make test-snes-ppu`). A middle path: C intrinsics (`arm_acle.h` has `__uadd8` and the like). They give less register control and are easier to keep.
+
+Next measurement to consider: a threaded assembly interpreter for the CPU, before a full JIT.
