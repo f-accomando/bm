@@ -110,6 +110,14 @@ end
 
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
+local top = 1                                -- the first ROM of the list that shows (the list scrolls with the selector)
+local function rom_rows() return math.max(1, (SCREEN_H - 40 - 90) // 18 + 1) end
+local function rom_scroll()
+  local rows = rom_rows()
+  if sel < top then top = sel end
+  if sel > top + rows - 1 then top = sel - rows + 1 end
+  top = math.max(1, math.min(top, math.max(1, #files - rows + 1)))
+end
 local scr
 local holdmenu, menusel = 0, 1
 local esc_prev = false                        -- Esc was down at the last update (the menu opens and closes on the press)
@@ -307,6 +315,7 @@ function _update()
   if state == "browse" then
     if nav_up() then sel = math.max(1, sel - 1) end
     if nav_down() then sel = math.min(#files, sel + 1) end
+    rom_scroll()
     if btnp("x") or kedge(0x15) then list_roms() end
     if nav_ok() and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
@@ -357,15 +366,18 @@ function _draw()
     print("Put .sfc or .smc files in the /sfc folder of the SD card.", 16, 56, 0x8090A0)
     if #files == 0 then print("No ROM found.", 16, 100, 0xFFFFFF) end
     local y = 90
-    for i = 1, #files do
+    rom_scroll()
+    local last = math.min(#files, top + rom_rows() - 1)
+    for i = top, last do
       local f = files[i]
       local c = (i == sel) and 0xFFFFFF or 0x90A0B0
       if i == sel then rectfill(10, y - 1, SCREEN_W - 20, 17, 0x304860) end
       print(f.name:sub(1, 48), 16, y, c)
       print(string.format("%d KB", f.size // 1024), SCREEN_W - 120, y, c)
       y = y + 18
-      if y > SCREEN_H - 40 then break end
     end
+    if top > 1 then print("^", SCREEN_W - 20, 72, 0x8090A0) end
+    if last < #files then print("v " .. (#files - last) .. " more", SCREEN_W - 100, SCREEN_H - 40, 0x8090A0) end
     if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
     print("Enter or A play   R or X refresh   in game: Esc (keyboard) or hold L2+R2 (pad) for the menu", 16, SCREEN_H - 24, 0x8090A0)
     return

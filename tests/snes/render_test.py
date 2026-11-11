@@ -108,6 +108,23 @@ def main():
         check("sprite export wrote /docs/spr1.png", False)
         print("docs:", os.listdir(tmp + "/sd/docs"), "shots:", sorted(os.listdir(tmp + "/shots")))
         shutil.copy(tmp + "/shots/after.png", os.environ.get("SNES_DBG", "build/snes_fail.png"))
+    # a long list: ten times down, the highlighted row must be on the screen (the list scrolls with the selector)
+    sd2 = tmp + "/sd2"
+    os.makedirs(sd2 + "/sfc"); os.makedirs(sd2 + "/docs"); os.makedirs(tmp + "/shots2")
+    for i in range(14):
+        shutil.copy(tmp + "/sd/sfc/bmtest.sfc", sd2 + "/sfc/rom%02d.sfc" % i)
+    script2 = "5 shot top" + chr(10) + "".join("%d pad 1 down" % (10 + 4 * k) + chr(10) + "%d pad 1 none" % (12 + 4 * k) + chr(10) for k in range(10)) + "80 shot low" + chr(10)
+    open(tmp + "/in2.txt", "w").write(script2)
+    subprocess.check_call([host, cart, "--sd", sd2, "--seconds", "3", "--shots", tmp + "/shots2",
+                           "--input", tmp + "/in2.txt", "--quiet"], stdout=subprocess.DEVNULL)
+    hl = (0x30, 0x48, 0x60)
+    def hl_rows(path):
+        w, h, bpp, rows = read_png(path)
+        return [y for y in range(h) if any(near(tuple(rows[y][x * bpp:x * bpp + 3]), hl) for x in range(0, w, 4))], h
+    r_top, h_top = hl_rows(tmp + "/shots2/top.png")
+    r_low, h_low = hl_rows(tmp + "/shots2/low.png")
+    check("long list: the selector shows after ten downs", bool(r_low) and max(r_low) < h_low - 30)
+    check("long list: the list moved (the selector is not on the first row)", bool(r_top) and bool(r_low) and min(r_low) > min(r_top) - 1 and max(r_low) >= min(r_top))
     print("snes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     sys.exit(1 if fails else 0)
 
