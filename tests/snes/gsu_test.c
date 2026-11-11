@@ -321,6 +321,27 @@ static void lazy_tests(void)
     CHECK("vector reads end the job", !gsu_go());
 }
 
+/* HDMA switched on during the picture (Yoshi's Island does it a few lines after the top of the frame): the channel is set up at once and runs from the next line */
+static void hdma_mid_tests(void)
+{
+    load_rom((const uint8_t[]){ STOP }, 2);
+    static const uint8_t tbl[] = { 0x01, 0x11, 0x01, 0x22, 0x00 };           /* 1 line: $11, 1 line: $22, end */
+    for (unsigned i = 0; i < sizeof tbl; i++) wr(0x7E0100 + i, tbl[i]);
+    wr(0x4370, 0x00); wr(0x4371, 0x07); wr(0x4372, 0x00); wr(0x4373, 0x01); wr(0x4374, 0x7E);     /* channel 7: direct, one register, $2107 */
+    S.hdmaen = 0; S.line = 10; S.lines = 224;
+    wr(0x420C, 0x80);
+    snes_hdma_line();
+    CHECKV("hdma enabled mid-frame: first line", S.sc[0], 0x11);
+    snes_hdma_line();
+    CHECKV("hdma enabled mid-frame: second line", S.sc[0], 0x22);
+    S.hdmaen = 0; S.line = 0;                                                  /* at line 0 a channel is not set up by the write: the frame start does it */
+    S.sc[0] = 0;
+    wr(0x420C, 0x80);
+    snes_hdma_line();
+    CHECKV("hdma enabled at line 0 waits for the frame start", S.sc[0], 0);
+    S.hdmaen = 0;
+}
+
 static void map_tests(void)
 {
     load_rom((const uint8_t[]){ STOP }, 2);
@@ -422,6 +443,7 @@ int main(int argc, char **argv)
     plot_tests();
     cache_irq_tests();
     lazy_tests();
+    hdma_mid_tests();
     map_tests();
     golden_test();
     printf("gsu: %d checks, %d failed\n", count, fails);

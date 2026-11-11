@@ -522,23 +522,24 @@ static void run_dma(uint8_t mask)
     }
 }
 
+static void hdma_init_ch(int c)
+{
+    snes_dma_t *d = &S.dma[c];
+    d->active = 0;
+    if (!(S.hdmaen & (1 << c))) return;
+    d->tbl = d->a1t;
+    d->line = raw_read(((uint32_t)d->a1b << 16) | d->tbl++);
+    if (d->dmap & 0x40) {
+        d->ind = raw_read(((uint32_t)d->a1b << 16) | d->tbl++);
+        d->ind |= (uint16_t)(raw_read(((uint32_t)d->a1b << 16) | d->tbl++) << 8);
+    }
+    d->active = d->line != 0;
+    d->doit = 1;
+}
 void snes_hdma_init(void)
 {
-    for (int c = 0; c < 8; c++) {
-        snes_dma_t *d = &S.dma[c];
-        d->active = 0;
-        if (!(S.hdmaen & (1 << c))) continue;
-        d->tbl = d->a1t;
-        d->line = raw_read(((uint32_t)d->a1b << 16) | d->tbl++);
-        if (d->dmap & 0x40) {
-            d->ind = raw_read(((uint32_t)d->a1b << 16) | d->tbl++);
-            d->ind |= (uint16_t)(raw_read(((uint32_t)d->a1b << 16) | d->tbl++) << 8);
-        }
-        d->active = d->line != 0;
-        d->doit = 1;
-    }
+    for (int c = 0; c < 8; c++) hdma_init_ch(c);
 }
-
 void snes_hdma_line(void)
 {
     for (int c = 0; c < 8; c++) {
@@ -640,7 +641,14 @@ static void cpu_reg_write(uint16_t o, uint8_t v)
         if (snes_now_us) { uint32_t a = snes_now_us(); run_dma(v); acc_dma += snes_now_us() - a; }
         else run_dma(v);
         break;
-    case 0x420C: S.hdmaen = v; break;
+    case 0x420C: {
+        /* A channel that is switched on during the picture is set up at once (the table address and the first line count are read): the game of
+         * Yoshi's Island writes HDMAEN a few lines after the top of the frame and the scroll of its layers comes from these tables */
+        const uint8_t nw = (uint8_t)(v & ~S.hdmaen);
+        S.hdmaen = v;
+        if (S.line > 0 && S.line < S.lines) for (int c = 0; c < 8; c++) if (nw & (1 << c)) hdma_init_ch(c);
+        break;
+    }
     case 0x420D: S.memsel = v; snes_map_build(); break;
     default: break;
     }
