@@ -62,7 +62,7 @@ typedef struct {
     uint8_t port_in[4], port_out[4];    /* the four ports: written by the CPU, written by the sound CPU */
     uint8_t timer_out[3];
     uint16_t trace[12], trace_s[12];
-    uint32_t im_cpu, im_spc, im_ppu;           /* instruction cache misses of a timed frame, by part (0: no counter) */
+    uint32_t m_instr[3], m_cycles[3], m_ev[3][3];   /* by part (CPU, sound, PPU) of a timed frame: ARM instructions, cycles, and the events 0..2 (0: no counter or not yet taken) */
     uint32_t us_bg, us_obj, us_win, us_comp, us_mix;     /* since the last read: layers, sprites, windows, mixing (microseconds) */
     uint32_t us_frame, us_ppu, us_spc, us_draw; /* the time of a frame and its parts, averaged, in microseconds */
     uint32_t us_cpu, us_dma, us_hdma, instr;    /* the 65C816 with the bus and the HDMA (all but the DMA below it is the CPU), the general DMA inside it, the HDMA alone
@@ -80,8 +80,9 @@ void snes_vram_peek(uint16_t addr, uint8_t *out, int n);     /* bytes of the vid
 void snes_cgram_peek(uint16_t addr, uint8_t *out, int n);
 /* a clock in microseconds, to time the parts of a frame (the host or the kernel gives it; NULL: no timing) */
 void snes_set_clock(uint32_t (*now_us)(void));
-/* a counter of the instruction cache misses (NULL: none): the timed frames count them for the CPU, the sound and the PPU */
-void snes_set_counter(uint32_t (*misses)(void));
+/* the ARM's counters (NULL: none): read gives instructions, one event, cycles; event(k) picks the event (0 instruction cache misses, 1 data cache misses, 2
+ * branches mispredicted; the timed frames take them in turn) and restarts the counters. The timed frames count them for the CPU, the sound and the PPU. */
+void snes_set_meter(void (*read)(uint32_t out[3]), void (*event)(int k));
 
 /* the sound: the machine makes 32 kHz stereo; this is what the output calls (it takes samples from the ring and
  * resamples them to AUDIO_RATE). Safe to call from the output's interrupt. */

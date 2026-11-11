@@ -20,10 +20,13 @@ typedef struct { uint32_t cycles, instr, dmiss; } pmu_t;
 /* the three counters now (all 0 when off) */
 void pmu_read(pmu_t *p);
 
-/* The SNES meter (item C2 of docs/progress/snes-cpu-c2.md): counter 1 counts the instruction cache misses instead of
- * the data cache misses. 1 if it runs (0 under an emulator, where the registers are not there). */
-int pmu_start_icache(void);
-uint32_t pmu_icache_misses(void);   /* the counter now: differences of a part are exact */
+/* The SNES meter (docs/progress/snes-cpu-c2.md): counter 0 counts the instructions executed, counter 1 one event of a rotation
+ * (pmu_meter_event: 0 instruction cache misses, 1 data cache misses, 2 branches mispredicted), and the cycle counter runs.
+ * pmu_start_meter: 1 if it runs (0 under an emulator, where the registers are not there). pmu_meter_event also restarts the counters.
+ * pmu_meter_read: out = instructions, the event, cycles: differences of a part are exact. */
+int pmu_start_meter(void);
+void pmu_meter_event(int k);
+void pmu_meter_read(uint32_t out[3]);
 
 /* the instructions executed while the ARM waited for the V3D (v3d_run),
  * counted since boot when the monitor is on */

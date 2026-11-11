@@ -39,12 +39,12 @@ void pmu_start(void)
     on = 1;
 }
 
-int pmu_start_icache(void)
+int pmu_start_meter(void)
 {
     if (watchdog_emulated())
         return 0;
     pmu_select(0, 0x08);
-    pmu_select(1, 0x01);                                            /* L1 instruction cache refills */
+    pmu_select(1, 0x01);
     uint32_t v = PMU_COUNTERS;
     __asm__ volatile("mcr p15, 0, %0, c9, c12, 3" ::"r"(v));
     __asm__ volatile("mcr p15, 0, %0, c9, c12, 1" ::"r"(v));
@@ -54,9 +54,27 @@ int pmu_start_icache(void)
     return 1;
 }
 
-uint32_t pmu_icache_misses(void)
+/* counter 1: L1 instruction cache refills, L1 data cache refills, branches mispredicted; the counters restart */
+void pmu_meter_event(int k)
 {
-    return on ? pmu_event(1) : 0;
+    static const uint32_t ev[3] = { 0x01, 0x03, 0x10 };
+    if (!on)
+        return;
+    pmu_select(1, ev[k % 3]);
+    uint32_t v = PMU_COUNTERS;
+    __asm__ volatile("mcr p15, 0, %0, c9, c12, 3" ::"r"(v));
+    v = 1u << 0 | 1u << 1 | 1u << 2;
+    __asm__ volatile("mcr p15, 0, %0, c9, c12, 0" ::"r"(v));
+}
+
+void pmu_meter_read(uint32_t out[3])
+{
+    uint32_t c = 0;
+    if (on)
+        __asm__ volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(c));
+    out[0] = on ? pmu_event(0) : 0;
+    out[1] = on ? pmu_event(1) : 0;
+    out[2] = c;
 }
 
 void pmu_stop(void)
@@ -94,22 +112,35 @@ void pmu_start(void)
     on = 1;
 }
 
-int pmu_start_icache(void)
+int pmu_start_meter(void)
 {
     if (watchdog_emulated())
         return 0;
-    uint32_t v = (PMNC_START & ~(0xFFu << 12)) | (0x00u << 12);     /* counter 1: instruction cache misses (event 0x00) */
+    uint32_t v = (PMNC_START & ~(0xFFu << 12)) | (0x00u << 12);     /* counter 0: instructions, counter 1: see pmu_meter_event */
     __asm__ volatile("mcr p15, 0, %0, c15, c12, 0" ::"r"(v));
     on = 1;
     return 1;
 }
 
-uint32_t pmu_icache_misses(void)
+/* counter 1: instruction cache misses (0x00), data cache misses (0x0B), branches mispredicted (0x06); the counters restart */
+void pmu_meter_event(int k)
 {
-    uint32_t d = 0;
-    if (on)
-        __asm__ volatile("mrc p15, 0, %0, c15, c12, 3" : "=r"(d));
-    return d;
+    static const uint32_t ev[3] = { 0x00, 0x0B, 0x06 };
+    if (!on)
+        return;
+    uint32_t v = (PMNC_START & ~(0xFFu << 12)) | (ev[k % 3] << 12);
+    __asm__ volatile("mcr p15, 0, %0, c15, c12, 0" ::"r"(v));
+}
+
+void pmu_meter_read(uint32_t out[3])
+{
+    uint32_t c = 0, i = 0, e = 0;
+    if (on) {
+        __asm__ volatile("mrc p15, 0, %0, c15, c12, 1" : "=r"(c));
+        __asm__ volatile("mrc p15, 0, %0, c15, c12, 2" : "=r"(i));
+        __asm__ volatile("mrc p15, 0, %0, c15, c12, 3" : "=r"(e));
+    }
+    out[0] = i; out[1] = e; out[2] = c;
 }
 
 void pmu_stop(void)

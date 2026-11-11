@@ -27,13 +27,15 @@
 static uint32_t now_us(void) { return timer_ticks(); }
 
 /* The instruction cache miss counter of the Pi (src/kernel/pmu.c); not in the PC's host program, nor in the RGB30's kernel. */
-extern int pmu_start_icache(void) __attribute__((weak));
-extern uint32_t pmu_icache_misses(void) __attribute__((weak));
+extern int pmu_start_meter(void) __attribute__((weak));
+extern void pmu_meter_read(uint32_t out[3]) __attribute__((weak));
+extern void pmu_meter_event(int k) __attribute__((weak));
 
 int l_snes_load(lua_State *L)
 {
     snes_set_clock(now_us);
-    snes_set_counter(pmu_start_icache && pmu_icache_misses && pmu_start_icache() ? pmu_icache_misses : NULL);
+    if (pmu_start_meter && pmu_meter_read && pmu_meter_event && pmu_start_meter()) snes_set_meter(pmu_meter_read, pmu_meter_event);
+    else snes_set_meter(NULL, NULL);
     audio_set_ext(snes_audio_mix);                 /* the sound of the machine goes out through the console's output */
     size_t len;
     const char *data = luaL_checklstring(L, 1, &len);
@@ -266,12 +268,19 @@ int l_snes_debug(lua_State *L)
         snprintf(hex + l, sizeof hex - l, " gsu %lu gins %lu", (unsigned long)d.us_gsu, (unsigned long)d.gsu_instr);
     }
     lua_pushstring(L, hex); lua_setfield(L, -2, "us");
-    snprintf(hex, sizeof hex, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
-    if (d.im_cpu | d.im_spc | d.im_ppu) {
-        const size_t n = strlen(hex);
-        snprintf(hex + n, sizeof hex - n, " | icache miss: cpu %lu spc %lu ppu %lu", (unsigned long)d.im_cpu, (unsigned long)d.im_spc, (unsigned long)d.im_ppu);
+    {
+        char ml[420];                                  /* the PPU parts, then the ARM's counters by part (cpu, spc, ppu) when the meter runs */
+        int n = snprintf(ml, sizeof ml, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
+        if (d.m_cycles[0] | d.m_cycles[1] | d.m_cycles[2]) {
+            static const char *const names[3] = { "icache miss", "dcache miss", "mispredict" };
+            n += snprintf(ml + n, sizeof ml - (size_t)n, " | arm instr cpu %lu spc %lu ppu %lu | cycles cpu %lu spc %lu ppu %lu",
+                          (unsigned long)d.m_instr[0], (unsigned long)d.m_instr[1], (unsigned long)d.m_instr[2],
+                          (unsigned long)d.m_cycles[0], (unsigned long)d.m_cycles[1], (unsigned long)d.m_cycles[2]);
+            for (int k = 0; k < 3 && n < (int)sizeof ml - 60; k++)
+                n += snprintf(ml + n, sizeof ml - (size_t)n, " | %s: cpu %lu spc %lu ppu %lu", names[k], (unsigned long)d.m_ev[k][0], (unsigned long)d.m_ev[k][1], (unsigned long)d.m_ev[k][2]);
+        }
+        lua_pushstring(L, ml); lua_setfield(L, -2, "us_ppu");
     }
-    lua_pushstring(L, hex); lua_setfield(L, -2, "us_ppu");
     {
         uint32_t under, over, kons;
         snes_audio_stats(&under, &over, &kons);
