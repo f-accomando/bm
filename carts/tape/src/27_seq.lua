@@ -97,8 +97,49 @@ local function load_demo()
   for _, b in ipairs({ { 0, 36, 3 }, { 3, 36, 2 }, { 6, 39, 2 }, { 8, 41, 3 }, { 11, 43, 2 }, { 14, 39, 2 } }) do
     put(2, b[1], b[2], 105, b[3] * TPS)
   end
-  for j = 0, 3 do aset(SL, j + 1, 1) end
-  for j = 1, 3 do aset(SL, NSONG + j + 1, 1) end
+  -- the multitrack demo: four instruments (drums, DX BASS, JUNO PAD, PULSE LEAD) over a song of 8 slots in C minor.
+  -- Pattern A is the verse and pattern B the lift (slots 5 to 8). The drums start alone, the bass comes in at slot 2, the pad
+  -- and the lead at slot 3; the lift has a busier beat and a new bass line, chords and tune. The loop is the 8 slots.
+  local function in_pat(t, pt, fn)
+    local keep = S.pat[t]
+    S.pat[t] = pt
+    fn()
+    S.pat[t] = keep
+  end
+  local function chord(t, s, notes, vel, steps)
+    for _, n in ipairs(notes) do put(t, s, n, vel, steps * TPS) end
+  end
+  chord(3, 0, { 48, 51, 55 }, 80, 7); chord(3, 8, { 53, 56, 60 }, 80, 7)                       -- Cm, Fm
+  for _, m in ipairs({ { 0, 67, 2 }, { 3, 70, 2 }, { 6, 72, 2 }, { 8, 70, 3 }, { 11, 67, 2 }, { 14, 63, 2 } }) do
+    put(4, m[1], m[2], 95, m[3] * TPS)
+  end
+  in_pat(1, 2, function()
+    for _, st in ipairs({ 0, 3, 6, 10, 12 }) do put(1, st, 1, 120, TPS) end
+    for _, st in ipairs({ 4, 12, 15 }) do put(1, st, 2, st == 15 and 70 or 115, TPS) end
+    for st = 0, 15 do put(1, st, 3, st % 2 == 0 and 90 or 55, TPS) end
+    put(1, 14, 6, 80, TPS)
+  end)
+  in_pat(2, 2, function()
+    for _, b in ipairs({ { 0, 44, 3 }, { 3, 44, 2 }, { 6, 46, 2 }, { 8, 43, 3 }, { 11, 43, 2 }, { 14, 41, 2 } }) do
+      put(2, b[1], b[2], 105, b[3] * TPS)
+    end
+  end)
+  in_pat(3, 2, function()
+    chord(3, 0, { 56, 60, 63 }, 80, 7); chord(3, 8, { 55, 59, 62 }, 80, 7)                   -- Ab, G
+  end)
+  in_pat(4, 2, function()
+    for _, m in ipairs({ { 0, 72, 2 }, { 2, 75, 2 }, { 4, 77, 2 }, { 6, 79, 3 }, { 10, 77, 2 }, { 12, 75, 2 }, { 14, 74, 2 } }) do
+      put(4, m[1], m[2], 100, m[3] * TPS)
+    end
+  end)
+  local function slots(t, from, to, pt) for j = from, to do aset(SL, (t - 1) * NSONG + j + 1, pt) end end
+  slots(1, 0, 3, 1); slots(1, 4, 7, 2)
+  slots(2, 1, 3, 1); slots(2, 4, 7, 2)
+  slots(3, 2, 3, 1); slots(3, 4, 7, 2)
+  slots(4, 2, 3, 1); slots(4, 4, 7, 2)
+  S.lout = 8
+  S.pan = { 0, 0, -0.3, 0.3 }
+  S.send[3][3], S.send[4][2] = 0.3, 0.25                                                    -- chorus on the pad, echo on the lead
 end
 
 -- ---------------------------------------------------------------- clock

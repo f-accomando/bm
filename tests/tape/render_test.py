@@ -239,8 +239,8 @@ def main():
     patb = one("patb", GOTO[4] + key(20, KEY_QUOTE), 2, 60)
     check("' selects the next pattern: the letter after the track changes (A to B)", strip(patb, 1060, 1072) != strip(p0, 1060, 1072))
     check("; goes back to the first pattern (A)", strip(one("pata", GOTO[4] + key(20, KEY_QUOTE) + key(30, KEY_SEMI), 2, 70), 1060, 1072) == strip(p0, 1060, 1072))
-    check("the pattern is a copy: the grid of pattern B is empty (no pink steps)",
-          not [i for i in range(16) if near(cells(patb)[i], ENC[1])])
+    check("pattern B of track 2 holds its own bass line (the lift of the demo): same steps lit, other notes",
+          [i for i in range(16) if near(cells(patb)[i], ENC[1])] == [3, 6, 8, 11, 14] and crop_hash(patb, 0, 60, 960, 110) != crop_hash(p0, 0, 60, 960, 110))
 
     # the TAPE page keys: track 2 (selected) has a clip in the slots 2 to 4 of the demo; the cursor is on slot 1
     def lane(im, slot, row=2):

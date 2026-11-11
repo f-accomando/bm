@@ -51,6 +51,10 @@ bm Tape is a portable studio in vector art. It has a synth, a 12-pad drum kit, a
 | `../build/build.py` | Build script |
 | `../bm.info` | Metadata |
 
+## 2.1 The demo song
+
+`load_demo` in `27_seq.lua` makes a multitrack of 8 slots in C minor on the four tracks: drums (kit pads), DX BASS (FM), JUNO PAD (chords) and PULSE LEAD. Pattern A is the verse (slots 1 to 4), pattern B is the lift (slots 5 to 8). The drums start alone, the bass comes in at slot 2, the pad and the lead at slot 3. The loop is 1 to 8, the pad is panned left and the lead right, with a chorus send on the pad and an echo send on the lead. Press `\` (SONG) and Space to hear it. The first start is in PATTERN mode: it loops pattern A of each track.
+
 ## 3. Build and test
 
 Commands:
