@@ -103,4 +103,6 @@ Rule that the repo already follows: a C reference, an assembly version, and an e
 
 Next measurement to consider: a threaded assembly interpreter for the CPU, before a full JIT.
 
+The conversion of a ROM to ARM (items C4 and C5) is in [snes-convert.md](snes-convert.md).
+
 The PPU and the GPU ideas are in [snes-gpu.md](snes-gpu.md).
