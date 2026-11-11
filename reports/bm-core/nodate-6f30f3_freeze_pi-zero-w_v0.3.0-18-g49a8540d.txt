@@ -1,0 +1,72 @@
+bm report
+kind: freeze
+kernel: v0.3.0-18-g49a8540d
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 60 s after boot, kernel v0.3.0-18-g49a8540d, ring 5979, sink on
+--- the last lines printed ---
+playing snes.bm
+play: /bm/snes.bm (59788 bytes)
+fb_init_depth: mbox_call failed
+bm_video_enter: fb_init_depth(640,360,3,16) failed: -1
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+menu: 1920x1080, drawn by the GPU
+covers: all 23 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-11 15:19 UTC
+menu idle: 300/300 frames, 149 of 621 ms taken, 1.5 ms past a frame; covers 135 ms (+2.9, stk 0.8/16K); min slack -44007 us, paced 0
+menu idle: sd first word <1ms 167 <3ms 4 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15133 us, enlarge 0 us, flip 94 us, free time used 497 us (300 frames)
+menu frame: 1x, a frame averages draw 13009 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13129 us, enlarge 0 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13167 us, enlarge 0 us, flip 94 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13080 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 12995 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13176 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+bt:   <- L2CAP connect request (02) 01 00 40 00 00 00
+bt:   <- L2CAP config request (04) 42 00 00 00 01 02
+bt:   <- L2CAP config response (05) 42 00 00 00 00 00
+bt:   SDP request 06 answered (no records): 35 03 19 01 00 08 00 35 05 0a
+bt:   <- L2CAP disconnect (06) 42 00 40 00 00 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- encryption change (08) 00 0b 00 01
+bt:   <- L2CAP connect request (02) 11 00 41 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP connect request (02) 13 00 42 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt:   -> output report 11 (light 00 20 80, reports every 8 ms)
+bt:   <- first input report 01 (11 bytes)
+bt:   <- battery 7/10
+market: nearby consoles: listening as bm-108
+fiber: market did not yield: 20.9 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 59.7 ms past its slice
+menu idle: 300/300 frames, 596 of 614 ms taken, 62.2 ms past a frame; market 582 ms (+59.7, stk 4.0/128K); min slack -54167 us, paced 0
+menu idle: sd first word <1ms 272 (max 1.5 ms)
+menu stalls: tls handshake 1x last 259.9 worst 259.9 ms
+menu frame: 1x, a frame averages draw 17513 us, enlarge 0 us, flip 95 us, free time used 1988 us (300 frames)
+menu frame: 1x, a frame averages draw 17513 us, enlarge 0 us, flip 95 us, free time used 21 us (300 frames)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2004 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001
