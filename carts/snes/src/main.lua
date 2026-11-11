@@ -138,10 +138,25 @@ local snap                                         -- the test build's kept line
 -- fell to 30 draws a second with gaps of 56 ms; at 1/2 it held 58 draws a second. So the loop counts as much as the updates:
 -- - overloaded: under 57 updates a second, or under 50 draws a second. A picture less often, and no step back for 15 seconds (60 seconds
 --   when the step back to 1/1 or to a level that just failed was the cause: `hold`);
--- - three good windows in a row (58.8 updates and 55 draws a second or more), and a step back is allowed only when the cost measured now (update
---   plus draw, ms a frame) leaves room for the finer level: under 11 ms for 1/1, under 13 ms for the others.
+-- - three good windows in a row (58.8 updates and 55 draws a second or more), and a step back is allowed only when the frame predicted for the finer
+--   level (`frame_ms`: CPU and sound of a frame plus PPU and draw of a picture, divided by the pictures) is under 14 ms for 1/1 and under 13 ms for the others.
+--   2026-11-11 (Super Mario World, Pi Zero W): the old rule took the cost of the update and the draw of a light scene at 1/2 (9.9 ms) and went to 1/1; the
+--   scene came back to a PPU of 9 ms and the loop fell to 37 pictures a second for two seconds. The predicted frame at 1/1 is 17.7 ms: it stays at 1/2.
 local every, win_n, win_t, win_last, cooldown, good = 3, 0, 0, nil, 0, 0
 local win_dr, win_u, win_d, stepped = 0, 0, 0, false     -- draws, update ms and draw ms in the window; the last move was a step to a finer level
+local dbg, dbg_n = nil, 0                    -- the last debug table and a counter of draws
+local ppu_hi = 0                             -- the PPU time of a drawn frame (us), the highest of the last minute or so: it falls 1% a sample (two a second)
+-- The ms of a frame at 1 picture in `k` frames, from the times the machine measured: the CPU and the sound of each frame, and the PPU and the draw
+-- of each picture (a drawn frame, so a light scene at 1/2 does not look cheap at 1/1); the PPU is the highest of the last minute (`ppu_hi`). Pi Zero W, 2026-11-11, Super Mario World: 3.2 + 1.8 + (9.4 + 3.3) / k
+-- = 17.7 ms at 1/1 (the frame is 16.7 ms), 11.4 ms at 1/2. nil when the machine has no times yet.
+local function frame_ms(k)
+  local us = dbg and dbg.us
+  if not us then return nil end
+  local p, sp, c = string.match(us, "ppu (%d+) spc (%d+) cpu (%d+)")
+  if not p then return nil end
+  local draw = win_dr > 0 and win_d / win_dr or 3.3
+  return (tonumber(c) + tonumber(sp)) / 1000 + (math.max(tonumber(p), ppu_hi) / 1000 + draw) / k
+end
 local MINI, last_ups, last_dps = false, 0, 0              -- a test build with a one-line speed readout
 local function adapt()
   local t = time()
@@ -160,7 +175,8 @@ local function adapt()
     elseif ups >= 58.8 and dps >= 55 then
       good = good + 1
       stepped = false                                  -- the last step held for a window: it was not the cause
-      if good >= 3 and every > 1 and cooldown == 0 and cost < (every == 2 and 11 or 13) then every = every - 1; good = 0; stepped = true
+      local room = frame_ms(every - 1)                  -- the cost of the finer level, predicted; the old rule (the cost now) when there are no times
+      if good >= 3 and every > 1 and cooldown == 0 and (room and room < (every == 2 and 14 or 13) or not room and cost < (every == 2 and 11 or 13)) then every = every - 1; good = 0; stepped = true
       elseif good >= 3 then good = 3 end
     else
       good = 0; stepped = false
@@ -218,7 +234,6 @@ local cur_lines = 224                          -- lines of the picture now: 224,
 
 -- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
 local gmesh
-local dbg, dbg_n = nil, 0                    -- the last debug table and a counter of draws
 -- the menu is 228 pixels high: centred, but it never goes below the screen (the native screen is 256 high)
 function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 232)) end
 -- The logger: one line a second in the kernel's log (`log`), no text on the screen. Read it with `pi.py line log` or the monitor command `log`.
@@ -442,7 +457,11 @@ function _draw()
   if state ~= "run" then lg.last = nil; lg.t0 = nil elseif log_on then log_draw(draw_ms[1] + draw_ms[2]) end
   -- the machine's debug table is big (strings, the sprite table): the test build takes it at every picture, the cart twice a second, for the message of a screen that stays off
   dbg_n = dbg_n + 1
-  if AUTO or dbg_n % 30 == 0 then dbg = snes_debug(AUTO and 0xCFC0 or nil) end
+  if AUTO or dbg_n % 30 == 0 then
+    dbg = snes_debug(AUTO and 0xCFC0 or nil)
+    local pu = dbg and dbg.us and string.match(dbg.us, "ppu (%d+)")
+    if pu then ppu_hi = math.max(tonumber(pu), ppu_hi * 0.99) end       -- a light scene does not make the next heavy one a surprise
+  end
   local d = dbg
   if d and d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO and show_fps then      -- a game that keeps the screen off: say why (only with "FPS: on")
     local io = {}
