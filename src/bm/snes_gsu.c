@@ -2,8 +2,8 @@
  * snes_gsu.c: the Super FX co-processor (GSU-1 and GSU-2) of the SNES core. Original code, written from public documents:
  * the design, the register map and the source of each fact are in docs/progress/snes-superfx.md.
  *
- * The GSU reads the ROM and writes the cart RAM (S.sram) itself. It runs in step with the SNES lines: the bus calls
- * gsu_run once a line. A jump takes effect after the next opcode (the delay slot): `jpend` holds the target.
+ * The GSU reads the ROM and writes the cart RAM (S.sram) itself. It runs lazily: the bus calls gsu_run (from gsu_sync_pos) when
+ * the CPU touches it. A jump takes effect after the next opcode (the delay slot): `jpend` holds the target.
  * gsu_run keeps the hot state (prefix, flags, pending jump) in locals, so the loop stays in the registers of the host CPU.
  */
 #include "snes_int.h"

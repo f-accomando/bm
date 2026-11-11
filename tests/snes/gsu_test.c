@@ -288,6 +288,39 @@ static void cache_irq_tests(void)
     CHECK("stopped by the SNES", !gsu_go());
 }
 
+/* The lazy run (snes_bus.c): the GSU runs when the CPU touches it, not in steps of its own. snes_read and snes_write advance snes_clk, so a loop of reads is
+ * a CPU that waits. */
+static void lazy_tests(void)
+{
+    /* R1 = $5A5A, R2 = $0010, STW (R2): the word goes to RAM $0010, then STOP; a long delay loop first so that the job lasts some lines */
+    static const uint8_t prog[] = { IWT(12, 400), IWT(13, 0x8006), 0x01, 0x3C, 0x01, 0x01, IWT(1, 0x5A5A), IWT(2, 0x0010), FROM(1), 0x32, STOP };
+    const uint32_t page = 0x700000u >> 12;
+    load_rom(prog, sizeof prog);
+    wr(0x303A, 0x18); wr(0x3039, 1); wr(0x3037, 0x80);
+    snes_write(0x700010, 0); snes_write(0x700011, 0);
+    CHECK("cart ram pages on at rest", snes_rtab[page] != NULL);
+    wreg(15, 0x8000);
+    CHECK("cart ram pages off while it runs", snes_rtab[page] == NULL && snes_rtab[0x006000u >> 12] == NULL);
+    int polls = 0;
+    while ((snes_read(0x003030) & 0x20) && polls < 100000) polls++;
+    CHECK("a poll of the status sees the end", polls < 100000 && !gsu_go());
+    CHECK("a poll takes more than one read (the status is as old as the last run)", polls > 1);
+    CHECKV("the job ran: RAM", snes_read(0x700010), 0x5A);
+    CHECK("cart ram pages on again", snes_rtab[page] != NULL && snes_rtab[0x006000u >> 12] != NULL);
+    /* the same, polling the RAM: the read goes the slow way while the GSU runs and catches the store */
+    snes_write(0x700010, 0);
+    wreg(15, 0x8000);
+    polls = 0;
+    while (snes_read(0x700010) != 0x5A && polls < 100000) polls++;
+    CHECK("a poll of the RAM sees the store", polls < 100000);
+    /* a read of the vectors brings the GSU up to date first (the pattern is for a running GSU that owns the ROM) */
+    snes_write(0x700010, 0);
+    wr(0x303A, 0x18);
+    wreg(15, 0x8000);
+    for (int i = 0; i < 3000; i++) (void)snes_read(0x00FFEA);
+    CHECK("vector reads end the job", !gsu_go());
+}
+
 static void map_tests(void)
 {
     load_rom((const uint8_t[]){ STOP }, 2);
@@ -388,6 +421,7 @@ int main(int argc, char **argv)
     rom_tests();
     plot_tests();
     cache_irq_tests();
+    lazy_tests();
     map_tests();
     golden_test();
     printf("gsu: %d checks, %d failed\n", count, fails);
