@@ -110,7 +110,7 @@ static inline void snes_write_f(uint32_t a, uint8_t v)
 /* snes_cpu.c */
 void cpu_reset(void);
 void cpu_step(void);
-void cpu_irq_nmi_check(void);
+int cpu_run(int limit);                         /* runs instructions while snes_clk < limit; returns how many */
 void cpu_info(uint32_t *pc, int *flags);
 extern int cpu_waiting, cpu_stopped;
 typedef struct { uint16_t a, x, y, s, d, pc; uint8_t p; int e; uint8_t pb, db; } cpu_regs_t;

@@ -557,10 +557,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         const int end = LINE_CLK;
         S.line_clk = 0;
         if (ia >= 0 && ia < end) {
-            while (snes_clk < ia) { S.line_clk = snes_clk; cpu_step(); n_instr++; }
+            n_instr += (uint32_t)cpu_run(ia);
             S.irq_pending = 1; S.timeup = 1;
         }
-        while (snes_clk < end) { S.line_clk = snes_clk; cpu_step(); n_instr++; }
+        n_instr += (uint32_t)cpu_run(end);
         S.line_clk = 0;
         snes_clk -= end;
         if (now_us) {

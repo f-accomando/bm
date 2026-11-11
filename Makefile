@@ -355,6 +355,12 @@ $(BUILD)/host/snes_cpu_golden: tests/snes/cpu_golden.c $(SNES_PPU_SRCS) src/bm/s
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/cpu_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
 test-snes-cpu: $(BUILD)/host/snes_cpu_golden
 	$<
+# The time of the CPU interpreter per instruction on a game-like program (tests/snes/cpu_bench.c). The host is not the Pi: compare two runs.
+$(BUILD)/host/snes_cpu_bench: tests/snes/cpu_bench.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/cpu_bench.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+bench-snes-cpu: $(BUILD)/host/snes_cpu_bench
+	$<
 # The S-DSP on random voices, against the hashes of the code before the speed work (tests/snes/dsp_golden.c).
 $(BUILD)/host/snes_dsp_golden: tests/snes/dsp_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
@@ -955,7 +961,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
