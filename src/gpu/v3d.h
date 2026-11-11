@@ -26,6 +26,7 @@
  * the reason in v3d_status() (QEMU has no V3D). */
 int v3d_init(void);
 void v3d_reset(void);
+void v3d_soft_reset(void);
 void v3d_shutdown(void);
 const char *v3d_status(void);
 
