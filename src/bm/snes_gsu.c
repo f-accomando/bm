@@ -371,7 +371,7 @@ void gsu_run(int clocks)
             else if (alt == 2) { g.ramaddr = FETCH16(); ram_ww(g.ramaddr, r[n]); cyc += 3; }
             else SETREG(n, FETCH16());
             CLR(); break;
-        default: CLR(); break;
+        default: __builtin_unreachable();
         }
         budget -= cyc * mul;
         if (stopped) { budget = 0; break; }

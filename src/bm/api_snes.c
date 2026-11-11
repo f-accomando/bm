@@ -261,6 +261,10 @@ int l_snes_debug(lua_State *L)
     lua_pushstring(L, hex); lua_setfield(L, -2, "ports");
     snprintf(hex, sizeof hex, "us frame %lu ppu %lu spc %lu cpu %lu dma %lu hdma %lu ins %lu", (unsigned long)d.us_frame, (unsigned long)d.us_ppu, (unsigned long)d.us_spc,
              (unsigned long)d.us_cpu, (unsigned long)d.us_dma, (unsigned long)d.us_hdma, (unsigned long)d.instr);
+    if (d.gsu_instr) {                                  /* a Super FX cartridge: the GSU time (timed frames) and its instructions in a frame */
+        const size_t l = strlen(hex);
+        snprintf(hex + l, sizeof hex - l, " gsu %lu gins %lu", (unsigned long)d.us_gsu, (unsigned long)d.gsu_instr);
+    }
     lua_pushstring(L, hex); lua_setfield(L, -2, "us");
     snprintf(hex, sizeof hex, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
     if (d.im_cpu | d.im_spc | d.im_ppu) {
