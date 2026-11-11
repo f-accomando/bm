@@ -87,12 +87,14 @@ def main():
         return sum(xs) / len(xs) if xs else -1
     check("the sprite moves right", cx(f200) > cx(f60) > 0)
     # HDMA bands: the left edge of the red band on the right moves by whole steps as the rows go down
-    h, w = 360, 640
+    w = max(x for x, y in f200) + 1                    # the cart starts in the native 256x256 mode: the size follows the shot
+    h = max(y for x, y in f200) + 1
+    top = (h - 224) // 2                               # the picture is 224 lines at 1x, centred
     def red_left(p, y):
         for x in range(w // 2, w):
             if near(p.get((x, y), (0, 0, 0)), red): return x
         return None
-    a, b = red_left(f200, 100), red_left(f200, 250)     # the picture is 224 lines at 1x: rows 68 to 291 of the 360 screen
+    a, b = red_left(f200, top + 32), red_left(f200, top + 182)
     check("HDMA bands change the scroll", a is not None and b is not None and a != b)
     # menu > Export sprites: a PNG of the sprite tiles in /docs, the orange of the sprite in it, the rest transparent
     png = tmp + "/sd/docs/spr1.png"

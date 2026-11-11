@@ -57,18 +57,20 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 Status of every item: idea, not started.
 
-| Code | Item | Gate |
-|---|---|---|
-| G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix` of the test build) | a table for the scenes that drop |
-| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c` | byte for byte against `ppu_ref.c` |
-| G3 | Register log for each line (fixes HDMA) | same, with a test ROM that uses HDMA |
-| G4 | Sprite lists for each line made by the ARM and given to the GPU | same, with the sprite limits (32 sprites, 34 tiles a line) |
-| G5 | Mode 1 shader (BG1 to BG3, sprites) | same, Super Mario World frames |
-| G6 | Colour math and windows in the shader | same, `make test-snes-ppu` states |
-| G7 | Pipeline with a frame of delay and a VRAM copy | no tearing; the time of a frame measured on the Pi |
-| G8 | Fallback to the ARM PPU for each frame | a frame with an unported feature gives the ARM picture |
-| G9 | Modes 0, 2, 3, 4 (offset-per-tile) | same |
-| G10 | Modes 5, 6, interlace, mosaic: decide if they stay on the ARM | a written decision |
-| G11 | The GPU writes the 256x224 target directly, no blit (native mode only) | the draw cost measured before and after |
+P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
+
+| Code | Item | P | T | Gate |
+|---|---|---|---|---|
+| G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix` of the test build) | 0 | 2 | a table for the scenes that drop |
+| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c` | 3 | 6 | byte for byte against `ppu_ref.c` |
+| G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
+| G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |
+| G5 | Mode 1 shader (BG1 to BG3, sprites) | 4 | 8 | same, Super Mario World frames |
+| G6 | Colour math and windows in the shader | 5 | 8 | same, `make test-snes-ppu` states |
+| G7 | Pipeline with a frame of delay and a VRAM copy | 7 | 7 | no tearing; the time of a frame measured on the Pi |
+| G8 | Fallback to the ARM PPU for each frame | 5 | 5 | a frame with an unported feature gives the ARM picture |
+| G9 | Modes 0, 2, 3, 4 (offset-per-tile) | 8 | 8 | same |
+| G10 | Modes 5, 6, interlace, mosaic: decide if they stay on the ARM | 8 | 1 | a written decision |
+| G11 | The GPU writes the 256x224 target directly, no blit (native mode only) | 7 | 5 | the draw cost measured before and after |
 
 Order: G1, G2, G3, G4, G5, G6, G8, G7, G11, then G9 and G10.

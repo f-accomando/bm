@@ -3,6 +3,7 @@
 -- battery RAM in /docs and has the menu. Original code.
 
 local SW, SH = 256, 240
+local AUTOPLAY = false        -- a build for the bridge (SNES_PLAY=1): opens the first ROM and plays by itself, with no test screen; the logger writes the speed
 local AUTO = false            -- a test build opens the first ROM by itself (the bridge cannot press keys)
 
 -- the SNES buttons as bits (snes.h): B Y Select Start Up Down Left Right A X L R
@@ -34,9 +35,24 @@ local function auto_pad(f)
   return 0x0100 | ((t % 60) < 25 and 0x8000 or 0) | 0x4000      -- right, running (Y), jumping (B) now and then
 end
 
+-- The keyboard is read with keydown (rawkeys: it is not a controller, so Esc is not Start). USB usages:
+-- WASD and the arrows move, U I O P are Y X B A (the SNES layout: Y left, X top, B bottom, A right), Q and E are L and R, "," is Select, "." is Start.
+-- Esc opens the emulator menu.
+local KB = { { 0x1A, 0x0800 }, { 0x16, 0x0400 }, { 0x04, 0x0200 }, { 0x07, 0x0100 }, { 0x52, 0x0800 }, { 0x51, 0x0400 }, { 0x50, 0x0200 }, { 0x4F, 0x0100 },
+             { 0x18, 0x4000 }, { 0x0C, 0x0040 }, { 0x12, 0x8000 }, { 0x13, 0x0080 }, { 0x14, 0x0020 }, { 0x08, 0x0010 }, { 0x36, 0x2000 }, { 0x37, 0x1000 } }
+local kprev = {}
+local function kedge(u)                        -- true once when the key goes down; kscan() runs at the end of every update
+  return keydown(u) and not kprev[u]
+end
+local function kscan() for _, u in ipairs({ 0x1A, 0x16, 0x52, 0x51, 0x28, 0x2C, 0x29, 0x15 }) do kprev[u] = keydown(u) end end
+local function nav_up() return btnp("up") or kedge(0x1A) or kedge(0x52) end
+local function nav_down() return btnp("down") or kedge(0x16) or kedge(0x51) end
+local function nav_ok() return btnp("a") or kedge(0x28) or kedge(0x2C) end
+
 local function readpad(p)
-  if AUTO and p == 1 then return auto_pad(frames) end
+  if (AUTO or AUTOPLAY) and p == 1 then return auto_pad(frames) end
   local v = 0
+  if p == 1 then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
   for i = 1, #BTNS do
     local e = BTNS[i]
     local name = swap and SWAP[e[1]] or e[1]
@@ -170,12 +186,41 @@ local dx, dy, dw, dh = 0, 0, SW, SH            -- where and how big the picture 
 -- "native": the screen is 256x256 (the console centres it in a 480x270 screen: 4x on a 1080p TV); "sharp": a whole-number scale (1x on a 360-line screen), all pixels the same size; "fit": 4:3 on the whole screen; "gpu2" and "gpu3": the screen is 960x540 (a 1080p TV
 -- shows it at whole pixels) or 1280x720 (a 720p TV), and the GPU draws the picture 2 or 3 times bigger (snes_to_sheet and sspr)
 local mode = "sharp"
-local START_MODE = "sharp"                       -- a test build starts in another mode
+local START_MODE = "native"                      -- the default scale; a test build starts in another mode
 local cur_lines = 224                          -- lines of the picture now: 224, or 239 (PAL and overscan)
 
 -- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
 local gmesh
 local dbg, dbg_n = nil, 0                    -- the last debug table and a counter of draws
+-- the menu is 228 pixels high: centred, but it never goes below the screen (the native screen is 256 high)
+function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 232)) end
+-- The logger: one line a second in the kernel's log (`log`), no text on the screen. Read it with `pi.py line log` or the monitor command `log`.
+-- Fields: t seconds; upd = emulated frames; drw = pictures drawn; fps = the console's loop; pic = picture every N frames;
+-- umax/uavg = the longest and the mean update (ms); dmax/davg = the same for the draw; gap = the longest time between two draws (ms);
+-- late = draws more than 40 ms after the last; lua = stat(1); then the machine's own times (us frame, ppu, spc; the PPU parts).
+local log_on = true                                -- the menu item "Log" switches it
+local lg = { t0 = nil, f0 = 0, drw = 0, umax = 0, dmax = 0, gap = 0, late = 0, last = nil, usum = 0, dsum = 0 }
+local function log_reset(now) lg.t0 = now; lg.f0 = frames; lg.drw = 0; lg.umax = 0; lg.dmax = 0; lg.gap = 0; lg.late = 0; lg.usum = 0; lg.dsum = 0 end
+function log_draw(dm)
+  local now = time()
+  if not lg.t0 then log_reset(now) end
+  if lg.last then
+    local g = (now - lg.last) * 1000
+    if g > lg.gap then lg.gap = g end
+    if g > 40 then lg.late = lg.late + 1 end
+  end
+  lg.last = now
+  lg.drw = lg.drw + 1; lg.dsum = lg.dsum + dm
+  if dm > lg.dmax then lg.dmax = dm end
+  if now - lg.t0 >= 1 then
+    local n = math.max(1, frames - lg.f0)
+    local d2 = dbg
+    log(string.format("snes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s | %s | %s",
+      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode,
+      d2 and d2.us or "-", d2 and d2.us_ppu or "-"))
+    log_reset(now)
+  end
+end
 local GPU_EMPTY = false                    -- a test: no picture, to time the empty 720p frame
 local pic_new = true                       -- the machine made a picture since the last snes_to_sheet
 local GPU3D = true                         -- call zclear() so that the GPU draws the 2D (needed at 1280x720)
@@ -234,11 +279,12 @@ end
 
 function _init()
   layout(cur_lines)
-  if START_MODE ~= "sharp" then set_mode(START_MODE) end
+  if START_MODE ~= mode then set_mode(START_MODE) end
   pad_layout()
   frameskip(4)
+  if rawkeys then rawkeys(true) end
   list_roms()
-  if AUTO and files[1] then open_rom(files[1]) end
+  if (AUTO or AUTOPLAY) and files[1] then open_rom(files[1]) end
 end
 
 function _exit()
@@ -248,23 +294,22 @@ end
 
 function _update()
   if state == "browse" then
-    if btnp("up") then sel = math.max(1, sel - 1) end
-    if btnp("down") then sel = math.min(#files, sel + 1) end
-    if btnp("x") then list_roms() end
-    if btnp("a") and files[sel] then open_rom(files[sel]) end
+    if nav_up() then sel = math.max(1, sel - 1) end
+    if nav_down() then sel = math.min(#files, sel + 1) end
+    if btnp("x") or kedge(0x15) then list_roms() end
+    if nav_ok() and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
     -- the emulator menu: Esc on a keyboard, or L2 and R2 held for half a second on a pad (Q and E are L and R of the game)
-    local esc_now = keydown(0x29)
-    local esc_edge = esc_now and not esc_prev
-    esc_prev = esc_now
+    local esc_edge = kedge(0x29)
     if btn("l2") and btn("r2") then holdmenu = holdmenu + 1 else holdmenu = 0 end
-    if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; toast = nil; save_sram(); return end
+    if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; toast = nil; save_sram(); kscan(); return end
     local bench = AUTO and frames >= 600 and frames < 3200      -- the test build: every frame in this range is drawn, and the time of the parts is summed: the same frames in every run
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
       if not AUTO then adapt() end
       local render = bench or frames % (AUTO and 4 or every) == 0
       snes_frame(readpad(1), readpad(2), render)      -- a picture every `every` frames (the test build: every fourth)
+      if log_on then local u = (time() - tf) * 1000; lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end
       if render then pic_new = true end
       if bench then acc.tf = acc.tf + (time() - tf) end
     end
@@ -276,20 +321,20 @@ function _update()
     if frames % 120 == 0 then pad_layout() end
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
-    if btnp("up") then menusel = math.max(1, menusel - 1) end
-    if btnp("down") then menusel = math.min(6, menusel + 1) end
-    if btnp("a") then
+    if nav_up() then menusel = math.max(1, menusel - 1) end
+    if nav_down() then menusel = math.min(7, menusel + 1) end
+    if nav_ok() then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); snes_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
       elseif menusel == 4 then next_mode()
       elseif menusel == 5 then export_sprites()
+      elseif menusel == 6 then log_on = not log_on; log("snes log " .. (log_on and "on" or "off"))
       else save_sram(); state = "browse"; list_roms() end
     end
-    local esc_now = keydown(0x29)
-    if btnp("b") or (esc_now and not esc_prev) then state = "run"; holdmenu = 0 end
-    esc_prev = esc_now
+    if btnp("b") or kedge(0x29) then state = "run"; holdmenu = 0 end
   end
+  kscan()
 end
 
 function _draw()
@@ -309,7 +354,7 @@ function _draw()
       if y > SCREEN_H - 40 then break end
     end
     if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
-    print("A play   X refresh   in game: Esc (keyboard) or hold L2+R2 (pad) for the menu", 16, SCREEN_H - 24, 0x8090A0)
+    print("Enter or A play   R or X refresh   in game: Esc (keyboard) or hold L2+R2 (pad) for the menu", 16, SCREEN_H - 24, 0x8090A0)
     return
   end
   if SCREEN_W ~= last_sw or SCREEN_H ~= last_sh then layout(cur_lines) end   -- screen() took effect
@@ -329,12 +374,13 @@ function _draw()
     end
     rectfill(0, 0, SCREEN_W, SCREEN_H, 0)
     if not GPU_EMPTY then sspr(0, 0, 256, lines, dx, dy, false, false, gpu_zoom) end
+    if log_on and state == "run" then log_draw(0) end
     if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
     if state == "menu" then
-      rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0x101820)
-      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Export sprites to /docs", "Back to the list" }
-      for i = 1, 6 do print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
-      if toast then print(toast, SCREEN_W // 2 - 104, SCREEN_H // 2 + 106, 0xFFD050) end
+      rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x101820)
+      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+      for i = 1, 7 do print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
+      if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 200, 0xFFD050) end
     end
     return
   end
@@ -352,11 +398,12 @@ function _draw()
   end
   scr:draw(dx, dy)
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
+  if state ~= "run" then lg.last = nil; lg.t0 = nil elseif log_on then log_draw(draw_ms[1] + draw_ms[2]) end
   -- the machine's debug table is big (strings, the sprite table): the test build takes it at every picture, the cart twice a second, for the message of a screen that stays off
   dbg_n = dbg_n + 1
   if AUTO or dbg_n % 30 == 0 then dbg = snes_debug(AUTO and 0xCFC0 or nil) end
   local d = dbg
-  if d and d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO then      -- a game that keeps the screen off: say why
+  if d and d.inidisp & 0x80 ~= 0 and frames > 180 and not AUTO and show_fps then      -- a game that keeps the screen off: say why (only with "FPS: on")
     local io = {}
     for i = 1, 6 do io[i] = string.format("%04X", d.io[i]) end
     print(string.format("screen off: PC %06X%s%s  nmi %02X  sound %s %04X", d.pc, d.wai and " WAI" or "",
@@ -403,14 +450,14 @@ function _draw()
   end
   if MINI or (show_fps and not AUTO) then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end   -- one line: the loop, the machine (updates a second), the picture rate
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0x101820)
-    rect(SCREEN_W // 2 - 110, SCREEN_H // 2 - 70, 220, 204, 0xFFD050)
+    rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x101820)
+    rect(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0xFFD050)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), "Export sprites to /docs", "Back to the list" }
-    for i = 1, 6 do
-      print(items[i], SCREEN_W // 2 - 90, SCREEN_H // 2 - 58 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
+                    mode_label(), "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+    for i = 1, 7 do
+      print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(snes_info().title, SCREEN_W // 2 - 90, SCREEN_H // 2 + 90, 0x8090A0)
-    if toast then print(toast, SCREEN_W // 2 - 104, SCREEN_H // 2 + 106, 0xFFD050) end
+    print(snes_info().title, SCREEN_W // 2 - 90, menu_top() + 184, 0x8090A0)
+    if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 200, 0xFFD050) end
   end
 end

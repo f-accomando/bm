@@ -6,16 +6,18 @@ Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (ARMv6
 
 Status of every item: idea, not started. Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
 
-| Code | Item | Gate |
-|---|---|---|
-| C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | FPS line read in the scenes that drop |
-| C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | a table of ms a frame for each part |
-| C2 | Registers in ARM registers, inside the interpreter | `make test-snes-cpu`, `make test-snes` |
-| C3 | Threaded interpreter in assembly (each opcode jumps to the next) | same tests, and a timing against C1 |
-| C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | same tests, and a timing against C1 |
-| C5 | Static recompiler for one game (a tool that reads the ROM) | same tests, and the game picture byte for byte |
-| C6 | Writes to PPU registers queued as events (clock, register, value) | `make test-snes`, `make test-snes-ppu` |
-| C7 | High-level SPC700 (low value: about 2 to 3% of a core) | `make test-snes-dsp`, sound by ear |
+P = priority 0 to 9 (0 is the highest). T = time to do it 0 to 9 (9 is the longest). Both are estimates (2026-11-11), not measures.
+
+| Code | Item | P | T | Gate |
+|---|---|---|---|---|
+| C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | 0 | 2 | FPS line read in the scenes that drop |
+| C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | 0 | 2 | a table of ms a frame for each part |
+| C2 | Registers in ARM registers, inside the interpreter | 4 | 4 | `make test-snes-cpu`, `make test-snes` |
+| C3 | Threaded interpreter in assembly (each opcode jumps to the next) | 3 | 5 | same tests, and a timing against C1 |
+| C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | 5 | 9 | same tests, and a timing against C1 |
+| C5 | Static recompiler for one game (a tool that reads the ROM) | 8 | 9 | same tests, and the game picture byte for byte |
+| C6 | Writes to PPU registers queued as events (clock, register, value) | 6 | 5 | `make test-snes`, `make test-snes-ppu` |
+| C7 | High-level SPC700 (low value: about 2 to 3% of a core) | 9 | 4 | `make test-snes-dsp`, sound by ear |
 
 ## Why a ROM cannot be translated once
 

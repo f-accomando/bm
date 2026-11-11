@@ -14,25 +14,25 @@ machine was written again in C. The RGB30 is not measured.
 2. Start "bm SNES" from the menu. The first time, the console asks if the cartridge may use the files.
 3. Choose the ROM with the arrows. Press A.
 4. Keys: the pad keys are the SNES keys (A, B, X, Y, L1, R1, Start, Select, the cross). The SNES buttons are
-   A right, B bottom, X top, Y left. The RGB30 and Nintendo pads have the same names. On a keyboard or an Xbox pad the
-   cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard: arrows or WASD, Space or Z
-   (B), X (A), C (Y), V (X), Q and E (L and R), Enter (Start), Tab (Select).
-   Press Esc (keyboard), or hold L2 and R2 for half a second (pad), to open the emulator menu (resume, reset, FPS, scale, export sprites, back to the list); Esc or B closes it. Q and E are
-   only the game's L and R. The menu item "FPS" shows one line at the top left: `fps` (the draw loop), `upd/s` (emulated frames a second: 60 is full speed) and `pic 1/N` (a new picture every N frames).
-   Scale in the menu: "sharp" (default), "native 256x256", "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". "native" asks for `screen(256, 256)` (the 8th mode of the Pi; the console
+   A right, B bottom, X top, Y left. The RGB30 and Nintendo pads have the same names. On an Xbox pad the
+   cartridge swaps A with B and X with Y, so the bottom button is the SNES B. The keyboard is read with `keydown` (`rawkeys`), so Esc is not Start:
+   W A S D or the arrows (cross), U (Y), I (X), O (B), P (A), Q (L), E (R), `,` (Select), `.` (Start), Enter or Space (OK in the lists), Esc (the emulator menu).
+   Press Esc (keyboard), or hold L2 and R2 for half a second (pad), to open the emulator menu (resume, reset, FPS, scale, export sprites, back to the list); Esc or B closes it. The menu item "FPS" shows one line at the top left: `fps` (the draw loop), `upd/s` (emulated frames a second: 60 is full speed) and `pic 1/N` (a new picture every N frames).
+   Scale in the menu: "native 256x256" (default), "sharp", "GPU 2x (540p)", "GPU 3x (720p)", "fit 4:3". "native" asks for `screen(256, 256)` (the 8th mode of the Pi; the console
    puts a square screen in the middle of a 480x270 one): the picture is 1x in a 256x256 page, and a 1080p TV shows it 4x at whole pixels (1024 x 896), with no GPU work. Pi One: 59-60 updates a second
    and a picture every frame (the controller reaches 1/1); on a 720p TV the 480x270 page is 2.67x, not whole. The GPU modes ask for a bigger screen (`screen(960, 540)` or
    `screen(1280, 720)`), copy the picture into the sprite sheet (`snes_to_sheet`) and draw it with `sspr` at zoom 2 or 3, after a tiny 3D triangle that opens the GPU's
    job (the 2D that follows is drawn by the GPU: `gpu3d_2d`). 960x540 shows at whole pixels on a 1080p TV (each pixel of the game is 4 x 4 pixels of the TV), 1280x720 on a 720p
    TV; a console that cannot give the size keeps the mode it had (the RGB30 has other sizes).
-   Scale "sharp" (default) uses a whole-number scale (1x on a 360-line screen, 2x from 448 lines), so every pixel has the same size; the
+   Scale "sharp" uses a whole-number scale (1x on a 360-line screen, 2x from 448 lines), so every pixel has the same size; the
    picture follows the line count (224, or 239 for PAL and overscan). Scale "fit 4:3" fills the screen height; its pixels are uneven.
    A steps-of-0.5 scale (1.5x) was tried on the Pi One on 2026-11-09: the pixels still look uneven (2 and 1 in turn).
 5. The battery RAM goes to `/docs/<name>.srm` (the first 8 letters of the ROM name). The cartridge saves it every 10 seconds,
    in the menu and at exit.
-6. A game that keeps the screen off shows two orange lines at the bottom after 3 seconds: the PC of the CPU, the last registers it
-   read, and the state of the sound CPU. Send it when a game stays black. The test build (`SNES_TEST=1`) shows the long debug lines (`fps`, `blank`, `tm`, the sound CPU).
-7. Sprites for bm Pixel: menu > "Export sprites to /docs" writes `/docs/sprN.png` (128 x 256, 16 tiles a row, the second name table below the first, transparent where no sprite
+6. A game that keeps the screen off shows the orange debug lines at the bottom after 3 seconds (the PC of the CPU, the last registers it
+   read, and the state of the sound CPU) only when the menu item "FPS" is on. The default is off. Switch it on and send the lines when a game stays black. The test build (`SNES_TEST=1`) shows the long debug lines (`fps`, `blank`, `tm`, the sound CPU).
+7. The logger (default on; the menu item "Log" switches it): one line a second in the kernel log, no text on the screen. Fields: `upd` (emulated frames), `drw` (pictures drawn), `fps`, `pic 1/N`, `umax` and `uavg` (longest and mean update, ms), `dmax` and `davg` (the draw), `gap` (longest time between two draws, ms), `late` (draws more than 40 ms after the last), `lua`, then the machine's times (`us frame ppu spc` and the PPU parts, refreshed twice a second). Read it with `python3 tools/pi.py --dev pizero line log` (a report on the `reports` branch). A build that plays by itself: `SNES_PLAY=1 python3 carts/snes/build/build.py build/snes-play` (opens the first ROM of /sfc, plays, logs).
+8. Sprites for bm Pixel: menu > "Export sprites to /docs" writes `/docs/sprN.png` (128 x 256, 16 tiles a row, the second name table below the first, transparent where no sprite
    uses a tile) with the tiles the OAM sprites on the screen use, each with the palette of the sprite that uses it (`snes_tiles` decodes the 4 bpp tiles from the video RAM and the colour RAM,
    `sheet_png` and `doc_write` write the PNG; the cart's sheet is 256 x 512, the tiles go below the picture). In bm Pixel, Sheet page > Tab > "Import a PNG from /docs..." puts it at the top left
    of the sheet (the sheet grows if the picture is bigger; Undo takes it back). Export again in other scenes: the file number goes up. Only sprites (not the backgrounds) and only what is on the screen.
@@ -72,11 +72,13 @@ machine was written again in C. The RGB30 is not measured.
 - The BG scroll registers ($210D to $2114) keep the 16 bits of the write; the picture uses the low 10 bits. The second write of a pair takes bits 0 to 2 from the first one (`bgofs_latch`, bits 8 to 10 of the old value). A mask to 10 bits at the first write loses bit 2: the map was then up to 4 pixels off from the sprites (Mario not centred on the house of the SMW overworld). `core_test.c` checks all 1024 values.
 - Every write to the video RAM goes through `vwrite` in `snes_bus.c`, which calls `ppu_vram_dirty`: the PPU keeps decoded tiles. A new way to write the video RAM must call it too (a test that fills `S.vram` calls `ppu_vram_dirty_all`). `ppu_equiv.c` writes the video RAM through the registers in the middle of a case to check it.
 - The lane helpers of `snes_ppu.c` (`nz_mask`, `lane_uqadd`, ...) use the ARMv6 SIMD32 instructions on the console and plain C on the host. Keep the C version in step: `make test-snes-ppu` runs only the C one, so check an ARM change on the console (the test build with `SNES_NOHUD=1` stops at frame 3200: compare two screenshots byte for byte).
+- The keyboard keys are the table `KB` in `carts/snes/src/main.lua` (the list is in "How to use it", point 4). Keep them when you change the cart: the user set them and they were lost in earlier releases. After a cart change, copy `build/carts/snes.bme` to `carts/snes/snes.bme`.
 - The PPU reads and writes its line buffers a 32-bit word at a time from arrays aligned to 4 bytes (`_Alignas(4)`); keep every access aligned (the ARM1176 kernel).
 
 ## Open work
 
-- Speed of the 65C816 core: exploration only, no code yet. See [snes-cpu.md](snes-cpu.md) (items C0 to C7) and [snes-gpu.md](snes-gpu.md) (items G1 to G11). First step: measure CPU and bus time apart from the PPU and the DSP.
+- Speed of the 65C816 core: exploration only, no code yet. See [snes-cpu.md](snes-cpu.md) (items C0 to C7) and [snes-gpu.md](snes-gpu.md) (items G1 to G11). See also [snes-convert.md](snes-convert.md). Each item has P (priority 0 to 9, 0 is the highest) and T (time 0 to 9). First step: C0, C1 and G1 (P 0): measure.
+- Pi Zero W, 2026-11-11: the logger is written and the `SNES_PLAY=1` build is sent, but the console froze twice at the start of the cart (`bm_video_enter: fb_init_depth(640,360,3,16) failed`, the VideoCore does not answer; `bm/lastrun.txt`). The cart never ran, so no speed log yet. Cause not found: first check the start of any cart sent with `pi.py play` after a reboot, then play the cart from the menu.
 - Play on the Pi One (the user, keyboard, 2026-11-10): the picture rate is not even. The user reads about 24 frames a second in play with drops to 11, and the picture skips often. My test runs
   (the fixed intro of Super Mario World, a test build) gave 58 to 60 updates a second and 20 to 48 draw loop frames, so the cause is not found: not measured in the scenes where it drops. The
   menu item "FPS" now shows `fps  upd/s  pic 1/N` on one line: `upd/s` near 60 with `fps` low means the machine keeps up and the cart draws less often (the controller `adapt` moves `pic 1/N`
@@ -113,8 +115,7 @@ machine was written again in C. The RGB30 is not measured.
 - Timing: the cost of an instruction is the sum of its accesses plus 6 clocks. Games that count cycles (raster tricks) may break.
   Add the exact costs and the DMA and HDMA stalls.
 - Cartridge chips: SuperFX, SA-1, DSP-1 and the other co-processors are not emulated. ExHiROM and interleaved ROMs are not detected.
-- Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated.
-- The viewer of tiles, sprites and colours of the Lua version is gone. Add `snes_vram()` and friends to bring it back.
+- Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated. The viewer of tiles, sprites and colours of the Lua version is gone. Add `snes_vram()` and friends to bring it back.
 - Save states and a speed-up key.
 - The GPU 3x mode runs at about 50 updates a second on the Pi One: a smaller cost for the 720p frame, or drawing less often, would help. The `dsp_tick` skip of silent voices is exact and gives no measurable gain (spc 2746 against 2776 us).
 - Put the cartridge in `GAMES` after a test on both devices. It is in the Market (apps/snes).
