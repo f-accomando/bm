@@ -14,6 +14,8 @@ int gsu_irq_line(void);                     /* 1 while the IRQ line is low (STOP
 uint32_t gsu_instr_count(void);             /* instructions run since the reset (the tests and the bench) */
 uint32_t gsu_ram_mask(void);                /* the cart RAM size minus 1 */
 uint16_t gsu_reg(int n);                    /* R0-R15 (the tests) */
+typedef struct { uint16_t r[16]; uint8_t pbr, rombr, rambr, cfgr, scbr, clsr, scmr, colr, por, go, irq, alt, b, sfr_lo; uint16_t cbr; } gsu_dbg_t;
+void gsu_dbg(gsu_dbg_t *d);                 /* the state, for the tests and the debug line */
 uint8_t gsu_vector_byte(uint16_t off);      /* the byte the SNES reads at $FFxx while the GSU owns the ROM */
 
 #endif

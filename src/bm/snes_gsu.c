@@ -392,6 +392,14 @@ uint32_t gsu_instr_count(void) { return g.insns; }
 uint32_t gsu_ram_mask(void) { return g.rmask; }
 uint16_t gsu_reg(int n) { return g.r[n & 15]; }
 
+void gsu_dbg(gsu_dbg_t *d)
+{
+    memcpy(d->r, g.r, sizeof d->r);
+    d->pbr = g.pbr; d->rombr = g.rombr; d->rambr = g.rambr; d->cfgr = g.cfgr; d->scbr = g.scbr; d->clsr = g.clsr; d->scmr = g.scmr;
+    d->colr = g.colr; d->por = g.por; d->go = g.go; d->irq = g.irq; d->alt = g.alt; d->b = g.b; d->cbr = g.cbr;
+    d->sfr_lo = (uint8_t)((FLAG_Z(g.sz) << 1) | (g.fcy << 2) | (FLAG_S(g.sz) << 3) | (g.fov << 4) | (g.go << 5));
+}
+
 uint8_t gsu_vector_byte(uint16_t off)
 {
     static const uint8_t even[8] = { 0x00, 0x00, 0x04, 0x00, 0x00, 0x08, 0x00, 0x0C };
