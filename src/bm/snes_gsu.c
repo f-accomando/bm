@@ -88,7 +88,7 @@ static const uint8_t bpp_of[4] = { 2, 4, 4, 8 };
 
 static unsigned pix_addr(unsigned x, unsigned y)         /* the RAM offset of the row of the tile at the pixel (x, y), plane 0 */
 {
-    const unsigned ht = ((g.scmr >> 2) & 1) | ((g.scmr >> 4) & 2);
+    const unsigned ht = (g.por & 0x10) ? 3 : ((g.scmr >> 2) & 1) | ((g.scmr >> 4) & 2);   /* POR bit 4 forces the OBJ layout ([?] the doc also says bit 3) */
     const unsigned md = g.scmr & 3;
     unsigned tile;
     switch (ht) {

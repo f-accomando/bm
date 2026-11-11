@@ -66,7 +66,7 @@ Notation: Rs = R[SREG], Rd = R[DREG]. Flags: S bit 15 of the result, Z result = 
 ### Pixel cache, COLR and POR
 
 - POR bits: 0 transparent (1 = plot colour 0 too), 1 dither (2 and 4 bpp: if X and Y have different bit 0, use the high nibble of COLR), 2 high nibble (COLOR and GETC copy the high nibble of the source to the low nibble of COLR), 3 freeze high (COLOR and GETC change only the low nibble). [F]
-  The doc has a conflict: the table says bit 4 forces OBJ mode, the text says bit 3. The code does not use the bit. [?]
+  POR bit 4 forces the OBJ layout (tile numbers) whatever SCMR says: the Yoshi's Island file menu needs it (checked with the game). The doc also names bit 3 for it [?]; the code uses bit 4 only.
 - Transparent test (POR bit 0 = 0): skip the pixel when COLR (8 bpp, no freeze high) or its low nibble (the other cases) is 0. [M]
 - Tile number: (X/8) x $10 + Y/8 for 128 lines, x $14 for 160, x $18 for 192. OBJ mode: (Y/$80) x $200 + (X/$80) x $100 + (Y/8 & 15) x $10 + (X/8 & 15). [F]
 - Row address in the cart RAM: SCBR x 1024 + tile x tile size (16, 32, 64 bytes for 2, 4, 8 bpp) + (Y & 7) x 2; plane p adds (p / 2) x 16 + (p & 1). Pixel X & 7 is bit 7 - (X & 7). [F]

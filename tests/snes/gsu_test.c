@@ -233,6 +233,9 @@ static void plot_tests(void)
     /* OBJ mode: x = $80 is the tile $100 */
     RUN(0x25, IWT(1, 0x80), IBT(3, 1), FROM(3), 0x4E, 0x4C, STOP);
     CHECKV("plot obj", S.sram[0x100 * 32], 0x80);
+    /* POR bit 4 forces the OBJ layout whatever SCMR says (Yoshi's Island menu icons): x = $80 is the tile $100 */
+    RUN(1, IBT(4, 0x10), FROM(4), ALT1, 0x4E, IWT(1, 0x80), IBT(3, 1), FROM(3), 0x4E, 0x4C, STOP);
+    CHECKV("plot por obj", S.sram[0x100 * 32], 0x80);
     /* the screen base */
     wr(0x3038, 0);
     load_rom((const uint8_t[]){ IBT(3, 1), FROM(3), 0x4E, 0x4C, STOP }, 7);
