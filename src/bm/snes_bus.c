@@ -508,12 +508,15 @@ void snes_reset(void)
 
 #define now_us snes_now_us
 static uint32_t avg_part[5];                     /* the parts of the PPU (layers, sprites, windows, compose, mix): a drawn frame, in microseconds */
+static uint32_t avg_im[3];                       /* instruction cache misses of a timed frame: CPU, sound, PPU */
 static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
 /* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
  * So one frame of 7 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
  * a timed frame and taken off each part (every part holds one read of every line). */
 static uint32_t (*clock_fn)(void);
 void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
+static uint32_t (*counter_fn)(void);
+void snes_set_counter(uint32_t (*f)(void)) { counter_fn = f; }
 
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
@@ -524,6 +527,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
     const uint32_t t_start = timed ? clock_fn() : 0;
     uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0;
+    uint32_t m_cpu = 0, m_spc = 0, m_ppu = 0, m_prev = timed && counter_fn ? counter_fn() : 0;
     uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
     acc_dma = 0;
     S.joy1 = pad1; S.joy2 = pad2;
@@ -565,11 +569,15 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         snes_clk -= end;
         if (now_us) {
             uint32_t a = now_us();
+            const uint32_t ma = counter_fn ? counter_fn() : 0;
             spc_run(65);
             uint32_t b = now_us();
+            const uint32_t mb = counter_fn ? counter_fn() : 0;
             if (L < S.lines && render) ppu_line(L);
             const uint32_t c = now_us();
+            const uint32_t mc = counter_fn ? counter_fn() : 0;
             t_cpu += a - t_prev; t_spc += b - a; t_ppu += c - b; t_prev = c;
+            m_cpu += ma - m_prev; m_spc += mb - ma; m_ppu += mc - mb; m_prev = mc;
         } else {
             spc_run(65);
             if (L < S.lines && render) ppu_line(L);
@@ -593,6 +601,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
                 const uint32_t v = OFF(ppu_us[k], ppu_n[k] * rc10 / 10);
                 avg_part[k] = avg_part[k] ? (uint32_t)((int32_t)avg_part[k] + ((int32_t)v - (int32_t)avg_part[k]) / 2) : v;
             }
+        }
+        if (counter_fn) {
+            const uint32_t m[3] = { m_cpu, m_spc, m_ppu };
+            for (int k = 0; k < 3; k++) avg_im[k] = avg_im[k] ? (uint32_t)((int32_t)avg_im[k] + ((int32_t)m[k] - (int32_t)avg_im[k]) / 2) : m[k];
         }
         memset(ppu_us, 0, sizeof ppu_us); memset(ppu_n, 0, sizeof ppu_n);
 #undef OFF
@@ -673,6 +685,7 @@ void snes_debug(snes_debug_t *d)
         spc_peek(d->spc_pc, d->spc_code, 12, d->port_in, d->port_out, d->timer_out, regs);
         d->spc_ctl = regs[0]; d->spc_tgt[0] = regs[1]; d->spc_tgt[1] = regs[2]; d->spc_tgt[2] = regs[3]; d->spc_en = regs[4]; d->spc_writes = (uint32_t)(regs[5] | (regs[6] << 8) | (regs[7] << 16));
     }
+    d->im_cpu = avg_im[0]; d->im_spc = avg_im[1]; d->im_ppu = avg_im[2];
     d->us_bg = avg_part[0]; d->us_obj = avg_part[1]; d->us_win = avg_part[2]; d->us_comp = avg_part[3]; d->us_mix = avg_part[4];
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;

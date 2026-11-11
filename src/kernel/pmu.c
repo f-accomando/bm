@@ -1,4 +1,5 @@
 #include "pmu.h"
+#include "drivers/watchdog.h"
 
 static int on;
 volatile uint32_t pmu_wait_instr;
@@ -38,6 +39,26 @@ void pmu_start(void)
     on = 1;
 }
 
+int pmu_start_icache(void)
+{
+    if (watchdog_emulated())
+        return 0;
+    pmu_select(0, 0x08);
+    pmu_select(1, 0x01);                                            /* L1 instruction cache refills */
+    uint32_t v = PMU_COUNTERS;
+    __asm__ volatile("mcr p15, 0, %0, c9, c12, 3" ::"r"(v));
+    __asm__ volatile("mcr p15, 0, %0, c9, c12, 1" ::"r"(v));
+    v = 1u << 0 | 1u << 1 | 1u << 2;
+    __asm__ volatile("mcr p15, 0, %0, c9, c12, 0" ::"r"(v));
+    on = 1;
+    return 1;
+}
+
+uint32_t pmu_icache_misses(void)
+{
+    return on ? pmu_event(1) : 0;
+}
+
 void pmu_stop(void)
 {
     if (!on)
@@ -71,6 +92,24 @@ void pmu_start(void)
     uint32_t v = PMNC_START;
     __asm__ volatile("mcr p15, 0, %0, c15, c12, 0" ::"r"(v));
     on = 1;
+}
+
+int pmu_start_icache(void)
+{
+    if (watchdog_emulated())
+        return 0;
+    uint32_t v = (PMNC_START & ~(0xFFu << 12)) | (0x00u << 12);     /* counter 1: instruction cache misses (event 0x00) */
+    __asm__ volatile("mcr p15, 0, %0, c15, c12, 0" ::"r"(v));
+    on = 1;
+    return 1;
+}
+
+uint32_t pmu_icache_misses(void)
+{
+    uint32_t d = 0;
+    if (on)
+        __asm__ volatile("mrc p15, 0, %0, c15, c12, 3" : "=r"(d));
+    return d;
 }
 
 void pmu_stop(void)

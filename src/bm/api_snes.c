@@ -26,9 +26,14 @@
 
 static uint32_t now_us(void) { return timer_ticks(); }
 
+/* The instruction cache miss counter of the Pi (src/kernel/pmu.c); not in the PC's host program, nor in the RGB30's kernel. */
+extern int pmu_start_icache(void) __attribute__((weak));
+extern uint32_t pmu_icache_misses(void) __attribute__((weak));
+
 int l_snes_load(lua_State *L)
 {
     snes_set_clock(now_us);
+    snes_set_counter(pmu_start_icache && pmu_icache_misses && pmu_start_icache() ? pmu_icache_misses : NULL);
     audio_set_ext(snes_audio_mix);                 /* the sound of the machine goes out through the console's output */
     size_t len;
     const char *data = luaL_checklstring(L, 1, &len);
@@ -258,6 +263,10 @@ int l_snes_debug(lua_State *L)
              (unsigned long)d.us_cpu, (unsigned long)d.us_dma, (unsigned long)d.us_hdma, (unsigned long)d.instr);
     lua_pushstring(L, hex); lua_setfield(L, -2, "us");
     snprintf(hex, sizeof hex, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
+    if (d.im_cpu | d.im_spc | d.im_ppu) {
+        const size_t n = strlen(hex);
+        snprintf(hex + n, sizeof hex - n, " | icache miss: cpu %lu spc %lu ppu %lu", (unsigned long)d.im_cpu, (unsigned long)d.im_spc, (unsigned long)d.im_ppu);
+    }
     lua_pushstring(L, hex); lua_setfield(L, -2, "us_ppu");
     {
         uint32_t under, over, kons;
