@@ -509,7 +509,7 @@ void snes_reset(void)
 #define now_us snes_now_us
 static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
 /* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
- * So one frame of 8 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
+ * So one frame of 7 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
  * a timed frame and taken off each part (every part holds one read of every line). */
 static uint32_t (*clock_fn)(void);
 void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
@@ -517,7 +517,7 @@ void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
     if (!S.rom) return;
-    const int timed = clock_fn && (S.frames & 7) == 0;
+    const int timed = clock_fn && (S.frames % 7) == 0;   /* 7 and not 8: it must not stay on the frames a picture is (never) made in */
     now_us = timed ? clock_fn : NULL;
     uint32_t rc10 = 0;                             /* the cost of one clock read, in tenths of a microsecond */
     if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
@@ -583,8 +583,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         /* a sample every 8 frames: the average moves by half of the difference; the first sample is taken as it is */
         const int first = avg_frame == 0;
 #define AVG(a, v) ((a) = first ? (v) : (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2))
-        AVG(avg_frame, f); AVG(avg_ppu, p); AVG(avg_spc, sp); AVG(avg_cpu, c); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
+        AVG(avg_frame, f); AVG(avg_spc, sp); AVG(avg_cpu, c); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
 #undef AVG
+        /* the PPU is averaged over the frames a picture was made in: a drawn frame costs this much (the frames with no picture cost none) */
+        if (render) avg_ppu = avg_ppu ? (uint32_t)((int32_t)avg_ppu + ((int32_t)p - (int32_t)avg_ppu) / 2) : p;
 #undef OFF
     }
     avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);   /* the instructions are counted in every frame */
