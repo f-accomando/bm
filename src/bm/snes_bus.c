@@ -507,6 +507,7 @@ void snes_reset(void)
 }
 
 #define now_us snes_now_us
+static uint32_t avg_part[5];                     /* the parts of the PPU (layers, sprites, windows, compose, mix): a drawn frame, in microseconds */
 static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
 /* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
  * So one frame of 7 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
@@ -586,7 +587,14 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         AVG(avg_frame, f); AVG(avg_spc, sp); AVG(avg_cpu, c); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
 #undef AVG
         /* the PPU is averaged over the frames a picture was made in: a drawn frame costs this much (the frames with no picture cost none) */
-        if (render) avg_ppu = avg_ppu ? (uint32_t)((int32_t)avg_ppu + ((int32_t)p - (int32_t)avg_ppu) / 2) : p;
+        if (render) {
+            avg_ppu = avg_ppu ? (uint32_t)((int32_t)avg_ppu + ((int32_t)p - (int32_t)avg_ppu) / 2) : p;
+            for (int k = 0; k < 5; k++) {                      /* each part: its sum over the lines of this frame, less one clock read for each lap */
+                const uint32_t v = OFF(ppu_us[k], ppu_n[k] * rc10 / 10);
+                avg_part[k] = avg_part[k] ? (uint32_t)((int32_t)avg_part[k] + ((int32_t)v - (int32_t)avg_part[k]) / 2) : v;
+            }
+        }
+        memset(ppu_us, 0, sizeof ppu_us); memset(ppu_n, 0, sizeof ppu_n);
 #undef OFF
     }
     avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);   /* the instructions are counted in every frame */
@@ -665,8 +673,7 @@ void snes_debug(snes_debug_t *d)
         spc_peek(d->spc_pc, d->spc_code, 12, d->port_in, d->port_out, d->timer_out, regs);
         d->spc_ctl = regs[0]; d->spc_tgt[0] = regs[1]; d->spc_tgt[1] = regs[2]; d->spc_tgt[2] = regs[3]; d->spc_en = regs[4]; d->spc_writes = (uint32_t)(regs[5] | (regs[6] << 8) | (regs[7] << 16));
     }
-    d->us_bg = ppu_us[0]; d->us_obj = ppu_us[1]; d->us_win = ppu_us[2]; d->us_comp = ppu_us[3]; d->us_mix = ppu_us[4];
-    memset(ppu_us, 0, sizeof ppu_us);
+    d->us_bg = avg_part[0]; d->us_obj = avg_part[1]; d->us_win = avg_part[2]; d->us_comp = avg_part[3]; d->us_mix = avg_part[4];
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;

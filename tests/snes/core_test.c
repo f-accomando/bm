@@ -180,6 +180,7 @@ static void scroll_tests(void)
 /* C1: the time of a frame in its parts. A fake clock that follows the emulated time (a master clock is a quarter of a microsecond): the CPU part is nearly all of the frame, and one frame in 8 is timed. */
 extern int snes_clk;
 static uint32_t fake_clock(void) { return (uint32_t)(((S.frames * 262 + S.line) * 1364 + snes_clk) / 4); }   /* the emulated time: a read costs nothing */
+static uint32_t tick_clock(void) { static uint32_t t; return t += 3; }     /* a clock that only costs 3 microseconds a read: the cost of the reads must come off */
 static void timing_tests(void)
 {
     static const uint8_t loop[] = { 0x80, 0xFE };           /* BRA -2: the CPU spins */
@@ -193,6 +194,15 @@ static void timing_tests(void)
     CHECK("timing: cpu time a frame", d.us_cpu > 200);
     CHECK("timing: no DMA, no HDMA", d.us_dma == 0 && d.us_hdma == 0);
     CHECK("timing: the parts fit in the frame", d.us_cpu + d.us_ppu + d.us_spc <= d.us_frame + 2);
+    /* the parts of the PPU: averages of a drawn frame, with the reads taken off (a clock that does nothing but cost reads gives no time to any part) */
+    snes_set_clock(tick_clock);
+    for (int i = 0; i < 24; i++) snes_frame(0, 0, 1);
+    snes_debug(&d);
+    snes_set_clock(NULL);
+    CHECK("timing: the parts of the PPU are drawn-frame averages without the cost of the reads",
+          d.us_bg < 40 && d.us_obj < 40 && d.us_win < 40 && d.us_comp < 40 && d.us_mix < 40);
+    snes_debug(&d);
+    CHECK("timing: a second read gives the same parts (no reset by the read)", d.us_bg < 40);
 }
 
 int main(void)

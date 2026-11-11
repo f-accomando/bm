@@ -17,10 +17,10 @@
 
 snes_t S;
 uint32_t (*snes_now_us)(void);
-uint32_t ppu_us[5];                     /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) */
+uint32_t ppu_us[5], ppu_n[5];                     /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) */
 static uint32_t pal_gen = 1;            /* grows with every palette write: the colour tables are made again */
 #define T0 uint32_t t_ = snes_now_us ? snes_now_us() : 0
-#define TLAP(k) do { if (snes_now_us) { uint32_t n_ = snes_now_us(); ppu_us[k] += n_ - t_; t_ = n_; } } while (0)
+#define TLAP(k) do { if (snes_now_us) { uint32_t n_ = snes_now_us(); ppu_us[k] += n_ - t_; ppu_n[k]++; t_ = n_; } } while (0)
 
 void ppu_reset(void)
 {
