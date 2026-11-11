@@ -10,6 +10,7 @@
 #include "syskeys.h"
 #include "bm/bm.h"
 #include "drivers/sd.h"
+#include "drivers/prop.h"
 #include "drivers/timer.h"
 #include "gfx/console.h"
 #include "gfx/font.h"
@@ -2062,6 +2063,57 @@ static void frame_show(framebuffer_t *fb)
     }
 }
 
+#ifndef BM_RGB30
+/* The firmware probe (diagnostic of the Pi Zero W freeze at the start of a cartridge: the VideoCore firmware stops answering the first video mode
+ * change after the menu was drawn by the GPU for minutes). Key fwprobe in config.txt: 1 asks the firmware a harmless question every 30 s while the
+ * GPU menu is on and logs the answer time; 2 also sets the menu's own video mode again (the same mode) every 60 s. The log line says the time of the
+ * menu, so the first failure shows when the firmware stops answering, without a cartridge being started. */
+static void fwprobe_tick(framebuffer_t *fb)
+{
+    static int mode = -1;
+    static uint32_t next, t_start, nprobe;
+    if (!gpu_draw) {
+        t_start = 0;
+        return;
+    }
+    if (mode < 0) {
+        const char *v = config_get("fwprobe");
+        mode = v ? atoi(v) : 0;
+    }
+    if (mode <= 0)
+        return;
+    const uint32_t now = timer_ticks();
+    if (!t_start) {
+        t_start = now;
+        next = now + 30u * 1000000u;
+        nprobe = 0;
+        return;
+    }
+    if ((int32_t)(now - next) < 0)
+        return;
+    next = now + 30u * 1000000u;
+    nprobe++;
+    uint32_t v[2] = { 0, 0 };
+    const uint32_t a = timer_ticks();
+    const int r = prop_query(PROP_GET_VC_MEMORY, v, 2);
+    kprintf("fwprobe: the firmware answered a question: %s in %lu us, the menu has been on the GPU for %lu s (probe %lu)\n", r == 0 ? "yes" : "NO",
+            (unsigned long)(timer_ticks() - a), (unsigned long)((now - t_start) / 1000000u), (unsigned long)nprobe);
+    gpu3d_trace("fwprobe");
+    if (mode >= 2 && (nprobe & 1) == 0) {
+        gpu3d_sync();
+        const uint32_t b = timer_ticks();
+        const uint32_t w = fb->width, h = fb->height;
+        const int e = fb_init_depth(fb, w, h, 3, 16);
+        if (e == 0 && fb->pitch == fb->width * 2) {
+            gpu3d_set_fb(fb->mem, fb->size, fb->bus);
+            gpu3d_set_size((int)fb->width, (int)fb->height);
+        }
+        kprintf("fwprobe: the menu's own video mode set again (%lux%lu): %s in %lu us, GPU menu for %lu s\n", (unsigned long)w, (unsigned long)h,
+                e == 0 ? "yes" : "NO", (unsigned long)(timer_ticks() - b), (unsigned long)((timer_ticks() - t_start) / 1000000u));
+    }
+}
+#endif
+
 /* The flip, the time the frame took, the free time for the jobs (v->idle), the wait for the next frame. `pre`:
  * when the drawing ended. */
 static void frame_flip_and_wait(framebuffer_t *fb, const menu_view_t *v, uint32_t pre)
@@ -2072,6 +2124,9 @@ static void frame_flip_and_wait(framebuffer_t *fb, const menu_view_t *v, uint32_
     paced = 0;                          /* the Pi keeps its timer pacing, as it was */
 #endif
     const uint32_t flipped = timer_ticks();
+#ifndef BM_RGB30
+    fwprobe_tick(fb);
+#endif
     if (gpu_draw) {
         st_draw += drawn - frame_end;
         st_enlarge += 0;
