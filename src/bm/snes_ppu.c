@@ -278,24 +278,36 @@ static void draw_obj(int y)
 }
 
 /* ------------------------------------------------------------------ windows */
+/* one window as a row of 0 and 1: 1 inside [lo, hi] (nothing when lo > hi), the other way round with inv; made with two or three runs, not a test per pixel */
+static void win_row(uint8_t *a, int lo, int hi, int inv)
+{
+    memset(a, inv, 256);
+    if (lo <= hi) memset(a + lo, !inv, (size_t)(hi - lo + 1));
+}
 static void window_mask(int layer, int en1, int inv1, int en2, int inv2, int log)
 {
     uint8_t *m = winm[layer];
     win_on[layer] = (uint8_t)(en1 || en2);
     if (!en1 && !en2) return;
-    for (int x = 0; x < 256; x++) {
-        int w1 = (x >= S.wh0 && x <= S.wh1) ^ inv1;
-        int w2 = (x >= S.wh2 && x <= S.wh3) ^ inv2;
-        int r;
-        if (en1 && !en2) r = w1;
-        else if (!en1 && en2) r = w2;
-        else switch (log) { case 0: r = w1 | w2; break; case 1: r = w1 & w2; break; case 2: r = w1 ^ w2; break; default: r = !(w1 ^ w2); break; }
-        m[x] = (uint8_t)r;
+    if (!en2) { win_row(m, S.wh0, S.wh1, inv1); return; }
+    if (!en1) { win_row(m, S.wh2, S.wh3, inv2); return; }
+    static _Alignas(4) uint8_t w2[256];
+    win_row(m, S.wh0, S.wh1, inv1); win_row(w2, S.wh2, S.wh3, inv2);
+    const uint32_t flip = log == 3 ? 0x01010101u : 0;                  /* 0 or, 1 and, 2 xor, 3 not xor */
+    for (int x = 0; x < 256; x += 4) {
+        const uint32_t a = ld(m + x), b = ld(w2 + x);
+        st(m + x, (log == 0 ? a | b : log == 1 ? a & b : a ^ b) ^ flip);
     }
 }
 
+/* the masks are made again only when a window register changes (an HDMA window effect changes them in every line) */
 static void build_windows(void)
 {
+    static uint8_t key[9];
+    static int key_ok;
+    const uint8_t k[9] = { S.w12sel, S.w34sel, S.wobjsel, S.wbglog, S.wobjlog, S.wh0, S.wh1, S.wh2, S.wh3 };
+    if (key_ok && !memcmp(key, k, sizeof k)) return;
+    memcpy(key, k, sizeof k); key_ok = 1;
     const uint8_t s12 = S.w12sel, s34 = S.w34sel, so = S.wobjsel;
     window_mask(0, s12 >> 1 & 1, s12 & 1, s12 >> 3 & 1, s12 >> 2 & 1, S.wbglog & 3);
     window_mask(1, s12 >> 5 & 1, s12 >> 4 & 1, s12 >> 7 & 1, s12 >> 6 & 1, S.wbglog >> 2 & 3);
@@ -332,24 +344,27 @@ static int build_list(const slot_t *o, int n, int en, int wm, fslot_t *out)
 
 /* a screen as three arrays: the colour index (0 = backdrop), the layer (5 = backdrop: the bit of $2131 that stands for it) and whether a sprite allows
  * maths. The layers are painted from the back to the front, so a later one covers an earlier one. */
-/* the main screen (idx, lay, om) and the sub screen (sidx, slay) of a line, in one block: the ARM loop of the mix (snes_ppu_arm.S) takes one base register */
-typedef struct { uint8_t idx[256], lay[256], om[256], sidx[256], slay[256]; } mixbuf_t;
+/* the main screen (idx, lay, om) and the sub screen (sidx) of a line, in one block: the ARM loop of the mix (snes_ppu_arm.S) takes one base register.
+ * The sub screen has no layer array: sidx 0 is the backdrop (a layer never paints a clear pixel). In the mix with no clip rule, lay holds the maths flag of
+ * the pixel (0 or 1: its layer takes maths, the sprite allows it, no prevent rule) in place of the layer number, and om is not used. */
+typedef struct { uint8_t idx[256], lay[256], om[256], sidx[256]; } mixbuf_t;
 static _Alignas(4) mixbuf_t mbuf;
 #define m_idx mbuf.idx
 #define m_lay mbuf.lay
 #define m_om mbuf.om
 #define s_idx mbuf.sidx
-#define s_lay mbuf.slay
-static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om)
+/* lmap NULL: lay gets the layer number (5 = backdrop) and om the sprite flag; lmap: lay gets lmap[layer] and a sprite pixel that forbids maths gets 0; lay NULL: no layer array */
+static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om, const uint8_t *lmap)
 {
-    memset(idx, 0, 256); memset(lay, 5, 256);
+    memset(idx, 0, 256);
+    if (lay) memset(lay, lmap ? lmap[5] : 5, 256);
     if (om) memset(om, 1, 256);
     for (int i = n - 1; i >= 0; i--) {
         const int l = o[i].layer, pr = o[i].prio;
         if (l == OB ? !obany : !bgany[l]) continue;                    /* the layer has no pixel on this line */
         const uint8_t *win = o[i].win ? winm[l] : NULL;
         const uint8_t *ci = l == OB ? obi : bgi[l], *cp = l == OB ? obp : bgp[l];
-        const uint32_t prl = (uint32_t)pr * 0x01010101u, lal = (uint32_t)(l == OB ? OB : l) * 0x01010101u;
+        const uint32_t prl = (uint32_t)pr * 0x01010101u, lal = (uint32_t)(lmap ? lmap[l] : l) * 0x01010101u;
         for (int x = 0; x < 256; x += 4) {                              /* 4 pixels a turn */
             const uint32_t c = ld(ci + x);
             if (!c) continue;
@@ -357,7 +372,7 @@ static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t
             if (win) m &= ~nz_mask(ld(win + x));
             if (!m) continue;
             st(idx + x, (ld(idx + x) & ~m) | (c & m));
-            st(lay + x, (ld(lay + x) & ~m) | (lal & m));
+            if (lay) st(lay + x, (ld(lay + x) & ~m) | ((lmap && l == OB ? lal & ld(obmath + x) : lal) & m));
             if (om) st(om + x, (ld(om + x) & ~m) | ((l == OB ? ld(obmath + x) : 0x01010101u) & m));
         }
     }
@@ -366,7 +381,7 @@ static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t
 static inline unsigned rgb565(unsigned r, unsigned g, unsigned b) { return (r << 11) | (((g << 1) | (g >> 4)) << 5) | b; }
 
 /* what the mix loop needs, in the order that the ARM loop loads it (snes_ppu_arm.S) */
-typedef struct { const uint32_t *pal8; const uint16_t *lut; const uint32_t *rt, *gt, *bt; uint32_t fix8, mask, mode; } mixctx_t;
+typedef struct { const uint32_t *pal8; const uint16_t *lut; const uint32_t *rt, *gt, *bt; uint32_t fix8, mode; } mixctx_t;
 #if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
 void ppu_mix_sub_arm(uint16_t *dst, const mixbuf_t *b, const mixctx_t *c);
 #endif
@@ -401,7 +416,18 @@ void ppu_line(int y)
     const int bright = S.inidisp & 15;
     const int clipmode = S.cgwsel >> 6, premode = (S.cgwsel >> 4) & 3, use_sub = S.cgwsel & 2;
     const int add = !(S.cgadsub & 0x80), half = (S.cgadsub & 0x40) != 0;
-    compose(mlist, nm, m_idx, m_lay, m_om);
+    const unsigned mb = S.cgadsub & 0x3F;
+    const int fastmix = math_on && !clipmode;           /* colour maths with no clip rule: the maths flag of a pixel goes in m_lay */
+    uint8_t lmap[6];
+    for (int l = 0; l < 6; l++) lmap[l] = (uint8_t)((mb >> l) & 1);
+    compose(mlist, nm, m_idx, m_lay, m_om, fastmix ? lmap : NULL);
+    if (fastmix && premode) {                           /* the colour window prevents the maths: inside, outside, everywhere */
+        const uint8_t *cw = winm[5];
+        for (int x = 0; x < 256; x += 4) {
+            const uint32_t c = win_on[5] ? nz_mask(ld(cw + x)) : 0;
+            st(m_lay + x, ld(m_lay + x) & ~(premode == 3 ? 0x01010101u : premode == 1 ? ~c & 0x01010101u : c & 0x01010101u));
+        }
+    }
     TLAP(3);
 
     /* the palette as RGB565 with the brightness, and the brightness tables of the channels, kept until the palette or the brightness changes */
@@ -430,9 +456,8 @@ void ppu_line(int y)
         TLAP(4);
         return;
     }
-    if (!clipmode && !premode) {                        /* colour maths with no window rule: the pixels of the layers that take it are mixed, the others are a lookup */
-        const unsigned mb = S.cgadsub & 0x3F;
-        if (use_sub) compose(slist, ns, s_idx, s_lay, NULL);
+    if (fastmix) {                                      /* colour maths with no clip rule: the pixels with the flag are mixed, the others are a lookup */
+        if (use_sub) compose(slist, ns, s_idx, NULL, NULL, NULL);
         else {                                          /* the fixed colour: the mixed colour of every palette entry, made once */
             static uint16_t mlut[256];
             static uint32_t m_gen, m_key = 0xFFFFFFFFu;
@@ -449,7 +474,7 @@ void ppu_line(int y)
                 m_gen = pal_gen; m_key = key;
             }
             const uint16_t *tab[2] = { lut, mlut };
-            for (int x = 0; x < SNES_W; x++) dst[x] = tab[(mb >> m_lay[x]) & m_om[x] & 1][m_idx[x]];
+            for (int x = 0; x < SNES_W; x++) dst[x] = tab[m_lay[x]][m_idx[x]];
             TLAP(4);
             return;
         }
@@ -457,7 +482,7 @@ void ppu_line(int y)
         const int mode_k = (add ? 2 : 0) | (half ? 1 : 0);
 #if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
         {
-            const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, mb, (uint32_t)mode_k };
+            const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, (uint32_t)mode_k };
             ppu_mix_sub_arm(dst, &mbuf, &cx);
             TLAP(4);
             return;
@@ -465,8 +490,8 @@ void ppu_line(int y)
 #endif
         for (int x = 0; x < SNES_W; x++) {              /* the sub screen: the colour behind the pixel; the three channels are one lane operation */
             const int idx = m_idx[x];
-            if (!((mb >> m_lay[x]) & m_om[x] & 1)) { dst[x] = lut[idx]; continue; }
-            const uint32_t c = pal8[idx], sc = s_lay[x] != 5 ? pal8[s_idx[x]] : fix8;
+            if (!m_lay[x]) { dst[x] = lut[idx]; continue; }
+            const uint32_t c = pal8[idx], sc = s_idx[x] ? pal8[s_idx[x]] : fix8;
             uint32_t v;      /* each lane is 8 times the 5-bit value: a sum above 31 saturates at 255 (31 after the shift), a difference below 0 stops at 0, a half is (a + b) >> 1 */
             switch (mode_k) {
             case 3: v = lane_uhadd(c, sc); break;
@@ -479,7 +504,7 @@ void ppu_line(int y)
         TLAP(4);
         return;
     }
-    if (use_sub) compose(slist, ns, s_idx, s_lay, NULL);
+    if (use_sub) compose(slist, ns, s_idx, NULL, NULL, NULL);
     for (int x = 0; x < SNES_W; x++) {
         const int idx = m_idx[x], lay = m_lay[x], om = m_om[x];
         unsigned c = S.pal[idx];                         /* index 0: the backdrop, colour 0 */
@@ -490,7 +515,7 @@ void ppu_line(int y)
         int prevent = premode == 3 || (premode == 1 && !cw) || (premode == 2 && cw);
         if (math_on && !prevent && (S.cgadsub & (1 << lay)) && om) {
             unsigned sr = S.fixr, sg = S.fixg, sb = S.fixb;
-            if (use_sub && s_lay[x] != 5) { unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
+            if (use_sub && s_idx[x]) { unsigned sc = S.pal[s_idx[x]]; sr = sc & 31; sg = (sc >> 5) & 31; sb = (sc >> 10) & 31; }
             int rr, gg, bb;
             if (add) { rr = (int)(r + sr); gg = (int)(g + sg); bb = (int)(b + sb); }
             else { rr = (int)r - (int)sr; gg = (int)g - (int)sg; bb = (int)b - (int)sb; }
@@ -499,8 +524,7 @@ void ppu_line(int y)
             g = (unsigned)(gg < 0 ? 0 : gg > 31 ? 31 : gg);
             b = (unsigned)(bb < 0 ? 0 : bb > 31 ? 31 : bb);
         }
-        if (bright != 15) { r = r * (unsigned)bright / 15; g = g * (unsigned)bright / 15; b = b * (unsigned)bright / 15; }
-        dst[x] = (uint16_t)rgb565(r, g, b);
+        dst[x] = (uint16_t)(rt[r] | gt[g] | bt[b]);      /* the brightness tables: the same as the formula, with no division */
     }
     TLAP(4);
 }

@@ -59,9 +59,10 @@ static void random_state(void)
     if (rnd() % 3) { S.w12sel = S.w34sel = S.wobjsel = 0; S.wbglog = S.wobjlog = 0; }
     else { S.w12sel = (uint8_t)rnd(); S.w34sel = (uint8_t)rnd(); S.wobjsel = (uint8_t)rnd(); S.wbglog = (uint8_t)rnd(); S.wobjlog = (uint8_t)rnd(); }
     S.wh0 = (uint8_t)rnd(); S.wh1 = (uint8_t)rnd(); S.wh2 = (uint8_t)rnd(); S.wh3 = (uint8_t)rnd();
-    const unsigned k = rnd() % 4;                                   /* colour maths: off, plain, with the sub screen, with window rules */
-    S.cgwsel = (uint8_t)(k == 0 ? 0 : k == 1 ? (rnd() & 0x00) : k == 2 ? 2 : rnd());
+    const unsigned k = rnd() % 7;                                   /* colour maths: off, plain, with the sub screen, with window rules, the colour window prevents (clip off) with and without the sub screen */
+    S.cgwsel = (uint8_t)(k == 0 ? 0 : k == 1 ? (rnd() & 0x00) : k == 2 ? 2 : k == 4 ? (rnd() & 0x30) : k == 5 ? (0x02 | (rnd() & 0x30)) : k == 6 ? (rnd() & 0x32) : rnd());
     S.cgadsub = (uint8_t)(k == 0 ? 0 : rnd());
+    if (k >= 4 && (rnd() & 1)) S.wobjsel |= (uint8_t)(0x20 | (rnd() & 0x10));      /* the colour window is on */
     S.fixr = (uint8_t)(rnd() & 31); S.fixg = (uint8_t)(rnd() & 31); S.fixb = (uint8_t)(rnd() & 31);
 }
 
@@ -73,6 +74,8 @@ static int equiv(int cases)
         random_state();
         for (int y = 0; y < 224; y++) {
             if (rnd() % 8 == 0) { S.hofs[rnd() & 3] = (uint16_t)(rnd() & 0x3FF); S.cgadsub ^= (uint8_t)(rnd() & 1); }   /* a change in the middle of the frame */
+            if (rnd() % 10 == 0) { S.wh0 = (uint8_t)rnd(); S.wh1 = (uint8_t)rnd(); S.wh2 = (uint8_t)(rnd() % 4 ? S.wh2 : rnd()); S.wh3 = (uint8_t)rnd(); }   /* an HDMA window effect: the window masks follow */
+            if (rnd() % 20 == 0) { S.cgadsub ^= (uint8_t)(rnd() & 0xC0); S.cgwsel ^= (uint8_t)(rnd() & 0x32); }
             if (rnd() % 6 == 0) {                                                    /* the video RAM written through the registers, as a game does: the cache of decoded tiles must follow */
                 snes_ppu_write(0x2115, 0);
                 const uint16_t wa = (uint16_t)(rnd() & 0x7FFF);

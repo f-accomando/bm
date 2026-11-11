@@ -347,6 +347,14 @@ $(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/ppu_equiv.c $(BUILD)/host/snes_ppu_ref.o src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
 test-snes-ppu: $(BUILD)/host/snes_ppu_equiv
 	$< equiv 400
+# The same equivalence on an ARM1176 in QEMU, with the assembly mix loop (snes_ppu_arm.S): the PC build above runs the C loop only.
+test-snes-ppu-arm: tests/snes/ppu_equiv_arm.c tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm/snes_ppu.c src/bm/snes_ppu_arm.S src/bm/snes_int.h
+	@mkdir -p $(BUILD)/arm
+	$(SNES_ARM_CC) $(SNES_REF_DEFS) -c tests/snes/ppu_ref.c -o $(BUILD)/arm/ppuref.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
+	$(SNES_ARM_CC) -DCASES_ARM=$(or $(PPU_ARM_CASES),30) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/ppuequiv.elf tests/snes/ppu_equiv_arm.c $(BUILD)/arm/ppuref.o src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	$(SNES_ARM_RUN) $(BUILD)/arm/ppuequiv.elf | tee $(BUILD)/arm/ppuequiv.out | tail -3; grep -q 'ppu equivalence: .* ok' $(BUILD)/arm/ppuequiv.out
 bench-snes-ppu: $(BUILD)/host/snes_ppu_equiv
 	$< bench 200
 # The CPU and the memory map on random programs, against the hashes of the code before the speed work (tests/snes/cpu_golden.c).
@@ -984,7 +992,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
