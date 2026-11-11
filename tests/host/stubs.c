@@ -538,6 +538,7 @@ void irq_disable(unsigned irq) { (void)irq; }
  * bmhost-gpu links src/gpu/gpu3d.c with the V3D emulator instead) */
 const char *gpu3d_status(void) { return "no V3D (bmhost)"; }
 const char *gpu3d_probe_log(void) { return ""; }
+void gpu3d_trace(const char *where) { (void)where; }
 int gpu3d_init(void) { return -1; }
 int gpu3d_ready(void) { return 0; }
 int gpu3d_failed(void) { return 0; }
