@@ -112,7 +112,7 @@ The cartridge reads USB keys with `rawkeys(true)`. The keys are checked in `40_m
 | Key | Action |
 |---|---|
 | `9 0 - =` / `O P [ ]` | Encoder 1 to 4: the upper key turns it up, the key below it turns it down. Hold to repeat (after 24 frames, then every 3). Shift gives the fine step. Ignored while Ctrl is held |
-| `Q W E R T Y U I` | SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO |
+| `F1` to `F8` | SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO |
 | `Tab` | Next page of the same module |
 | Left, Right | Previous or next of the 13 pages |
 | Up, Down | Engine of the synth track (SYNTH ENGINE page only) |
@@ -132,7 +132,7 @@ The cartridge reads USB keys with `rawkeys(true)`. The keys are checked in `40_m
 | Ctrl + `N` | New song. Press twice within 2 s |
 | Esc | Exit page (it reaches the cartridge as Start). Esc again: stay. Return: save and quit. Ctrl + Esc: freeze and leave (`_exit` saves) |
 
-The map is made for an Apple Magic Keyboard (ANSI, no numpad). Its F keys are media keys, so no F key is used. `ROWS` in `39_keys.lua` holds the keyboard as data.
+The map is made for an Apple Magic Keyboard (ANSI, no numpad). `ROWS` in `39_keys.lua` holds the keyboard as data.
 
 ## 6. What is missing
 

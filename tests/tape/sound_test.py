@@ -117,9 +117,9 @@ check("every one of the 24 PCM sounds is heard (RMS above 0.01; silent: %s)" % (
 
 
 # ---------------------------------------------------------------- phase 3: MIX, FX, punch-in effects
-# encoder down keys O P [ ] (named by their old letters A S D F), up keys - = (E R), punch-in 5 6 7 8 (Z X C V), modules T (MIX) and Y (FX)
+# encoder down keys O P [ ] (named by their old letters A S D F), up keys - = (E R), punch-in 5 6 7 8 (Z X C V), modules F5 (MIX) and F6 (FX)
 KEYS = {"A": 0x12, "S": 0x13, "D": 0x2F, "F": 0x30, "E": 0x2D, "R": 0x2E, "Z": 0x22, "X": 0x23, "C": 0x24, "V": 0x25,
-        "SPACE": 0x2C, "F5": 0x17, "F6": 0x1C, "TAB": 0x2B}
+        "SPACE": 0x2C, "F5": 0x3E, "F6": 0x3F, "TAB": 0x2B}
 
 
 def keys_at(frame, *names):

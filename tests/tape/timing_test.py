@@ -23,7 +23,7 @@ import os, re, subprocess, sys, tempfile
 
 HOST = sys.argv[1]
 CARTS = sys.argv[2:5]                       # 60, 20 and 7.5 frames a second
-SPACE, F8, KEY_W, KEY_Q, F9, KEY_P = 0x2C, 0x0C, 0x27, 0x26, 0x42, 0x31   # TEMPO is I; encoders 2 and 1 up are 0 and 9; P is now the backslash
+SPACE, F8, KEY_W, KEY_Q, F9, KEY_P = 0x2C, 0x41, 0x27, 0x26, 0x42, 0x31   # TEMPO is F8; encoders 2 and 1 up are 0 and 9; P is now the backslash
 LOOP, BARS = 96, 4                          # ticks of the 16-step pattern, bars played
 TOL = 0.0015
 

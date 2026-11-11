@@ -1,6 +1,6 @@
 -- bm Tape screen (design 4.1): a small studio on one display, as an OP-1 or a cassette multitrack has one.
 -- 1280 x 720 (640 x 360: everything half the size):
---   top bar    the eight modules as tabs (Q..I), then the transport: play, tempo, bar.beat.step, REC.
+--   top bar    the eight modules as tabs (F1..F8), then the transport: play, tempo, bar.beat.step, REC.
 --   scene      960 x 360 at the left: the picture of the page (00_core.lua draws it at SCL = 3 pixels a unit).
 --   inspector  320 x 360 at the right: the page, its sister pages, the four encoders with their values, track and voices.
 --   keyboard   the lower part (39_keys.lua): a drawing of the keyboard that shows what each key does on this page.
@@ -51,7 +51,7 @@ local function tab(i, on)
   if on then rectfill(x, 0, w, LY.top - 1, C.dim) end
   line(x, LY.top - 1, x + w - 1, LY.top - 1, on and C.e4 or C.dim)
   if LY.big then
-    print(("QWERTYUI"):sub(i, i), x + 8, 15, on and C.nav or C.grid)
+    print("F" .. i, x + 8, 15, on and C.nav or C.grid)
     print(MODS[i], x + 34, 6, on and C.e4 or C.mute, 2)
   else
     print(MODS[i], x + 4, 3, on and C.e4 or C.mute)

@@ -137,19 +137,20 @@ local function sun(x, y, r, cut, c)
 end
 
 -- keys: USB HID usages polled each frame (rawkeys), as in carts/ko2. The map is for an Apple Magic Keyboard (ANSI, no
--- numpad; its F keys are media keys, so no F key is used): modules on Q..I, tracks 1..4, punch-in 5..8, encoders 9 0 - = (up)
+-- numpad): modules on F1..F8, tracks 1..4, punch-in 5..8, encoders 9 0 - = (up)
 -- and O P [ ] (down), piano on Z..M and S D G H J L ;, SET on A, octave on F and K (design 5).
 local K = {
   Q = 0x14, A = 0x04, W = 0x1A, S = 0x16, E = 0x08, D = 0x07, R = 0x15, F = 0x09, T = 0x17,
   U = 0x18, I = 0x0C, O = 0x12, J = 0x0D, K = 0x0E, L = 0x0F, M = 0x10, COMMA = 0x36, DOT = 0x37,
   P = 0x13, N = 0x11, Z = 0x1D, X = 0x1B, C = 0x06, V = 0x19, SEMI = 0x33, QUOTE = 0x34,
   D1 = 0x1E, D2 = 0x1F, D3 = 0x20, D4 = 0x21, D5 = 0x22, D6 = 0x23, D7 = 0x24, D8 = 0x25, D9 = 0x26, D0 = 0x27,
+  F1 = 0x3A, F2 = 0x3B, F3 = 0x3C, F4 = 0x3D, F5 = 0x3E, F6 = 0x3F, F7 = 0x40, F8 = 0x41,
   Y = 0x1C, B = 0x05, G = 0x0A, H = 0x0B, SLASH = 0x38, BSLASH = 0x31, ALTL = 0xE2, ALTR = 0xE6, GUIL = 0xE3, GUIR = 0xE7,
   SPACE = 0x2C, ENTER = 0x28, BKSP = 0x2A, TAB = 0x2B, MINUS = 0x2D, EQUALS = 0x2E, LB = 0x2F, RB = 0x30,
   RIGHT = 0x4F, LEFT = 0x50, DOWN = 0x51, UP = 0x52, SHL = 0xE1, SHR = 0xE5, CTL = 0xE0, CTR = 0xE4,
 }
 local ENC = { { K.D9, K.O }, { K.D0, K.P }, { K.MINUS, K.LB }, { K.EQUALS, K.RB } }   -- encoders 1..4: up key, down key
-local FKEYS = { K.Q, K.W, K.E, K.R, K.T, K.Y, K.U, K.I }      -- the eight modules
+local FKEYS = { K.F1, K.F2, K.F3, K.F4, K.F5, K.F6, K.F7, K.F8 }   -- the eight modules
 local TRKEYS = { K.D1, K.D2, K.D3, K.D4 }
 local tracked, held, was = {}, {}, {}
 for _, u in pairs(K) do tracked[#tracked + 1] = u end

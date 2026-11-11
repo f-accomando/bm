@@ -14,7 +14,7 @@ for n, u in ipairs(TRKEYS) do TRKU[u] = n end
 local PUNCHU = { [K.D5] = "STUT", [K.D6] = "HALF", [K.D7] = "SWEEP", [K.D8] = "CRUSH" }
 
 -- the rows of an Apple Magic Keyboard (ANSI, no numpad): { usage, width, cap [, half] }; usage false is a gap, half 1 is the
--- upper half of a key (the arrows). The F keys are media keys on this keyboard: no F key is used.
+-- upper half of a key (the arrows). The F keys are the modules.
 local ROWS = {
   { { 0x29, 1.5, "esc" }, { false, 0.25 }, { 0x3A, 1, "F1" }, { 0x3B, 1, "F2" }, { 0x3C, 1, "F3" }, { 0x3D, 1, "F4" },
     { 0x3E, 1, "F5" }, { 0x3F, 1, "F6" }, { 0x40, 1, "F7" }, { 0x41, 1, "F8" }, { 0x42, 1, "F9" }, { 0x43, 1, "F10" },

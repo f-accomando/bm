@@ -97,7 +97,7 @@ The screen is one small device, as an OP-1 or a cassette multitrack. The picture
 
 ```
 +--------------------------------------------------------------+---------------+
-| Q SYNTH  W DRUM  E SEQ  R TAPE  T MIX  Y FX  U DJ  I TEMPO | > 120.0  001.1.1 |  top bar, 44 px
+| F1 SYNTH  F2 DRUM  F3 SEQ  F4 TAPE  F5 MIX  F6 FX  F7 DJ  F8 TEMPO | > 120.0  001.1.1 |  top bar, 44 px
 +--------------------------------------------------------------+---------------+
 |                                                              | SEQ GRID      |
 |                 the scene, 960 x 360                         | [GRID]        |
@@ -168,11 +168,11 @@ The scenes use a 320x160 unit grid, at 3 pixels a unit (1.5 at 640x360).
 
 Keys as of phase 3. The cartridge reads USB keys with `rawkeys(true)`.
 
-The keys are for an Apple Magic Keyboard (ANSI, no numpad; its F keys are media keys). The full table is in [`bm-tape-dev.md`](bm-tape-dev.md) section 5. The zones:
+The keys are for an Apple Magic Keyboard (ANSI, no numpad). The full table is in [`bm-tape-dev.md`](bm-tape-dev.md) section 5. The zones:
 
 | Zone | Keys |
 |---|---|
-| Modules (top letter row) | `Q W E R T Y U I` = SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO. `Tab`, Left, Right: pages |
+| Modules (function row) | `F1` to `F8` = SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO. `Tab`, Left, Right: pages |
 | Tracks (number row) | `1` to `4` select. Shift + `1` to `4` mutes |
 | Punch-in (number row) | `5 6 7 8`, held |
 | Encoders (right side) | `9 0 - =` up, `O P [ ]` down: the key below turns the encoder down |
