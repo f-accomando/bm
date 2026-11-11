@@ -210,12 +210,48 @@ local function save_sram()
   if s and srm ~= "" then doc_write(srm, s) end
 end
 
+-- A DSP-1/2/3/4 cartridge needs the firmware of the chip (not in the repository): dspN.rom (8192 bytes), dsp1b.rom, or N.program.rom with N.data.rom, in /sfc.
+local dsp_note = nil
+local function load_dsp_fw(n)
+  local l = doc_list("sfc") or {}
+  local have = {}
+  for _, f in ipairs(l) do have[f.name:lower()] = f.name end
+  local names = n == 1 and { "dsp1b.rom", "dsp1.rom", "dsp1a.rom" } or { "dsp" .. n .. ".rom" }
+  for _, nm in ipairs(names) do
+    if have[nm] then
+      local b = doc_read(have[nm], "sfc")
+      if b then
+        local ok, why = snes_dsp_firmware(b)
+        if ok then log("snes dsp" .. n .. " firmware " .. nm); return end
+        dsp_note = nm .. ": " .. tostring(why)
+        log("snes dsp" .. n .. " " .. dsp_note)
+        return
+      end
+    end
+  end
+  local pn, dn = have["dsp" .. n .. ".program.rom"], have["dsp" .. n .. ".data.rom"]
+  if pn and dn then
+    local pb, db = doc_read(pn, "sfc"), doc_read(dn, "sfc")
+    if pb and db then
+      local ok, why = snes_dsp_firmware(pb, db)
+      if ok then log("snes dsp" .. n .. " firmware " .. pn); return end
+      dsp_note = pn .. ": " .. tostring(why)
+      log("snes dsp" .. n .. " " .. dsp_note)
+      return
+    end
+  end
+  dsp_note = "No DSP-" .. n .. " firmware: put " .. names[#names] .. " in /sfc. The game runs without the chip."
+  log("snes dsp" .. n .. " no firmware")
+end
+
 local function open_rom(d)
   local data, why = doc_read(d.name, "sfc")
   if not data then msg = why or "cannot read the file"; return end
   local ok, err = snes_load(data)
   if not ok then msg = err; return end
   local info = snes_info()
+  dsp_note = nil
+  if info.dsp > 0 then load_dsp_fw(info.dsp) end
   local base = d.name:gsub("%.[^.]*$", ""):gsub("[^%w_%-]", ""):sub(1, 8)
   if base == "" then base = "rom" end
   srm = info.sram > 0 and (base .. ".srm") or ""
@@ -441,7 +477,8 @@ function _draw()
       rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0x101820)
       local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
       for i = 1, 8 do print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
-      if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 224, 0xFFD050) end
+      if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 224, 0xFFD050)
+    elseif dsp_note then print(dsp_note:sub(1, 34), SCREEN_W // 2 - 104, menu_top() + 224, 0xFF8060) end
     end
     return
   end

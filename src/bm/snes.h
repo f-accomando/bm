@@ -34,11 +34,16 @@ typedef struct {
     int hirom;
     uint32_t rom_size;
     uint32_t sram_size;
+    int dsp;                            /* the DSP chip of the cartridge, 1 to 4 (0: none) */
+    int dsp_fw;                         /* 1 when its firmware is loaded */
 } snes_info_t;
 
 /* loads a ROM (a copier header of 512 bytes is skipped); the bytes are copied. 0, or -1 and *why */
 int snes_load(const uint8_t *data, size_t len, const char **why);
 void snes_reset(void);
+/* The firmware of the DSP chip (info.dsp): one file of 8192 bytes (b = NULL), or the program (6144 bytes, a) and the data (2048 bytes, b). Call it after snes_load.
+ * 0 and the chip starts; or -1 and *why (the game then runs without the chip). */
+int snes_dsp_firmware(const uint8_t *a, size_t na, const uint8_t *b, size_t nb, const char **why);
 /* one frame with the two pads; the picture is ready after it */
 void snes_frame(uint16_t pad1, uint16_t pad2, int render);   /* render 0: the picture is not drawn (a frame that is skipped) */
 /* the picture: SNES_W x lines of RGB565 (lines is 224 or 239) */

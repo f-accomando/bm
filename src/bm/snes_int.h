@@ -4,6 +4,7 @@
 
 #include "snes.h"
 #include "snes_gsu.h"
+#include "snes_dsp77.h"
 
 typedef struct {
     uint8_t dmap, bbad, a1b, dasb, ntrl, unused;
@@ -28,6 +29,7 @@ typedef struct {
     uint32_t sram_size;
     int hirom, sram_dirty;
     int gsu, gsu_battery;               /* a Super FX cartridge (docs/progress/snes-superfx.md); the cart RAM is sram; the battery flag tells the cart to save it */
+    int dsp, dsp_map;                   /* a DSP-1/2/3/4 cartridge (docs/progress/snes-dsp.md): the chip 1-4 (0: none) and where its ports are (0 LoROM $20-$3F, 1 LoROM $60-$6F, 2 HiROM) */
     snes_info_t info;
 
     /* the PPU registers */

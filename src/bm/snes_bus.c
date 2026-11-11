@@ -92,9 +92,37 @@ static inline uint8_t rom_byte(uint32_t o)
 
 static const uint8_t *gsu_map_ptr(uint32_t a, int page);
 
+/* The DSP-1/2/3/4 cartridge (docs/progress/snes-dsp.md): the chip runs lazily, like the Super FX. The ports are in the map of the cartridge. */
+static int32_t dsp_done;                        /* master clocks of this frame the chip has been run to */
+static inline int dsp_port(uint32_t a)          /* 0: not a port, 1: DR, 2: SR */
+{
+    const unsigned b7 = (a >> 16) & 0x7F, off = a & 0xFFFF;
+    switch (S.dsp_map) {
+    case 0: return (b7 >= 0x20 && b7 < 0x40 && off >= 0x8000) ? (off < 0xC000 ? 1 : 2) : 0;
+    case 1: return (b7 >= 0x60 && b7 < 0x70 && off < 0x8000) ? (off < 0x4000 ? 1 : 2) : 0;
+    default: return (b7 < 0x20 && off >= 0x6000 && off < 0x8000) ? (off < 0x7000 ? 1 : 2) : 0;
+    }
+}
+static void dsp_sync_pos(uint32_t pos)
+{
+    int32_t d = (int32_t)pos - dsp_done;
+    dsp_done = (int32_t)pos;
+    if (d > 262 * LINE_CLK) d = 262 * LINE_CLK;
+    if (d > 0) dsp77_run(d);
+}
+static void dsp_sync(void) { dsp_sync_pos((uint32_t)S.line * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0)); }
+
 static uint8_t raw_read(uint32_t a)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.dsp) {
+        const int pt = dsp_port(a);
+        if (pt) {
+            if (!dsp77_ready()) return pt == 2 ? 0x80 : 0;                  /* no firmware: RQM stays set, so a game does not wait for ever */
+            dsp_sync();
+            return pt == 1 ? dsp77_read_dr() : dsp77_read_sr();
+        }
+    }
     if (S.gsu && bank != 0x7E && bank != 0x7F) {
         const unsigned b7 = bank & 0x7F;
         if (b7 < 0x40) {
@@ -138,6 +166,10 @@ static uint8_t raw_read(uint32_t a)
 static void raw_write(uint32_t a, uint8_t v)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.dsp) {
+        const int pt = dsp_port(a);
+        if (pt) { if (pt == 1 && dsp77_ready()) { dsp_sync(); dsp77_write_dr(v); } return; }
+    }
     if (S.gsu && bank != 0x7E && bank != 0x7F) {
         const unsigned b7 = bank & 0x7F;
         if (b7 < 0x40 && off >= 0x3000 && off < 0x3500) { gsu_sync(1); gsu_write((uint16_t)off, v); gsu_tab_update(); return; }
@@ -217,6 +249,7 @@ static const uint8_t *gsu_map_ptr(uint32_t a, int page)   /* page 1: for the pag
 static const uint8_t *map_ptr(uint32_t a)
 {
     if (S.gsu) return gsu_map_ptr(a, 1);
+    if (S.dsp && dsp_port(a)) return NULL;                         /* the ports: the slow path */
     const unsigned bank = a >> 16, off = a & 0xFFFF;
     if (bank == 0x7E) return &S.wram[off];
     if (bank == 0x7F) return &S.wram[0x10000 + off];
@@ -679,6 +712,7 @@ void snes_bus_reset(void)
     S.rddiv = 0; S.rdmpy = 0; S.wrdiv = 0xFFFF; S.wrmpya = 0xFF;
     ppu_reset();
     if (S.gsu) gsu_reset(S.sram_size);
+    if (dsp77_ready()) dsp77_reset();
     snes_map_build();
 }
 
@@ -687,7 +721,7 @@ void snes_reset(void)
     if (!S.rom) return;
     snes_bus_reset();
     spc_reset();
-    snes_clk = 0; spc_done = 0; gsu_done = 0;
+    snes_clk = 0; spc_done = 0; gsu_done = 0; dsp_done = 0;
     cpu_reset();
 }
 
@@ -758,6 +792,8 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         S.line_clk = 0; snes_clk -= end;
         if (S.gsu && gsu_go() && (cpu_waiting || (L + 1) % GSU_LAG_LINES == 0 || L == 261))
             gsu_sync_pos((uint32_t)(L + 1) * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0), 1);
+        if (S.dsp && L == 261 && dsp77_ready() && !dsp77_idle())            /* a chip that computes catches up at the end of the frame */
+            dsp_sync_pos((uint32_t)(L + 1) * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0));
         if (((L + 1) % SPC_LAG_LINES) == 0 || L == 261)                  /* the sound CPU catches up now and then (the audio comes from it) */
             spc_sync_pos((uint32_t)(L + 1) * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0));
         if (now_us) {
@@ -778,6 +814,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         } else if (L < S.lines && render) ppu_line(L);
     }
     gsu_done -= 262 * LINE_CLK;
+    dsp_done -= 262 * LINE_CLK;
     spc_done -= 262 * 65;                                                // the next frame counts from here
     S.frames++;
     if (timed) {
@@ -867,9 +904,34 @@ int snes_load(const uint8_t *data, size_t len, const char **why)
         S.gsu = 1; S.sram_size = ram;
         S.gsu_battery = data[off + 0x16] == 0x15 || data[off + 0x16] == 0x1A;
     }
+    S.dsp = S.dsp_map = 0;
+    dsp77_unload();
+    {   /* a DSP cartridge: chipset $03-$05 (DSP, +RAM, +battery). The header does not say which DSP: the title does (DSP-2: Dungeon Master, DSP-3: SD Gundam GX, DSP-4: Top Gear 3000), else DSP-1. [F] */
+        const unsigned cs = data[off + 0x16];
+        if (cs >= 3 && cs <= 5 && !S.gsu) {
+            S.dsp = 1;
+            if (strstr(S.info.title, "DUNGEON MASTER")) S.dsp = 2;
+            else if (strstr(S.info.title, "GUNDAM GX")) S.dsp = 3;
+            else if (strstr(S.info.title, "TOP GEAR 3000") || strstr(S.info.title, "PLANETS")) S.dsp = 4;
+            S.dsp_map = S.hirom ? 2 : (S.dsp == 1 && S.rom_size > 0x100000 ? 1 : 0);
+        }
+    }
+    S.info.dsp = S.dsp; S.info.dsp_fw = 0;
     S.info.sram_size = S.gsu && !S.gsu_battery ? 0 : S.sram_size;
     memset(S.sram, 0, sizeof S.sram);
     S.sram_dirty = 0;
+    snes_reset();
+    return 0;
+}
+
+int snes_dsp_firmware(const uint8_t *a, size_t na, const uint8_t *b, size_t nb, const char **why)
+{
+    static const char *dummy;
+    if (!why) why = &dummy;
+    if (!S.dsp) { *why = "this ROM has no DSP chip"; return -1; }
+    const int r = b ? dsp77_load(a, na, b, nb, why) : dsp77_load_combined(a, na, why);
+    if (r != 0) { dsp77_unload(); S.info.dsp_fw = 0; return -1; }
+    S.info.dsp_fw = 1;
     snes_reset();
     return 0;
 }

@@ -3,6 +3,7 @@
  * list of ROMs, the menu and the battery RAM files; this runs the machine.
  *
  *   snes_load(bytes)            -> true, or nil and why        loads and resets
+ *   snes_dsp_firmware(bytes[, data]) -> true, or nil and why   the firmware of a DSP-1/2/3/4 cartridge (docs/progress/snes-dsp.md)
  *   snes_reset()                                               a reset of the machine
  *   snes_frame(pad1, pad2, [render])                           one frame; a pad is bits (SNES_PAD_* in snes.h);
  *                                                              render false: the picture is not drawn
@@ -41,6 +42,21 @@ int l_snes_load(lua_State *L)
     const char *data = luaL_checklstring(L, 1, &len);
     const char *why = "";
     if (snes_load((const uint8_t *)data, len, &why) != 0) {
+        lua_pushnil(L);
+        lua_pushstring(L, why);
+        return 2;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/* snes_dsp_firmware(bytes [, data]) -> true, or nil and why: the firmware of the DSP chip (snes_info().dsp); one file of 8192 bytes, or program and data */
+int l_snes_dsp_firmware(lua_State *L)
+{
+    size_t na, nb = 0;
+    const char *a = luaL_checklstring(L, 1, &na), *b = lua_isnoneornil(L, 2) ? NULL : luaL_checklstring(L, 2, &nb);
+    const char *why = "";
+    if (snes_dsp_firmware((const uint8_t *)a, na, (const uint8_t *)b, nb, &why) != 0) {
         lua_pushnil(L);
         lua_pushstring(L, why);
         return 2;
@@ -182,7 +198,11 @@ int l_snes_tiles(lua_State *L)
 int l_snes_info(lua_State *L)
 {
     const snes_info_t *i = snes_info();
-    lua_createtable(L, 0, 5);
+    lua_createtable(L, 0, 7);
+    lua_pushinteger(L, i->dsp);
+    lua_setfield(L, -2, "dsp");
+    lua_pushboolean(L, i->dsp_fw);
+    lua_setfield(L, -2, "dsp_fw");
     lua_pushstring(L, i->title);
     lua_setfield(L, -2, "title");
     lua_pushstring(L, i->hirom ? "HiROM" : "LoROM");

@@ -276,7 +276,7 @@ test-psx: tests/psx/core_test.c $(PSX_CORE) $(wildcard src/bm/psx*.h)
 # bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
 test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
-	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
@@ -339,7 +339,7 @@ test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bi
 	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav $(BUILD)/tape-t1/tape.bm
 
 # The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
-SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
 $(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
@@ -377,10 +377,23 @@ test-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$<
 bench-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$< bench
+# The DSP-1/2/3/4 core (docs/progress/snes-dsp.md): the uPD77C25 on small original firmware written in the test, and the cartridge ports in the map.
+$(BUILD)/host/snes_dsp77_test: tests/snes/dsp77_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_dsp77.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/dsp77_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-dsp77: $(BUILD)/host/snes_dsp77_test
+	$<
+# The same test on an ARM1176 in QEMU, with the assembly CPU loop linked (the map and the chip on the real instruction set): needs qemu-system-arm and arm-none-eabi-gcc.
+test-snes-dsp77-arm: tests/snes/dsp77_test.c src/bm/snes_dsp77.c src/bm/snes_dsp77.h src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
+	@mkdir -p $(BUILD)/arm
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/dsp77.elf tests/snes/dsp77_test.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	$(SNES_ARM_RUN) $(BUILD)/arm/dsp77.elf | tee $(BUILD)/arm/dsp77.out | tail -3; grep -q 'snes dsp77: .* 0 failed' $(BUILD)/arm/dsp77.out
 # The assembly loop of the CPU (snes_cpu_arm.S) on an ARM1176 in QEMU (needs qemu-system-arm and arm-none-eabi-gcc): the golden hashes, and one random instruction
 # at a time against the C reference (tests/snes/cpu_diff.c). The PC build does not use the assembly.
 SNES_ARM_CC := arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -mfloat-abi=soft -O2 -std=gnu11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Isrc/bm -Itests/snes -w
-SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c tests/snes/arm_mmu.c
+SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c src/bm/snes_dsp77.c tests/snes/arm_mmu.c
 SNES_ARM_REF := -DSNES_CPU_C -Dcpu_run=ref_run -Dcpu_step=ref_step -Dcpu_reset=ref_reset -Dcpu_get=ref_get -Dcpu_set=ref_set -Dcpu_info=ref_info -Dcpu_waiting=ref_waiting -Dcpu_stopped=ref_stopped
 SNES_ARM_RUN := qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel
 test-snes-cpu-arm: tests/snes/cpu_golden_arm.c tests/snes/cpu_diff.c src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
@@ -878,7 +891,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \
@@ -992,7 +1005,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
