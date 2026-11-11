@@ -15,6 +15,7 @@ int snes_clk;
 /* ------------------------------------------------------------------ the memory map */
 static uint8_t cpu_reg_read(uint16_t o);
 static void cpu_reg_write(uint16_t o, uint8_t v);
+static uint32_t acc_dma;             /* microseconds of the general DMA in this frame (timed at the write to $420B) */
 
 static inline uint8_t rom_byte(uint32_t o)
 {
@@ -459,7 +460,10 @@ static void cpu_reg_write(uint16_t o, uint8_t v)
     case 0x4208: S.htime = (uint16_t)((S.htime & 0xFF) | ((v & 1) << 8)); break;
     case 0x4209: S.vtime = (uint16_t)((S.vtime & 0x100) | v); break;
     case 0x420A: S.vtime = (uint16_t)((S.vtime & 0xFF) | ((v & 1) << 8)); break;
-    case 0x420B: S.mdmaen = v; run_dma(v); break;
+    case 0x420B: S.mdmaen = v;
+        if (snes_now_us) { uint32_t a = snes_now_us(); run_dma(v); acc_dma += snes_now_us() - a; }
+        else run_dma(v);
+        break;
     case 0x420C: S.hdmaen = v; break;
     case 0x420D: S.memsel = v; snes_map_build(); break;
     default: break;
@@ -503,14 +507,17 @@ void snes_reset(void)
 }
 
 #define now_us snes_now_us
-static uint32_t avg_frame, avg_ppu, avg_spc;
+static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
 void snes_set_clock(uint32_t (*f)(void)) { now_us = f; }
 
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
 {
     if (!S.rom) return;
     const uint32_t t_start = now_us ? now_us() : 0;
-    uint32_t t_ppu = 0, t_spc = 0;
+    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0;
+    uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
+    const int time_hdma = now_us && (S.frames & 7) == 0;   /* the HDMA is timed alone in one frame of 8 */
+    acc_dma = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
     for (int L = 0; L < 262; L++) {
@@ -527,7 +534,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
             S.joybusy = 0;
         }
         if (L < S.lines) {
-            if (S.hdmaen) snes_hdma_line();
+            if (S.hdmaen) {
+                if (time_hdma) { uint32_t a = now_us(); snes_hdma_line(); t_hdma += now_us() - a; }
+                else snes_hdma_line();
+            }
         }
         /* IRQ: V, H or both */
         int ia = -1;
@@ -539,10 +549,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         const int end = LINE_CLK;
         S.line_clk = 0;
         if (ia >= 0 && ia < end) {
-            while (snes_clk < ia) { S.line_clk = snes_clk; cpu_step(); }
+            while (snes_clk < ia) { S.line_clk = snes_clk; cpu_step(); n_instr++; }
             S.irq_pending = 1; S.timeup = 1;
         }
-        while (snes_clk < end) { S.line_clk = snes_clk; cpu_step(); }
+        while (snes_clk < end) { S.line_clk = snes_clk; cpu_step(); n_instr++; }
         S.line_clk = 0;
         snes_clk -= end;
         if (now_us) {
@@ -550,7 +560,8 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
             spc_run(65);
             uint32_t b = now_us();
             if (L < S.lines && render) ppu_line(L);
-            t_spc += b - a; t_ppu += now_us() - b;
+            const uint32_t c = now_us();
+            t_cpu += a - t_prev; t_spc += b - a; t_ppu += c - b; t_prev = c;
         } else {
             spc_run(65);
             if (L < S.lines && render) ppu_line(L);
@@ -562,7 +573,11 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         avg_frame = (uint32_t)((int32_t)avg_frame + ((int32_t)tot - (int32_t)avg_frame) / 8);
         avg_ppu = (uint32_t)((int32_t)avg_ppu + ((int32_t)t_ppu - (int32_t)avg_ppu) / 8);
         avg_spc = (uint32_t)((int32_t)avg_spc + ((int32_t)t_spc - (int32_t)avg_spc) / 8);
-        if (S.frames < 4) { avg_frame = tot; avg_ppu = t_ppu; avg_spc = t_spc; }
+        avg_cpu = (uint32_t)((int32_t)avg_cpu + ((int32_t)t_cpu - (int32_t)avg_cpu) / 8);
+        avg_dma = (uint32_t)((int32_t)avg_dma + ((int32_t)acc_dma - (int32_t)avg_dma) / 8);
+        avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);
+        if (time_hdma) avg_hdma = (uint32_t)((int32_t)avg_hdma + ((int32_t)t_hdma - (int32_t)avg_hdma) / 2);
+        if (S.frames < 4) { avg_frame = tot; avg_ppu = t_ppu; avg_spc = t_spc; avg_cpu = t_cpu; avg_dma = acc_dma; avg_instr = n_instr; avg_hdma = t_hdma; }
     }
 }
 
@@ -642,6 +657,7 @@ void snes_debug(snes_debug_t *d)
     d->us_bg = ppu_us[0]; d->us_obj = ppu_us[1]; d->us_win = ppu_us[2]; d->us_comp = ppu_us[3]; d->us_mix = ppu_us[4];
     memset(ppu_us, 0, sizeof ppu_us);
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
+    d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;

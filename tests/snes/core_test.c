@@ -177,9 +177,28 @@ static void scroll_tests(void)
     CHECK("scroll registers: all 1024 values", bad == 0);
 }
 
+/* C1: the time of a frame in its parts. A fake clock that moves one microsecond at every read: the parts exist and the CPU runs instructions. */
+static uint32_t fake_us;
+static uint32_t fake_clock(void) { return fake_us++; }
+static void timing_tests(void)
+{
+    static const uint8_t loop[] = { 0x80, 0xFE };           /* BRA -2: the CPU spins */
+    prog(loop, sizeof loop);
+    snes_set_clock(fake_clock);
+    for (int i = 0; i < 24; i++) snes_frame(0, 0, 1);
+    snes_debug_t d;
+    snes_debug(&d);
+    snes_set_clock(NULL);
+    CHECK("timing: instructions a frame", d.instr > 5000);
+    CHECK("timing: cpu time a frame", d.us_cpu > 200);
+    CHECK("timing: no DMA, no HDMA", d.us_dma == 0 && d.us_hdma == 0);
+    CHECK("timing: the parts fit in the frame", d.us_cpu + d.us_ppu + d.us_spc <= d.us_frame + 2);
+}
+
 int main(void)
 {
     scroll_tests();
+    timing_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();

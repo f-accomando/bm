@@ -4,20 +4,28 @@ Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (ARMv6
 
 ### Work items (development codes)
 
-Status of every item: idea, not started. Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
+Status of every item: idea, not started, except C1 (code done 2026-11-11, the table of the Pi waits for a play with the logger). Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
 
 P = priority 0 to 9 (0 is the highest). T = time to do it 0 to 9 (9 is the longest). Both are estimates (2026-11-11), not measures.
 
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
 | C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | 0 | 2 | FPS line read in the scenes that drop |
-| C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | 0 | 2 | a table of ms a frame for each part |
+| C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | 0 | 2 | a table of ms a frame for each part (code done, see "C1: the measure" below; the table of the Pi is open) |
 | C2 | Registers in ARM registers, inside the interpreter | 4 | 4 | `make test-snes-cpu`, `make test-snes` |
 | C3 | Threaded interpreter in assembly (each opcode jumps to the next) | 3 | 5 | same tests, and a timing against C1 |
 | C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | 5 | 9 | same tests, and a timing against C1 |
 | C5 | Static recompiler for one game (a tool that reads the ROM) | 8 | 9 | same tests, and the game picture byte for byte |
 | C6 | Writes to PPU registers queued as events (clock, register, value) | 6 | 5 | `make test-snes`, `make test-snes-ppu` |
 | C7 | High-level SPC700 (low value: about 2 to 3% of a core) | 9 | 4 | `make test-snes-dsp`, sound by ear |
+
+## C1: the measure
+
+Done 2026-11-11 (code, host test); the figures of the Pi Zero W are not read yet. `snes_frame` (`src/bm/snes_bus.c`) times the parts of a frame with the console timer (about 6 us a read; 3 reads a line, as before) and averages them (1/8 of the new value):
+
+Fields of `snes_debug().us`: `frame` (the whole `snes_frame`); `cpu` (the 65C816 with the bus, from the end of the last line's picture to the start of the sound, so it holds the HDMA and the DMA); `dma` (the general DMA at $420B, inside `cpu`); `hdma` (the HDMA alone, timed in one frame of 8, inside `cpu`); `ins` (instructions run in a frame); `spc` (the SPC700 and the S-DSP); `ppu` (`ppu_line` of the lines drawn).
+
+CPU and bus alone = `cpu` - `dma` - `hdma`. Time of an instruction = `cpu` / `ins`; compare it with the 50 to 100 ARM instructions guessed above. The cart's logger prints the fields once a second (the debug table is read twice a second). Check: `tests/snes/core_test.c` (`timing_tests`, fake clock). Open: play on the Pi Zero W with the logger and fill the table of ms a frame, scene by scene. Decision after the table: if `cpu` - `dma` - `hdma` is under about 3 ms of a frame, C2 to C5 do not pay; the limit is then the PPU (G1).
 
 ## Why a ROM cannot be translated once
 
