@@ -4922,6 +4922,9 @@ function _init()
   log("sfc", l and #l or "nil", l and l[1] and l[1].name or "-", l and l[1] and l[1].size or 0)
   local d = doc_read("t.sfc", "sfc")
   log("read", d and #d or "nil", d and d:byte(1) or 0)
+  local nl = doc_list("nes")
+  local nd = doc_read("t.nes", "nes")
+  log("nes", nl and #nl or "nil", nd and #nd or "nil", nd and nd:byte(1) or 0)
   log("indocs", select(2, doc_read("t.sfc")))
   log("docs", #doc_list(), #doc_list("docs"))
   log("badfolder", select(2, doc_list("nope")))
@@ -4944,7 +4947,10 @@ def test_doc_folders(b, opts):
         f.write("layout=us\nwifi_boot=0\n")
     with open(rom, "wb") as f:
         f.write(bytes([0xAB]) + b"x" * 99)
-    mksd.build(img, [(cfg, "bm/config.txt"), (rom, "sfc/t.sfc")])
+    nrom = os.path.join(tmp, "t.nes")
+    with open(nrom, "wb") as f:
+        f.write(bytes([0xCD]) + b"y" * 49)
+    mksd.build(img, [(cfg, "bm/config.txt"), (rom, "sfc/t.sfc"), (nrom, "nes/t.nes")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.boot()
@@ -4958,9 +4964,10 @@ def test_doc_folders(b, opts):
         text = out.decode(errors="replace").replace("\r", "")
         assert "sfc\t1\tT.SFC\t100" in text or "sfc\t1\tt.sfc\t100" in text, text
         assert "read\t100\t171" in text, text
+        assert "nes\t1\t50\t205" in text, text
         assert "indocs\tno document t.sfc" in text, text
         assert "docs\t0\t0" in text, text
-        assert "badfolder\tnope: the folder is docs or sfc" in text, text
+        assert "badfolder\tnope: the folder is docs, sfc or nes" in text, text
         assert "write\ttrue\tabc" in text, text
         assert "delete\ttrue\tno document w.srm" in text, text
         q.expect("> ", timeout=20)

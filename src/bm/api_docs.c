@@ -63,6 +63,7 @@
 
 #define DOCS_DIR    "/docs"
 #define SFC_DIR     "/sfc"      /* the ROMs of bm SNES: the same calls, folder "sfc" */
+#define NES_DIR     "/nes"      /* the ROMs of bm NES: the same calls, folder "nes" */
 #define DOC_MAX     (4u * 1024 * 1024)
 
 /* a valid 8.3 name, lower case, in out (13 bytes); 0, or -1 */
@@ -88,7 +89,7 @@ static int doc_name(const char *in, char out[13])
     return base && ext != 0 ? 0 : -1;
 }
 
-/* the optional folder argument at idx: none or "docs" is /docs, "sfc" is /sfc; 0, or 2 (nil and why pushed) */
+/* the optional folder argument at idx: none or "docs" is /docs, "sfc" is /sfc, "nes" is /nes; 0, or 2 (nil and why pushed) */
 static int doc_folder(lua_State *L, int idx, const char **dir)
 {
     if (lua_isnoneornil(L, idx)) {
@@ -104,8 +105,12 @@ static int doc_folder(lua_State *L, int idx, const char **dir)
         *dir = SFC_DIR;
         return 0;
     }
+    if (!strcmp(f, "nes")) {
+        *dir = NES_DIR;
+        return 0;
+    }
     lua_pushnil(L);
-    lua_pushfstring(L, "%s: the folder is docs or sfc", f);
+    lua_pushfstring(L, "%s: the folder is docs, sfc or nes", f);
     return 2;
 }
 
@@ -125,7 +130,7 @@ static int doc_check(lua_State *L, int idx, char name[13])
     return 0;
 }
 
-/* doc_list([folder]) -> { {name =, size =}, ... } of /docs, or of /sfc with "sfc" (none: empty); nil and
+/* doc_list([folder]) -> { {name =, size =}, ... } of /docs, or of /sfc with "sfc" or /nes with "nes" (none: empty); nil and
  * why if not allowed */
 int l_doc_list(lua_State *L)
 {
@@ -165,7 +170,7 @@ int l_doc_read(lua_State *L)
     const int fr = doc_folder(L, 2, &dir);
     if (fr)
         return fr;
-    if (!strcmp(dir, SFC_DIR)) {
+    if (!strcmp(dir, SFC_DIR) || !strcmp(dir, NES_DIR)) {
         /* a ROM keeps the name it has on the card (long names too): reading only, so no check of 8.3 */
         const char *in = luaL_checkstring(L, 1);
         if (!perm_allowed(PERM_DOCS)) {

@@ -1,0 +1,12 @@
+﻿# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: bm NES
+desc: A Famicom and NES emulator. It plays .nes files from the /nes folder of the SD card. The machine is in C.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: app, emulator, nes
+resolution: 640x360
+targets: pi,rgb30
+input: pad,keyboard
+aspect: any
+min_ram: 256
