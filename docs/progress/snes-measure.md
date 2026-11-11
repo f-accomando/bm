@@ -70,7 +70,7 @@ Reading: the scene with windows and HDMA (`m1/04/13`) costs 15.1 ms of PPU in a 
 
 Measured on the Pi Zero W, kernel v0.3.0-47, from the logs of the reports branch.
 
-- **Colour math (`mix`)**: 6.1 ms of the 14.9 ms of a drawn frame in Yoshi's Island (scene `m1/15/02`), 2.8 ms in Super Mario World. This is the biggest single part. A fast path for the common case (BG2 on the sub screen, add or half-add) comes first; then G6 on the GPU ([snes-gpu.md](snes-gpu.md)).
+- **Colour math (`mix`)**: the CPU fast paths are in (kernel after v0.3.0-56): the mix loop has no data-dependent branch, the colour window prevent rule is in the fast path, window masks are made in runs and kept while the registers stay, the clip path has no division. Left: install the kernel and read `mix`, `comp` and `win` in the `ppu us` line of scenes `m1/15/02` and `m1/04/13` (before: 2.8 / 0.9 / 0.1 ms and 6.7 / - / 2.4 ms in SMW; mix 6.1 ms in Yoshi's Island). If `mix` stays above 3 ms in Yoshi's Island, the next step is G6 ([snes-gpu.md](snes-gpu.md)).
 - **Super FX**: 3.0 ms a frame (32000 GSU instructions, up to 54000) in Yoshi's Island. The GSU runs in quarters of a line with the CPU, so both push each other out of the instruction cache (37000 misses a frame in the CPU part, SMW has 14000). Make the GSU loop compact and run it with fewer switches.
 - **GSU RAM to VRAM DMA**: 0.8 ms a frame in Yoshi's Island (1.1 ms at most).
 - **Yoshi's Island speed**: 49 fps on average (28 to 60), 60 of 124 lines under 50 fps, a picture every 3 or 4 frames. A drawn frame costs about 22 ms (PPU 14.9, GSU 3.0, sound 1.6, DMA 0.8, CPU 0.8).
