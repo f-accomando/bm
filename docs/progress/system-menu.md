@@ -27,8 +27,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
 - Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,
   adopt, the copy on the card); a game's SHA-256 in 64 KB pieces (`catalog_hash_tick`);
   a game checked and being written (`finishing`) goes on off the tab, nothing else does.
-  Separates **Games** and **Apps** pages (`market_page`, toggled with `Y` / `V` or clicking the
-  subtabs on `TITLE_ROW`), tracks one entry per game id, and shows the format badge on cards and details panel. The title bar shows the name only.
+  Shows one list of every title (no Games / Apps pill, on both consoles; 2026-11-11), tracks one entry per game id, and shows the format badge on cards and details panel. The title bar shows the name only.
 - The bottom bar of the menu shows the key chips only (user request, 25 Oct 2026), on the Pi and the
   RGB30. It has no details line, no last-game note, no status and no counters. `menu_view_t` has no
   `details` and no `note`. A failed action shows its reason in the notice box (`notice_fail()`,
@@ -108,3 +107,10 @@ Style chosen by the user (variant C3): light, soft, condensed, fixed width. Choi
 
 Settings > Screen has a new row after Menu size: **Menu layout**, Scaled or Native (`menu_layout`, Pi only, next start). Menu size is `menu_scale` (the picture size: 360p ARM, 360p GPU, 720p, 1080p); Menu layout is separate: Scaled draws the 360p layout bigger, Native lays the menu out at the screen's own size. In a native layout the options box is 50% taller: 10 rows instead of 6 (`menu_panel_rows()`, `MENU_PANEL_ROWS_TALL`); the scaled layout keeps 6 rows because its screen is 360 high. Tested in QEMU at 360p only (`test_home_ui`); the native layouts need a look on the Pi.
 - **Console fonts (7 Nov 2026).** A font is `font->width` pixels wide with `ceil(width / 8)` bytes a row; the bit 7 of a row is the left pixel, whatever the width. The console draws cells of that width (`draw_cell`). A `.bmf` file has 256 glyphs of code page 437: `font_find` fills a shorter file to 256 with blank glyphs and refuses a header that is not a font (width over 32, height over 64, no glyph). The bm Font app edits fonts up to 8 pixels wide with the same bit order and makes a new font from a base of another height with the nearest rows.
+
+## Menu icons and emulator start (2026-11-11)
+
+- The Market has one list. Games and apps install into `/bm`. The tab of a local title follows the cartridge `type` of bm.info: bm Tape is `type: game`, so it shows in Games.
+- Emulators (files `snes`, `nes`, `psx`, `ps1` in `/bm`) start with no bm splash (`lib_no_splash`).
+- Flat menu icons with no text: `python3 scripts/mkmenuicons.py` writes `art/icons/<market|nes|snes|psx|bm|settings>_<1080|720|360>.png` (192, 128 and 64 px) and `sheet.png`. The menu does not use them yet.
+- Open: the NES and SNES menus (covers of the `.nes` and `.sfc` files; a start opens the emulator with that file).

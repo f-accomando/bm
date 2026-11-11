@@ -5,7 +5,7 @@ desc: A portable studio in vector art: synth, drum kit, step sequencer and song 
 author: bm
 license: LicenseRef-BM-Community-1.0
 version: 0.3
-type: app
+type: game
 tags: music, synth, sampler, sequencer
 resolution: 640x360
 targets: pi

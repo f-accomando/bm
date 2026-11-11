@@ -739,17 +739,14 @@ static void cm_draw(cmenu_t *m)
             if (!a_label)
                 a_label = "";
         }
-        static const char *const market_pages[] = { "Games", "Apps" };
         menu_view_t v = {
             .tabs = tabs, .ntabs = 3, .tab = m->tab, .on_gear = m->on_gear, .peek_first = 1,
-            .subtabs = on_market ? market_pages : NULL, .nsubtabs = on_market ? 2 : 0, .subtab = market_page(),
             .refresh_label = on_market ? "Refresh" : NULL,
             .refresh_enabled = on_market && market_refresh_available(),
             .items = items, .n = m->n, .sel = m->tsel[m->tab],
             .panel = m->depth ? &m->mp : NULL,
             .banner = on_market ? market_banner() : NULL,
             .a_label = a_label,
-            .y_label = on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
             .idle = lib_menu_idle,
         };
         /* Settings is a page: the sections on the left, the rows of the
@@ -939,8 +936,7 @@ static void cm_input_pad(cmenu_t *m)
 static void cm_input_pointer(cmenu_t *m)
 {
     menu_ptr_t io = { .gfx = m->gfx, .ask = m->ask != ASK_NONE, .panel = m->depth, .panel_rows = pb.n,
-                      .on_gear = m->on_gear, .market = m->tab == TAB_MARKET && !m->on_gear, .covers = m->n,
-                      .market_page = market_page() };
+                      .on_gear = m->on_gear, .market = m->tab == TAB_MARKET && !m->on_gear, .covers = m->n };
     if (!menu_ui_pointer(&io))
         return;
     m->dy += io.dy;
@@ -963,10 +959,6 @@ static void cm_input_pointer(cmenu_t *m)
     }
     if (io.cover_sel >= 0)
         m->tsel[m->tab] = io.cover_sel;
-    if (io.page >= 0) {
-        market_set_page(io.page);
-        m->tsel[TAB_MARKET] = 0;
-    }
 }
 
 /* Esc, the keys of the system and PS: back or home. */
@@ -1226,10 +1218,6 @@ static void cm_navigate(cmenu_t *m)
                 s_ += m->dx;
             m->tsel[m->tab] = s_;
         }
-        if (m->ybtn && !m->on_gear && m->tab == TAB_MARKET) {
-            market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
-            m->tsel[TAB_MARKET] = 0;
-        }
         /* X: the options of the highlighted cartridge, or of the
          * Market's game */
         if (m->opts && !m->on_gear && m->tab == TAB_MARKET && market_action(m->tsel[m->tab]) != MARKET_NONE) {
@@ -1405,7 +1393,8 @@ static void cm_launch(cmenu_t *m)
     /* the bm suite (editor, Studio, Animator, Mesh, Pixel, Sound, a project) opens
      * with no splash; the splash is for games */
     const int suite = (m->go >= GO_SDK && m->go <= GO_PIXEL) ||
-                      (m->go == GO_PLAY && m->go_cart >= 0 && lib_is_dev(&library.g[m->go_cart]));
+                      (m->go == GO_PLAY && m->go_cart >= 0 &&
+                       (lib_is_dev(&library.g[m->go_cart]) || lib_no_splash(&library.g[m->go_cart])));
     if (app && !resume && !suite)
         loading_begin(m->fb);
     /* the file of a tool: a cartridge of the menu, or none */

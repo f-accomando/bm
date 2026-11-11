@@ -89,6 +89,9 @@ typedef struct {
 /* The one library of the console. */
 extern lib_t library;
 
+/* 1 for an emulator (the file is snes.bm, nes.bm, psx.bm): it starts with no bm splash. */
+int lib_no_splash(const lib_game_t *g);
+
 /* Compare two titles, ignoring the case of ASCII letters (sort order of the menus). */
 int lib_text_cmp(const char *a, const char *b);
 

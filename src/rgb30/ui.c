@@ -334,7 +334,7 @@ static void rgb_play_begin(const lib_game_t *g, int resume)
     wifi_auto_stop();
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
-    if (!resume && !lib_is_dev(g))
+    if (!resume && !lib_is_dev(g) && !lib_no_splash(g))
         loading_begin(fb);
 }
 
@@ -975,16 +975,13 @@ static void uh_items(uhome_t *m)
 /* The frame: the view with the panels over the covers, the notice, the question. */
 static void uh_draw(uhome_t *m)
 {
-    static const char *const market_pages[] = { "Games", "Apps" };
     menu_view_t v = {
         .tabs = tab_names, .ntabs = 3, .tab = m->shown, .on_gear = m->on_gear, .peek_first = 1,
-        .subtabs = m->on_market ? market_pages : NULL, .nsubtabs = m->on_market ? 2 : 0, .subtab = market_page(),
         .refresh_label = m->on_market ? "Refresh" : NULL,
         .refresh_enabled = m->on_market && market_refresh_available(),
         .items = items, .n = m->n, .sel = *m->s,
         .prompts = MENU_PROMPTS_RGB30, .confirm_b = pad_ok == PAD_B,
         .ok_btn = pad_ok_name(), .back_btn = pad_back_name(), .no_monitor = 1,
-        .y_label = m->on_market ? (market_page() == MARKET_PAGE_APPS ? "Games" : "Apps") : NULL,
         .idle = lib_menu_idle,
     };
     /* the bar: the WiFi and the battery only; no icons of the
@@ -1122,7 +1119,7 @@ static int uh_pointer(uhome_t *m)
                       .panel = m->depth || m->mopt >= 0 || m->gopt >= 0,
                       .panel_rows = m->mopt >= 0 ? mpb.n : m->gopt >= 0 ? gpb.n : pb.n,
                       .on_gear = m->on_gear && m->mopt < 0 && m->gopt < 0, .market = m->on_market,
-                      .covers = m->n, .market_page = market_page() };
+                      .covers = m->n };
     if (!menu_ui_pointer(&io))
         return 0;
     if (io.tabto >= 0 || io.settings) {
@@ -1159,10 +1156,6 @@ static int uh_pointer(uhome_t *m)
     }
     if (io.cover_sel >= 0 && !m->depth)
         *m->s = io.cover_sel;
-    if (io.page >= 0) {
-        market_set_page(io.page);
-        *m->s = 0;
-    }
     return 0;
 }
 
@@ -1626,9 +1619,6 @@ void ui_home(framebuffer_t *f)
             uh_market_panel(&m);
         } else if (m.depth) {
             uh_settings_panel(&m);
-        } else if ((m.p & PAD_Y) && m.shown == TAB_MARKET) {
-            market_set_page(market_page() == MARKET_PAGE_APPS ? MARKET_PAGE_GAMES : MARKET_PAGE_APPS);
-            *m.s = 0;
         } else if ((m.p & PAD_SELECT) && !(pad_state() & PAD_START) && m.shown == TAB_MARKET) {
             market_refresh();
         } else if (m.n > 0) {

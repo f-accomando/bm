@@ -68,7 +68,6 @@ static uint32_t fetched_at, refresh_done_at;
 static char note[64], banner[72];
 static char want_id[24];        /* the game to download next */
 static int want_b16;            /* 1 if want_id is the .b16 edition */
-static int cur_page;            /* MARKET_PAGE_GAMES or MARKET_PAGE_APPS */
 static int delay_ms;            /* market_delay in bm/config.txt: slows a source down (tests) */
 
 static fiber_job_t work = { .name = "market" };
@@ -808,36 +807,9 @@ void market_tick(uint32_t until)
 
 /* ---------------------------------------------------------------- pages & what the menu shows */
 
-int market_page(void)
-{
-    return cur_page;
-}
-
-void market_set_page(int page)
-{
-    cur_page = page == MARKET_PAGE_APPS ? MARKET_PAGE_APPS : MARKET_PAGE_GAMES;
-}
-
-int market_page_count(int page)
-{
-    if (!have)
-        return 0;
-    int want_app = page == MARKET_PAGE_APPS, n = 0;
-    for (int i = 0; i < cat.n; i++)
-        if (cat.games[i].is_app == want_app)
-            n++;
-    return n;
-}
-
 static int cat_idx(int idx)
 {
-    if (!have || idx < 0)
-        return -1;
-    int want_app = cur_page == MARKET_PAGE_APPS, n = 0;
-    for (int i = 0; i < cat.n; i++)
-        if (cat.games[i].is_app == want_app && n++ == idx)
-            return i;
-    return -1;
+    return have && idx >= 0 && idx < cat.n ? idx : -1;
 }
 
 void market_select(int i)
@@ -861,11 +833,9 @@ int market_items(menu_item_t *items, int max)
             items[i] = (menu_item_t){ .title = "", .path = "", .kind = "market", .loading = 1 };
         return n;
     }
-    int want_app = cur_page == MARKET_PAGE_APPS, n = 0;
+    int n = 0;
     for (int i = 0; i < cat.n && n < max; i++) {
         const catalog_game_t *g = &cat.games[i];
-        if (g->is_app != want_app)
-            continue;
         const slot_t *s = &slots[i];
         int ready = s->cover_state == COVER_READY && s->cover.px;
         int b16 = is_b16(g->file.path);
@@ -889,8 +859,6 @@ const char *market_banner(void)
     if (have) {
         if (!cat.n)
             return "The Market is empty";
-        if (!market_page_count(cur_page))
-            return cur_page == MARKET_PAGE_APPS ? "No apps in the Market yet" : "No games in the Market yet";
         return NULL;
     }
     if (loading())

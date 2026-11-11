@@ -210,6 +210,21 @@ void lib_scan(lib_t *l)
             g16_sheet_free(&old_covers[j].cover);
 }
 
+/* The emulators (bm SNES, bm NES, bm PS1) open with no bm splash: they have their own screens. The Market
+ * names a file after the id of the title, so the id is the file name's stem. */
+int lib_no_splash(const lib_game_t *g)
+{
+    static const char *const ids[] = { "snes", "nes", "psx", "ps1" };
+    const char *n = strrchr(g->path, '/');
+    n = n ? n + 1 : g->path;
+    for (size_t i = 0; i < sizeof ids / sizeof ids[0]; i++) {
+        const size_t k = strlen(ids[i]);
+        if (strncasecmp(n, ids[i], k) == 0 && (n[k] == '.' || (n[k] >= '1' && n[k] <= '9' && n[k + 1] == '.')))
+            return 1;
+    }
+    return 0;
+}
+
 int lib_is_dev(const lib_game_t *g)
 {
     return g->tool != NULL || (!g->builtin && g->type != BM_TYPE_GAME);

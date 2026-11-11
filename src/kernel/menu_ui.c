@@ -2211,10 +2211,7 @@ int menu_ui_pointer(menu_ptr_t *io)
             io->cover_sel = h.index;
         if (click && h.kind == MENU_HIT_COVER && h.full)
             io->action = 1;
-        else if (click && h.kind == MENU_HIT_GROUP && io->market) {
-            if (h.index != io->market_page)
-                io->page = h.index;
-        } else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
+        else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'Y')
             io->ybtn = 1;
         else if (click && h.kind == MENU_HIT_BUTTON && h.index == 'R')
             io->refresh = io->market;
