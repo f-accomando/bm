@@ -119,10 +119,16 @@ local acc = { n = 0, f = 0, p = 0, s = 0, n2 = 0, tf = 0, bg = 0, ob = 0, wi = 0
 local snap                                         -- the test build's kept lines
 
 -- How often a picture is made: every `every` emulated frames (1 = 60 pictures a second). The machine runs 60 frames a second whatever the picture costs
--- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed: under 57 updates a
--- second, a picture less often (and no try for a picture more often for 15 seconds); three windows in a row at 58.8 or more, a picture more often.
+-- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed, and the draws
+-- and the cost of an update and a draw are summed in it. Pi Zero W, 2026-11-11 (log of a play): at 1/1 the updates stayed at 60 a second but the loop
+-- fell to 30 draws a second with gaps of 56 ms; at 1/2 it held 58 draws a second. So the loop counts as much as the updates:
+-- - overloaded: under 57 updates a second, or under 50 draws a second. A picture less often, and no step back for 15 seconds (60 seconds
+--   when the step back to 1/1 or to a level that just failed was the cause: `hold`);
+-- - three good windows in a row (58.8 updates and 55 draws a second or more), and a step back is allowed only when the cost measured now (update
+--   plus draw, ms a frame) leaves room for the finer level: under 11 ms for 1/1, under 13 ms for the others.
 local every, win_n, win_t, win_last, cooldown, good = 3, 0, 0, nil, 0, 0
-local MINI, last_ups = false, 0                     -- a test build with a one-line speed readout
+local win_dr, win_u, win_d, stepped = 0, 0, 0, false     -- draws, update ms and draw ms in the window; the last move was a step to a finer level
+local MINI, last_ups, last_dps = false, 0, 0              -- a test build with a one-line speed readout
 local function adapt()
   local t = time()
   if win_last then win_t = win_t + (t - win_last); win_n = win_n + 1 end
@@ -130,17 +136,22 @@ local function adapt()
   if cooldown > 0 then cooldown = cooldown - 1 end
   if win_n >= 90 then
     local ups = win_n / win_t                          -- _update a second
-    last_ups = ups
-    if ups < 57 then
+    local dps = win_dr / win_t                         -- draws a second (the loop)
+    local cost = (win_u + win_d) / win_n               -- ms of an update plus a draw
+    last_ups, last_dps = ups, dps
+    if ups < 57 or dps < 50 then
       good = 0
-      if every < 4 then every = every + 1; cooldown = 900 end
-    elseif ups >= 58.8 then
+      if every < 4 then every = every + 1; cooldown = stepped and 3600 or 900 end
+      stepped = false
+    elseif ups >= 58.8 and dps >= 55 then
       good = good + 1
-      if good >= 3 and every > 1 and cooldown == 0 then every = every - 1; good = 0 end
+      stepped = false                                  -- the last step held for a window: it was not the cause
+      if good >= 3 and every > 1 and cooldown == 0 and cost < (every == 2 and 11 or 13) then every = every - 1; good = 0; stepped = true
+      elseif good >= 3 then good = 3 end
     else
-      good = 0
+      good = 0; stepped = false
     end
-    win_n, win_t = 0, 0
+    win_n, win_t, win_dr, win_u, win_d = 0, 0, 0, 0, 0
   end
 end
 local srm = ""
@@ -309,7 +320,9 @@ function _update()
       if not AUTO then adapt() end
       local render = bench or frames % (AUTO and 4 or every) == 0
       snes_frame(readpad(1), readpad(2), render)      -- a picture every `every` frames (the test build: every fourth)
-      if log_on then local u = (time() - tf) * 1000; lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end
+      local u = (time() - tf) * 1000
+      win_u = win_u + u
+      if log_on then lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end
       if render then pic_new = true end
       if bench then acc.tf = acc.tf + (time() - tf) end
     end
@@ -374,6 +387,7 @@ function _draw()
     end
     rectfill(0, 0, SCREEN_W, SCREEN_H, 0)
     if not GPU_EMPTY then sspr(0, 0, 256, lines, dx, dy, false, false, gpu_zoom) end
+    if state == "run" then win_dr = win_dr + 1 end
     if log_on and state == "run" then log_draw(0) end
     if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
     if state == "menu" then
@@ -398,6 +412,7 @@ function _draw()
   end
   scr:draw(dx, dy)
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
+  if state == "run" then win_dr = win_dr + 1; win_d = win_d + draw_ms[1] + draw_ms[2] end
   if state ~= "run" then lg.last = nil; lg.t0 = nil elseif log_on then log_draw(draw_ms[1] + draw_ms[2]) end
   -- the machine's debug table is big (strings, the sprite table): the test build takes it at every picture, the cart twice a second, for the message of a screen that stays off
   dbg_n = dbg_n + 1
