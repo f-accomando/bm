@@ -1,0 +1,427 @@
+bm report
+kind: log
+kernel: v0.3.0-18-g49a8540d
+branch: bm-core
+board: Pi Zero W
+date: 2026-11-11 15:52:11
+file: 20261111-155211_log_pi-zero-w_v0.3.0-18-g49a8540d.txt
+
+
+bm kernel v0.3.0-18-g49a8540d - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 40.6 C
+ARM1176 from SVC, MMU+caches on, heap 418 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+the Pi froze last time and the watchdog restarted it:
+  doing: bootoCore firmware does not answer (mailbox, frame 0, 60 s after boot, kernel v0.3.0-18-g49a8540d
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 19 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 2/10
+report: nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt saved as bm/reports/rpt00001.txt
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -67 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -69 dBm  ch  9  WPA2  Wind3 HUB - ED4188
+   3   -73 dBm  ch  4  WPA2  (hidden)
+   4   -76 dBm  ch  4  WPA2  FASTWEB-325YFF
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+covers: all 23 read
+menu idle: 300/300 frames, 141 of 1832 ms taken, 1.8 ms past a frame; covers 131 ms (+2.4, stk 0.8/16K); min slack -15558 us, paced 0
+menu idle: sd first word <1ms 172 <3ms 10 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9704 us, enlarge 0 us, flip 91 us, free time used 472 us (300 frames)
+
+playing snes.bm
+play: /bm/snes.bm (59788 bytes)
+load: bm SNES 49 ms (close 0, parse 2, assets+state 24, mode 10, audio 0, lua 12)
+bm: loaded in 66 ms, the splash over at 1800 ms
+bm: splash ticks: 50 frames, longest gap 11664 us at 49 ms (between 0x101a7c and 0x101b2c)
+net: not served for 1809 ms (up 16000 ms), while: boot
+net:   pc at 1s: 00080788
+bm: screen 256x256
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+net: time 2026-11-11 15:20 UTC
+bt:   <- L2CAP connect request (02) 01 00 43 00 00 00
+bt:   <- L2CAP config request (04) 42 00 00 00 01 02
+bt:   <- L2CAP config response (05) 42 00 00 00 00 00
+bt:   SDP request 06 answered (no records): 35 03 19 01 00 08 00 35 05 0a
+bt:   <- L2CAP disconnect (06) 42 00 43 00 00 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- encryption change (08) 00 0b 00 01
+bt:   <- L2CAP connect request (02) 11 00 44 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP connect request (02) 13 00 45 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt:   -> output report 11 (light 00 20 80, reports every 8 ms)
+bt:   <- first input report 01 (11 bytes)
+bt:   <- battery 6/10
+snes t=17.2 upd=61 drw=57 fps=54 pic=1/3 umax=76.6 uavg=6.7 dmax=3.3 davg=3.2 gap=92 late=1 lua=7 mode=native | us frame 9717 ppu 2036 spc 4466 cpu 4269 dma 505 hdma 0 ins 15285 | ppu us: bg 1104 obj 1472 win 83 comp 473 mix 607
+snes t=18.2 upd=60 drw=60 fps=61 pic=1/3 umax=8.8 uavg=6.0 dmax=3.3 davg=3.2 gap=20 late=0 lua=8 mode=native | us frame 5799 ppu 3566 spc 1178 cpu 3529 dma 1 hdma 0 ins 10322 | ppu us: bg 1069 obj 1497 win 86 comp 463 mix 618
+snes t=19.2 upd=61 drw=61 fps=60 pic=1/3 umax=8.4 uavg=5.7 dmax=3.3 davg=3.2 gap=21 late=0 lua=12 mode=native | us frame 6670 ppu 3772 spc 1057 cpu 3448 dma 1 hdma 0 ins 10217 | ppu us: bg 1078 obj 1487 win 88 comp 482 mix 615
+snes t=20.2 upd=60 drw=60 fps=60 pic=1/3 umax=8.5 uavg=5.8 dmax=3.3 davg=3.2 gap=21 late=0 lua=12 mode=native | us frame 6672 ppu 3765 spc 997 cpu 3519 dma 1 hdma 0 ins 10217 | ppu us: bg 1081 obj 1479 win 86 comp 462 mix 612
+snes t=21.2 upd=61 drw=61 fps=60 pic=1/2 umax=8.4 uavg=6.1 dmax=3.3 davg=3.2 gap=21 late=0 lua=8 mode=native | us frame 4727 ppu 3798 spc 1001 cpu 3432 dma 1 hdma 0 ins 10217 | ppu us: bg 1066 obj 1520 win 89 comp 459 mix 611
+snes t=22.2 upd=60 drw=60 fps=60 pic=1/2 umax=8.5 uavg=6.4 dmax=3.3 davg=3.2 gap=21 late=0 lua=8 mode=native | us frame 5715 ppu 3790 spc 991 cpu 3454 dma 1 hdma 0 ins 10217 | ppu us: bg 1067 obj 1489 win 85 comp 461 mix 634
+snes t=23.2 upd=61 drw=61 fps=60 pic=1/2 umax=8.5 uavg=6.4 dmax=3.3 davg=3.2 gap=21 late=0 lua=12 mode=native | us frame 7040 ppu 3825 spc 1028 cpu 3458 dma 1 hdma 0 ins 10217 | ppu us: bg 1073 obj 1536 win 89 comp 471 mix 609
+snes t=24.3 upd=61 drw=61 fps=60 pic=1/2 umax=8.4 uavg=6.4 dmax=3.3 davg=3.2 gap=25 late=0 lua=8 mode=native | us frame 5703 ppu 3790 spc 1010 cpu 3421 dma 1 hdma 0 ins 10217 | ppu us: bg 1062 obj 1503 win 85 comp 467 mix 621
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 1347 frames, 59.6 fps, 4 dropped
+     update+draw avg 4.21 ms (25% of frame), max 91.52 ms, Lua 735 KB
+     dev kit: Lua peak 735 KB, data 516 KB, busiest frame 3k instructions, 11 frames over 16.7 ms, 3789 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00002.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+fiber: reports did not yield: 9.2 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 12.5 ms past its slice
+fiber: reports did not yield: 102.9 ms past its slice
+report: sending nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-6f30f3_freeze_pi-zero
+
+resuming snes.bm
+bm: "bm SNES" resumed
+snes t=25.3 upd=60 drw=60 fps=60 pic=1/1 umax=8.5 uavg=6.5 dmax=3.3 davg=3.2 gap=21 late=0 lua=12 mode=native | us frame 5725 ppu 3841 spc 994 cpu 3435 dma 1 hdma 0 ins 10217 | ppu us: bg 1087 obj 1537 win 85 comp 466 mix 613
+snes t=26.3 upd=60 drw=60 fps=60 pic=1/1 umax=8.6 uavg=8.3 dmax=3.3 davg=3.2 gap=24 late=0 lua=12 mode=native | us frame 8358 ppu 3845 spc 1050 cpu 3467 dma 1 hdma 0 ins 10217 | ppu us: bg 1069 obj 1512 win 83 comp 514 mix 616
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 120 frames, 60.0 fps, 0 dropped
+     update+draw avg 11.03 ms (66% of frame), max 23.87 ms, Lua 770 KB
+     dev kit: Lua peak 770 KB, data 516 KB, busiest frame 3k instructions, 2 frames over 16.7 ms, 3789 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00003.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+report: sending nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt
+report: nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt was there already
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+menu idle: 300/300 frames, 1946 of 1865 ms taken, 105.4 ms past a frame; reports 1904 ms (+102.9, stk 7.8/128K, stop 18.1); min slack -13377 us, paced 0
+menu idle: sd first word <1ms 170 <3ms 6 (max 1.4 ms)
+menu stalls: tls handshake 2x last 397.0 worst 397.7 ms
+menu frame: 1x, a frame averages draw 9267 us, enlarge 0 us, flip 92 us, free time used 6487 us (300 frames)
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: no HTTP answer
+
+playing snes.bm
+play: /bm/snes.bm (59788 bytes)
+load: bm SNES 50 ms (close 0, parse 1, assets+state 24, mode 10, audio 0, lua 12)
+bm: loaded in 66 ms, the splash over at 1800 ms
+bm: splash ticks: 50 frames, longest gap 11716 us at 50 ms (between 0x101a7c and 0x101b2c)
+net: not served for 1822 ms (up 50500 ms), while: cartridge menu
+net:   pc at 1s: 00080788
+bm: screen 256x256
+snes t=2.9 upd=64 drw=62 fps=55 pic=1/3 umax=13.8 uavg=4.5 dmax=5.0 davg=3.7 gap=28 late=0 lua=7 mode=native | us frame 3730 ppu 732 spc 628 cpu 3039 dma 1 hdma 0 ins 10935 | ppu us: bg 134 obj 189 win 11 comp 65 mix 77
+snes t=3.9 upd=61 drw=61 fps=60 pic=1/3 umax=14.2 uavg=7.0 dmax=3.8 davg=3.6 gap=28 late=0 lua=17 mode=native | us frame 5088 ppu 8300 spc 997 cpu 2738 dma 1 hdma 0 ins 11594 | ppu us: bg 776 obj 1319 win 78 comp 268 mix 5781
+snes t=4.9 upd=61 drw=61 fps=60 pic=1/3 umax=15.2 uavg=5.9 dmax=3.6 davg=3.5 gap=28 late=0 lua=8 mode=native | us frame 4215 ppu 4685 spc 1020 cpu 2772 dma 13 hdma 0 ins 10045 | ppu us: bg 408 obj 730 win 45 comp 146 mix 3182
+snes t=5.9 upd=60 drw=60 fps=60 pic=1/3 umax=13.5 uavg=5.6 dmax=3.6 davg=3.5 gap=27 late=0 lua=8 mode=native | us frame 6186 ppu 5377 spc 1024 cpu 2800 dma 124 hdma 0 ins 10967 | ppu us: bg 454 obj 816 win 97 comp 165 mix 3683
+snes t=6.9 upd=61 drw=61 fps=60 pic=1/2 umax=13.4 uavg=8.1 dmax=3.6 davg=3.5 gap=30 late=0 lua=8 mode=native | us frame 6991 ppu 8829 spc 1061 cpu 2955 dma 253 hdma 0 ins 10974 | ppu us: bg 774 obj 1448 win 94 comp 278 mix 6160
+snes t=7.9 upd=60 drw=60 fps=61 pic=1/2 umax=13.4 uavg=8.6 dmax=3.7 davg=3.5 gap=26 late=0 lua=8 mode=native | us frame 7142 ppu 9327 spc 1036 cpu 2958 dma 266 hdma 0 ins 10969 | ppu us: bg 834 obj 1493 win 85 comp 315 mix 6543
+snes t=8.9 upd=60 drw=60 fps=60 pic=1/2 umax=13.6 uavg=8.7 dmax=3.6 davg=3.5 gap=26 late=0 lua=8 mode=native | us frame 10124 ppu 9334 spc 1058 cpu 2836 dma 140 hdma 0 ins 11060 | ppu us: bg 814 obj 1528 win 87 comp 385 mix 6462
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 439 frames, 58.4 fps, 6 dropped
+     update+draw avg 11.13 ms (66% of frame), max 105.00 ms, Lua 1249 KB
+     dev kit: Lua peak 1249 KB, data 516 KB, busiest frame 3k instructions, 138 frames over 16.7 ms, 3789 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00004.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+report: sending session_bm-snes_pi-zero-w.txt
+--- (older lines left out) ---
+snes t=77.6 upd=61 drw=61 fps=60 pic=1/4 umax=10.2 uavg=5.0 dmax=3.3 davg=3.2 gap=26 late=0 lua=6 mode=native | us frame 5067 ppu 6158 spc 260 cpu 3098 dma 1 hdma 1 ins 11499 | ppu us: bg 3440 obj 1503 win 82 comp 463 mix 605
+snes t=78.6 upd=61 drw=61 fps=60 pic=1/4 umax=10.3 uavg=5.2 dmax=3.3 davg=3.2 gap=24 late=0 lua=13 mode=native | us frame 5401 ppu 6227 spc 1040 cpu 2681 dma 1 hdma 1 ins 11264 | ppu us: bg 3414 obj 1545 win 85 comp 474 mix 652
+snes t=79.6 upd=61 drw=61 fps=60 pic=1/4 umax=10.3 uavg=5.3 dmax=3.3 davg=3.2 gap=24 late=0 lua=7 mode=native | us frame 4583 ppu 6255 spc 1081 cpu 2644 dma 1 hdma 1 ins 11243 | ppu us: bg 3409 obj 1576 win 92 comp 476 mix 645
+snes t=80.6 upd=60 drw=60 fps=60 pic=1/3 umax=11.7 uavg=4.9 dmax=3.3 davg=3.2 gap=25 late=0 lua=15 mode=native | us frame 3812 ppu 3479 spc 1076 cpu 2640 dma 146 hdma 1 ins 11352 | ppu us: bg 1836 obj 840 win 47 comp 256 mix 337
+snes t=81.6 upd=60 drw=60 fps=60 pic=1/3 umax=12.0 uavg=6.6 dmax=3.3 davg=3.2 gap=25 late=0 lua=15 mode=native | us frame 6158 ppu 7040 spc 1110 cpu 2849 dma 133 hdma 1 ins 9710 | ppu us: bg 3518 obj 1467 win 79 comp 1311 mix 602
+snes t=82.6 upd=61 drw=61 fps=60 pic=1/3 umax=11.6 uavg=6.3 dmax=3.3 davg=3.2 gap=25 late=0 lua=7 mode=native | us frame 6023 ppu 7160 spc 1175 cpu 2806 dma 132 hdma 1 ins 9705 | ppu us: bg 3633 obj 1506 win 85 comp 1234 mix 653
+snes t=83.6 upd=60 drw=60 fps=60 pic=1/3 umax=13.4 uavg=6.9 dmax=3.4 davg=3.2 gap=27 late=0 lua=9 mode=native | us frame 8556 ppu 6783 spc 1680 cpu 3011 dma 134 hdma 1 ins 9720 | ppu us: bg 3642 obj 1524 win 93 comp 799 mix 671
+snes t=84.7 upd=61 drw=61 fps=60 pic=1/3 umax=13.3 uavg=8.1 dmax=3.4 davg=3.3 gap=30 late=0 lua=9 mode=native | us frame 9849 ppu 6972 spc 2627 cpu 3170 dma 132 hdma 1 ins 9707 | ppu us: bg 3751 obj 1576 win 113 comp 763 mix 708
+snes t=85.7 upd=61 drw=61 fps=60 pic=1/2 umax=13.0 uavg=8.4 dmax=3.4 davg=3.3 gap=24 late=0 lua=14 mode=native | us frame 7480 ppu 6881 spc 2562 cpu 3051 dma 132 hdma 1 ins 9706 | ppu us: bg 3758 obj 1548 win 102 comp 756 mix 656
+snes t=86.7 upd=61 drw=61 fps=60 pic=1/2 umax=11.0 uavg=7.4 dmax=3.4 davg=3.2 gap=27 late=0 lua=7 mode=native | us frame 8553 ppu 6611 spc 1181 cpu 2960 dma 133 hdma 1 ins 9705 | ppu us: bg 3554 obj 1551 win 96 comp 709 mix 650
+snes t=87.7 upd=60 drw=60 fps=60 pic=1/2 umax=10.9 uavg=7.4 dmax=3.4 davg=3.2 gap=24 late=0 lua=7 mode=native | us frame 6230 ppu 6580 spc 1122 cpu 2902 dma 131 hdma 1 ins 9704 | ppu us: bg 3582 obj 1508 win 86 comp 724 mix 629
+snes t=88.7 upd=61 drw=61 fps=60 pic=1/2 umax=10.9 uavg=7.3 dmax=3.3 davg=3.2 gap=24 late=0 lua=14 mode=native | us frame 6240 ppu 6629 spc 1134 cpu 2879 dma 132 hdma 1 ins 9707 | ppu us: bg 3646 obj 1501 win 87 comp 710 mix 639
+snes t=89.7 upd=61 drw=61 fps=60 pic=1/1 umax=11.0 uavg=4.8 dmax=3.4 davg=3.2 gap=27 late=0 lua=7 mode=native | us frame 4374 ppu 1897 spc 1113 cpu 2778 dma 30 hdma 1 ins 11617 | ppu us: bg 901 obj 374 win 26 comp 177 mix 161
+snes t=90.7 upd=59 drw=47 fps=60 pic=1/1 umax=14.4 uavg=12.2 dmax=3.4 davg=3.2 gap=33 late=0 lua=17 mode=native | us frame 13356 ppu 8362 spc 1814 cpu 3185 dma 131 hdma 1 ins 10024 | ppu us: bg 3514 obj 1419 win 92 comp 1461 mix 1797
+snes t=91.7 upd=61 drw=52 fps=40 pic=1/2 umax=14.6 uavg=10.9 dmax=3.4 davg=3.3 gap=45 late=1 lua=8 mode=native | us frame 11214 ppu 8991 spc 1967 cpu 3175 dma 132 hdma 1 ins 9988 | ppu us: bg 3746 obj 1476 win 105 comp 1598 mix 1999
+snes t=92.7 upd=60 drw=59 fps=59 pic=1/2 umax=14.6 uavg=9.6 dmax=3.3 davg=3.2 gap=36 late=0 lua=9 mode=native | us frame 8030 ppu 9024 spc 2020 cpu 2989 dma 134 hdma 1 ins 9987 | ppu us: bg 3828 obj 1510 win 107 comp 1656 mix 1870
+snes t=93.8 upd=62 drw=60 fps=59 pic=1/2 umax=14.5 uavg=9.5 dmax=3.4 davg=3.3 gap=36 late=0 lua=9 mode=native | us frame 7940 ppu 8939 spc 1947 cpu 3001 dma 132 hdma 1 ins 9974 | ppu us: bg 3817 obj 1503 win 108 comp 1578 mix 1858
+snes t=94.8 upd=61 drw=61 fps=60 pic=1/2 umax=14.5 uavg=9.5 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 11200 ppu 9043 spc 1989 cpu 3157 dma 131 hdma 1 ins 9982 | ppu us: bg 3751 obj 1470 win 103 comp 1620 mix 2029
+snes t=95.8 upd=60 drw=60 fps=60 pic=1/2 umax=14.8 uavg=9.6 dmax=3.4 davg=3.3 gap=32 late=0 lua=18 mode=native | us frame 8052 ppu 9072 spc 2003 cpu 3022 dma 132 hdma 1 ins 9997 | ppu us: bg 3835 obj 1570 win 102 comp 1650 mix 1855
+snes t=96.8 upd=61 drw=61 fps=60 pic=1/2 umax=14.6 uavg=9.7 dmax=3.3 davg=3.3 gap=30 late=0 lua=8 mode=native | us frame 8058 ppu 9071 spc 1997 cpu 3013 dma 133 hdma 1 ins 9981 | ppu us: bg 3875 obj 1509 win 106 comp 1679 mix 1851
+snes t=97.8 upd=61 drw=61 fps=60 pic=1/2 umax=14.5 uavg=9.4 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 11191 ppu 9064 spc 2071 cpu 3065 dma 132 hdma 1 ins 9978 | ppu us: bg 3884 obj 1493 win 101 comp 1692 mix 1834
+snes t=98.8 upd=61 drw=61 fps=60 pic=1/2 umax=14.6 uavg=9.7 dmax=3.4 davg=3.3 gap=31 late=0 lua=8 mode=native | us frame 11251 ppu 9155 spc 1961 cpu 3163 dma 132 hdma 1 ins 9973 | ppu us: bg 3732 obj 1619 win 94 comp 1715 mix 1931
+snes t=99.8 upd=61 drw=61 fps=60 pic=1/2 umax=14.1 uavg=4.7 dmax=3.3 davg=3.2 gap=25 late=0 lua=16 mode=native | us frame 3988 ppu 1374 spc 1116 cpu 2715 dma 59 hdma 1 ins 11329 | ppu us: bg 455 obj 194 win 20 comp 209 mix 236
+snes t=100.8 upd=60 drw=60 fps=60 pic=1/2 umax=12.2 uavg=8.0 dmax=3.4 davg=3.2 gap=28 late=0 lua=15 mode=native | us frame 6659 ppu 7437 spc 1142 cpu 2900 dma 134 hdma 1 ins 9726 | ppu us: bg 3499 obj 1480 win 89 comp 1685 mix 613
+snes t=101.8 upd=60 drw=60 fps=60 pic=1/2 umax=12.7 uavg=8.3 dmax=3.4 davg=3.3 gap=29 late=0 lua=16 mode=native | us frame 9806 ppu 7942 spc 1443 cpu 3058 dma 134 hdma 1 ins 9717 | ppu us: bg 3811 obj 1557 win 87 comp 1770 mix 658
+snes t=102.9 upd=61 drw=61 fps=60 pic=1/2 umax=12.7 uavg=7.0 dmax=3.4 davg=3.3 gap=29 late=0 lua=8 mode=native | us frame 5094 ppu 4126 spc 1319 cpu 3018 dma 115 hdma 1 ins 11032 | ppu us: bg 1850 obj 775 win 78 comp 924 mix 321
+snes t=103.9 upd=60 drw=60 fps=60 pic=1/2 umax=13.8 uavg=8.7 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 8342 ppu 6756 spc 1983 cpu 3899 dma 129 hdma 55 ins 9757 | ppu us: bg 3379 obj 1349 win 89 comp 1274 mix 581
+snes t=104.9 upd=60 drw=60 fps=60 pic=1/2 umax=13.9 uavg=9.7 dmax=3.4 davg=3.3 gap=24 late=0 lua=9 mode=native | us frame 11012 ppu 7422 spc 2069 cpu 3973 dma 131 hdma 55 ins 9750 | ppu us: bg 3606 obj 1557 win 105 comp 1458 mix 634
+snes t=105.9 upd=61 drw=61 fps=60 pic=1/2 umax=13.9 uavg=9.6 dmax=3.4 davg=3.2 gap=25 late=0 lua=17 mode=native | us frame 11030 ppu 7281 spc 2129 cpu 4051 dma 135 hdma 62 ins 9751 | ppu us: bg 3589 obj 1461 win 99 comp 1409 mix 661
+snes t=106.9 upd=61 drw=61 fps=60 pic=1/2 umax=13.9 uavg=9.8 dmax=3.4 davg=3.3 gap=30 late=0 lua=9 mode=native | us frame 8453 ppu 7404 spc 2037 cpu 3912 dma 132 hdma 60 ins 9750 | ppu us: bg 3650 obj 1469 win 173 comp 1414 mix 644
+snes t=107.9 upd=60 drw=60 fps=60 pic=1/2 umax=13.9 uavg=9.7 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 8491 ppu 7304 spc 2198 cpu 3863 dma 131 hdma 58 ins 9751 | ppu us: bg 3575 obj 1491 win 113 comp 1423 mix 643
+snes t=108.9 upd=61 drw=61 fps=60 pic=1/2 umax=14.0 uavg=9.6 dmax=3.4 davg=3.2 gap=25 late=0 lua=9 mode=native | us frame 11209 ppu 7372 spc 2253 cpu 4002 dma 132 hdma 60 ins 9746 | ppu us: bg 3625 obj 1491 win 111 comp 1436 mix 646
+snes t=109.9 upd=60 drw=60 fps=60 pic=1/2 umax=6.4 uavg=5.2 dmax=3.4 davg=3.2 gap=22 late=0 lua=10 mode=native | us frame 4992 ppu 752 spc 1982 cpu 2882 dma 128 hdma 1 ins 11819 | ppu us: bg 227 obj 94 win 7 comp 90 mix 41
+snes t=110.9 upd=60 drw=60 fps=60 pic=1/2 umax=18.2 uavg=11.5 dmax=3.3 davg=3.2 gap=28 late=0 lua=20 mode=native | us frame 9769 ppu 9749 spc 2162 cpu 3975 dma 131 hdma 75 ins 9814 | ppu us: bg 3793 obj 1476 win 103 comp 1932 mix 2351
+snes t=111.9 upd=61 drw=61 fps=60 pic=1/2 umax=17.8 uavg=10.3 dmax=3.3 davg=3.2 gap=34 late=0 lua=8 mode=native | us frame 8941 ppu 6831 spc 2046 cpu 3630 dma 66 hdma 49 ins 10872 | ppu us: bg 2852 obj 1122 win 69 comp 1157 mix 1509
+snes t=112.9 upd=61 drw=61 fps=60 pic=1/2 umax=5.5 uavg=4.2 dmax=3.3 davg=3.2 gap=22 late=0 lua=7 mode=native | us frame 4170 ppu 700 spc 1151 cpu 2806 dma 115 hdma 1 ins 11677 | ppu us: bg 179 obj 71 win 5 comp 73 mix 95
+snes t=114.0 upd=59 drw=42 fps=60 pic=1/2 umax=19.8 uavg=13.3 dmax=3.3 davg=3.2 gap=33 late=0 lua=22 mode=native | us frame 10630 ppu 5625 spc 1687 cpu 6214 dma 278 hdma 71 ins 10177 | ppu us: bg 1718 obj 774 win 61 comp 826 mix 2073
+snes t=115.0 upd=61 drw=39 fps=38 pic=1/2 umax=19.1 uavg=13.4 dmax=3.3 davg=3.2 gap=44 late=1 lua=31 mode=native | us frame 11931 ppu 9856 spc 2038 cpu 6567 dma 300 hdma 101 ins 10286 | ppu us: bg 3401 obj 1589 win 97 comp 1715 mix 2981
+snes t=116.0 upd=61 drw=54 fps=40 pic=1/3 umax=18.9 uavg=12.1 dmax=3.4 davg=3.3 gap=44 late=2 lua=12 mode=native | us frame 14610 ppu 9805 spc 2203 cpu 6464 dma 206 hdma 90 ins 9916 | ppu us: bg 3414 obj 1541 win 113 comp 1773 mix 2900
+snes t=117.0 upd=60 drw=59 fps=58 pic=1/3 umax=19.4 uavg=11.8 dmax=3.4 davg=3.2 gap=34 late=0 lua=12 mode=native | us frame 14559 ppu 10203 spc 1908 cpu 6675 dma 289 hdma 82 ins 10286 | ppu us: bg 3735 obj 1572 win 105 comp 1728 mix 3014
+snes t=118.0 upd=60 drw=59 fps=59 pic=1/3 umax=19.7 uavg=11.9 dmax=3.4 davg=3.2 gap=33 late=0 lua=12 mode=native | us frame 10019 ppu 10071 spc 2014 cpu 6552 dma 313 hdma 81 ins 10094 | ppu us: bg 3700 obj 1525 win 107 comp 1730 mix 2950
+snes t=119.0 upd=61 drw=55 fps=57 pic=1/3 umax=19.6 uavg=11.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=23 mode=native | us frame 14390 ppu 10261 spc 1871 cpu 6667 dma 292 hdma 87 ins 10115 | ppu us: bg 3763 obj 1558 win 100 comp 1816 mix 2949
+snes t=120.0 upd=60 drw=59 fps=57 pic=1/3 umax=19.7 uavg=12.1 dmax=3.4 davg=3.2 gap=27 late=0 lua=23 mode=native | us frame 14531 ppu 10263 spc 1950 cpu 6750 dma 305 hdma 92 ins 10103 | ppu us: bg 3968 obj 1514 win 112 comp 1756 mix 2855
+snes t=121.0 upd=60 drw=58 fps=58 pic=1/3 umax=19.6 uavg=12.0 dmax=3.4 davg=3.3 gap=45 late=1 lua=23 mode=native | us frame 9982 ppu 10497 spc 1910 cpu 6538 dma 299 hdma 80 ins 10132 | ppu us: bg 4272 obj 1513 win 110 comp 1698 mix 2842
+snes t=122.0 upd=61 drw=59 fps=59 pic=1/3 umax=19.3 uavg=11.6 dmax=3.3 davg=3.2 gap=44 late=1 lua=11 mode=native | us frame 9430 ppu 10287 spc 1617 cpu 6322 dma 225 hdma 84 ins 9938 | ppu us: bg 4106 obj 1500 win 112 comp 1666 mix 2846
+snes t=123.0 upd=60 drw=59 fps=59 pic=1/3 umax=19.4 uavg=11.7 dmax=3.4 davg=3.2 gap=36 late=0 lua=12 mode=native | us frame 9870 ppu 10420 spc 1797 cpu 6562 dma 273 hdma 87 ins 10076 | ppu us: bg 4107 obj 1522 win 103 comp 1694 mix 2936
+snes t=124.0 upd=61 drw=57 fps=57 pic=1/3 umax=19.5 uavg=12.1 dmax=3.4 davg=3.2 gap=44 late=1 lua=12 mode=native | us frame 9940 ppu 10507 spc 1910 cpu 6504 dma 292 hdma 85 ins 10093 | ppu us: bg 4126 obj 1591 win 100 comp 1732 mix 2903
+snes t=125.0 upd=60 drw=59 fps=59 pic=1/3 umax=19.4 uavg=11.8 dmax=3.3 davg=3.3 gap=34 late=0 lua=12 mode=native | us frame 9887 ppu 10110 spc 1875 cpu 6551 dma 293 hdma 82 ins 10107 | ppu us: bg 3878 obj 1485 win 108 comp 1648 mix 2930
+snes t=126.0 upd=61 drw=56 fps=57 pic=1/3 umax=19.4 uavg=11.8 dmax=3.4 davg=3.2 gap=34 late=0 lua=22 mode=native | us frame 9850 ppu 10032 spc 1948 cpu 6433 dma 299 hdma 76 ins 10117 | ppu us: bg 3849 obj 1493 win 102 comp 1570 mix 2888
+snes t=127.0 upd=60 drw=59 fps=58 pic=1/3 umax=19.7 uavg=12.1 dmax=3.3 davg=3.2 gap=26 late=0 lua=23 mode=native | us frame 10107 ppu 10136 spc 2091 cpu 6541 dma 293 hdma 79 ins 10169 | ppu us: bg 3938 obj 1506 win 107 comp 1604 mix 2912
+snes t=128.0 upd=61 drw=58 fps=57 pic=1/3 umax=19.3 uavg=11.8 dmax=3.4 davg=3.3 gap=45 late=1 lua=11 mode=native | us frame 9772 ppu 10179 spc 1798 cpu 6495 dma 335 hdma 90 ins 10117 | ppu us: bg 3894 obj 1489 win 106 comp 1640 mix 2987
+snes t=129.0 upd=60 drw=60 fps=61 pic=1/3 umax=19.2 uavg=11.7 dmax=3.3 davg=3.2 gap=36 late=0 lua=12 mode=native | us frame 11223 ppu 9769 spc 1836 cpu 6600 dma 297 hdma 83 ins 10330 | ppu us: bg 3660 obj 1486 win 111 comp 1488 mix 2957
+snes t=130.0 upd=60 drw=59 fps=59 pic=1/3 umax=19.3 uavg=12.0 dmax=3.4 davg=3.3 gap=35 late=0 lua=12 mode=native | us frame 11395 ppu 9563 spc 2151 cpu 6526 dma 307 hdma 86 ins 10185 | ppu us: bg 3602 obj 1568 win 106 comp 1339 mix 2889
+snes t=131.0 upd=60 drw=59 fps=59 pic=1/3 umax=18.9 uavg=11.8 dmax=3.3 davg=3.3 gap=36 late=0 lua=12 mode=native | us frame 11191 ppu 9513 spc 1911 cpu 6547 dma 325 hdma 83 ins 10181 | ppu us: bg 3604 obj 1587 win 101 comp 1221 mix 2943
+snes t=132.1 upd=61 drw=60 fps=59 pic=1/3 umax=18.9 uavg=11.9 dmax=3.4 davg=3.3 gap=35 late=0 lua=12 mode=native | us frame 11137 ppu 9474 spc 1889 cpu 6557 dma 295 hdma 77 ins 10311 | ppu us: bg 3582 obj 1606 win 100 comp 1167 mix 2962
+snes t=133.1 upd=60 drw=59 fps=60 pic=1/3 umax=18.9 uavg=11.7 dmax=3.4 davg=3.3 gap=34 late=0 lua=12 mode=native | us frame 14179 ppu 9612 spc 1938 cpu 6687 dma 295 hdma 82 ins 10668 | ppu us: bg 3303 obj 1738 win 99 comp 1312 mix 3106
+snes t=134.1 upd=60 drw=59 fps=59 pic=1/3 umax=18.7 uavg=11.8 dmax=3.3 davg=3.2 gap=33 late=0 lua=12 mode=native | us frame 9845 ppu 9696 spc 1882 cpu 6540 dma 293 hdma 78 ins 10710 | ppu us: bg 3232 obj 1822 win 92 comp 1371 mix 3117
+snes t=135.1 upd=61 drw=55 fps=57 pic=1/3 umax=18.9 uavg=11.7 dmax=3.4 davg=3.2 gap=33 late=0 lua=22 mode=native | us frame 9793 ppu 9844 spc 1743 cpu 6619 dma 295 hdma 79 ins 10690 | ppu us: bg 3142 obj 2016 win 110 comp 1426 mix 3085
+snes t=136.1 upd=61 drw=60 fps=58 pic=1/3 umax=19.5 uavg=8.4 dmax=3.4 davg=3.3 gap=28 late=0 lua=8 mode=native | us frame 8047 ppu 10439 spc 1728 cpu 4754 dma 92 hdma 43 ins 10790 | ppu us: bg 3160 obj 2005 win 104 comp 1531 mix 3581
+snes t=137.1 upd=61 drw=61 fps=60 pic=1/3 umax=13.3 uavg=5.4 dmax=3.4 davg=3.2 gap=26 late=0 lua=8 mode=native | us frame 4011 ppu 1567 spc 1236 cpu 2667 dma 95 hdma 1 ins 11327 | ppu us: bg 395 obj 251 win 13 comp 192 mix 448
+snes t=138.1 upd=61 drw=61 fps=60 pic=1/2 umax=14.0 uavg=8.4 dmax=3.4 davg=3.2 gap=26 late=0 lua=8 mode=native | us frame 9310 ppu 6249 spc 1578 cpu 3446 dma 323 hdma 1 ins 10110 | ppu us: bg 2714 obj 1206 win 80 comp 1590 mix 542
+snes t=139.1 upd=60 drw=60 fps=60 pic=1/2 umax=14.7 uavg=9.4 dmax=3.4 davg=3.3 gap=27 late=0 lua=9 mode=native | us frame 7771 ppu 8213 spc 1408 cpu 3550 dma 329 hdma 1 ins 10506 | ppu us: bg 3762 obj 1537 win 98 comp 2097 mix 648
+snes t=140.1 upd=60 drw=60 fps=61 pic=1/2 umax=14.9 uavg=9.5 dmax=3.4 davg=3.2 gap=26 late=0 lua=8 mode=native | us frame 7580 ppu 8526 spc 1287 cpu 3466 dma 224 hdma 1 ins 10707 | ppu us: bg 4038 obj 1609 win 103 comp 2069 mix 648
+snes t=141.1 upd=60 drw=60 fps=60 pic=1/2 umax=15.2 uavg=9.9 dmax=3.4 davg=3.2 gap=25 late=0 lua=9 mode=native | us frame 11212 ppu 8685 spc 2114 cpu 3388 dma 306 hdma 1 ins 10259 | ppu us: bg 4201 obj 1521 win 112 comp 2141 mix 649
+snes t=142.1 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=9.8 dmax=3.4 davg=3.2 gap=26 late=0 lua=18 mode=native | us frame 11574 ppu 8976 spc 2114 cpu 3466 dma 300 hdma 1 ins 10351 | ppu us: bg 4273 obj 1546 win 107 comp 2312 mix 679
+snes t=143.1 upd=60 drw=60 fps=60 pic=1/2 umax=14.8 uavg=9.8 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8292 ppu 8864 spc 1988 cpu 3341 dma 293 hdma 1 ins 10491 | ppu us: bg 4131 obj 1610 win 101 comp 2311 mix 652
+snes t=144.1 upd=60 drw=60 fps=60 pic=1/2 umax=14.9 uavg=9.7 dmax=3.3 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8289 ppu 8480 spc 2018 cpu 3427 dma 364 hdma 1 ins 10656 | ppu us: bg 3720 obj 1659 win 110 comp 2269 mix 657
+snes t=145.1 upd=60 drw=60 fps=60 pic=1/2 umax=14.9 uavg=9.8 dmax=3.4 davg=3.2 gap=31 late=0 lua=18 mode=native | us frame 11184 ppu 8754 spc 2075 cpu 3316 dma 294 hdma 1 ins 10301 | ppu us: bg 4081 obj 1511 win 110 comp 2354 mix 641
+snes t=146.1 upd=60 drw=60 fps=60 pic=1/2 umax=15.2 uavg=10.1 dmax=3.4 davg=3.3 gap=32 late=0 lua=18 mode=native | us frame 8452 ppu 8788 spc 2132 cpu 3397 dma 298 hdma 1 ins 10641 | ppu us: bg 4130 obj 1633 win 116 comp 2202 mix 642
+snes t=147.2 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=10.0 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 8324 ppu 8787 spc 1983 cpu 3433 dma 302 hdma 1 ins 10672 | ppu us: bg 4188 obj 1565 win 115 comp 2173 mix 689
+snes t=148.2 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=9.7 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 11088 ppu 8696 spc 2015 cpu 3352 dma 292 hdma 1 ins 10244 | ppu us: bg 4183 obj 1519 win 112 comp 2141 mix 672
+snes t=149.2 upd=60 drw=60 fps=60 pic=1/2 umax=15.1 uavg=9.9 dmax=3.4 davg=3.3 gap=31 late=0 lua=19 mode=native | us frame 11321 ppu 8654 spc 2147 cpu 3428 dma 295 hdma 1 ins 10359 | ppu us: bg 4146 obj 1584 win 105 comp 2108 mix 651
+snes t=150.2 upd=61 drw=61 fps=60 pic=1/2 umax=15.2 uavg=10.0 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 8234 ppu 8835 spc 2066 cpu 3224 dma 298 hdma 1 ins 10231 | ppu us: bg 4209 obj 1570 win 117 comp 2235 mix 645
+snes t=151.2 upd=60 drw=60 fps=60 pic=1/2 umax=15.1 uavg=9.9 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 11625 ppu 9142 spc 2261 cpu 3244 dma 170 hdma 1 ins 10130 | ppu us: bg 4486 obj 1532 win 107 comp 2281 mix 679
+snes t=152.2 upd=60 drw=59 fps=59 pic=1/2 umax=15.0 uavg=9.9 dmax=3.4 davg=3.3 gap=36 late=0 lua=9 mode=native | us frame 11585 ppu 9243 spc 2179 cpu 3197 dma 141 hdma 1 ins 10099 | ppu us: bg 4564 obj 1516 win 100 comp 2347 mix 657
+snes t=153.2 upd=60 drw=59 fps=59 pic=1/2 umax=15.0 uavg=9.8 dmax=3.4 davg=3.3 gap=36 late=0 lua=9 mode=native | us frame 8422 ppu 9015 spc 2006 cpu 3365 dma 309 hdma 1 ins 10203 | ppu us: bg 4479 obj 1530 win 121 comp 2180 mix 647
+bm: Screenshot saved: bm/shots/bmsn0062.png
+snes t=154.2 upd=58 drw=51 fps=59 pic=1/2 umax=15.0 uavg=9.9 dmax=3.4 davg=3.2 gap=138 late=1 lua=9 mode=native | us frame 11405 ppu 9144 spc 1953 cpu 3318 dma 326 hdma 1 ins 10186 | ppu us: bg 4450 obj 1515 win 101 comp 2318 mix 710
+snes t=155.2 upd=62 drw=60 fps=51 pic=1/2 umax=15.1 uavg=9.9 dmax=3.3 davg=3.3 gap=37 late=0 lua=9 mode=native | us frame 8483 ppu 9115 spc 2194 cpu 3262 dma 293 hdma 1 ins 10339 | ppu us: bg 4467 obj 1574 win 108 comp 2164 mix 679
+snes t=156.2 upd=60 drw=60 fps=60 pic=1/2 umax=15.2 uavg=9.9 dmax=3.3 davg=3.2 gap=26 late=0 lua=9 mode=native | us frame 11466 ppu 8917 spc 2184 cpu 3341 dma 297 hdma 1 ins 10168 | ppu us: bg 4304 obj 1523 win 113 comp 2264 mix 650
+snes t=157.3 upd=61 drw=61 fps=60 pic=1/2 umax=15.2 uavg=9.9 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 11336 ppu 8775 spc 2067 cpu 3421 dma 309 hdma 1 ins 10180 | ppu us: bg 4212 obj 1526 win 116 comp 2210 mix 648
+snes t=158.3 upd=60 drw=60 fps=61 pic=1/2 umax=15.4 uavg=10.0 dmax=3.3 davg=3.2 gap=32 late=0 lua=18 mode=native | us frame 8468 ppu 9031 spc 2087 cpu 3315 dma 296 hdma 1 ins 10286 | ppu us: bg 4372 obj 1639 win 111 comp 2200 mix 640
+snes t=159.3 upd=61 drw=61 fps=60 pic=1/2 umax=15.7 uavg=10.2 dmax=3.4 davg=3.2 gap=32 late=0 lua=9 mode=native | us frame 11908 ppu 9301 spc 2190 cpu 3459 dma 295 hdma 1 ins 10533 | ppu us: bg 4497 obj 1604 win 114 comp 2368 mix 655
+snes t=160.3 upd=60 drw=60 fps=60 pic=1/2 umax=15.3 uavg=9.9 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 11107 ppu 8970 spc 1782 cpu 3354 dma 310 hdma 1 ins 10221 | ppu us: bg 4338 obj 1500 win 106 comp 2246 mix 710
+snes t=161.3 upd=60 drw=59 fps=59 pic=1/2 umax=15.0 uavg=9.9 dmax=3.3 davg=3.2 gap=37 late=0 lua=9 mode=native | us frame 8370 ppu 9108 spc 2090 cpu 3221 dma 294 hdma 1 ins 10166 | ppu us: bg 4501 obj 1537 win 107 comp 2220 mix 681
+snes t=162.3 upd=62 drw=60 fps=59 pic=1/2 umax=15.0 uavg=9.9 dmax=3.4 davg=3.3 gap=37 late=0 lua=9 mode=native | us frame 11440 ppu 9017 spc 2024 cpu 3378 dma 302 hdma 1 ins 10184 | ppu us: bg 4395 obj 1505 win 111 comp 2288 mix 659
+snes t=163.3 upd=61 drw=61 fps=60 pic=1/2 umax=15.2 uavg=9.8 dmax=3.4 davg=3.3 gap=27 late=0 lua=18 mode=native | us frame 11039 ppu 8525 spc 1937 cpu 3468 dma 295 hdma 1 ins 10390 | ppu us: bg 3892 obj 1545 win 112 comp 2194 mix 719
+snes t=164.3 upd=60 drw=60 fps=60 pic=1/2 umax=15.5 uavg=10.0 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8529 ppu 8999 spc 2117 cpu 3328 dma 336 hdma 1 ins 10300 | ppu us: bg 4330 obj 1520 win 112 comp 2340 mix 649
+snes t=165.3 upd=61 drw=61 fps=60 pic=1/2 umax=15.8 uavg=10.5 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 8881 ppu 9249 spc 2368 cpu 3388 dma 333 hdma 1 ins 10625 | ppu us: bg 4562 obj 1527 win 117 comp 2297 mix 680
+snes t=166.3 upd=61 drw=61 fps=60 pic=1/2 umax=15.5 uavg=10.0 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 11361 ppu 9104 spc 1821 cpu 3482 dma 296 hdma 1 ins 10430 | ppu us: bg 4465 obj 1524 win 111 comp 2291 mix 650
+snes t=167.4 upd=61 drw=61 fps=61 pic=1/2 umax=15.7 uavg=10.2 dmax=3.4 davg=3.2 gap=31 late=0 lua=9 mode=native | us frame 8707 ppu 8851 spc 2339 cpu 3408 dma 306 hdma 1 ins 10367 | ppu us: bg 4247 obj 1542 win 111 comp 2243 mix 647
+snes t=168.4 upd=61 drw=61 fps=60 pic=1/2 umax=14.9 uavg=9.7 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8252 ppu 8847 spc 1989 cpu 3340 dma 301 hdma 1 ins 10195 | ppu us: bg 4268 obj 1497 win 113 comp 2197 mix 710
+snes t=169.4 upd=60 drw=60 fps=60 pic=1/2 umax=15.0 uavg=9.8 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 11604 ppu 9078 spc 2212 cpu 3331 dma 293 hdma 1 ins 10161 | ppu us: bg 4555 obj 1537 win 107 comp 2131 mix 680
+snes t=170.4 upd=61 drw=61 fps=60 pic=1/2 umax=15.3 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 11746 ppu 9284 spc 2163 cpu 3346 dma 295 hdma 1 ins 10324 | ppu us: bg 4626 obj 1599 win 110 comp 2236 mix 649
+snes t=171.4 upd=60 drw=60 fps=61 pic=1/2 umax=15.5 uavg=10.2 dmax=3.4 davg=3.2 gap=25 late=0 lua=9 mode=native | us frame 8801 ppu 9021 spc 2279 cpu 3492 dma 297 hdma 1 ins 10517 | ppu us: bg 4233 obj 1576 win 124 comp 2372 mix 655
+snes t=172.4 upd=61 drw=61 fps=60 pic=1/2 umax=15.6 uavg=10.0 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8369 ppu 9232 spc 1897 cpu 3334 dma 294 hdma 1 ins 10429 | ppu us: bg 4372 obj 1586 win 112 comp 2318 mix 775
+snes t=173.4 upd=61 drw=61 fps=61 pic=1/2 umax=15.6 uavg=10.2 dmax=3.4 davg=3.3 gap=33 late=0 lua=9 mode=native | us frame 11716 ppu 8893 spc 2382 cpu 3450 dma 297 hdma 1 ins 10461 | ppu us: bg 4232 obj 1529 win 113 comp 2299 mix 653
+snes t=174.4 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=9.7 dmax=3.4 davg=3.3 gap=26 late=0 lua=17 mode=native | us frame 8308 ppu 8709 spc 2116 cpu 3322 dma 329 hdma 1 ins 10234 | ppu us: bg 4015 obj 1632 win 117 comp 2229 mix 647
+snes t=175.4 upd=60 drw=60 fps=61 pic=1/2 umax=14.2 uavg=9.3 dmax=3.4 davg=3.3 gap=31 late=0 lua=17 mode=native | us frame 7657 ppu 8225 spc 1641 cpu 3262 dma 296 hdma 1 ins 10175 | ppu us: bg 3689 obj 1513 win 128 comp 2179 mix 655
+snes t=176.4 upd=60 drw=60 fps=61 pic=1/2 umax=14.3 uavg=9.5 dmax=3.4 davg=3.3 gap=31 late=0 lua=17 mode=native | us frame 11074 ppu 8165 spc 2210 cpu 3412 dma 292 hdma 1 ins 10158 | ppu us: bg 3602 obj 1537 win 109 comp 2148 mix 704
+snes t=177.5 upd=61 drw=61 fps=60 pic=1/2 umax=14.3 uavg=9.6 dmax=3.4 davg=3.3 gap=30 late=0 lua=9 mode=native | us frame 8119 ppu 8215 spc 2105 cpu 3260 dma 293 hdma 1 ins 10118 | ppu us: bg 3688 obj 1499 win 116 comp 2198 mix 649
+snes t=178.5 upd=61 drw=61 fps=60 pic=1/2 umax=15.3 uavg=9.6 dmax=3.3 davg=3.2 gap=26 late=0 lua=18 mode=native | us frame 8174 ppu 8712 spc 1910 cpu 3327 dma 302 hdma 1 ins 10152 | ppu us: bg 4088 obj 1535 win 114 comp 2206 mix 707
+snes t=179.5 upd=60 drw=60 fps=61 pic=1/2 umax=14.9 uavg=9.6 dmax=3.4 davg=3.3 gap=32 late=0 lua=18 mode=native | us frame 10864 ppu 8703 spc 1769 cpu 3336 dma 297 hdma 1 ins 10166 | ppu us: bg 4105 obj 1544 win 117 comp 2227 mix 646
+snes t=180.5 upd=61 drw=61 fps=60 pic=1/2 umax=15.3 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 11775 ppu 9061 spc 2220 cpu 3381 dma 292 hdma 1 ins 10174 | ppu us: bg 4381 obj 1532 win 110 comp 2276 mix 646
+snes t=181.5 upd=61 drw=61 fps=61 pic=1/2 umax=15.0 uavg=9.7 dmax=3.4 davg=3.2 gap=26 late=0 lua=18 mode=native | us frame 8310 ppu 9137 spc 2030 cpu 3198 dma 293 hdma 1 ins 10206 | ppu us: bg 4518 obj 1502 win 100 comp 2312 mix 642
+snes t=182.5 upd=60 drw=60 fps=61 pic=1/2 umax=15.5 uavg=10.1 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8716 ppu 9215 spc 2220 cpu 3372 dma 311 hdma 1 ins 10188 | ppu us: bg 4566 obj 1537 win 110 comp 2289 mix 647
+snes t=183.5 upd=60 drw=60 fps=60 pic=1/2 umax=14.8 uavg=9.6 dmax=3.4 davg=3.2 gap=31 late=0 lua=18 mode=native | us frame 10919 ppu 8364 spc 2048 cpu 3407 dma 294 hdma 1 ins 10159 | ppu us: bg 3905 obj 1513 win 119 comp 2108 mix 650
+snes t=184.5 upd=61 drw=61 fps=60 pic=1/2 umax=15.2 uavg=9.9 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 7973 ppu 8755 spc 1793 cpu 3221 dma 298 hdma 1 ins 10169 | ppu us: bg 4182 obj 1560 win 113 comp 2204 mix 641
+snes t=185.5 upd=60 drw=60 fps=61 pic=1/2 umax=15.7 uavg=10.2 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 8643 ppu 9345 spc 2133 cpu 3347 dma 317 hdma 1 ins 10443 | ppu us: bg 4471 obj 1660 win 113 comp 2327 mix 710
+snes t=186.5 upd=61 drw=61 fps=60 pic=1/2 umax=15.5 uavg=9.9 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 11325 ppu 8837 spc 2174 cpu 3292 dma 308 hdma 1 ins 10149 | ppu us: bg 4166 obj 1547 win 111 comp 2308 mix 645
+snes t=187.6 upd=61 drw=61 fps=61 pic=1/2 umax=14.8 uavg=9.7 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 10819 ppu 8904 spc 1535 cpu 3330 dma 298 hdma 1 ins 10126 | ppu us: bg 4414 obj 1504 win 105 comp 2173 mix 649
+snes t=188.6 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=9.4 dmax=3.4 davg=3.3 gap=26 late=0 lua=17 mode=native | us frame 7770 ppu 8911 spc 1489 cpu 3284 dma 377 hdma 1 ins 10147 | ppu us: bg 4364 obj 1606 win 105 comp 2135 mix 644
+snes t=189.6 upd=61 drw=61 fps=61 pic=1/2 umax=14.6 uavg=9.3 dmax=3.4 davg=3.3 gap=35 late=0 lua=8 mode=native | us frame 7697 ppu 8842 spc 1482 cpu 3259 dma 316 hdma 1 ins 10173 | ppu us: bg 4267 obj 1569 win 142 comp 2167 mix 637
+snes t=190.6 upd=60 drw=60 fps=61 pic=1/2 umax=14.9 uavg=9.7 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 11412 ppu 9029 spc 1908 cpu 3384 dma 299 hdma 1 ins 10337 | ppu us: bg 4360 obj 1668 win 98 comp 2180 mix 641
+snes t=191.6 upd=60 drw=60 fps=60 pic=1/2 umax=15.1 uavg=9.8 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 8334 ppu 8800 spc 2082 cpu 3341 dma 297 hdma 1 ins 10333 | ppu us: bg 4228 obj 1569 win 102 comp 2154 mix 640
+snes t=192.6 upd=61 drw=61 fps=60 pic=1/2 umax=15.1 uavg=9.7 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8254 ppu 9030 spc 1859 cpu 3344 dma 366 hdma 1 ins 10167 | ppu us: bg 4344 obj 1579 win 108 comp 2260 mix 668
+snes t=193.6 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=9.9 dmax=3.4 davg=3.3 gap=31 late=0 lua=8 mode=native | us frame 11200 ppu 9015 spc 1751 cpu 3366 dma 326 hdma 1 ins 10180 | ppu us: bg 4477 obj 1564 win 100 comp 2171 mix 645
+snes t=194.6 upd=60 drw=60 fps=61 pic=1/2 umax=14.9 uavg=9.7 dmax=3.4 davg=3.3 gap=26 late=0 lua=8 mode=native | us frame 11068 ppu 8599 spc 2049 cpu 3374 dma 294 hdma 1 ins 10255 | ppu us: bg 4077 obj 1574 win 109 comp 2122 mix 652
+snes t=195.6 upd=60 drw=60 fps=60 pic=1/2 umax=15.1 uavg=9.9 dmax=3.4 davg=3.2 gap=25 late=0 lua=8 mode=native | us frame 8167 ppu 8935 spc 1806 cpu 3361 dma 362 hdma 1 ins 10288 | ppu us: bg 4130 obj 1641 win 106 comp 2266 mix 716
+snes t=196.6 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=9.7 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 7930 ppu 9035 spc 1749 cpu 3143 dma 152 hdma 1 ins 10153 | ppu us: bg 4273 obj 1537 win 111 comp 2390 mix 651
+snes t=197.6 upd=60 drw=60 fps=61 pic=1/2 umax=15.2 uavg=9.9 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 11627 ppu 9014 spc 2094 cpu 3455 dma 294 hdma 1 ins 10236 | ppu us: bg 4383 obj 1537 win 119 comp 2189 mix 717
+snes t=198.6 upd=60 drw=60 fps=60 pic=1/2 umax=14.9 uavg=9.7 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8341 ppu 8850 spc 2194 cpu 3214 dma 299 hdma 1 ins 10134 | ppu us: bg 4342 obj 1507 win 112 comp 2186 mix 648
+snes t=199.7 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=7.6 dmax=3.4 davg=3.2 gap=32 late=0 lua=8 mode=native | us frame 5621 ppu 4646 spc 2001 cpu 2775 dma 44 hdma 1 ins 10313 | ppu us: bg 2277 obj 782 win 55 comp 1035 mix 325
+snes t=200.7 upd=60 drw=60 fps=61 pic=1/1 umax=13.6 uavg=6.4 dmax=3.3 davg=3.2 gap=25 late=0 lua=16 mode=native | us frame 8715 ppu 4279 spc 1387 cpu 3274 dma 237 hdma 1 ins 10390 | ppu us: bg 1794 obj 863 win 59 comp 985 mix 396
+snes t=201.7 upd=60 drw=48 fps=59 pic=1/1 umax=13.9 uavg=13.3 dmax=3.4 davg=3.3 gap=43 late=1 lua=17 mode=native | us frame 13520 ppu 8133 spc 1721 cpu 3666 dma 320 hdma 1 ins 10303 | ppu us: bg 3550 obj 1585 win 117 comp 2153 mix 667
+snes t=202.7 upd=62 drw=54 fps=48 pic=1/2 umax=14.9 uavg=10.8 dmax=3.4 davg=3.3 gap=43 late=1 lua=8 mode=native | us frame 9105 ppu 8231 spc 1441 cpu 3538 dma 301 hdma 1 ins 10522 | ppu us: bg 3606 obj 1579 win 107 comp 2217 mix 665
+snes t=203.7 upd=60 drw=60 fps=54 pic=1/2 umax=15.1 uavg=9.5 dmax=3.4 davg=3.2 gap=27 late=0 lua=9 mode=native | us frame 10515 ppu 8693 spc 1244 cpu 3652 dma 299 hdma 1 ins 10681 | ppu us: bg 4062 obj 1554 win 105 comp 2243 mix 661
+snes t=204.7 upd=61 drw=61 fps=60 pic=1/2 umax=14.9 uavg=9.8 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 8337 ppu 8948 spc 2174 cpu 3148 dma 177 hdma 1 ins 9998 | ppu us: bg 4392 obj 1541 win 108 comp 2165 mix 678
+snes t=205.7 upd=60 drw=60 fps=61 pic=1/2 umax=15.2 uavg=9.8 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8154 ppu 8622 spc 2003 cpu 3345 dma 293 hdma 1 ins 10251 | ppu us: bg 4083 obj 1559 win 111 comp 2157 mix 651
+snes t=206.7 upd=61 drw=61 fps=60 pic=1/2 umax=14.8 uavg=9.8 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 11210 ppu 8715 spc 2023 cpu 3413 dma 298 hdma 1 ins 10257 | ppu us: bg 4157 obj 1555 win 100 comp 2197 mix 642
+snes t=207.7 upd=60 drw=60 fps=61 pic=1/2 umax=15.4 uavg=10.0 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 11571 ppu 8651 spc 2190 cpu 3578 dma 312 hdma 1 ins 10609 | ppu us: bg 3984 obj 1668 win 112 comp 2174 mix 646
+snes t=208.7 upd=60 drw=60 fps=60 pic=1/2 umax=14.9 uavg=9.9 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 8231 ppu 8724 spc 2000 cpu 3336 dma 328 hdma 1 ins 10404 | ppu us: bg 4024 obj 1573 win 116 comp 2287 mix 656
+snes t=209.7 upd=60 drw=60 fps=61 pic=1/2 umax=15.2 uavg=10.0 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 8334 ppu 9038 spc 1953 cpu 3328 dma 300 hdma 1 ins 10453 | ppu us: bg 4311 obj 1655 win 105 comp 2190 mix 712
+snes t=210.7 upd=61 drw=61 fps=60 pic=1/2 umax=15.3 uavg=9.9 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 11462 ppu 9061 spc 2055 cpu 3339 dma 302 hdma 1 ins 10604 | ppu us: bg 4249 obj 1686 win 133 comp 2289 mix 649
+snes t=211.7 upd=60 drw=60 fps=61 pic=1/2 umax=14.7 uavg=9.6 dmax=3.4 davg=3.3 gap=31 late=0 lua=18 mode=native | us frame 8213 ppu 8758 spc 1964 cpu 3305 dma 310 hdma 1 ins 10514 | ppu us: bg 4148 obj 1604 win 123 comp 2186 mix 643
+snes t=212.7 upd=60 drw=60 fps=60 pic=1/2 umax=15.3 uavg=10.0 dmax=3.3 davg=3.3 gap=31 late=0 lua=19 mode=native | us frame 8400 ppu 8976 spc 2076 cpu 3291 dma 300 hdma 1 ins 10379 | ppu us: bg 4400 obj 1547 win 138 comp 2187 mix 645
+snes t=213.8 upd=61 drw=61 fps=61 pic=1/2 umax=15.4 uavg=10.0 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 11254 ppu 8828 spc 2066 cpu 3353 dma 296 hdma 1 ins 10233 | ppu us: bg 4166 obj 1696 win 105 comp 2143 mix 651
+snes t=214.8 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=9.9 dmax=3.4 davg=3.3 gap=25 late=0 lua=18 mode=native | us frame 11559 ppu 9159 spc 2093 cpu 3298 dma 225 hdma 1 ins 10160 | ppu us: bg 4501 obj 1616 win 107 comp 2234 mix 644
+snes t=215.8 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 8258 ppu 8954 spc 1951 cpu 3301 dma 310 hdma 1 ins 10193 | ppu us: bg 4363 obj 1584 win 105 comp 2190 mix 654
+snes t=216.8 upd=60 drw=60 fps=60 pic=1/2 umax=15.0 uavg=9.8 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 11423 ppu 8912 spc 2105 cpu 3385 dma 298 hdma 1 ins 10325 | ppu us: bg 4254 obj 1620 win 106 comp 2221 mix 649
+snes t=217.8 upd=60 drw=60 fps=60 pic=1/2 umax=14.8 uavg=9.8 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 11397 ppu 8660 spc 2204 cpu 3469 dma 254 hdma 1 ins 10181 | ppu us: bg 4140 obj 1584 win 113 comp 2110 mix 655
+snes t=218.8 upd=61 drw=61 fps=60 pic=1/2 umax=15.0 uavg=9.8 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8170 ppu 8717 spc 1988 cpu 3298 dma 296 hdma 1 ins 10228 | ppu us: bg 4158 obj 1587 win 107 comp 2164 mix 640
+snes t=219.8 upd=60 drw=60 fps=61 pic=1/2 umax=15.4 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 8006 ppu 8898 spc 1766 cpu 3286 dma 365 hdma 1 ins 10212 | ppu us: bg 4301 obj 1562 win 117 comp 2142 mix 702
+snes t=220.8 upd=61 drw=61 fps=60 pic=1/2 umax=15.2 uavg=10.1 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 11647 ppu 9048 spc 2121 cpu 3426 dma 295 hdma 1 ins 10251 | ppu us: bg 4351 obj 1564 win 172 comp 2249 mix 649
+snes t=221.8 upd=60 drw=60 fps=61 pic=1/2 umax=15.8 uavg=10.2 dmax=3.4 davg=3.3 gap=25 late=0 lua=9 mode=native | us frame 8435 ppu 9170 spc 2092 cpu 3294 dma 302 hdma 1 ins 10534 | ppu us: bg 4201 obj 1652 win 130 comp 2400 mix 704
+snes t=222.8 upd=61 drw=61 fps=61 pic=1/2 umax=15.3 uavg=9.9 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8455 ppu 9055 spc 2211 cpu 3246 dma 298 hdma 1 ins 10280 | ppu us: bg 4331 obj 1563 win 113 comp 2337 mix 654
+snes t=223.8 upd=60 drw=60 fps=61 pic=1/2 umax=15.1 uavg=9.8 dmax=3.4 davg=3.3 gap=32 late=0 lua=18 mode=native | us frame 11563 ppu 9034 spc 2087 cpu 3440 dma 304 hdma 1 ins 10190 | ppu us: bg 4346 obj 1512 win 115 comp 2253 mix 747
+snes t=224.9 upd=61 drw=61 fps=60 pic=1/2 umax=15.1 uavg=9.9 dmax=3.4 davg=3.2 gap=31 late=0 lua=8 mode=native | us frame 11419 ppu 9155 spc 1957 cpu 3312 dma 294 hdma 1 ins 10328 | ppu us: bg 4482 obj 1529 win 107 comp 2311 mix 659
+snes t=225.9 upd=60 drw=60 fps=60 pic=1/2 umax=15.9 uavg=10.2 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 8866 ppu 9495 spc 2244 cpu 3414 dma 365 hdma 1 ins 10493 | ppu us: bg 4580 obj 1661 win 115 comp 2359 mix 715
+snes t=226.9 upd=61 drw=61 fps=60 pic=1/2 umax=15.5 uavg=10.0 dmax=3.4 davg=3.3 gap=26 late=0 lua=18 mode=native | us frame 8553 ppu 9127 spc 2180 cpu 3345 dma 366 hdma 1 ins 10423 | ppu us: bg 4264 obj 1657 win 115 comp 2379 mix 651
+snes t=227.9 upd=60 drw=60 fps=61 pic=1/2 umax=15.2 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 11265 ppu 9149 spc 1727 cpu 3384 dma 300 hdma 1 ins 10254 | ppu us: bg 4453 obj 1583 win 116 comp 2236 mix 706
+snes t=228.9 upd=60 drw=60 fps=60 pic=1/2 umax=15.4 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 8604 ppu 8989 spc 2145 cpu 3413 dma 300 hdma 1 ins 10391 | ppu us: bg 4337 obj 1599 win 112 comp 2233 mix 648
+snes t=229.9 upd=61 drw=61 fps=60 pic=1/2 umax=15.6 uavg=10.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 8431 ppu 9013 spc 2121 cpu 3259 dma 303 hdma 1 ins 10223 | ppu us: bg 4352 obj 1635 win 109 comp 2191 mix 662
+snes t=230.9 upd=61 drw=61 fps=61 pic=1/2 umax=15.1 uavg=9.8 dmax=3.4 davg=3.3 gap=26 late=0 lua=17 mode=native | us frame 11476 ppu 9048 spc 1965 cpu 3397 dma 304 hdma 1 ins 10246 | ppu us: bg 4391 obj 1525 win 119 comp 2305 mix 643
+snes t=231.9 upd=60 drw=60 fps=61 pic=1/2 umax=15.3 uavg=9.9 dmax=3.4 davg=3.3 gap=32 late=0 lua=18 mode=native | us frame 11397 ppu 9057 spc 2098 cpu 3323 dma 297 hdma 1 ins 10266 | ppu us: bg 4249 obj 1662 win 110 comp 2329 mix 646
+snes t=232.9 upd=60 drw=60 fps=60 pic=1/2 umax=17.4 uavg=10.5 dmax=3.4 davg=3.2 gap=32 late=0 lua=19 mode=native | us frame 9005 ppu 9334 spc 2414 cpu 3438 dma 185 hdma 1 ins 10457 | ppu us: bg 4474 obj 1684 win 127 comp 2273 mix 645
+snes t=233.9 upd=61 drw=61 fps=60 pic=1/2 umax=16.1 uavg=10.2 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 8139 ppu 8742 spc 1930 cpu 3308 dma 302 hdma 1 ins 10332 | ppu us: bg 4085 obj 1615 win 117 comp 2203 mix 646
+snes t=234.9 upd=60 drw=60 fps=61 pic=1/2 umax=15.6 uavg=10.2 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 11733 ppu 8967 spc 2307 cpu 3477 dma 299 hdma 1 ins 10468 | ppu us: bg 4222 obj 1577 win 113 comp 2318 mix 648
+snes t=235.9 upd=61 drw=61 fps=60 pic=1/2 umax=15.5 uavg=9.9 dmax=3.4 davg=3.3 gap=26 late=0 lua=17 mode=native | us frame 8163 ppu 8461 spc 2031 cpu 3374 dma 377 hdma 1 ins 10222 | ppu us: bg 3919 obj 1553 win 112 comp 2163 mix 643
+snes t=236.9 upd=60 drw=60 fps=61 pic=1/2 umax=15.4 uavg=10.1 dmax=3.4 davg=3.2 gap=31 late=0 lua=19 mode=native | us frame 8583 ppu 9017 spc 2194 cpu 3350 dma 296 hdma 1 ins 10217 | ppu us: bg 4320 obj 1626 win 120 comp 2245 mix 643
+snes t=238.0 upd=61 drw=61 fps=60 pic=1/2 umax=15.8 uavg=9.9 dmax=3.4 davg=3.3 gap=31 late=0 lua=9 mode=native | us frame 11180 ppu 8568 spc 2245 cpu 3290 dma 291 hdma 1 ins 10158 | ppu us: bg 3859 obj 1708 win 115 comp 2183 mix 640
+snes t=239.0 upd=61 drw=61 fps=61 pic=1/2 umax=14.0 uavg=9.0 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 10520 ppu 8262 spc 1876 cpu 3170 dma 220 hdma 1 ins 9937 | ppu us: bg 3626 obj 1623 win 108 comp 2186 mix 647
+snes t=240.0 upd=60 drw=60 fps=61 pic=1/2 umax=15.0 uavg=5.4 dmax=3.3 davg=3.2 gap=26 late=0 lua=18 mode=native | us frame 4700 ppu 1283 spc 1550 cpu 2993 dma 68 hdma 1 ins 11111 | ppu us: bg 442 obj 203 win 12 comp 267 mix 80
+snes t=241.0 upd=60 drw=60 fps=60 pic=1/2 umax=15.5 uavg=10.4 dmax=3.4 davg=3.3 gap=30 late=0 lua=19 mode=native | us frame 9148 ppu 7435 spc 2244 cpu 4136 dma 294 hdma 58 ins 10187 | ppu us: bg 3260 obj 1387 win 99 comp 2030 mix 574
+snes t=242.0 upd=60 drw=60 fps=60 pic=1/2 umax=16.4 uavg=10.9 dmax=3.4 davg=3.3 gap=32 late=0 lua=20 mode=native | us frame 12717 ppu 9208 spc 2138 cpu 4306 dma 293 hdma 55 ins 10280 | ppu us: bg 4209 obj 1566 win 124 comp 2519 mix 716
+snes t=243.0 upd=61 drw=61 fps=60 pic=1/2 umax=16.3 uavg=11.0 dmax=3.4 davg=3.2 gap=33 late=0 lua=10 mode=native | us frame 9280 ppu 9333 spc 1836 cpu 4294 dma 297 hdma 54 ins 10475 | ppu us: bg 4398 obj 1648 win 111 comp 2457 mix 649
+snes t=244.0 upd=60 drw=59 fps=61 pic=1/2 umax=16.9 uavg=11.3 dmax=3.3 davg=3.3 gap=39 late=0 lua=10 mode=native | us frame 9884 ppu 9419 spc 2510 cpu 4208 dma 360 hdma 52 ins 10450 | ppu us: bg 4496 obj 1673 win 120 comp 2407 mix 655
+snes t=245.0 upd=61 drw=59 fps=59 pic=1/2 umax=16.8 uavg=11.2 dmax=3.4 davg=3.3 gap=38 late=0 lua=20 mode=native | us frame 12916 ppu 9273 spc 2374 cpu 4364 dma 301 hdma 56 ins 10287 | ppu us: bg 4447 obj 1557 win 119 comp 2444 mix 648
+snes t=246.0 upd=61 drw=61 fps=59 pic=1/2 umax=16.4 uavg=11.1 dmax=3.4 davg=3.3 gap=33 late=0 lua=10 mode=native | us frame 9232 ppu 9393 spc 1896 cpu 4173 dma 298 hdma 61 ins 10314 | ppu us: bg 4426 obj 1671 win 110 comp 2387 mix 744
+snes t=247.0 upd=60 drw=59 fps=61 pic=1/2 umax=16.1 uavg=10.7 dmax=3.4 davg=3.3 gap=37 late=0 lua=10 mode=native | us frame 9249 ppu 9253 spc 1971 cpu 4183 dma 295 hdma 59 ins 10091 | ppu us: bg 4472 obj 1607 win 111 comp 2349 mix 658
+snes t=248.0 upd=61 drw=59 fps=59 pic=1/2 umax=16.3 uavg=10.8 dmax=3.4 davg=3.3 gap=39 late=0 lua=19 mode=native | us frame 12610 ppu 9242 spc 2093 cpu 4368 dma 297 hdma 55 ins 10113 | ppu us: bg 4439 obj 1607 win 116 comp 2360 mix 656
+snes t=249.0 upd=60 drw=60 fps=59 pic=1/2 umax=16.4 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=19 mode=native | us frame 9379 ppu 9179 spc 2132 cpu 4174 dma 293 hdma 57 ins 10123 | ppu us: bg 4422 obj 1592 win 109 comp 2339 mix 648
+snes t=250.0 upd=60 drw=60 fps=60 pic=1/2 umax=16.3 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=20 mode=native | us frame 9526 ppu 8981 spc 2293 cpu 4230 dma 294 hdma 60 ins 10209 | ppu us: bg 4186 obj 1524 win 116 comp 2440 mix 651
+snes t=251.1 upd=60 drw=60 fps=60 pic=1/2 umax=16.4 uavg=11.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=20 mode=native | us frame 12512 ppu 9275 spc 1870 cpu 4376 dma 299 hdma 52 ins 10553 | ppu us: bg 4226 obj 1657 win 112 comp 2564 mix 661
+snes t=252.1 upd=61 drw=61 fps=60 pic=1/2 umax=16.5 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=9 mode=native | us frame 8896 ppu 9457 spc 1489 cpu 4203 dma 296 hdma 55 ins 10661 | ppu us: bg 4338 obj 1655 win 114 comp 2627 mix 660
+snes t=253.1 upd=60 drw=60 fps=61 pic=1/2 umax=16.0 uavg=10.5 dmax=3.4 davg=3.3 gap=26 late=0 lua=9 mode=native | us frame 8882 ppu 9367 spc 1532 cpu 4195 dma 297 hdma 51 ins 10358 | ppu us: bg 4403 obj 1564 win 112 comp 2582 mix 646
+snes t=254.1 upd=60 drw=60 fps=60 pic=1/2 umax=16.7 uavg=10.9 dmax=3.4 davg=3.3 gap=25 late=0 lua=10 mode=native | us frame 12810 ppu 9439 spc 2060 cpu 4392 dma 303 hdma 59 ins 10398 | ppu us: bg 4321 obj 1720 win 108 comp 2577 mix 655
+snes t=255.1 upd=61 drw=61 fps=60 pic=1/2 umax=17.0 uavg=11.2 dmax=3.4 davg=3.3 gap=24 late=0 lua=20 mode=native | us frame 12842 ppu 9493 spc 2063 cpu 4451 dma 299 hdma 67 ins 10850 | ppu us: bg 4322 obj 1705 win 125 comp 2588 mix 678
+snes t=256.1 upd=61 drw=61 fps=61 pic=1/2 umax=16.9 uavg=11.3 dmax=3.4 davg=3.3 gap=32 late=0 lua=10 mode=native | us frame 9606 ppu 9539 spc 2160 cpu 4241 dma 302 hdma 54 ins 10462 | ppu us: bg 4372 obj 1604 win 129 comp 2647 mix 716
+snes t=257.1 upd=61 drw=60 fps=61 pic=1/2 umax=16.8 uavg=11.1 dmax=3.4 davg=3.3 gap=39 late=0 lua=19 mode=native | us frame 12908 ppu 9362 spc 2251 cpu 4418 dma 299 hdma 61 ins 10444 | ppu us: bg 4276 obj 1624 win 118 comp 2625 mix 653
+snes t=258.1 upd=60 drw=60 fps=60 pic=1/2 umax=16.6 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=19 mode=native | us frame 12772 ppu 9517 spc 1998 cpu 4410 dma 302 hdma 61 ins 10788 | ppu us: bg 4400 obj 1646 win 114 comp 2553 mix 740
+snes t=259.1 upd=60 drw=60 fps=60 pic=1/2 umax=16.3 uavg=11.0 dmax=3.4 davg=3.3 gap=33 late=0 lua=19 mode=native | us frame 9482 ppu 9550 spc 1971 cpu 4286 dma 301 hdma 58 ins 10341 | ppu us: bg 4644 obj 1572 win 111 comp 2505 mix 650
+snes t=260.1 upd=60 drw=60 fps=60 pic=1/2 umax=16.7 uavg=11.0 dmax=3.4 davg=3.2 gap=33 late=0 lua=19 mode=native | us frame 9632 ppu 9191 spc 2230 cpu 4369 dma 302 hdma 59 ins 10487 | ppu us: bg 4217 obj 1594 win 123 comp 2535 mix 650
+snes t=261.1 upd=61 drw=61 fps=60 pic=1/2 umax=16.5 uavg=11.1 dmax=3.4 davg=3.3 gap=33 late=0 lua=9 mode=native | us frame 12863 ppu 9331 spc 2245 cpu 4354 dma 336 hdma 56 ins 10409 | ppu us: bg 4432 obj 1558 win 117 comp 2478 mix 683
+snes t=262.1 upd=60 drw=60 fps=61 pic=1/2 umax=15.9 uavg=10.7 dmax=3.4 davg=3.3 gap=24 late=0 lua=9 mode=native | us frame 12446 ppu 9203 spc 1929 cpu 4383 dma 359 hdma 63 ins 10176 | ppu us: bg 4393 obj 1577 win 113 comp 2406 mix 648
+snes t=263.1 upd=61 drw=61 fps=60 pic=1/2 umax=16.2 uavg=10.8 dmax=3.4 davg=3.3 gap=25 late=0 lua=19 mode=native | us frame 9260 ppu 9249 spc 1885 cpu 4200 dma 301 hdma 58 ins 10339 | ppu us: bg 4444 obj 1659 win 101 comp 2344 mix 640
+snes t=264.2 upd=60 drw=60 fps=61 pic=1/2 umax=16.1 uavg=10.7 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 12270 ppu 8877 spc 2046 cpu 4403 dma 299 hdma 58 ins 10186 | ppu us: bg 4143 obj 1522 win 110 comp 2397 mix 647
+snes t=265.2 upd=61 drw=61 fps=60 pic=1/2 umax=16.4 uavg=11.0 dmax=3.4 davg=3.3 gap=33 late=0 lua=9 mode=native | us frame 12563 ppu 8899 spc 2327 cpu 4339 dma 300 hdma 60 ins 10212 | ppu us: bg 4172 obj 1540 win 109 comp 2373 mix 648
+snes t=266.2 upd=60 drw=59 fps=61 pic=1/2 umax=16.4 uavg=11.0 dmax=3.4 davg=3.2 gap=39 late=0 lua=9 mode=native | us frame 9288 ppu 9243 spc 1930 cpu 4234 dma 310 hdma 59 ins 10286 | ppu us: bg 4471 obj 1578 win 117 comp 2336 mix 676
+snes t=267.2 upd=61 drw=59 fps=59 pic=1/2 umax=17.1 uavg=11.2 dmax=3.4 davg=3.3 gap=39 late=0 lua=19 mode=native | us frame 12817 ppu 9564 spc 2504 cpu 3937 dma 151 hdma 55 ins 10567 | ppu us: bg 4419 obj 1656 win 118 comp 2647 mix 656
+snes t=268.2 upd=60 drw=60 fps=59 pic=1/2 umax=16.7 uavg=11.0 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 13009 ppu 9590 spc 2308 cpu 4333 dma 302 hdma 60 ins 10458 | ppu us: bg 4513 obj 1636 win 115 comp 2616 mix 652
+snes t=269.2 upd=61 drw=61 fps=60 pic=1/2 umax=17.1 uavg=11.5 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 9650 ppu 9179 spc 2230 cpu 4387 dma 303 hdma 54 ins 10657 | ppu us: bg 4226 obj 1617 win 126 comp 2498 mix 652
+snes t=270.2 upd=60 drw=59 fps=61 pic=1/2 umax=16.9 uavg=11.2 dmax=3.3 davg=3.2 gap=39 late=0 lua=10 mode=native | us frame 13094 ppu 9333 spc 2420 cpu 4500 dma 306 hdma 56 ins 10399 | ppu us: bg 4275 obj 1594 win 119 comp 2561 mix 715
+snes t=271.2 upd=61 drw=59 fps=59 pic=1/2 umax=17.1 uavg=11.3 dmax=3.4 davg=3.3 gap=39 late=0 lua=19 mode=native | us frame 13395 ppu 9544 spc 2509 cpu 4442 dma 309 hdma 66 ins 10388 | ppu us: bg 4526 obj 1653 win 119 comp 2533 mix 652
+snes t=272.2 upd=60 drw=60 fps=59 pic=1/2 umax=16.3 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=19 mode=native | us frame 9065 ppu 8942 spc 1881 cpu 4226 dma 292 hdma 63 ins 10345 | ppu us: bg 3998 obj 1666 win 118 comp 2462 mix 645
+snes t=273.2 upd=61 drw=61 fps=61 pic=1/2 umax=16.4 uavg=11.2 dmax=3.4 davg=3.3 gap=33 late=0 lua=9 mode=native | us frame 12894 ppu 9222 spc 2449 cpu 4312 dma 295 hdma 59 ins 10542 | ppu us: bg 4382 obj 1594 win 117 comp 2419 mix 638
+snes t=274.2 upd=61 drw=59 fps=60 pic=1/2 umax=16.7 uavg=11.0 dmax=3.4 davg=3.3 gap=39 late=0 lua=19 mode=native | us frame 12792 ppu 9204 spc 2232 cpu 4415 dma 296 hdma 59 ins 10194 | ppu us: bg 4463 obj 1548 win 113 comp 2376 mix 647
+snes t=275.3 upd=61 drw=61 fps=59 pic=1/2 umax=16.0 uavg=10.9 dmax=3.4 davg=3.3 gap=33 late=0 lua=10 mode=native | us frame 8696 ppu 8859 spc 1695 cpu 4074 dma 292 hdma 57 ins 10158 | ppu us: bg 4114 obj 1566 win 108 comp 2356 mix 648
+snes t=276.3 upd=60 drw=59 fps=61 pic=1/2 umax=16.4 uavg=11.2 dmax=3.4 davg=3.3 gap=39 late=0 lua=10 mode=native | us frame 12874 ppu 9194 spc 2388 cpu 4339 dma 296 hdma 67 ins 10381 | ppu us: bg 4210 obj 1621 win 184 comp 2468 mix 644
+snes t=277.3 upd=61 drw=59 fps=59 pic=1/2 umax=16.1 uavg=10.8 dmax=3.4 davg=3.3 gap=39 late=0 lua=18 mode=native | us frame 9476 ppu 9216 spc 2146 cpu 4210 dma 296 hdma 54 ins 10186 | ppu us: bg 4426 obj 1589 win 117 comp 2383 mix 646
+snes t=278.3 upd=60 drw=60 fps=59 pic=1/2 umax=16.3 uavg=10.9 dmax=3.4 davg=3.3 gap=32 late=0 lua=19 mode=native | us frame 9054 ppu 9102 spc 1737 cpu 4263 dma 323 hdma 64 ins 10248 | ppu us: bg 4312 obj 1524 win 114 comp 2413 mix 680
+snes t=279.3 upd=60 drw=60 fps=60 pic=1/2 umax=16.8 uavg=11.1 dmax=3.4 davg=3.3 gap=33 late=0 lua=20 mode=native | us frame 12956 ppu 9287 spc 2356 cpu 4390 dma 295 hdma 57 ins 10358 | ppu us: bg 4439 obj 1545 win 119 comp 2475 mix 643
+snes t=280.3 upd=61 drw=61 fps=60 pic=1/2 umax=17.0 uavg=11.3 dmax=3.4 davg=3.3 gap=33 late=0 lua=10 mode=native | us frame 12804 ppu 9088 spc 2299 cpu 4406 dma 291 hdma 66 ins 10323 | ppu us: bg 4209 obj 1563 win 117 comp 2480 mix 655
+snes t=281.3 upd=60 drw=59 fps=61 pic=1/2 umax=16.8 uavg=11.2 dmax=3.3 davg=3.2 gap=39 late=0 lua=10 mode=native | us frame 9270 ppu 9364 spc 1863 cpu 4248 dma 301 hdma 53 ins 10600 | ppu us: bg 4304 obj 1690 win 120 comp 2534 mix 653
+snes t=282.3 upd=61 drw=59 fps=59 pic=1/2 umax=16.3 uavg=10.8 dmax=3.4 davg=3.2 gap=38 late=0 lua=19 mode=native | us frame 12753 ppu 9264 spc 2221 cpu 4286 dma 292 hdma 59 ins 10312 | ppu us: bg 4348 obj 1616 win 116 comp 2411 mix 707
+snes t=283.3 upd=60 drw=60 fps=59 pic=1/2 umax=16.3 uavg=11.0 dmax=3.4 davg=3.3 gap=31 late=0 lua=19 mode=native | us frame 12661 ppu 8988 spc 2350 cpu 4346 dma 292 hdma 60 ins 10257 | ppu us: bg 4065 obj 1681 win 127 comp 2391 mix 650
+snes t=284.3 upd=61 drw=61 fps=60 pic=1/2 umax=16.1 uavg=8.5 dmax=3.4 davg=3.3 gap=32 late=0 lua=9 mode=native | us frame 5668 ppu 4611 spc 1614 cpu 3214 dma 46 hdma 15 ins 9551 | ppu us: bg 2070 obj 804 win 60 comp 1174 mix 326
+snes t=285.3 upd=60 drw=60 fps=61 pic=1/2 umax=15.7 uavg=9.1 dmax=3.4 davg=3.3 gap=26 late=0 lua=10 mode=native | us frame 12274 ppu 7624 spc 2315 cpu 4398 dma 289 hdma 116 ins 10117 | ppu us: bg 3260 obj 1358 win 96 comp 2233 mix 579
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 16742 frames, 58.9 fps, 225 dropped
+     update+draw avg 11.31 ms (67% of frame), max 497.86 ms, Lua 6277 KB
+     dev kit: Lua peak 6612 KB, data 516 KB, busiest frame 3k instructions, 5473 frames over 16.7 ms, 3789 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+report: sending session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 597 of 1643 ms taken, 101.5 ms past a frame; reports 587 ms (+101.4, stk 7.8/128K); min slack -37534 us, paced 0
+menu idle: sd first word <1ms 820 <3ms 8 <25ms 1 >25ms 18 (max 41.3 ms)
+menu stalls: tls handshake 1x last 360.6 worst 360.6 ms
+menu frame: 1x, a frame averages draw 10021 us, enlarge 0 us, flip 92 us, free time used 1993 us (300 frames)
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 1394 of 1786 ms taken, 104.2 ms past a frame; reports 1367 ms (+104.2, stk 7.8/128K, stop 15.2); min slack -30313 us, paced 0
+menu idle: sd first word <1ms 97 <3ms 2 (max 41.3 ms)
+menu stalls: tls handshake 1x last 388.4 worst 388.4 ms
+menu frame: 1x, a frame averages draw 9239 us, enlarge 0 us, flip 91 us, free time used 4648 us (300 frames)
+menu frame: 1x, a frame averages draw 8247 us, enlarge 0 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8153 us, enlarge 0 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8230 us, enlarge 0 us, flip 90 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8339 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8265 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8156 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8271 us, enlarge 0 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8288 us, enlarge 0 us, flip 92 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8199 us, enlarge 0 us, flip 94 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8128 us, enlarge 0 us, flip 94 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8299 us, enlarge 0 us, flip 93 us, free time used 41 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+> :
+:log
+: log
