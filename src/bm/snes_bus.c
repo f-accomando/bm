@@ -11,6 +11,7 @@
 int snes_clk;
 
 #define LINE_CLK 1364
+#define SLICES 4                        /* a line is run in this many parts (CPU, then Super FX and sound CPU in each) */
 
 /* ------------------------------------------------------------------ the memory map */
 static uint8_t cpu_reg_read(uint16_t o);
@@ -602,42 +603,48 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         if (m == 1) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
         else if (m == 2 && L == S.vtime) ia = 14;
         else if (m == 3 && L == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
-        /* the line: the CPU runs to the IRQ, to the start of the blank, and to the end */
+        /* The line in SLICES quarters: the CPU runs a quarter, then the Super FX and the sound CPU run their share. A sound program that echoes a value on a port
+         * and changes it a few cycles later (a game's own loader) needs the CPU to poll between the two; a whole line of CPU and then a whole line of sound hid
+         * the first value (Doom waited for it for ever). The IRQ fires when the clock passes its time, in whatever quarter. */
         const int end = LINE_CLK;
         S.line_clk = 0;
-        if (ia >= 0 && ia < end) {
-            n_instr += (uint32_t)cpu_run(ia);
-            S.irq_pending = 1; S.timeup = 1;
-        }
-        n_instr += (uint32_t)cpu_run(end);
-        S.line_clk = 0;
-        snes_clk -= end;
-        if (S.gsu && gsu_go()) {                          /* the Super FX runs for this line after the CPU; the timed frames add its cost */
-            if (now_us) { const uint32_t a = now_us(); gsu_run(end); t_gsu += now_us() - a; n_gl++; }
-            else gsu_run(end);
+        if (ia >= end) ia = -1;
+        static const uint8_t spc_cyc[SLICES] = { 16, 16, 16, 17 };      /* 65 sound cycles in a line */
+        uint32_t t_pre = 0, sp_slice = 0, gs_slice = 0, m_sa = 0, m_sb = 0;
+        for (int k = 0; k < SLICES; k++) {
+            const int seg_end = k == SLICES - 1 ? end : (k + 1) * (LINE_CLK / SLICES);
+            if (ia >= 0 && ia < seg_end) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; ia = -1; }
+            n_instr += (uint32_t)cpu_run(seg_end);
+            if (k == SLICES - 1) { S.line_clk = 0; snes_clk -= end; }
+            const int last_timed = now_us && k == SLICES - 1;         /* the last quarter is timed, and counted four times */
+            if (last_timed) t_pre = now_us();
+            if (S.gsu && gsu_go()) {                                   /* the Super FX runs for this quarter */
+                if (last_timed) { const uint32_t a = now_us(); gsu_run(seg_end - k * (LINE_CLK / SLICES)); gs_slice = now_us() - a; n_gl++; }
+                else gsu_run(seg_end - k * (LINE_CLK / SLICES));
+            }
+            if (last_timed) { const uint32_t a = now_us(); m_sa = counter_fn ? counter_fn() : 0; spc_run(spc_cyc[k]); sp_slice = now_us() - a; m_sb = counter_fn ? counter_fn() : 0; }
+            else spc_run(spc_cyc[k]);
         }
         if (now_us) {
-            uint32_t a = now_us();
-            const uint32_t ma = counter_fn ? counter_fn() : 0;
-            spc_run(65);
-            uint32_t b = now_us();
-            const uint32_t mb = counter_fn ? counter_fn() : 0;
+            const uint32_t b = now_us();
             if (L < S.lines && render) ppu_line(L);
             const uint32_t c = now_us();
             const uint32_t mc = counter_fn ? counter_fn() : 0;
-            t_cpu += a - t_prev; t_spc += b - a; t_ppu += c - b; t_prev = c;
-            m_cpu += ma - m_prev; m_spc += mb - ma; m_ppu += mc - mb; m_prev = mc;
-        } else {
-            spc_run(65);
-            if (L < S.lines && render) ppu_line(L);
-        }
+            const uint32_t cpu_part = t_pre - t_prev;
+            const uint32_t others = 3 * (sp_slice + gs_slice);        /* the three quarters that were not timed */
+            t_cpu += cpu_part > others ? cpu_part - others : 0;
+            t_spc += 4 * sp_slice; t_gsu += 4 * gs_slice; t_ppu += c - b; t_prev = c;
+            /* the cache misses: the sound quarter counted four times, the CPU part is the rest up to the start of the sound quarter */
+            const uint32_t m_cp = m_sa - m_prev, m_sp = m_sb - m_sa;
+            m_cpu += m_cp > 3 * m_sp ? m_cp - 3 * m_sp : 0; m_spc += 4 * m_sp; m_ppu += mc - m_sb; m_prev = mc;
+        } else if (L < S.lines && render) ppu_line(L);
     }
     S.frames++;
     if (timed) {
         const uint32_t over = rc10 * 262 / 10;                 /* the reads in one part over the frame */
         const uint32_t tot = now_us() - t_start;
 #define OFF(v, o) ((v) > (o) ? (v) - (o) : 0)
-        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, over), c = OFF(t_cpu, over), gs = OFF(t_gsu, n_gl * rc10 / 10);
+        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, 4 * over), c = OFF(t_cpu, over), gs = OFF(t_gsu, n_gl * 4 * rc10 / 10);
         /* a sample every 8 frames: the average moves by half of the difference; the first sample is taken as it is */
         const int first = avg_frame == 0;
 #define AVG(a, v) ((a) = first ? (v) : (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2))
