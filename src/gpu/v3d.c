@@ -54,6 +54,8 @@
 #define SRQ_DONE(cs)    ((cs) >> 16 & 0xFFu)
 
 #define PROP_ENABLE_QPU 0x00030012u
+#define V3D_IDENT_WAIT_MS 50            /* after the QPU power-up: how long the identity may take to answer */
+#define V3D_SETTLE_MS   25              /* and the quiet time before the first job (the register set-up is done) */
 
 static int ready;
 static const char *status = "not started";
@@ -118,7 +120,16 @@ int v3d_init(void)
      * it says, the V3D decides by answering with its identity */
     uint32_t v[1] = { 1 };
     int known = prop_query(PROP_ENABLE_QPU, v, 1) == 0;
+    /* The V3D has just been powered: its first reads are taken when its identity answers, and no job starts before it has settled (V3D_SETTLE_MS).
+     * Every freeze of the firmware seen at boot came within seconds of the first probe job, with ERRSTAT already showing an error before any job
+     * of ours (00001000); the time between the power-up and the first job was 1 ms. */
     timer_delay_ms(1);
+    for (int i = 0; i < V3D_IDENT_WAIT_MS; i++) {
+        dmb();
+        if (rd(V3D_IDENT0) == IDENT0_V3D)
+            break;
+        timer_delay_ms(1);
+    }
     dmb();
     for (int i = 0; i < 3; i++)
         ident[i] = rd(V3D_IDENT0 + 4u * (uint32_t)i);
@@ -132,6 +143,7 @@ int v3d_init(void)
         return -1;
     }
     regs_init();
+    timer_delay_ms(V3D_SETTLE_MS);
     status = "ready";
     ready = 1;
     v3d_trace("v3d_init done");
@@ -147,6 +159,25 @@ void v3d_reset(void)
     prop_query(PROP_ENABLE_QPU, on, 1);
     timer_delay_ms(1);
     regs_init();                            /* the reset may have power-cycled the V3D */
+}
+
+/* Before the firmware changes the video mode: the V3D has no job on either control thread and the queue is empty; waits up to timeout_ms.
+ * 0 idle, -1 not idle (the caller resets the registers and goes on). */
+int v3d_wait_idle(uint32_t timeout_ms)
+{
+    if (!ready)
+        return 0;
+    for (uint32_t t = 0;; t++) {
+        dmb();
+        const uint32_t ct0 = rd(V3D_CT0CS), ct1 = rd(V3D_CT1CS), srq = rd(V3D_SRQCS);
+        dmb();
+        /* CTnCS bit 5: the thread runs; SRQCS bits 5:0: the programs queued */
+        if (!(ct0 & (1u << 5)) && !(ct1 & (1u << 5)) && SRQ_QLEN(srq) == 0)
+            return 0;
+        if (t >= timeout_ms)
+            return -1;
+        timer_delay_ms(1);
+    }
 }
 
 void v3d_soft_reset(void)

@@ -4,6 +4,7 @@
 #include "version3d.h"
 #include "v3d.h"
 #include "lib/printf.h"
+#include "drivers/timer.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -2805,8 +2806,10 @@ void gpu3d_quiesce(const char *where)
         job_wait();
     char regs[160];
     v3d_errors(regs, sizeof regs);
+    const int idle = v3d_wait_idle(50);       /* nothing runs or waits in the V3D when the firmware changes the screen */
     v3d_soft_reset();
-    kprintf("gpu3d: quiet before %s: %s\n", where, regs);
+    timer_delay_ms(20);                       /* the firmware gets the V3D quiet for a while before the mode change (it stopped answering at once after it) */
+    kprintf("gpu3d: quiet before %s: %s%s\n", where, regs, idle ? " (not idle after 50 ms)" : "");
 }
 
 void gpu3d_set_msaa(int on)

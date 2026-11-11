@@ -27,6 +27,7 @@
 int v3d_init(void);
 void v3d_reset(void);
 void v3d_soft_reset(void);
+int v3d_wait_idle(uint32_t timeout_ms);       /* no job on the control threads, the queue empty: 0, or -1 after timeout_ms */
 void v3d_shutdown(void);
 const char *v3d_status(void);
 
