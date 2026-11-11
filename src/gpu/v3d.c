@@ -97,6 +97,20 @@ static void snapshot(void)
  * it (as Linux: no user programs), both control list threads stopped, counts
  * and interrupts cleared. v3d_init runs it, and v3d_qpu_run runs it again
  * after a QPU reset, as the reset may power-cycle the V3D. */
+static void watch_errstat(void);
+
+/* ERRSTAT has sticky bits that a reset of the control threads does not clear (00007000 stayed after gpu3d_quiesce in the freezes at the start of a
+ * cartridge, the VideoCore firmware did not answer the next video mode change). Writing ones to a status register of the V3D clears them; the
+ * value read back says if it worked. Experiment of 11 Nov 2026. */
+static uint32_t errstat_clear(void)
+{
+    wr(V3D_ERRSTAT, 0xFFFFFFFFu);
+    dmb();
+    const uint32_t v = rd(V3D_ERRSTAT);
+    dmb();
+    return v;
+}
+
 static void regs_init(void)
 {
     wr(V3D_VPMBASE, 0);
@@ -185,6 +199,8 @@ void v3d_soft_reset(void)
     if (!ready)
         return;
     regs_init();                            /* registers only: a mailbox QPU cycle hangs the firmware while the V3D is stuck */
+    const uint32_t before = rd(V3D_ERRSTAT), after = errstat_clear();
+    kprintf("v3d: ERRSTAT cleared by writing ones: %08lx -> %08lx\n", (unsigned long)before, (unsigned long)after);
     wr(V3D_SRQCS, SRQ_RESET);
     dmb();
 }
@@ -400,6 +416,7 @@ int v3d_busy(void)
     if (done && !job.seen) {
         job.seen = 1;
         job.t_done = timer_ticks();
+        watch_errstat();
     }
     return !done;
 }
