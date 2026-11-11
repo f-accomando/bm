@@ -67,6 +67,7 @@ typedef struct {
     uint32_t us_frame, us_ppu, us_spc, us_draw; /* the time of a frame and its parts, averaged, in microseconds */
     uint32_t us_cpu, us_dma, us_hdma, instr;    /* the 65C816 with the bus and the HDMA (all but the DMA below it is the CPU), the general DMA inside it, the HDMA alone
                                                    (measured in one frame of 7, the timer read costs about 6 us), and the instructions run in a frame (all averaged) */
+    uint32_t us_gsu, gsu_instr;         /* the Super FX in a frame: time (timed frames, inside us_cpu no more) and instructions run, averaged */
     uint32_t spc_writes;                /* port writes by the CPU since the reset */
     uint8_t spc_ctl, spc_tgt[3], spc_en;   /* $F1, the timer targets, which timers run */
     uint8_t oam[544];                   /* the sprite table now */

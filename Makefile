@@ -276,7 +276,7 @@ test-psx: tests/psx/core_test.c $(PSX_CORE) $(wildcard src/bm/psx*.h)
 # bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
 test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
-	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 	$(BUILD)/host/snes_core_test
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
@@ -339,7 +339,7 @@ test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bi
 	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav $(BUILD)/tape-t1/tape.bm
 
 # The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
-SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
 $(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
@@ -361,6 +361,14 @@ $(BUILD)/host/snes_cpu_bench: tests/snes/cpu_bench.c $(SNES_PPU_SRCS) src/bm/sne
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/cpu_bench.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
 bench-snes-cpu: $(BUILD)/host/snes_cpu_bench
 	$<
+# The Super FX (docs/progress/snes-superfx.md): small original programs on a made-up ROM (tests/snes/gsu_test.c). `make bench-snes-gsu` times the interpreter.
+$(BUILD)/host/snes_gsu_test: tests/snes/gsu_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_gsu.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/gsu_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-gsu: $(BUILD)/host/snes_gsu_test
+	$<
+bench-snes-gsu: $(BUILD)/host/snes_gsu_test
+	$< bench
 # The S-DSP on random voices, against the hashes of the code before the speed work (tests/snes/dsp_golden.c).
 $(BUILD)/host/snes_dsp_golden: tests/snes/dsp_golden.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
@@ -847,7 +855,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \
@@ -961,7 +969,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

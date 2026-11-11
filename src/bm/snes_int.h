@@ -3,6 +3,7 @@
 #define SNES_INT_H
 
 #include "snes.h"
+#include "snes_gsu.h"
 
 typedef struct {
     uint8_t dmap, bbad, a1b, dasb, ntrl, unused;
@@ -26,6 +27,7 @@ typedef struct {
     uint32_t rom_size, rom_mask;
     uint32_t sram_size;
     int hirom, sram_dirty;
+    int gsu, gsu_battery;               /* a Super FX cartridge (docs/progress/snes-superfx.md); the cart RAM is sram; the battery flag tells the cart to save it */
     snes_info_t info;
 
     /* the PPU registers */

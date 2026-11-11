@@ -23,9 +23,19 @@ static inline uint8_t rom_byte(uint32_t o)
     return S.rom[o];
 }
 
+static const uint8_t *gsu_map_ptr(uint32_t a, int page);
+
 static uint8_t raw_read(uint32_t a)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.gsu && bank != 0x7E && bank != 0x7F) {
+        const unsigned b7 = bank & 0x7F;
+        if (b7 < 0x40) {
+            if (off >= 0x3000 && off < 0x3500) return gsu_read((uint16_t)off);
+            if (off >= 0xFFE0 && gsu_owns_rom()) return gsu_vector_byte((uint16_t)off);
+        }
+        if (b7 >= 0x40 || off >= 0x6000) { const uint8_t *p = gsu_map_ptr(a, 0); return p ? *p : 0; }
+    }
     if (bank == 0x7E) return S.wram[off];
     if (bank == 0x7F) return S.wram[0x10000 + off];
     if ((bank & 0x7F) < 0x40) {
@@ -57,6 +67,15 @@ static uint8_t raw_read(uint32_t a)
 static void raw_write(uint32_t a, uint8_t v)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.gsu && bank != 0x7E && bank != 0x7F) {
+        const unsigned b7 = bank & 0x7F;
+        if (b7 < 0x40 && off >= 0x3000 && off < 0x3500) { gsu_write((uint16_t)off, v); return; }
+        if (b7 >= 0x40 || off >= 0x6000) {                      /* the cart RAM: the only writable memory of the cart */
+            const uint8_t *p = (b7 < 0x40 || b7 == 0x70 || b7 == 0x71) ? gsu_map_ptr(a & ~0x800000u, 0) : NULL;
+            if (p && p >= S.sram && p < S.sram + sizeof S.sram) { *(uint8_t *)p = v; S.sram_dirty = 1; }
+            return;
+        }
+    }
     if (bank == 0x7E) { S.wram[off] = v; return; }
     if (bank == 0x7F) { S.wram[0x10000 + off] = v; return; }
     if ((bank & 0x7F) < 0x40) {
@@ -101,8 +120,32 @@ static inline int access_clk(uint32_t a)
 
 /* ------------------------------------------------------------------ the memory map as pages */
 /* the byte that raw_read returns for plain memory, as a pointer; NULL for the registers and for what reads as 0 (the same cases as raw_read) */
+/* the Super FX cartridge: LoROM banks $00-$3F, 64 KB ROM banks $40-$5F, the cart RAM at $70-$71 and at $6000-$7FFF of the low banks */
+static const uint8_t *gsu_map_ptr(uint32_t a, int page)   /* page 1: for the page tables (the vectors are slow) */
+{
+    const unsigned bank = a >> 16, off = a & 0xFFFF, b7 = bank & 0x7F;
+    const uint32_t rm = gsu_ram_mask();
+    uint32_t o;
+    if (bank == 0x7E) return &S.wram[off];
+    if (bank == 0x7F) return &S.wram[0x10000 + off];
+    if (b7 < 0x40) {
+        if (off < 0x2000) return &S.wram[off];
+        if (off < 0x6000) return NULL;
+        if (off < 0x8000) return &S.sram[(off - 0x6000) & rm];
+        if (page && off >= 0xF000) return NULL;                         /* the vectors: the pattern while the GSU owns the ROM */
+        o = ((uint32_t)b7 << 15) | (off & 0x7FFF);
+    } else if (b7 < 0x60) {
+        o = ((uint32_t)(b7 & 0x1F) << 16) | off;
+    } else if (b7 == 0x70 || b7 == 0x71) {
+        return &S.sram[(((uint32_t)(b7 & 1) << 16) | off) & rm];
+    } else return NULL;
+    if (o >= S.rom_size) o %= S.rom_size;
+    return &S.rom[o];
+}
+
 static const uint8_t *map_ptr(uint32_t a)
 {
+    if (S.gsu) return gsu_map_ptr(a, 1);
     const unsigned bank = a >> 16, off = a & 0xFFFF;
     if (bank == 0x7E) return &S.wram[off];
     if (bank == 0x7F) return &S.wram[0x10000 + off];
@@ -408,7 +451,7 @@ static uint8_t cpu_reg_read(uint16_t o)
     }
     switch (o) {
     case 0x4210: { uint8_t v = (uint8_t)((S.nmiflag << 7) | 0x02); S.nmiflag = 0; return v; }
-    case 0x4211: { uint8_t v = (uint8_t)(S.timeup << 7); S.timeup = 0; S.irq_pending = 0; return v; }
+    case 0x4211: { uint8_t v = (uint8_t)(S.timeup << 7); S.timeup = 0; S.irq_pending = gsu_irq_line(); return v; }
     case 0x4212: return (uint8_t)((S.vblank ? 0x80 : 0) | (S.line_clk >= 1096 ? 0x40 : 0) | S.joybusy);
     case 0x4213: return 0xC0;
     case 0x4214: return (uint8_t)S.rddiv;
@@ -446,7 +489,7 @@ static void cpu_reg_write(uint16_t o, uint8_t v)
     case 0x4200:
         if (!(S.nmitimen & 0x80) && (v & 0x80) && S.nmiflag) S.nmi_pending = 1;
         S.nmitimen = v;
-        if ((v & 0x30) == 0) { S.irq_pending = 0; S.timeup = 0; }
+        if ((v & 0x30) == 0) { S.irq_pending = gsu_irq_line(); S.timeup = 0; }
         break;
     case 0x4202: S.wrmpya = v; break;
     case 0x4203: S.wrmpyb = v; S.rdmpy = (uint16_t)(S.wrmpya * v); S.rddiv = v; break;
@@ -494,6 +537,7 @@ void snes_bus_reset(void)
     S.wmadd = 0;
     S.rddiv = 0; S.rdmpy = 0; S.wrdiv = 0xFFFF; S.wrmpya = 0xFF;
     ppu_reset();
+    if (S.gsu) gsu_reset(S.sram_size);
     snes_map_build();
 }
 
@@ -509,7 +553,7 @@ void snes_reset(void)
 #define now_us snes_now_us
 static uint32_t avg_part[5];                     /* the parts of the PPU (layers, sprites, windows, compose, mix): a drawn frame, in microseconds */
 static uint32_t avg_im[3];                       /* instruction cache misses of a timed frame: CPU, sound, PPU */
-static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr;
+static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr, avg_gsu, avg_gsu_i;
 /* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
  * So one frame of 7 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
  * a timed frame and taken off each part (every part holds one read of every line). */
@@ -526,7 +570,8 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     uint32_t rc10 = 0;                             /* the cost of one clock read, in tenths of a microsecond */
     if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
     const uint32_t t_start = timed ? clock_fn() : 0;
-    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0;
+    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0, t_gsu = 0, n_gl = 0;
+    const uint32_t gsu_i0 = gsu_instr_count();
     uint32_t m_cpu = 0, m_spc = 0, m_ppu = 0, m_prev = timed && counter_fn ? counter_fn() : 0;
     uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
     acc_dma = 0;
@@ -567,6 +612,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         n_instr += (uint32_t)cpu_run(end);
         S.line_clk = 0;
         snes_clk -= end;
+        if (S.gsu && gsu_go()) {                          /* the Super FX runs for this line after the CPU; the timed frames add its cost */
+            if (now_us) { const uint32_t a = now_us(); gsu_run(end); t_gsu += now_us() - a; n_gl++; }
+            else gsu_run(end);
+        }
         if (now_us) {
             uint32_t a = now_us();
             const uint32_t ma = counter_fn ? counter_fn() : 0;
@@ -588,11 +637,11 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         const uint32_t over = rc10 * 262 / 10;                 /* the reads in one part over the frame */
         const uint32_t tot = now_us() - t_start;
 #define OFF(v, o) ((v) > (o) ? (v) - (o) : 0)
-        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, over), c = OFF(t_cpu, over);
+        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, over), c = OFF(t_cpu, over), gs = OFF(t_gsu, n_gl * rc10 / 10);
         /* a sample every 8 frames: the average moves by half of the difference; the first sample is taken as it is */
         const int first = avg_frame == 0;
 #define AVG(a, v) ((a) = first ? (v) : (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2))
-        AVG(avg_frame, f); AVG(avg_spc, sp); AVG(avg_cpu, c); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
+        AVG(avg_frame, f); AVG(avg_spc, sp); AVG(avg_cpu, OFF(c, gs)); AVG(avg_gsu, gs); AVG(avg_dma, acc_dma); AVG(avg_hdma, OFF(t_hdma, n_hl * rc10 / 10));
 #undef AVG
         /* the PPU is averaged over the frames a picture was made in: a drawn frame costs this much (the frames with no picture cost none) */
         if (render) {
@@ -609,6 +658,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         memset(ppu_us, 0, sizeof ppu_us); memset(ppu_n, 0, sizeof ppu_n);
 #undef OFF
     }
+    avg_gsu_i = (uint32_t)((int32_t)avg_gsu_i + ((int32_t)(gsu_instr_count() - gsu_i0) - (int32_t)avg_gsu_i) / 8);
     avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);   /* the instructions are counted in every frame */
 }
 
@@ -655,7 +705,16 @@ int snes_load(const uint8_t *data, size_t len, const char **why)
     S.info.rom_size = S.rom_size;
     const unsigned rs = data[off + 0x18];
     S.sram_size = (rs > 0 && rs <= 7) ? (1024u << rs) : 0;
-    S.info.sram_size = S.sram_size;
+    S.gsu = S.gsu_battery = 0;
+    if (!S.hirom && data[off + 0x16] >= 0x13 && data[off + 0x16] <= 0x1A) {      /* a Super FX cartridge: chipset $13-$1A, LoROM header */
+        unsigned kb = rs;                                                           /* the RAM: the extended header ($FFBD), else $FFD8, else 64 KB */
+        if (data[off + 0x1A] == 0x33 && data[off - 3] > 0) kb = data[off - 3];
+        uint32_t ram = (kb > 0 && kb <= 7) ? (1024u << kb) : 65536u;
+        if (ram < 32768u) ram = 32768u;
+        S.gsu = 1; S.sram_size = ram;
+        S.gsu_battery = data[off + 0x16] == 0x15 || data[off + 0x16] == 0x1A;
+    }
+    S.info.sram_size = S.gsu && !S.gsu_battery ? 0 : S.sram_size;
     memset(S.sram, 0, sizeof S.sram);
     S.sram_dirty = 0;
     snes_reset();
@@ -664,8 +723,8 @@ int snes_load(const uint8_t *data, size_t len, const char **why)
 
 const uint16_t *snes_picture(int *lines) { if (lines) *lines = S.lines; return S.picture; }
 const snes_info_t *snes_info(void) { return &S.info; }
-uint8_t *snes_sram(uint32_t *size) { if (size) *size = S.sram_size; return S.sram; }
-int snes_sram_dirty(void) { return S.sram_dirty; }
+uint8_t *snes_sram(uint32_t *size) { if (size) *size = S.gsu && !S.gsu_battery ? 0 : S.sram_size; return S.sram; }
+int snes_sram_dirty(void) { return S.sram_dirty && !(S.gsu && !S.gsu_battery); }
 void snes_sram_clean(void) { S.sram_dirty = 0; }
 
 void snes_vram_peek(uint16_t addr, uint8_t *out, int n) { for (int i = 0; i < n; i++) out[i] = S.vram[(uint16_t)(addr + i)]; }
@@ -688,7 +747,7 @@ void snes_debug(snes_debug_t *d)
     d->im_cpu = avg_im[0]; d->im_spc = avg_im[1]; d->im_ppu = avg_im[2];
     d->us_bg = avg_part[0]; d->us_obj = avg_part[1]; d->us_win = avg_part[2]; d->us_comp = avg_part[3]; d->us_mix = avg_part[4];
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
-    d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
+    d->us_gsu = avg_gsu; d->gsu_instr = avg_gsu_i; d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;
