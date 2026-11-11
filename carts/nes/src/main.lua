@@ -40,6 +40,11 @@ local function kscan() for _, u in ipairs({ 0x1A, 0x16, 0x52, 0x51, 0x28, 0x2C, 
 local function nav_up() return btnp("up") or kedge(0x1A) or kedge(0x52) end
 local function nav_down() return btnp("down") or kedge(0x16) or kedge(0x51) end
 local function nav_ok() return btnp("a") or kedge(0x28) or kedge(0x2C) or kedge(0x13) end
+-- The key or button that started the cart (Enter, A) can still be down in the first frames: the list must not take it for a choice.
+-- It plays a ROM only after every OK key and button has been up once.
+local ok_armed = false
+local function ok_held() return btn("a") or keydown(0x28) or keydown(0x2C) or keydown(0x13) end
+local function ok_arm() if not ok_armed and not ok_held() then ok_armed = true end end
 
 local function readpad(p)
   if AUTOPLAY and p == 1 then return auto_pad(frames) end
@@ -262,7 +267,8 @@ function _update()
     if nav_down() then sel = math.min(#files, sel + 1) end
     rom_scroll()
     if btnp("x") or kedge(0x15) then list_roms() end
-    if nav_ok() and files[sel] then open_rom(files[sel]) end
+    ok_arm()
+    if ok_armed and nav_ok() and files[sel] then open_rom(files[sel]) end
   elseif state == "run" then
     -- the emulator menu: Esc on a keyboard, or L2 and R2 held for half a second on a pad
     local esc_edge = kedge(0x29)

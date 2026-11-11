@@ -125,6 +125,14 @@ def main():
     r_low, h_low = hl_rows(tmp + "/shots2/low.png")
     check("long list: the selector shows after ten downs", bool(r_low) and max(r_low) < h_low - 30)
     check("long list: the list moved (the selector is not on the first row)", bool(r_top) and bool(r_low) and min(r_low) > min(r_top) - 1 and max(r_low) >= min(r_top))
+    # the key that started the cart is still down (A held from the first frame): the list must not play the first ROM
+    nl2 = chr(10)
+    open(tmp + "/in3.txt", "w").write("0 pad 1 a" + nl2 + "30 shot held_a" + nl2 + "40 pad 1 none" + nl2 + "44 pad 1 a" + nl2 + "46 pad 1 none" + nl2 + "80 shot after_a" + nl2)
+    os.makedirs(tmp + "/shots3")
+    subprocess.check_call([host, cart, "--sd", tmp + "/sd", "--seconds", "3", "--shots", tmp + "/shots3",
+                           "--input", tmp + "/in3.txt", "--quiet"], stdout=subprocess.DEVNULL)
+    check("a held A does not play the first ROM", has(pixels(read_png(tmp + "/shots3/held_a.png")), (0x30, 0x48, 0x60)))
+    check("a new press of A plays it", not has(pixels(read_png(tmp + "/shots3/after_a.png")), (0x30, 0x48, 0x60)))
     print("snes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     sys.exit(1 if fails else 0)
 
