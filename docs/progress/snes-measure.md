@@ -65,3 +65,16 @@ Reading: in SMW the layers and the mix are 72% of the PPU time; `mix` is 2.6 ms 
 Median of the 74 lines: PPU 9.37 ms, CPU and bus 3.22 ms, sound 1.84 ms, 60 fps. `pic` 1/2 in 53 lines, 1/3 in 23, 1/1 in 2. The cart started twice with no freeze and the menu stayed on the GPU (the V3D fix of `f0c01d4a`).
 
 Reading: the scene with windows and HDMA (`m1/04/13`) costs 15.1 ms of PPU in a frame (`mix` 6.7 ms, `win` 2.4 ms) and had 59 fps; it lasts 2 lines. The 7 lines under 55 fps are all in the plain level scene, at 15 to 36 s and at 82 s of the play, so they come with a change of level or of screen (the PPU peaked at 16.1 ms in the last one), not with the heavy scene. A shader for the colour math (G6) and for the windows would take both parts of the heavy scene. The plain level is as in the first play: layers 43%, `mix` 30%.
+
+## FIX (kept for later, 2026-11-11)
+
+Measured on the Pi Zero W, kernel v0.3.0-47, from the logs of the reports branch.
+
+- **Colour math (`mix`)**: 6.1 ms of the 14.9 ms of a drawn frame in Yoshi's Island (scene `m1/15/02`), 2.8 ms in Super Mario World. This is the biggest single part. A fast path for the common case (BG2 on the sub screen, add or half-add) comes first; then G6 on the GPU ([snes-gpu.md](snes-gpu.md)).
+- **Super FX**: 3.0 ms a frame (32000 GSU instructions, up to 54000) in Yoshi's Island. The GSU runs in quarters of a line with the CPU, so both push each other out of the instruction cache (37000 misses a frame in the CPU part, SMW has 14000). Make the GSU loop compact and run it with fewer switches.
+- **GSU RAM to VRAM DMA**: 0.8 ms a frame in Yoshi's Island (1.1 ms at most).
+- **Yoshi's Island speed**: 49 fps on average (28 to 60), 60 of 124 lines under 50 fps, a picture every 3 or 4 frames. A drawn frame costs about 22 ms (PPU 14.9, GSU 3.0, sound 1.6, DMA 0.8, CPU 0.8).
+- **Squares on the first line of Yoshi's Island level 2**: the Super FX is emulated now. Check again.
+- **Doom**: crashes at frame 1084 into code stubs at `$7E:5980` ([snes-superfx.md](snes-superfx.md)).
+- **Instruction cache**: the lazy sound CPU sync took the sound misses from 15000 to 8500 a frame and 0.3 ms off the sound time. One miss costs about 0.06 us, so the 30000 misses left are about 2 ms of 14. The rest is in the 0.22 us (about 150 cycles) of each emulated instruction. The meter now has ARM instructions, cycles, data cache misses and mispredicted branches by part (`ppu us` line).
+- **V3D**: the VideoCore freeze at the start of a cart (`fb_init_depth`) comes back; the cause is not proved.
