@@ -116,6 +116,5 @@ machine was written again in C. The RGB30 is not measured.
   Add the exact costs and the DMA and HDMA stalls.
 - Cartridge chips: SuperFX, SA-1, DSP-1 and the other co-processors are not emulated. ExHiROM and interleaved ROMs are not detected.
 - Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated. The viewer of tiles, sprites and colours of the Lua version is gone. Add `snes_vram()` and friends to bring it back.
-- Save states and a speed-up key.
-- The GPU 3x mode runs at about 50 updates a second on the Pi One: a smaller cost for the 720p frame, or drawing less often, would help. The `dsp_tick` skip of silent voices is exact and gives no measurable gain (spc 2746 against 2776 us).
+- Save states and a speed-up key. The GPU 3x mode runs at about 50 updates a second on the Pi One: a smaller cost for the 720p frame, or drawing less often, would help. The `dsp_tick` skip of silent voices is exact and gives no measurable gain (spc 2746 against 2776 us).
 - Put the cartridge in `GAMES` after a test on both devices. It is in the Market (apps/snes).
