@@ -61,7 +61,7 @@ P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
-| G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; first table in `snes-measure.md` (layers 43%, colour math 29%, sprites 16%, priority list 10%). Left: one play for each scene (Mode 7, HDMA, title) | 0 | 2 | a table for the scenes that drop |
+| G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; table of Super Castlevania IV in `snes-measure.md` (layers 47%, priority list 25%, sprites 17%, colour math 8%). Left: the same for Super Mario World | 0 | 2 | a table for the scenes that drop |
 | G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c` | 3 | 6 | byte for byte against `ppu_ref.c` |
 | G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
 | G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |

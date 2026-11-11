@@ -27,18 +27,15 @@ First play (old timer, 3 reads a line in every frame; log `reports/bm-core/20261
 CPU and bus alone: 2.98 ms (35% of the measured frame). A drawn frame has the PPU at about 10 ms (1/2) or 8.7 ms (1/3), 9.2 ms in the heaviest second. The controller never went to 1/1 (8 changes of `pic` in 86 s). These figures hold the timer's own cost (about 1.5 ms in each part, estimate), so the real CPU is lower. Open: play again with the sampled timer and replace the table. Decision rule: if CPU and bus alone are under about 3 ms, C2 to C5 do not pay (a JIT 5 times faster frees about 2.4 ms of 16.7) and the PPU (G1) comes first.
 
 
-## G1: the parts of the PPU (fourth Pi Zero W play, kernel v0.3.0-18, 126 log lines)
+## G1: the parts of the PPU (fifth Pi Zero W play, Super Castlevania IV, kernel v0.3.0-18, 96 log lines)
 
-Only Super Mario World counts: the other ROMs are not tuned for the SNES core yet. This play mixed games and its log has no ROM name, so the table is a first look only. Redo it with a play of SMW alone: the logger now writes `rom=` in each line.
+Only these ROMs count (the others are not tuned for the SNES core yet). Each part is the mean for a drawn frame, in ms, with the cost of the timer reads taken off; the line holds the ROM (`rom=`) and the scene (`scn=` mode/main layers/sub layers). The median of 92 lines with a drawn frame: PPU 9.06 ms, and the five parts add up to it.
 
-Each part is the mean for a drawn frame, in ms, with the cost of the timer reads taken off. The five parts add up to the PPU time (9.36 ms against 9.41 ms, median of 110 lines with a drawn frame).
+| Scene (`scn`) | Lines | PPU | bg | obj | win | comp | mix | CPU | HDMA |
+|---|---|---|---|---|---|---|---|---|---|
+| Mode 1, layers and sprites (`m1/17/00`) | 63 | 9.0 | 4.2 | 1.6 | 0.1 | 2.3 | 0.7 | 3.4 | 0.001 |
+| Mode 7 with colour math (`m7/17/35`) | 20 | 10.1 | 3.7 | 1.6 | 0.1 | 1.6 | 2.9 | 6.6 | 0.08 |
+| Mode 1 with a sub screen (`m1/17/17`) | 7 | 6.3 | 3.4 | 1.5 | 0.1 | 0.5 | 0.6 | 2.7 | 0.001 |
+| Mode 1 with colour math and HDMA (`m1/17/36`) | 2 | 10.4 | 4.2 | 1.5 | 0.1 | 2.1 | 2.4 | 4.0 | 0.07 |
 
-| Part | Median | 90th percentile | Share |
-|---|---|---|---|
-| bg (layers) | 4.0 | 4.3 | 43% |
-| mix (colour math and the line write) | 2.8 | 5.2 | 29% |
-| obj (sprites) | 1.5 | 1.5 | 16% |
-| comp (priority list) | 0.9 | 1.2 | 10% |
-| win (windows) | 0.1 | 0.2 | 1% |
-
-Reading: the layers (`draw_bg`) are the largest part and `mix` the second; `mix` moves most (0.6 ms in a quiet scene, 7.9 ms at most). A shader for the layers (G5) and the mix (G6) would take 72% of the PPU time. The sprites (G4) are 16%. Next: one play per scene (Mode 7, a level with HDMA, a title screen) to see which part grows.
+Reading: in the plain scene the layers (`draw_bg`) are 47% of the PPU time, the priority list (`comp`) 25%, the sprites 17%. Colour math (`mix`) is small (0.7 ms) until the sub screen blends (2.4 to 2.9 ms). Mode 7 costs as much as Mode 1, and its CPU part is twice as large (6.6 ms against 3.4 ms): a Mode 7 scene is limited by the CPU as much as by the PPU. The controller held `pic` 1/2 (69 lines) and 1/3 (24); 5 lines had fps under 55. Open: the same table for Super Mario World.
