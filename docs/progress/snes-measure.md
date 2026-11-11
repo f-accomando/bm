@@ -54,12 +54,14 @@ Median of the 109 lines with a drawn frame, in ms: PPU 8.88, CPU and bus 3.29, s
 
 Reading: in SMW the layers and the mix are 72% of the PPU time; `mix` is 2.6 ms in every line because the sub screen is on. The priority list is small (0.9 ms; 2.3 ms in Super Castlevania IV). G6 (colour math in a shader) pays more here than in SC4; G5 (layers) pays in both. The level with a parallax background (the second level) shows the same scene code, so the layers cost 3.8 ms with or without it. Open: Mode 7 and HDMA scenes of SMW (the bosses of the castles).
 
-### Super Mario World, second play (kernel v0.3.0-32, 30 lines) by scene
+### Super Mario World, second play (kernel v0.3.0-32, 78 lines, 74 with a drawn frame) by scene
 
 | Scene (`scn`) | Lines | PPU (ms) | bg | obj | win | comp | mix | CPU | HDMA |
 |---|---|---|---|---|---|---|---|---|---|
-| `m1/15/02`: level, BG2 on the sub screen | 21 | 9.2 | 3.9 | 1.5 | 0.1 | 0.8 | 2.7 | 3.2 | 0.001 |
-| `m1/10/04`: BG2 and sprites on the main screen | 4 | 5.7 | 1.7 | 1.3 | 0.1 | 0.3 | 2.1 | 3.1 | 0.001 |
-| `m1/04/13`: windows and colour math with HDMA | 2 | 15.1 | 3.5 | 1.4 | 2.4 | 1.0 | 6.7 | 3.0 | 0.03 |
+| `m1/15/02`: level, BG2 on the sub screen | 68 | 9.4 | 4.1 | 1.5 | 0.1 | 0.9 | 2.8 | 3.2 | 0.001 |
+| `m1/10/04`: BG2 and sprites on the main screen | 4 | 5.7 | 1.7 | 1.4 | 0.1 | 0.3 | 2.1 | 3.1 | 0.001 |
+| `m1/04/13`: windows and colour math with HDMA | 2 | 15.1 | 3.5 | 1.4 | 2.4 | 1.1 | 6.7 | 3.0 | 0.03 |
 
-Reading: the scene with windows and HDMA (`m1/04/13`, probably a level entry or end transition) costs 15.1 ms of PPU in a frame: `mix` 6.7 ms and `win` 2.4 ms. It is the only scene over the 16.7 ms frame with the CPU added, and it explains the 6 lines under 55 fps in this play. It lasts only 2 lines (about 2 seconds). A shader for the colour math (G6) and for the windows would take both parts. The plain level is as in the first play: PPU 9.2 ms, layers 43%, `mix` 30%.
+Median of the 74 lines: PPU 9.37 ms, CPU and bus 3.22 ms, sound 1.84 ms, 60 fps. `pic` 1/2 in 53 lines, 1/3 in 23, 1/1 in 2. The cart started twice with no freeze and the menu stayed on the GPU (the V3D fix of `f0c01d4a`).
+
+Reading: the scene with windows and HDMA (`m1/04/13`) costs 15.1 ms of PPU in a frame (`mix` 6.7 ms, `win` 2.4 ms) and had 59 fps; it lasts 2 lines. The 7 lines under 55 fps are all in the plain level scene, at 15 to 36 s and at 82 s of the play, so they come with a change of level or of screen (the PPU peaked at 16.1 ms in the last one), not with the heavy scene. A shader for the colour math (G6) and for the windows would take both parts of the heavy scene. The plain level is as in the first play: layers 43%, `mix` 30%.
