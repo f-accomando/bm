@@ -2786,6 +2786,24 @@ void gpu3d_drop(void)
     G.page_uniform = 0;
 }
 
+/* The video mode is about to change (the firmware frees the old screen and allocates a new
+ * one): no job runs, the V3D registers are as after the boot, and the log says what the
+ * V3D held (the Pi Zero W freeze at the start of a cartridge, 11 Nov 2026: the mode change
+ * after a GPU-drawn menu got no answer, ERRSTAT 00007030). No mailbox call: a QPU power
+ * cycle with the V3D stuck stops the firmware. */
+void gpu3d_quiesce(const char *where)
+{
+    GPU_PRE();
+    if (!G.ready)
+        return;                         /* the V3D was never used in this run */
+    if (G.open || G.inflight)
+        job_wait();
+    char regs[160];
+    v3d_errors(regs, sizeof regs);
+    v3d_soft_reset();
+    kprintf("gpu3d: quiet before %s: %s\n", where, regs);
+}
+
 void gpu3d_set_msaa(int on)
 {
     GPU_PRE();

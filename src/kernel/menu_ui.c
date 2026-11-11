@@ -1565,6 +1565,7 @@ static void close_menu(framebuffer_t *fb, int console)
     }
     if (gpu_draw || gpu_big) {
         gpu3d_drop();
+        gpu3d_quiesce("the menu closes");
         gpu_draw = gpu_big = 0;
     }
     fb_init(fb, con_w, con_h, 2);

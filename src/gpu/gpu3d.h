@@ -51,7 +51,8 @@ void gpu3d_page(int uniform, uint16_t c);
 /* 1 if a job has cleared the page to the colour of gpu3d_page(1, c) since
  * the last call (a cls() the ARM did not have to draw, bm3d 4.2); then 0 */
 int gpu3d_cleared(void);
-void gpu3d_drop(void);              /* forgets them and the depth (the cartridge ended) */
+void gpu3d_drop(void);
+void gpu3d_quiesce(const char *where);  /* no job, V3D registers reset, before a video mode change */              /* forgets them and the depth (the cartridge ended) */
 
 /* Draws the waiting triangles into g's page. keep: the 3D goes on in this
  * frame after some 2D, so the depth is kept for the next job (stored and

@@ -44,6 +44,7 @@ Settings shows five graphics rows; every performance flag is a hidden key. Keys,
 
 ## To do, in order
 
+0. Firmware stop at the mode change after a GPU-drawn menu (Pi Zero W, 1080p TV, 11 Nov 2026, report `nodate-6f30f3_freeze_pi-zero-w_v0.3.0-18-g49a8540d.txt`): the first mailbox call of the cartridge's mode (tag 0x48003) got no answer, V3D ERRSTAT 00007030 (it was 00001010 after the boot probes). Cause not proven. Mitigation built, not yet run on the Pi: `gpu3d_quiesce()` (waits for the job, resets the V3D registers, logs ERRSTAT) when the menu closes and before `fb_init_depth` in `bm_video_enter`, plus one retry. Read the line `gpu3d: quiet before ...` in the next log. The safe mode already clears itself: `prev_fw_dead` lasts one boot (a clean exit clears the crumbs).
 1. Pixels at 1080p (QPU scaling): the cheap soft enlargement is scaler kernel 6 (config only, no GPU
    cost; below). A QPU bicubic / FSR-style pass stays open, only if 6 is not enough. Cost from
    the Pi 3D Bench: a full-screen 1080p pass with one bilinear read is ~3.5-5 ms of GPU
