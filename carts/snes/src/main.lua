@@ -110,6 +110,7 @@ end
 
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
+local rom_name = "-"                         -- the ROM that plays (the logger writes it in each line)
 local top = 1                                -- the first ROM of the list that shows (the list scrolls with the selector)
 local function rom_rows() return math.max(1, (SCREEN_H - 40 - 90) // 18 + 1) end
 local function rom_scroll()
@@ -197,6 +198,8 @@ local function open_rom(d)
     if s then snes_sram(s) end
   end
   msg = nil
+  rom_name = (d.name:gsub("[^%w%._%-]", "")):sub(1, 24)
+  log("snes rom " .. rom_name)
   state = "run"
   frames = 0
 end
@@ -234,8 +237,8 @@ function log_draw(dm)
   if now - lg.t0 >= 1 then
     local n = math.max(1, frames - lg.f0)
     local d2 = dbg
-    log(string.format("snes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s | %s | %s",
-      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode,
+    log(string.format("snes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s rom=%s | %s | %s",
+      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode, rom_name,
       d2 and d2.us or "-", d2 and d2.us_ppu or "-"))
     log_reset(now)
   end
