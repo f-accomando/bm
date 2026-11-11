@@ -76,7 +76,7 @@ machine was written again in C. The RGB30 is not measured.
 
 ## Open work
 
-- Speed of the 65C816 core: exploration only, no code yet. See [snes-cpu.md](snes-cpu.md). First step: measure CPU and bus time apart from the PPU and the DSP.
+- Speed of the 65C816 core: exploration only, no code yet. See [snes-cpu.md](snes-cpu.md) (items C0 to C7) and [snes-gpu.md](snes-gpu.md) (items G1 to G11). First step: measure CPU and bus time apart from the PPU and the DSP.
 - Play on the Pi One (the user, keyboard, 2026-11-10): the picture rate is not even. The user reads about 24 frames a second in play with drops to 11, and the picture skips often. My test runs
   (the fixed intro of Super Mario World, a test build) gave 58 to 60 updates a second and 20 to 48 draw loop frames, so the cause is not found: not measured in the scenes where it drops. The
   menu item "FPS" now shows `fps  upd/s  pic 1/N` on one line: `upd/s` near 60 with `fps` low means the machine keeps up and the cart draws less often (the controller `adapt` moves `pic 1/N`

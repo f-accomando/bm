@@ -1,8 +1,23 @@
-# bm SNES: exploration of speed (CPU core, PPU, other emulators)
+# bm SNES: exploration of speed (CPU core, other emulators)
 
 Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (ARMv6, 32 bit). The numbers are estimates, not measurements.
 
-### Why a ROM cannot be translated once
+### Work items (development codes)
+
+Status of every item: idea, not started. Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
+
+| Code | Item | Gate |
+|---|---|---|
+| C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | FPS line read in the scenes that drop |
+| C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | a table of ms a frame for each part |
+| C2 | Registers in ARM registers, inside the interpreter | `make test-snes-cpu`, `make test-snes` |
+| C3 | Threaded interpreter in assembly (each opcode jumps to the next) | same tests, and a timing against C1 |
+| C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | same tests, and a timing against C1 |
+| C5 | Static recompiler for one game (a tool that reads the ROM) | same tests, and the game picture byte for byte |
+| C6 | Writes to PPU registers queued as events (clock, register, value) | `make test-snes`, `make test-snes-ppu` |
+| C7 | High-level SPC700 (low value: about 2 to 3% of a core) | `make test-snes-dsp`, sound by ear |
+
+## Why a ROM cannot be translated once
 
 - The length of an instruction depends on the flags M and X, and the game changes them at run time. The bytes `A9 34 12` are `LDA #$1234` with M=0 and `LDA #$34` followed by another instruction with M=1.
 - Games jump to computed addresses (`JMP ($xxxx,X)`, an address on the stack). The sound program is loaded into the SPC700 RAM at run time.
@@ -48,27 +63,6 @@ A JIT that takes the CPU from about 4.5 ms to about 1 ms frees 3 to 3.5 ms of 22
 2. Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)). A JIT does not help if the CPU is not the limit.
 3. If the CPU is the limit, build a minimal JIT: registers in ARM registers, flags in the CPSR, clocks added once a block, the interpreter as fallback. Gate: `make test-snes` and `make test-snes-cpu` (the golden hashes).
 
-## The PPU has no opcodes
-
-Status: notes from a talk on 2026-11-11. Nothing is built. The figures are estimates.
-
-- The CPU runs a program, so its instructions can be translated. The PPU is fixed-function hardware. The game writes registers, VRAM, OAM and CGRAM, and the PPU makes pixels from them. There is nothing to map to ARM opcodes.
-- The work is to find, for each line, the tile under each pixel of each layer, the winning sprite, the priority, the windows, the colour math and the brightness (`ppu_line` in `snes_ppu.c`).
-- The real SNES has two PPU chips (PPU1 and PPU2). The repo has one `snes_ppu.c` for both. The chip names are from memory: check a public source before you quote them.
-- "Closer to the metal" means to use units that do this kind of work. The ARMv6 SIMD (UADD8, SEL, UQADD8, UQSUB8, UHADD8) is in use already.
-
-### Ideas (GPU V3D of the Pi)
-
-The kernel drives the V3D already ([v3d.md](v3d.md): textured fill 1.65 ns a pixel, a QPU driver that passes on the Pi Zero W). Today the GPU only scales the finished picture (GPU 2x and 3x).
-
-1. Each layer as a texture: a BG is a quad, sprites are small quads, the palette is a lookup texture. Mode 7 fits best: it is an affine transform of a texture.
-2. Colour math as blending. The SNES colour math depends on the sub screen, the windows and one bit a pixel, so the standard blend is not enough without a shader.
-3. A `ppu_line` in QPU code (`qpuasm.py` exists and a test passes).
-4. The DMA of the Pi for copies of line buffers. It helps only for copies.
-
-Risks: HDMA changes scroll, mode and colour on each line (224 strips for the GPU); the sprite limits (32 sprites and 34 tiles a line); four interleaved priority levels (many passes); the exact result (`make test-snes-ppu` compares byte for byte, a GPU path needs the same gate); the fixed cost of one GPU job (about 0.3 ms for a fill).
-Best first candidate: Mode 7. A full GPU path is a project on its own. Measure first which part of `ppu_line` costs most in which game: the test build prints `bg`, `obj`, `win`, `comp` and `mix` apart.
-
 ## How other emulators did it
 
 From memory, not from the repo. Check the details before you quote them.
@@ -108,3 +102,5 @@ Assembly does not help for the bus, the memory map, DMA and IRQ code. It is logi
 Rule that the repo already follows: a C reference, an assembly version, and an equivalence test (`make test-snes-ppu`). A middle path: C intrinsics (`arm_acle.h` has `__uadd8` and the like). They give less register control and are easier to keep.
 
 Next measurement to consider: a threaded assembly interpreter for the CPU, before a full JIT.
+
+The PPU and the GPU ideas are in [snes-gpu.md](snes-gpu.md).
