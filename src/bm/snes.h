@@ -92,7 +92,7 @@ void snes_audio_stats(uint32_t *underruns, uint32_t *overruns, uint32_t *kons);
 void spc_reset(void);
 void spc_port_write(int n, uint8_t v);      /* n = 0..3, the main CPU writes */
 uint8_t spc_port_read(int n);
-void spc_run(int cycles);
+int spc_run(int cycles);                    /* runs at least `cycles` sound cycles (whole instructions); returns how many it ran */
 void spc_trace_s(uint16_t *out12);         /* the sound CPU's writes */
 void spc_trace(uint16_t *out12);           /* the last 12 port events, oldest first */
 void spc_info(int *running, int *halted, uint16_t *pc);

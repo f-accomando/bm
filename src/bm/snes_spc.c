@@ -428,7 +428,7 @@ uint8_t spc_port_read(int n)
     return apu_out[n & 3];
 }
 
-void spc_run(int cycles)
+int spc_run(int cycles)
 {
     static unsigned dsp_acc;
     if (!running) ipl_sync();
@@ -446,6 +446,7 @@ void spc_run(int cycles)
     }
     dsp_acc += (unsigned)n;                             /* the DSP makes a sample every 32 cycles */
     while (dsp_acc >= 32) { dsp_tick(); dsp_acc -= 32; }
+    return n;
 }
 
 void spc_trace(uint16_t *out) { for (int i = 0; i < 12; i++) out[i] = tr[(tr_i + i) % 12]; }

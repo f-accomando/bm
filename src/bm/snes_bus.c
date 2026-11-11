@@ -11,11 +11,35 @@
 int snes_clk;
 
 #define LINE_CLK 1364
-#define SLICES 4                        /* a line is run in this many parts (CPU, then Super FX and sound CPU in each) */
+#define SLICES 4                        /* with a Super FX a line is run in this many parts (CPU, then the Super FX in each); without it, in one */
 
 /* ------------------------------------------------------------------ the memory map */
 static uint8_t cpu_reg_read(uint16_t o);
 static void cpu_reg_write(uint16_t o, uint8_t v);
+/* The sound CPU runs lazily: it is brought up to the main CPU's time (65 sound cycles to a line of LINE_CLK) when the main CPU reads or writes one of
+ * its four ports, and at the end of every 16th line. It makes the same answers as running it in quarters of a line (the CPU sees a port as the sound
+ * CPU has it at that time), and the CPU's and the sound CPU's code stop pushing each other out of the instruction cache 262 times a frame. */
+#define SPC_LAG_LINES 16
+static int32_t spc_done;                        /* sound cycles run in this frame (the last instruction may go a little over the target) */
+static uint32_t acc_spc, acc_spc_m, n_spc_sync;       /* the time and the cache misses of the sound CPU in this frame, timed frames only (see snes_frame) */
+static uint32_t (*counter_fn)(void);
+static void spc_sync_pos(uint32_t pos)
+{
+    const int32_t target = (int32_t)((pos * 65u) / LINE_CLK);
+    if (target - spc_done < 3) return;
+    if (snes_now_us && counter_fn) {
+        const uint32_t a = snes_now_us(), m = counter_fn();
+        spc_done += spc_run(target - spc_done);
+        acc_spc += snes_now_us() - a; acc_spc_m += counter_fn() - m; n_spc_sync++;
+    } else if (snes_now_us) {
+        const uint32_t a = snes_now_us();
+        spc_done += spc_run(target - spc_done);
+        acc_spc += snes_now_us() - a; n_spc_sync++;
+    } else {
+        spc_done += spc_run(target - spc_done);
+    }
+}
+static void spc_sync(void) { spc_sync_pos((uint32_t)S.line * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0)); }
 static uint32_t acc_dma;             /* microseconds of the general DMA in this frame (timed at the write to $420B) */
 
 static inline uint8_t rom_byte(uint32_t o)
@@ -306,13 +330,13 @@ void snes_ppu_write(uint16_t o, uint8_t v)
         break;
     }
     case 0x2133: S.setini = v; break;
-    case 0x2140: case 0x2141: case 0x2142: case 0x2143: spc_port_write(o & 3, v); break;
+    case 0x2140: case 0x2141: case 0x2142: case 0x2143: spc_sync(); spc_port_write(o & 3, v); break;
     case 0x2180: S.wram[S.wmadd & 0x1FFFF] = v; S.wmadd = (S.wmadd + 1) & 0x1FFFF; break;
     case 0x2181: S.wmadd = (S.wmadd & 0x1FF00) | v; break;
     case 0x2182: S.wmadd = (S.wmadd & 0x100FF) | ((uint32_t)v << 8); break;
     case 0x2183: S.wmadd = (S.wmadd & 0x0FFFF) | ((uint32_t)(v & 1) << 16); break;
     default:
-        if (o >= 0x2144 && o < 0x2180) spc_port_write(o & 3, v);
+        if (o >= 0x2144 && o < 0x2180) { spc_sync(); spc_port_write(o & 3, v); }
         break;
     }
 }
@@ -347,7 +371,7 @@ uint8_t snes_ppu_read(uint16_t o)
     case 0x213F: S.ophct_flip = S.opvct_flip = 0; return 0x03;
     case 0x2180: { uint8_t v = S.wram[S.wmadd & 0x1FFFF]; S.wmadd = (S.wmadd + 1) & 0x1FFFF; return v; }
     default:
-        if (o >= 0x2140 && o < 0x2180) return spc_port_read(o & 3);
+        if (o >= 0x2140 && o < 0x2180) { spc_sync(); return spc_port_read(o & 3); }
         return 0;
     }
 }
@@ -547,7 +571,7 @@ void snes_reset(void)
     if (!S.rom) return;
     snes_bus_reset();
     spc_reset();
-    snes_clk = 0;
+    snes_clk = 0; spc_done = 0;
     cpu_reset();
 }
 
@@ -560,7 +584,6 @@ static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_ins
  * a timed frame and taken off each part (every part holds one read of every line). */
 static uint32_t (*clock_fn)(void);
 void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
-static uint32_t (*counter_fn)(void);
 void snes_set_counter(uint32_t (*f)(void)) { counter_fn = f; }
 
 void snes_frame(uint16_t pad1, uint16_t pad2, int render)
@@ -571,11 +594,11 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     uint32_t rc10 = 0;                             /* the cost of one clock read, in tenths of a microsecond */
     if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
     const uint32_t t_start = timed ? clock_fn() : 0;
-    uint32_t t_ppu = 0, t_spc = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0, t_gsu = 0, n_gl = 0;
+    uint32_t t_ppu = 0, t_cpu = 0, t_hdma = 0, n_instr = 0, n_hl = 0, t_gsu = 0, n_gl = 0;
     const uint32_t gsu_i0 = gsu_instr_count();
     uint32_t m_cpu = 0, m_spc = 0, m_ppu = 0, m_prev = timed && counter_fn ? counter_fn() : 0;
     uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
-    acc_dma = 0;
+    acc_dma = 0; acc_spc = acc_spc_m = n_spc_sync = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
     for (int L = 0; L < 262; L++) {
@@ -603,48 +626,48 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         if (m == 1) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
         else if (m == 2 && L == S.vtime) ia = 14;
         else if (m == 3 && L == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
-        /* The line in SLICES quarters: the CPU runs a quarter, then the Super FX and the sound CPU run their share. A sound program that echoes a value on a port
-         * and changes it a few cycles later (a game's own loader) needs the CPU to poll between the two; a whole line of CPU and then a whole line of sound hid
-         * the first value (Doom waited for it for ever). The IRQ fires when the clock passes its time, in whatever quarter. */
+        /* The line: with a Super FX the CPU and the Super FX run in SLICES quarters (a game that polls a port needs the CPU to run between the Super FX's
+         * steps); without one the CPU runs the whole line. The sound CPU is not run here: it follows the CPU when a port is touched (spc_sync). The IRQ
+         * fires when the clock passes its time, in whatever part. */
         const int end = LINE_CLK;
         S.line_clk = 0;
         if (ia >= end) ia = -1;
-        static const uint8_t spc_cyc[SLICES] = { 16, 16, 16, 17 };      /* 65 sound cycles in a line */
-        uint32_t t_pre = 0, sp_slice = 0, gs_slice = 0, m_sa = 0, m_sb = 0;
-        for (int k = 0; k < SLICES; k++) {
-            const int seg_end = k == SLICES - 1 ? end : (k + 1) * (LINE_CLK / SLICES);
+        const int slices = S.gsu ? SLICES : 1;
+        uint32_t gs_line = 0;
+        const uint32_t sp0 = acc_spc, sm0 = acc_spc_m;
+        for (int k = 0; k < slices; k++) {
+            const int seg_end = k == slices - 1 ? end : (k + 1) * (LINE_CLK / slices);
             if (ia >= 0 && ia < seg_end) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; ia = -1; }
             n_instr += (uint32_t)cpu_run(seg_end);
-            if (k == SLICES - 1) { S.line_clk = 0; snes_clk -= end; }
-            const int last_timed = now_us && k == SLICES - 1;         /* the last quarter is timed, and counted four times */
-            if (last_timed) t_pre = now_us();
-            if (S.gsu && gsu_go()) {                                   /* the Super FX runs for this quarter */
-                if (last_timed) { const uint32_t a = now_us(); gsu_run(seg_end - k * (LINE_CLK / SLICES)); gs_slice = now_us() - a; n_gl++; }
-                else gsu_run(seg_end - k * (LINE_CLK / SLICES));
+            if (k == slices - 1) { S.line_clk = 0; snes_clk -= end; }
+            if (S.gsu && gsu_go()) {                                   /* the Super FX runs for this part */
+                if (now_us) { const uint32_t a = now_us(); gsu_run(seg_end - k * (LINE_CLK / slices)); gs_line += now_us() - a; n_gl++; }
+                else gsu_run(seg_end - k * (LINE_CLK / slices));
             }
-            if (last_timed) { const uint32_t a = now_us(); m_sa = counter_fn ? counter_fn() : 0; spc_run(spc_cyc[k]); sp_slice = now_us() - a; m_sb = counter_fn ? counter_fn() : 0; }
-            else spc_run(spc_cyc[k]);
         }
+        if (((L + 1) % SPC_LAG_LINES) == 0 || L == 261)                  /* the sound CPU catches up now and then (the audio comes from it) */
+            spc_sync_pos((uint32_t)(L + 1) * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0));
         if (now_us) {
             const uint32_t b = now_us();
+            const uint32_t mb = counter_fn ? counter_fn() : 0;
             if (L < S.lines && render) ppu_line(L);
             const uint32_t c = now_us();
             const uint32_t mc = counter_fn ? counter_fn() : 0;
-            const uint32_t cpu_part = t_pre - t_prev;
-            const uint32_t others = 3 * (sp_slice + gs_slice);        /* the three quarters that were not timed */
+            const uint32_t sp_line = acc_spc - sp0, sm_line = acc_spc_m - sm0;
+            const uint32_t cpu_part = b - t_prev, others = sp_line + gs_line;
             t_cpu += cpu_part > others ? cpu_part - others : 0;
-            t_spc += 4 * sp_slice; t_gsu += 4 * gs_slice; t_ppu += c - b; t_prev = c;
-            /* the cache misses: the sound quarter counted four times, the CPU part is the rest up to the start of the sound quarter */
-            const uint32_t m_cp = m_sa - m_prev, m_sp = m_sb - m_sa;
-            m_cpu += m_cp > 3 * m_sp ? m_cp - 3 * m_sp : 0; m_spc += 4 * m_sp; m_ppu += mc - m_sb; m_prev = mc;
+            t_gsu += gs_line; t_ppu += c - b; t_prev = c;
+            const uint32_t m_cp = mb - m_prev;                           /* the cache misses: the CPU part is what is left of the line before the PPU */
+            m_cpu += m_cp > sm_line ? m_cp - sm_line : 0; m_spc += sm_line; m_ppu += mc - mb; m_prev = mc;
         } else if (L < S.lines && render) ppu_line(L);
     }
+    spc_done -= 262 * 65;                                                // the next frame counts from here
     S.frames++;
     if (timed) {
         const uint32_t over = rc10 * 262 / 10;                 /* the reads in one part over the frame */
         const uint32_t tot = now_us() - t_start;
 #define OFF(v, o) ((v) > (o) ? (v) - (o) : 0)
-        const uint32_t f = OFF(tot, 3 * over), p = OFF(t_ppu, over), sp = OFF(t_spc, 4 * over), c = OFF(t_cpu, over), gs = OFF(t_gsu, n_gl * 4 * rc10 / 10);
+        const uint32_t f = OFF(tot, 2 * over), p = OFF(t_ppu, over), sp = OFF(acc_spc, n_spc_sync * rc10 / 10), c = OFF(t_cpu, over), gs = OFF(t_gsu, n_gl * rc10 / 10);
         /* a sample every 8 frames: the average moves by half of the difference; the first sample is taken as it is */
         const int first = avg_frame == 0;
 #define AVG(a, v) ((a) = first ? (v) : (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2))
