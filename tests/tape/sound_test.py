@@ -69,7 +69,7 @@ check("no long run of full-scale samples (longest %d, limit 24)" % longest, long
 lines = []
 for n in range(20):
     f = 10 + 90 * n
-    lines += ["%d keys 0x30" % f, "%d keys none" % (f + 2), "%d keys 0x18" % (f + 6), "%d keys none" % (f + 66)]
+    lines += ["%d keys 0xe6" % f, "%d keys none" % (f + 2), "%d keys 0x07" % (f + 6), "%d keys none" % (f + 66)]
 with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
     f.write("\n".join(lines) + "\n")
 wav2 = wav.replace(".wav", "-sounds.wav")
@@ -91,11 +91,11 @@ check("every one of the 20 sounds is heard (RMS above 0.01; silent: %s)" % (quie
 # the 24 PCM sounds: 19 presses of ] bring sound 20, then ] and the key U held for 1 s for each of sounds 21 to 44
 lines = []
 for i in range(19):
-    lines += ["%d keys 0x30" % (10 + 6 * i), "%d keys none" % (12 + 6 * i)]
+    lines += ["%d keys 0xe6" % (10 + 6 * i), "%d keys none" % (12 + 6 * i)]
 T0 = 150
 for n in range(24):
     f = T0 + 90 * n
-    lines += ["%d keys 0x30" % f, "%d keys none" % (f + 2), "%d keys 0x18" % (f + 6), "%d keys none" % (f + 66)]
+    lines += ["%d keys 0xe6" % f, "%d keys none" % (f + 2), "%d keys 0x07" % (f + 6), "%d keys none" % (f + 66)]
 with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
     f.write("\n".join(lines) + "\n")
 wav3 = wav.replace(".wav", "-pcm.wav")
@@ -117,8 +117,9 @@ check("every one of the 24 PCM sounds is heard (RMS above 0.01; silent: %s)" % (
 
 
 # ---------------------------------------------------------------- phase 3: MIX, FX, punch-in effects
-KEYS = {"A": 0x04, "S": 0x16, "D": 0x07, "F": 0x09, "E": 0x08, "R": 0x15, "Z": 0x1D, "X": 0x1B, "C": 0x06, "V": 0x19,
-        "SPACE": 0x2C, "F5": 0x3E, "F6": 0x3F, "TAB": 0x2B}
+# encoder down keys O P [ ] (named by their old letters A S D F), up keys - = (E R), punch-in 5 6 7 8 (Z X C V), modules T (MIX) and Y (FX)
+KEYS = {"A": 0x12, "S": 0x13, "D": 0x2F, "F": 0x30, "E": 0x2D, "R": 0x2E, "Z": 0x22, "X": 0x23, "C": 0x24, "V": 0x25,
+        "SPACE": 0x2C, "F5": 0x17, "F6": 0x1C, "TAB": 0x2B}
 
 
 def keys_at(frame, *names):

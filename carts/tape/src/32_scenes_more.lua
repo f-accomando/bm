@@ -86,17 +86,30 @@ function grid_page.draw(t, v)
     L(160 - hw, y, 160 - hw, y - ph, c, w); L(160 + hw, y, 160 + hw, y - ph, c, w)
     if n > 0 or c ~= C.dim then L(160 - hw, y - ph, 160 + hw, y - ph, c, w) else L(160 - hw, y, 160 + hw, y, C.dim) end
   end
+  -- the steps of the page of 16: a box each with the note in it, the velocity under it, the cursor in cyan, the head in orange
   local page = S.cur // 16
   for i = 0, 15 do
     local st = page * 16 + i
+    local x = 12 + i * 18.5
     if st < len then
-      local n = step_info(tk, st)
-      local c = (tr.run and st == head) and C.hot or (st == S.cur and C.e1 or (n > 0 and C.e2 or C.dim))
-      R(96 + i * 8, 18, 6, 5, c, n > 0 or st == head and tr.run or st == S.cur)
+      local n, vel = step_info(tk, st)
+      local head_here = tr.run and st == head
+      local c = head_here and C.hot or (st == S.cur and C.e1 or (n > 0 and C.e2 or C.grid))
+      R(x, 20, 16, 22, C.ink, true)
+      R(x, 20, 16, 22, c, n > 0 or head_here)
+      if n > 0 then
+        local note = aget(Q.notes, sidx(tk, st, 0))
+        local nm = tk == 1 and (PADS[note] and PADS[note].name:sub(1, 3) or "?") or note_name(note)
+        T(nm, x + 8, 34, C.ink, "center")
+        R(x + 3, 52 - 8 * vel / 127, 10, 8 * vel / 127, C.e3, true)
+      elseif st == S.cur then
+        R(x + 5, 29, 6, 4, C.e1, true)
+      end
+      if i % 4 == 0 then L(x, 17, x + 16, 17, C.mute) end
     end
   end
-  R(96 + (S.cur % 16) * 8, 25, min(v[4], 16 - S.cur % 16) * 8 - 2, 2, C.e4, true)
-  if len > 16 then T(string.format("%d/%d", page + 1, len // 16), 78, 24, C.mute, "center") end
+  R(12 + (S.cur % 16) * 18.5, 44, min(v[4], 16 - S.cur % 16) * 18.5 - 2.5, 2, C.e4, true)
+  if len > 16 then T(string.format("%d/%d", page + 1, len // 16), 160, 14, C.mute, "center") end
   local top, nmax = 30, tk == 1 and 12 or 127                -- the note ladder: the pink mark is the brush note
   L(12, top, 12, 126, C.dim)
   R(9, 126 - 96 * (v[2] - 1) / (nmax - 1) - 1.5, 6, 3, C.e2, true)

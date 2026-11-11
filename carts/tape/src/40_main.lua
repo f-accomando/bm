@@ -1,11 +1,7 @@
 -- bm Tape main: pages, keys, encoders, transport, key strip, exit page.
-local SW, SH = 640, 360
 local cur = 1                          -- current page
 local menu = false                     -- the exit page
 local now, fno = 0, 0
-local ENC = { { K.Q, K.A }, { K.W, K.S }, { K.E, K.D }, { K.R, K.F } }
-local FKEYS = { K.F1, K.F2, K.F3, K.F4, K.F5, K.F6, K.F7, K.F8 }
-local TRKEYS = { K.D1, K.D2, K.D3, K.D4 }
 local rep = { 0, 0, 0, 0 }             -- frames each encoder key is held (0 = up)
 local REP_FIRST, REP_EVERY = 24, 3     -- auto-repeat: wait 24 frames, then every 3
 
@@ -31,33 +27,19 @@ local function encoders(sc)
   end
 end
 
--- the key strip below the display: two lines; the second one ends with the keys of the page
-local function draw_hints()
-  rectfill(0, 320, SW, 40, C.ink)
-  line(0, 320, SW - 1, 320, C.dim)
-  print("F1-8 MODULE  TAB PAGE  SPACE PLAY  ENTER REC  1-4 TRACK  SHIFT+N MUTE  ESC EXIT", 8, 324, C.mute)
-  local x = 8
-  for i, k in ipairs({ "Q/A", "W/S", "E/D", "R/F" }) do
-    x = print(k, x, 342, ECOL[i]) + 8
-  end
-  local sc = PAGES[cur].sc
-  local tail = "[ ] SOUND -/= OCT ;/' PAT P MODE ZXCV PUNCH"
-  if sc == grid_page then tail = "T SET BKSP CLEAR ;/' PAT P MODE CTRL+S/N SAVE/NEW"
-  elseif sc == tape_page then tail = "T WRITE BKSP CLEAR ;/' PAT P MODE CTRL+S/N SAVE/NEW" end
-  print("= ENC  " .. tail, x, 342, C.mute)
-end
-
 local function draw_menu()
-  rectfill(150, 110, 340, 100, C.ink)
-  rect(150, 110, 340, 100, C.hot)
-  print("LEAVE BM TAPE?", 170, 120, C.e4)
-  print("CTRL+ESC", 170, 148, C.e3); print("FREEZE AND LEAVE", 270, 148, C.mute)
-  print("ENTER", 170, 168, C.e3); print("CLOSE", 270, 168, C.mute)
-  print("ESC", 170, 188, C.e3); print("STAY", 270, 188, C.mute)
+  local x, y, w, h = g(380), g(200), g(520), g(190)
+  rectfill(x, y, w, h, C.ink)
+  rect(x, y, w, h, C.hot)
+  local s = LY.ts
+  print("LEAVE BM TAPE?", x + g(30), y + g(20), C.e4, s)
+  print("CTRL+ESC", x + g(30), y + g(76), C.e3, s); print("FREEZE AND LEAVE", x + g(200), y + g(76), C.mute, s)
+  print("ENTER", x + g(30), y + g(116), C.e3, s); print("CLOSE", x + g(200), y + g(116), C.mute, s)
+  print("ESC", x + g(30), y + g(150), C.e3, s); print("STAY", x + g(200), y + g(150), C.mute, s)
 end
 
 function _init()
-  screen(SW, SH)
+  screen(1280, 720)                      -- from the next frame; a console that cannot draw 720p keeps 640 x 360 and the layout halves
   rawkeys(true)
   engine.init()
   FX.init()
@@ -89,31 +71,31 @@ local function keys()
     if tr.run then transport_stop() else transport_start() end
   end
   if pressed(K.ENTER) then tr.rec = not tr.rec end
-  if pressed(K.P) and not ctrl() then SONG.mode() end
-  if pressed(K.SEMI) then SONG.pattern(-1) end
-  if pressed(K.QUOTE) then SONG.pattern(1) end
+  if pressed(K.BSLASH) then SONG.mode() end
+  if pressed(K.GUIL) then SONG.pattern(-1) end
+  if pressed(K.GUIR) then SONG.pattern(1) end
   if ctrl() then
     if pressed(K.S) then SV.save() end
     if pressed(K.N) then SV.new() end
   end
-  if pressed(K.MINUS) then octave(-1) end
-  if pressed(K.EQUALS) then octave(1) end
-  if pressed(K.LB) then next_sound(-1) end
-  if pressed(K.RB) then next_sound(1) end
+  if pressed(K.F) then octave(-1) end
+  if pressed(K.K) then octave(1) end
+  if pressed(K.ALTL) then next_sound(-1) end
+  if pressed(K.ALTR) then next_sound(1) end
   if pressed(K.UP) and page.sc.arrows then page.sc.arrows(1) end
   if pressed(K.DOWN) and page.sc.arrows then page.sc.arrows(-1) end
   if page.sc == grid_page then
-    if pressed(K.T) then grid_toggle() end
+    if pressed(K.A) then grid_toggle() end
     if pressed(K.BKSP) then
       if shift() then clear_track(S.trk) else clear_step(S.trk, S.cur) end
     end
   elseif page.sc == tape_page then
-    if pressed(K.T) then SONG.write() end
+    if pressed(K.A) then SONG.write() end
     if pressed(K.BKSP) then
       if shift() then SONG.clear_row() else SONG.clear() end
     end
   end
-  play_keys(true)
+  play_keys(not ctrl())
 end
 
 function _update()
@@ -136,16 +118,17 @@ function _update()
 end
 
 function _draw()
+  layout()
   cls(C.ink)
   local page = PAGES[cur]
   local sc = page.sc
   if sc.pull then sc.pull(sc) end
   local v = { sc.params[1].value, sc.params[2].value, sc.params[3].value, sc.params[4].value }
-  clipu(0, 14, 320, BOT + 2 - 14)
+  clipu(0, 14, 320, 122)
   sc.draw(now, v)
   clip()
-  frame(page, now)
-  draw_hints()
+  draw_screen(page, now)
+  draw_keys(page)
   if menu then draw_menu() end
 end
 

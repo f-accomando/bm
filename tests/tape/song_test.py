@@ -17,7 +17,7 @@ A save with another version, another magic or a cut file is refused: the state i
 import glob, os, re, shutil, subprocess, sys, tempfile
 
 HOST, CART = sys.argv[1:3]
-SPACE, F9, F10, KEY_P, KEY_4, KEY_S, KEY_N, SHIFT, CTRL = 0x2C, 0x42, 0x43, 0x13, 0x21, 0x16, 0x11, 0xE1, 0xE0
+SPACE, F9, F10, KEY_P, KEY_4, KEY_S, KEY_N, SHIFT, CTRL = 0x2C, 0x42, 0x43, 0x31, 0x21, 0x16, 0x11, 0xE1, 0xE0   # F9, F10: the test hook; P is now the backslash
 fails = []
 
 

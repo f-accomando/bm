@@ -1,7 +1,9 @@
 -- bm Tape playing, recording and step edit. The 12 keys of the KO-II block are the pads of the drum track
 -- or 12 semitones above the root of a synth track. Live notes use the voices 6 and 7 in turn. A live note has the
 -- level, the pan and the sends of its track, as a note of the sequencer.
-local PADK = { K.D7, K.D8, K.D9, K.U, K.I, K.O, K.J, K.K, K.L, K.M, K.COMMA, K.DOT }
+-- the piano: Z S X D C V G B H N J M are C to B (the white keys are the bottom row), then , L . ; / are C to E above
+local PADK = { K.Z, K.S, K.X, K.D, K.C, K.V, K.G, K.B, K.H, K.N, K.J, K.M, K.COMMA, K.L, K.DOT, K.SEMI, K.SLASH }
+local BLACK = { [2] = true, [4] = true, [7] = true, [9] = true, [11] = true, [14] = true, [16] = true }
 local live = { n = 0, held = {}, rec = {} }       -- held[i] = voice of key i; rec[i] = the recorded slot of key i
 
 -- the voice for a new live note: 6 or 7 in turn, the one that is not held by a key if there is one
@@ -34,7 +36,9 @@ local function rec_hit(t, note, vel, i)
 end
 
 local function key_on(i)
-  local t, v = S.trk, live_voice()
+  local t = S.trk
+  if t == 1 and not PADS[i] then return end        -- the drum kit has 12 pads: the keys above the first octave are silent
+  local v = live_voice()
   if t == 1 then
     local p = PADS[i]
     S.pad = i

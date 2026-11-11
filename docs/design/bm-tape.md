@@ -93,19 +93,26 @@ Without K2 (phases 1 to 4) a deck is a pattern set of 4 voices. The DJ module wa
 
 ### 4.1 Frame
 
+The screen is one small device, as an OP-1 or a cassette multitrack. The picture is only a part of it. 1280x720:
+
 ```
-+--------------------------------------------------------------+
-| SYNTH . FM            A1      120.0 BPM     03.2.1    [####] |  status strip, 12 units
-|                                                              |
-|                         the scene                            |  320 x 124 units
-|                                                              |
-| RATIO 2.00     DEPTH 3.4     FEEDBACK 0.20     DECAY 180 ms  |  value strip, 24 units
-+--------------------------------------------------------------+
++--------------------------------------------------------------+---------------+
+| Q SYNTH  W DRUM  E SEQ  R TAPE  T MIX  Y FX  U DJ  I TEMPO | > 120.0  001.1.1 |  top bar, 44 px
++--------------------------------------------------------------+---------------+
+|                                                              | SEQ GRID      |
+|                 the scene, 960 x 360                         | [GRID]        |
+|                                                              | encoder cells |
+|                                                              | track, voices |
++--------------------------------------------------------------+---------------+
+| one line: what to do on this page                                            |
+| the keyboard, drawn; each key shows what it does here          key colours   |  316 px
++------------------------------------------------------------------------------+
 ```
 
-- Status strip: module and page, track, tempo, bar.beat.step, voice lights (8 dots).
-- Value strip: four cells, one per encoder, in the colour of the encoder.
-- Scene: all that is between the strips.
+- Top bar: the eight modules as tabs with their F key; the open one is lit. Then play, tempo, bar.beat.step and REC.
+- Scene: all that the page edits, drawn in vector art.
+- Inspector: page name, sister pages (Tab), the four encoders (name, value, bar, keys), track, pattern, PAT or SONG, mutes, messages, 8 voice lights.
+- Keyboard map: see 4.4.
 
 ### 4.2 Palette
 
@@ -151,42 +158,27 @@ The common ground is a horizon at 60% of the height with a perspective grid belo
 
 A picture of nine of these scenes is at https://claude.ai/artifact/9hAxdY3ARgj9XHU6moybsX (private page of the user). Port the nine drawings to Lua in phase 1.
 
-### 4.4 Screen layout
+### 4.4 Keyboard map
 
-| Device | Canvas | Display | Rest of the screen |
-|---|---|---|---|
-| Pi | 640×360 | 640×320 at (0, 0), `S` = 2 | a 40-pixel strip: mode keys and key hints |
+The lower part of the screen draws the keyboard (`39_keys.lua`). A key with a label does something on this page. The colour is the group: violet navigate (modules, pages, tracks), the encoder colours (9/O cyan, 0/P magenta, -/[ amber, =/] white), mint piano (17 keys, white keys lit more than black, labelled with the pad name or the note), orange transport and punch-in, amber edit steps, grey setup. A lit key is on (open module, selected track, running transport). A bright key is held. The rows are data (`ROWS`), so another keyboard needs only a new table.
 
-The scenes use a 320×160 unit grid. A later RGB30 layout draws them at `S` = 1.
-
-Measure the fill cost of `S` = 2 on the Pi in phase 1. If a scene costs more than 4 ms, draw the ground once and the moving parts each frame.
+The scenes use a 320x160 unit grid, at 3 pixels a unit (1.5 at 640x360).
 
 ## 5. Controls
 
 Keys as of phase 3. The cartridge reads USB keys with `rawkeys(true)`.
 
-| Action | USB keyboard (Pi) |
+The keys are for an Apple Magic Keyboard (ANSI, no numpad; its F keys are media keys). The full table is in [`bm-tape-dev.md`](bm-tape-dev.md) section 5. The zones:
+
+| Zone | Keys |
 |---|---|
-| Encoder 1 to 4 | `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` (up / down). Hold to repeat. |
-| Fine step | add Shift |
-| Module | `F1` SYNTH, `F2` DRUM, `F3` SEQ, `F4` TAPE, `F5` MIX, `F6` FX, `F7` DJ, `F8` TEMPO |
-| Page | `Tab` goes to the next page of the module. Left and Right go through all ten pages in order. |
-| Engine (SYNTH ENGINE page) | Up / Down |
-| Track 1 to 4 | `1` to `4`. Track 1 is the drum track. `F2` selects track 1. `F1` selects the last synth track. |
-| Mute a track | Shift + `1` to `4` |
-| Pads and notes | the KO-II block `7 8 9 / U I O / J K L / M , .`. Track 1: pads 1 to 12. Tracks 2 to 4: 12 semitones from the root. The note holds while the key is down. |
-| Octave of a synth track | `-` / `=` |
-| Sound of the synth track | `[` / `]` (previous / next of the 20 sounds) |
-| Play / stop | Space |
-| Record | Enter arms and disarms. `REC` shows on the status strip. |
-| SEQ GRID: toggle a slot | `T` (a step you enter also sounds once) |
-| SEQ GRID: clear | Backspace clears the step, Shift + Backspace the track |
-| Pattern of the current track | `;` previous, `'` next (A to H). SEQ GRID and recording edit the selected pattern. The status strip shows its letter after the track. |
-| Transport mode | `P`: PATTERN (`PAT`, every track loops its pattern) or SONG (`SONG`, the slots between LOOP IN and LOOP OUT). While the transport plays, it starts again from the loop start. |
-| TAPE: write, clear | `T` writes the selected pattern of the current track at the cursor slot; Backspace clears the slot; Shift + Backspace clears the song row of the track |
-| Punch-in effect (hold) | `Z` stutter (the events of the last 1/16 note repeat every 1/16), `X` half speed (the clock runs at half tempo; on release it goes on from where it is), `C` filter sweep (a low pass that falls on every track), `V` crush. A `hot` label on the status strip shows the active effect. |
-| Save, new song | Ctrl + `S` saves. The cartridge also saves on `_exit()` and when the exit page closes it. Ctrl + `N` asks; a second Ctrl + `N` within 2 s starts the demo song. `SAVED` or the error shows on the status strip for 2 s. |
-| Exit page | Esc |
+| Modules (top letter row) | `Q W E R T Y U I` = SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO. `Tab`, Left, Right: pages |
+| Tracks (number row) | `1` to `4` select. Shift + `1` to `4` mutes |
+| Punch-in (number row) | `5 6 7 8`, held |
+| Encoders (right side) | `9 0 - =` up, `O P [ ]` down: the key below turns the encoder down |
+| Piano (bottom two rows) | `Z S X D C V G B H N J M , L . ; /`: white keys on the bottom row, black keys above. `F` and `K`: octave. Drum track: pads 1 to 12 |
+| Sequencer | `A` sets a step (SEQ) or writes a pattern (TAPE). Delete clears. Return arms REC. Space plays. Command: pattern. `\`: PAT or SONG. Option: sound |
+| File | Ctrl + `S` saves. Ctrl + `N` new song. Esc exit page |
 
 Pages: SYNTH (ENGINE, ENVELOPE, FILTER), DRUM (PAD), SEQ (GRID), TAPE, MIX (LEVEL, PAN), FX (ECHO, ROOM, CHORUS), DJ, TEMPO.
 

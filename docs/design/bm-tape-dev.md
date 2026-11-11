@@ -7,7 +7,7 @@ This file is the development document of the app **bm Tape** (cartridge `carts/t
 bm Tape is a portable studio in vector art. It has a synth, a 12-pad drum kit, a step sequencer, a 4-track song tape, a mixer, effects and punch-in effects. The cartridge is a Lua app with one typed `.b` file (`engine.b`) that the console compiles to native code.
 
 - Target: Raspberry Pi Zero W only (`targets: pi` in `carts/tape/bm.info`). The RGB30 is not supported.
-- Version: 0.3 (`bm.info`). Type: `app`. Input: `keyboard`. Resolution: 640x360.
+- Version: 0.3 (`bm.info`). Type: `app`. Input: `keyboard`. Resolution: 1280x720 asked with `screen()` (the header says 640x360; a console that cannot draw 720p keeps 640x360 and the layout halves).
 - Cartridge: `carts/tape` builds to `tape.bme` and `tape.bm`. The app is not in `GAMES` yet (`Makefile`).
 
 | Phase | Content | State |
@@ -42,8 +42,9 @@ bm Tape is a portable studio in vector art. It has a synth, a 12-pad drum kit, a
 | `35_scenes_mix.lua` | MIX LEVEL and MIX PAN scenes: four towers |
 | `35_scenes_fx.lua` | FX ECHO, ROOM and CHORUS scenes |
 | `36_pages.lua` | The 13 pages, `MODFIRST`, `tab_page`, `module_page` |
-| `38_frame.lua` | Status strip (top) and value strip (bottom) |
-| `40_main.lua` | `_init`, `_update`, `_draw`, `_exit`, keys, encoder repeat, key hint strip, exit page |
+| `38_frame.lua` | Screen layout (`layout()`): top bar with module tabs and transport, inspector (page, sister pages, 4 encoder cells, track, voices), hint line |
+| `39_keys.lua` | Keyboard map: `ROWS` (the keyboard as data) and `role()` (what each key does on the open page) |
+| `40_main.lua` | `_init`, `_update`, `_draw`, `_exit`, keys, encoder repeat, exit page |
 | `engine.b` | Typed code: `euclid`, `meter_fall`, `song_window` |
 | `../test/hook.lua` | Test hook. Build.py splices it in for `TAPE_TEST` builds only |
 | `../sounds/felucca.json` | List of the 24 sounds to render |
@@ -98,9 +99,9 @@ After a new commit of the engines, make `felucca_golden.txt` again and review th
 
 **Save.** `29_save.lua` calls `save(table)` into slot 1 (the default slot). The table has `magic = "BMTAPE"` and `ver = 1`. A reader refuses another magic, another version or a wrong shape, and starts the demo song. A save slot holds 32 KB at most (`docs/api/system.md`). The design gives about 3 KB for a typical song. The save runs on Ctrl+S, on `_exit()`, and when the exit page closes with Enter. The fields are in design section 9.
 
-**Display.** The scenes use a 320x160 unit grid. The scale `S` is 2: the display is 640x320 pixels and a 40-pixel strip below holds the key hints. The status strip is at the top and the value strip is at y = 146 units. The scene is clipped between them (`clipu` in `_draw`).
+**Display.** The screen is 1280x720 (`screen(1280, 720)` in `_init`) and halves at 640x360. `layout()` (in `38_frame.lua`) sets `SCL` (pixels per scene unit: 3, or 1.5) and the origin `OY` of the scene. The scenes keep the 320x160 unit grid and fill a window of 960x360 pixels at the left (`clipu(0, 14, 320, 122)` in `_draw`). The top bar is 44 pixels. The inspector is at the right. The keyboard map is below y = 404. A scene must not draw outside units y 14 to 136. Use `X()`, `Y()`, `RF()` and `clipu()` for pixels in a scene, not `px()` alone.
 
-**Colours.** One colour for each encoder: `e1` cyan, `e2` magenta, `e3` amber, `e4` white. Other colours in `C`: `ink`, `grid`, `hot`, `dim`, `mute`. The palette in code has nine entries. The design says eight. The comment in `00_core.lua` says seven.
+**Colours.** One colour for each encoder: `e1` cyan, `e2` magenta, `e3` amber, `e4` white. Other colours in `C`: `ink`, `grid`, `hot`, `dim`, `mute`, and for the keyboard map `nav`, `pad`, `key`. The palette in code has twelve entries. The design says eight. The comment in `00_core.lua` says seven.
 
 **Bank format.** bm Tape adds no encoder of the bank format. The tape bank holds samples only (see `build.py`). The sounds are `tone()` tables in the Lua source.
 
@@ -110,26 +111,28 @@ The cartridge reads USB keys with `rawkeys(true)`. The keys are checked in `40_m
 
 | Key | Action |
 |---|---|
-| `Q`/`A`, `W`/`S`, `E`/`D`, `R`/`F` | Encoder 1 to 4, up and down. Hold to repeat (after 24 frames, then every 3). Shift gives the fine step. Ignored while Ctrl is held |
-| `F1` to `F8` | SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO |
+| `9 0 - =` / `O P [ ]` | Encoder 1 to 4: the upper key turns it up, the key below it turns it down. Hold to repeat (after 24 frames, then every 3). Shift gives the fine step. Ignored while Ctrl is held |
+| `Q W E R T Y U I` | SYNTH, DRUM, SEQ, TAPE, MIX, FX, DJ, TEMPO |
 | `Tab` | Next page of the same module |
 | Left, Right | Previous or next of the 13 pages |
 | Up, Down | Engine of the synth track (SYNTH ENGINE page only) |
 | `1` to `4` | Select track. Track 1 is the drum track |
 | Shift + `1` to `4` | Mute or unmute the track |
-| `7 8 9 / U I O / J K L / M , .` | 12 pads (track 1) or 12 semitones from the root (tracks 2 to 4). The note holds while the key is down |
-| `-`, `=` | Octave of the synth track (-3 to 3) |
-| `[`, `]` | Previous or next of the 44 sounds |
+| `Z S X D C V G B H N J M , L . ; /` | The piano, 17 semitones: the bottom row is the white keys (C D E F G A B C D E), the row above is the black keys. Track 1: pads 1 to 12 on the first 12 keys. Tracks 2 to 4: semitones from the root. The note holds while the key is down |
+| `F`, `K` | Octave down or up of the synth track (-3 to 3) |
+| Left and right Option | Previous or next of the 44 sounds |
 | Space | Play or stop |
-| Enter | Arm or disarm record (`REC`). In the exit page: save and quit |
-| `T` | SEQ GRID: set or remove the brush note. TAPE: write the pattern into the cursor slot |
-| Backspace | SEQ GRID: clear the step. TAPE: clear the slot. Shift: clear the track (SEQ GRID) or the song row (TAPE) |
-| `;`, `'` | Previous or next pattern (A to H) of the track |
-| `P` | PATTERN or SONG mode |
-| `Z`, `X`, `C`, `V` | Hold: stutter, half speed, filter sweep, crush |
-| Ctrl + `S` | Save |
+| Return | Arm or disarm record (`REC`). In the exit page: save and quit |
+| `A` | SEQ GRID: set or remove the brush note. TAPE: write the pattern into the cursor slot |
+| Delete | SEQ GRID: clear the step. TAPE: clear the slot. Shift: clear the track (SEQ GRID) or the song row (TAPE) |
+| Left and right Command | Previous or next pattern (A to H) of the track |
+| `\` | PATTERN or SONG mode |
+| `5 6 7 8` | Hold: stutter, half speed, filter sweep, crush |
+| Ctrl + `S` | Save (the piano is off while Ctrl is held) |
 | Ctrl + `N` | New song. Press twice within 2 s |
-| Esc | Exit page (it reaches the cartridge as Start). Esc again: stay. Enter: save and quit. Ctrl + Esc: freeze and leave (`_exit` saves) |
+| Esc | Exit page (it reaches the cartridge as Start). Esc again: stay. Return: save and quit. Ctrl + Esc: freeze and leave (`_exit` saves) |
+
+The map is made for an Apple Magic Keyboard (ANSI, no numpad). Its F keys are media keys, so no F key is used. `ROWS` in `39_keys.lua` holds the keyboard as data.
 
 ## 6. What is missing
 

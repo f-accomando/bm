@@ -285,7 +285,7 @@ function flt_page.draw(t, v)
   local yc = 24 + 84 * lg(v[1], 0.1, 12)           -- a higher cutoff lowers the line: more of the sun shows
   clipu(0, 14, 320, yc - 14)
   O(160, 66, 42, 42, C.hot, true)
-  for i = 0, 5 do rectfill(px(118), px(66 + 42 * (0.1 + i * 0.16)), px(84), max(1, px(1 + i * 0.6)), C.ink) end
+  for i = 0, 5 do RF(118, 66 + 42 * (0.1 + i * 0.16), 84, 1 + i * 0.6, C.ink) end
   clip()
   local bump = {}
   for x = 100, 220, 3 do bump[#bump + 1] = { x, yc - 30 * v[2] * exp(-((x - 160) / 22) ^ 2) } end

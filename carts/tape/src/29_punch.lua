@@ -48,12 +48,12 @@ end
 -- once per frame after poll(): the four keys
 function PUNCH.update(now_t)
   if ctrl() then return end
-  if pressed(K.Z) then PUNCH.start_stutter() end
-  if released(K.Z) then PUNCH.stut = nil end
-  PUNCH.slow = held[K.X] or false
-  if pressed(K.C) then PUNCH.sweep, PUNCH.t0 = true, now_t end
-  if released(K.C) then PUNCH.sweep = false end
-  if pressed(K.V) or released(K.V) then PUNCH.crush = held[K.V] or false; MIX.touch() end
+  if pressed(K.D5) then PUNCH.start_stutter() end
+  if released(K.D5) then PUNCH.stut = nil end
+  PUNCH.slow = held[K.D6] or false
+  if pressed(K.D7) then PUNCH.sweep, PUNCH.t0 = true, now_t end
+  if released(K.D7) then PUNCH.sweep = false end
+  if pressed(K.D8) or released(K.D8) then PUNCH.crush = held[K.D8] or false; MIX.touch() end
   if PUNCH.sweep then                              -- the voices that sound follow the sweep now
     local c8 = cutoff8(PUNCH.cutoff(now_t))
     for v = 0, 7 do
