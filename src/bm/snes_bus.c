@@ -215,8 +215,25 @@ void snes_map_build(void)
     }
 }
 
+/* The slow bus path counted in the timed frames (snes_now_us is set): what the CPU reaches through snes_read and snes_write, by kind. */
+static uint32_t bus_cnt[7], bus_cnt_dma_runs, bus_cnt_dma_bytes;
+static inline void bus_count(uint32_t a, int wr)
+{
+    const unsigned off = a & 0xFFFF, bank = (a >> 16) & 0x7F;
+    int k = 6;
+    if (bank < 0x40 && off >= 0x2100 && off < 0x4400) {
+        if (off < 0x2140) k = wr ? 0 : 1;
+        else if (off < 0x2180) k = 2;
+        else if (off < 0x2184) k = 3;
+        else if (off < 0x4300) k = 4;
+        else k = 5;
+    }
+    bus_cnt[k]++;
+}
+
 uint8_t snes_read(uint32_t a)
 {
+    if (snes_now_us) bus_count(a, 0);
     snes_clk += access_clk(a);
     const unsigned off = a & 0xFFFF;
     if (off >= 0x2100 && off < 0x4400 && ((a >> 16) & 0x7F) < 0x40) {
@@ -228,6 +245,7 @@ uint8_t snes_read(uint32_t a)
 
 void snes_write(uint32_t a, uint8_t v)
 {
+    if (snes_now_us) bus_count(a, 1);
     snes_clk += access_clk(a);
     raw_write(a, v);
 }
@@ -409,6 +427,7 @@ static void run_dma(uint8_t mask)
         uint16_t a = d->a1t;
         int idx = 0;
         snes_clk += 8;
+        bus_cnt_dma_runs++; bus_cnt_dma_bytes += count;
         while (count--) {
             dma_unit(d, ((uint32_t)d->a1b << 16) | a, to_b, idx++);
             if (!(d->dmap & 0x08)) a = (uint16_t)((d->dmap & 0x10) ? a - 1 : a + 1);
@@ -584,6 +603,7 @@ void snes_reset(void)
 static uint32_t avg_part[5];                     /* the parts of the PPU (layers, sprites, windows, compose, mix): a drawn frame, in microseconds */
 static uint32_t avg_mi[3][3];                    /* ARM instructions, cycles and the event's count of a timed frame, by part (CPU, sound, PPU) */
 static uint32_t avg_ev[3][3];                    /* event k: by part */
+static uint32_t avg_bus[7], avg_dma_runs, avg_dma_bytes;
 static uint32_t avg_frame, avg_ppu, avg_spc, avg_cpu, avg_dma, avg_hdma, avg_instr, avg_gsu, avg_gsu_i;
 /* The timer read costs about 6 us on the Pi, and a frame reads it 3 times a line (more inside the PPU): timing every frame would take a third of the frame.
  * So one frame of 7 is timed (`timed`); `now_us` is the clock in that frame and NULL in the others. The cost of one read is measured at the start of
@@ -606,6 +626,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     const int ev_k = (int)((S.frames / 7) % 3);
     if (timed && meter_fn) { if (meter_ev_fn) meter_ev_fn(ev_k); meter_fn(m_prev); }
     uint32_t t_prev = t_start;                     /* the end of the last part: the CPU part of a line is the time from here to the start of the sound */
+    memset(bus_cnt, 0, sizeof bus_cnt); bus_cnt_dma_runs = bus_cnt_dma_bytes = 0;
     acc_dma = 0; acc_spc = n_spc_sync = 0; acc_spc_m[0] = acc_spc_m[1] = acc_spc_m[2] = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
@@ -692,6 +713,9 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
                 avg_part[k] = avg_part[k] ? (uint32_t)((int32_t)avg_part[k] + ((int32_t)v - (int32_t)avg_part[k]) / 2) : v;
             }
         }
+        for (int k = 0; k < 7; k++) avg_bus[k] = avg_bus[k] ? (uint32_t)((int32_t)avg_bus[k] + ((int32_t)bus_cnt[k] - (int32_t)avg_bus[k]) / 2) : bus_cnt[k];
+        avg_dma_runs = (uint32_t)((int32_t)avg_dma_runs + ((int32_t)bus_cnt_dma_runs - (int32_t)avg_dma_runs) / 2);
+        avg_dma_bytes = (uint32_t)((int32_t)avg_dma_bytes + ((int32_t)bus_cnt_dma_bytes - (int32_t)avg_dma_bytes) / 2);
         if (meter_fn) {
 #define AVM(a, v) ((a) = (a) ? (uint32_t)((int32_t)(a) + ((int32_t)(v) - (int32_t)(a)) / 2) : (v))
             for (int p = 0; p < 3; p++) {
@@ -788,6 +812,8 @@ void snes_debug(snes_debug_t *d)
         spc_peek(d->spc_pc, d->spc_code, 12, d->port_in, d->port_out, d->timer_out, regs);
         d->spc_ctl = regs[0]; d->spc_tgt[0] = regs[1]; d->spc_tgt[1] = regs[2]; d->spc_tgt[2] = regs[3]; d->spc_en = regs[4]; d->spc_writes = (uint32_t)(regs[5] | (regs[6] << 8) | (regs[7] << 16));
     }
+    for (int k = 0; k < 7; k++) d->bus_n[k] = avg_bus[k];
+    d->dma_runs = avg_dma_runs; d->dma_bytes = avg_dma_bytes;
     for (int p = 0; p < 3; p++) {
         d->m_instr[p] = avg_mi[p][0]; d->m_cycles[p] = avg_mi[p][1];
         for (int k = 0; k < 3; k++) d->m_ev[k][p] = avg_ev[k][p];

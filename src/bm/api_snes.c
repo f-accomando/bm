@@ -269,7 +269,7 @@ int l_snes_debug(lua_State *L)
     }
     lua_pushstring(L, hex); lua_setfield(L, -2, "us");
     {
-        char ml[420];                                  /* the PPU parts, then the ARM's counters by part (cpu, spc, ppu) when the meter runs */
+        char ml[720];                                  /* the PPU parts, then the ARM's counters by part (cpu, spc, ppu) when the meter runs */
         int n = snprintf(ml, sizeof ml, "ppu us: bg %lu obj %lu win %lu comp %lu mix %lu", (unsigned long)d.us_bg, (unsigned long)d.us_obj, (unsigned long)d.us_win, (unsigned long)d.us_comp, (unsigned long)d.us_mix);
         if (d.m_cycles[0] | d.m_cycles[1] | d.m_cycles[2]) {
             static const char *const names[3] = { "icache miss", "dcache miss", "mispredict" };
@@ -279,6 +279,9 @@ int l_snes_debug(lua_State *L)
             for (int k = 0; k < 3 && n < (int)sizeof ml - 60; k++)
                 n += snprintf(ml + n, sizeof ml - (size_t)n, " | %s: cpu %lu spc %lu ppu %lu", names[k], (unsigned long)d.m_ev[k][0], (unsigned long)d.m_ev[k][1], (unsigned long)d.m_ev[k][2]);
         }
+        n += snprintf(ml + n, sizeof ml - (size_t)n, " | bus ppuw %lu ppur %lu apu %lu wram %lu cpu %lu dmar %lu other %lu | dma runs %lu bytes %lu",
+                      (unsigned long)d.bus_n[0], (unsigned long)d.bus_n[1], (unsigned long)d.bus_n[2], (unsigned long)d.bus_n[3], (unsigned long)d.bus_n[4],
+                      (unsigned long)d.bus_n[5], (unsigned long)d.bus_n[6], (unsigned long)d.dma_runs, (unsigned long)d.dma_bytes);
         lua_pushstring(L, ml); lua_setfield(L, -2, "us_ppu");
     }
     {

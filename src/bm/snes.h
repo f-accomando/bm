@@ -62,6 +62,7 @@ typedef struct {
     uint8_t port_in[4], port_out[4];    /* the four ports: written by the CPU, written by the sound CPU */
     uint8_t timer_out[3];
     uint16_t trace[12], trace_s[12];
+    uint32_t bus_n[7], dma_runs, dma_bytes;   /* the slow bus path of a timed frame: accesses by kind (PPU write, PPU read, sound ports, WRAM port, CPU registers, DMA registers, other), DMA runs and bytes */
     uint32_t m_instr[3], m_cycles[3], m_ev[3][3];   /* by part (CPU, sound, PPU) of a timed frame: ARM instructions, cycles, and the events 0..2 (0: no counter or not yet taken) */
     uint32_t us_bg, us_obj, us_win, us_comp, us_mix;     /* since the last read: layers, sprites, windows, mixing (microseconds) */
     uint32_t us_frame, us_ppu, us_spc, us_draw; /* the time of a frame and its parts, averaged, in microseconds */

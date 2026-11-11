@@ -549,6 +549,7 @@ void gpu3d_page(int uniform, uint16_t c) { (void)uniform; (void)c; }
 int gpu3d_cleared(void) { return 0; }
 void gpu3d_drop(void) { }
 void gpu3d_quiesce(const char *where) { (void)where; }
+void gpu3d_trace(const char *where) { (void)where; }
 int gpu3d_flush(const g16_t *g, int keep) { (void)g; (void)keep; return 0; }
 void gpu3d_set_msaa(int on) { (void)on; }
 int gpu3d_msaa(void) { return 0; }
