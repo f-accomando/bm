@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.3.0-56-g35cafc73
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-4d75ed_freeze_pi-zero-w_v0.3.0-56-g35cafc73.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 429 s after boot, kernel v0.3.0-55-g493081cb, ring 98556, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+s frame 9623 ppu 3185 cpu 6438 | audio: HDMI 48 kHz  under 1315598 over 0
+nes t=129.6 upd=60 drw=60 fps=60 pic=1/1 umax=10.3 uavg=8.5 dmax=3.7 davg=3.6 gap=22 late=0 lua=12 mode=native | us frame 8505 ppu 3156 cpu 5349 | audio: HDMI 48 kHz  under 1315598 over 0
+nes t=130.6 upd=60 drw=60 fps=60 pic=1/1 umax=10.0 uavg=9.4 dmax=3.7 davg=3.6 gap=23 late=0 lua=14 mode=native | us frame 9683 ppu 3215 cpu 6467 | audio: HDMI 48 kHz  under 1315605 over 0
+bm: "bm NES" suspended (A on its cover resumes it)
+bm: "bm NES" 6549 frames, 59.9 fps, 12 dropped
+     update+draw avg 12.39 ms (74% of frame), max 30.95 ms, Lua 128 KB
+     dev kit: Lua peak 684 KB, data 310 KB, busiest frame 1k instructions, 105 frames over 16.7 ms, 2620 tokens
+report: session_bm-nes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+fiber: reports did not yield: 101.3 ms past its slice
+report: sending session_bm-nes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-nes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-nes_pi-zero-w.txt
+menu idle: 300/300 frames, 1153 of 1821 ms taken, 103.8 ms past a frame; reports 1122 ms (+101.3, stk 7.6/128K, stop 15.4); min slack -10306 us, paced 0
+menu idle: sd first word <1ms 87 <3ms 4 (max 2.4 ms)
+menu stalls: tls handshake 1x last 385.1 worst 385.1 ms
+menu frame: 1x, a frame averages draw 9145 us, enlarge 0 us, flip 91 us, free time used 3845 us (300 frames)
+market: nearby consoles: listening as bm-108
+bm: "bm NES" closed, memory freed
+menu: closed nes.bm
+report: sending session_bm-nes_pi-zero-w.txt
+menu idle: 300/300 frames, 995 of 1615 ms taken, 98.2 ms past a frame; reports 985 ms (+98.2, stk 7.7/128K); min slack -12372 us, paced 0
+menu idle: sd first word <1ms 45 <3ms 1 (max 2.4 ms)
+menu stalls: tls handshake 1x last 298.4 worst 298.4 ms
+menu frame: 1x, a frame averages draw 9739 us, enlarge 0 us, flip 91 us, free time used 3317 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-nes_pi-zero-w.txt
+net: receiving a new kernel (6805012 bytes)...
+net: kernel 0% (0 of 6645 KB)
+menu idle: 300/300 frames, 134 of 2029 ms taken, 45.0 ms past a frame; reports 122 ms (+45.0, stk 7.7/128K); min slack 3353 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 2.4 ms)
+menu frame: 1x, a frame averages draw 8309 us, enlarge 0 us, flip 91 us, free time used 447 us (300 frames)
+net: kernel 10% (665 of 6645 KB)
+net: kernel 20% (1338 of 6645 KB)
+menu frame: 1x, a frame averages draw 8927 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+net: kernel 30% (1995 of 6645 KB)
+net: kernel 40% (2663 of 6645 KB)
+menu frame: 1x, a frame averages draw 8750 us, enlarge 0 us, flip 92 us, free time used 37 us (300 frames)
+net: kernel 50% (3323 of 6645 KB)
+net: kernel 60% (3995 of 6645 KB)
+menu frame: 1x, a frame averages draw 8840 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+net: kernel 70% (4660 of 6645 KB)
+net: kernel 80% (5320 of 6645 KB)
+menu frame: 1x, a frame averages draw 8864 us, enlarge 0 us, flip 91 us, free time used 37 us (300 frames)
+net: kernel 90% (5988 of 6645 KB)
+net: dev mode: kernel received (6805012 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 294.0 ms past its slice
+menu idle: 300/300 frames, 1398 of 1511 ms taken, 296.6 ms past a frame; netxfer 2226 ms (+294.0, stk 1.1/64K); min slack -101216 us, paced 0
+menu idle: sd first word <1ms 133 <3ms 91 (max 2.4 ms)
+menu frame: 1x, a frame averages draw 11980 us, enlarge 0 us, flip 92 us, free time used 4661 us (300 frames)
+net: saved kernel.img on the SD card (6805012 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
