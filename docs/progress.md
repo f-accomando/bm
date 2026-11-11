@@ -46,6 +46,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [snes-convert](progress/snes-convert.md) | bm SNES: notes on converting a ROM to ARM code (static recompiler and JIT, instruction mapping), estimates only, no code | `src/bm/snes_cpu.c` |
 | [snes-measure](progress/snes-measure.md) | bm SNES: the time of a frame in its parts (CPU with the bus, DMA, HDMA, PPU, sound), the sampled timer and the first Pi Zero W table (C1) | `src/bm/snes_bus.c`, `tests/snes/core_test.c` |
 | [snes-superfx](progress/snes-superfx.md) | bm SNES: the Super FX co-processor (GSU-1 and GSU-2): registers, instruction set, cache, pixel plot, memory map, timing, with the source of each fact | `src/bm/snes_gsu.c`, `tests/snes/gsu_test.c` |
+| [snes-superfx-isa](progress/snes-superfx-isa.md) | bm SNES: the Super FX instruction set (opcode table with flags), the delay slot, the pixel cache and bitmap modes, the instruction cache and the timing | `src/bm/snes_gsu.c` |
 | [snes-resources](progress/snes-resources.md) | bm SNES: resources to learn 65C816 assembly and make SNES games (PVSnesLib, a SNES assembly course, an SMW disassembler, an IDE), and how they help the emulator | `tests/snes/` |
 | [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `scripts/smw_extract.py`, `scripts/smw_capture.py` |
 | [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |
