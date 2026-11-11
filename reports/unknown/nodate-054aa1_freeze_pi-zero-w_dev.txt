@@ -1,0 +1,120 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-054aa1_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: moniart: the log to the SD, frame 0, 322 s after boot, kernel dev, ring 133221, sink on
+--- the last lines printed ---
+   52624  bootcode.bin
+    1425  config.txt
+    7381  fixup.dat
+ 6765996  kernel.img
+ 3023104  start.elf
+   <dir>  carts/
+   <dir>  DOCS/
+   <dir>  bm/
+ 3022740  kernel7.img
+   <dir>  apps/
+   <dir>  bmm/
+   <dir>  bmf/
+   <dir>  code-b/
+   <dir>  glb/
+   <dir>  sfc/
+   <dir>  psx/
+   <dir>  nes/
+6 files, 12873270 bytes; 12 folders
+bm: cd m bm
+bm: ls
+   <dir>  SAVE/
+    1450  CONFIG.TXT
+   30049  BCM43430A1.hcd
+  399344  brcmfmac43430-sdio.bin
+    4733  brcmfmac43430-sdio.clm_blob
+    1121  brcmfmac43430-sdio.txt
+   27701  ca.pem
+   46979  SYN43430A1.hcd
+   44376  SYN43430B0.hcd
+  416101  brcmfmac43436-sdio.bin
+   11209  brcmfmac43436-sdio.clm_blob
+    1706  brcmfmac43436-sdio.txt
+  442211  brcmfmac43436s-sdio.bin
+    1185  brcmfmac43436s-sdio.txt
+   <dir>  BACKUP/
+   <dir>  BENCH/
+   <dir>  REPORTS/
+   <dir>  MARKET/
+    6977  BOOTPREV.TXT
+    3140  BOOTLOG.TXT
+   51205  LASTRUN.TXT
+   <dir>  SHOTS/
+   <dir>  VIDBENCH/
+    1106  sdmap.txt
+   <dir>  staging/
+  451932  bench3d.bm
+ 1723888  titan-cl.bm
+   <dir>  web/
+ 6430584  yharnam.bm
+   54468  astrowin.bm
+  895588  kitchen.bm
+ 1713280  titan.bm
+ 2374032  overbit.bm
+   85244  ko2.bm
+       5  bridge.txt
+ 1295968  assistan.bm
+   46288  agent.bm
+     262  ai.txt
+  724368  res-publ.bm
+   <dir>  carts/
+ 2193120  darknigh.bm
+  111776  animator.bm
+  187508  mesh.bm
+ 2583736  tape.bm
+   86632  font.bm
+   59788  snes.bm
+   57768  snes16.bm
+   40804  psx.bm
+38 files, 22607632 bytes; 10 folders
+bm: cd config.txt
+cd: /bm/config.txt: not a folder
+bm: bm: cd config.txtt cbm: c config.txtbm:  config.txtbm: c config.txtbm: co config.txtbm: cod config.txtbm: code config.txt
+bm: menu
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 1920x1080, drawn by the GPU
+menu idle: sd first word <1ms 15 <3ms 11 (max 9.1 ms)
+menu frame: 1x, a frame averages draw 16106 us, enlarge 0 us, flip 94 us, free time used 37 us (300 frames)
+menu frame: 1x, a frame averages draw 14072 us, enlarge 0 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13988 us, enlarge 0 us, flip 92 us, free time used 41 us (300 frames)
+menu idle: sd first word <1ms 10 <3ms 2 (max 9.1 ms)
+menu frame: 1x, a frame averages draw 14241 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+net: receiving a new kernel (6765996 bytes)...
+net: kernel 0% (0 of 6607 KB)
+menu frame: 1x, a frame averages draw 14196 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+net: kernel 10% (667 of 6607 KB)
+net: kernel 20% (1329 of 6607 KB)
+net: kernel 30% (1989 of 6607 KB)
+menu frame: 1x, a frame averages draw 15541 us, enlarge 0 us, flip 95 us, free time used 42 us (300 frames)
+net: kernel 40% (2643 of 6607 KB)
+net: kernel 50% (3310 of 6607 KB)
+net: kernel 60% (3967 of 6607 KB)
+net: kernel 70% (4627 of 6607 KB)
+menu frame: 1x, a frame averages draw 15525 us, enlarge 0 us, flip 96 us, free time used 41 us (300 frames)
+net: kernel 80% (5289 of 6607 KB)
+net: kernel 90% (5948 of 6607 KB)
+net: dev mode: kernel received (6765996 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 51.6 ms past its slice
+menu idle: 300/300 frames, 947 of 812 ms taken, 54.1 ms past a frame; netxfer 1800 ms (+51.6, stk 1.1/64K); min slack -111867 us, paced 0
+menu idle: sd first word <1ms 5 <3ms 205 <25ms 1 (max 18.0 ms)
+menu frame: 1x, a frame averages draw 18390 us, enlarge 0 us, flip 96 us, free time used 3156 us (300 frames)
+net: saved kernel.img on the SD card (6765996 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 19 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
