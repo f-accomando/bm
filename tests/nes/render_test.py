@@ -87,6 +87,24 @@ def main():
     check("the sprite moves down while A is held", centre(held, 1) > centre(f200, 1) + 20)
     menu = pixels(read_png(tmp + "/shots/menu.png"))
     check("the menu opens", has(menu, (0xFF, 0x60, 0x60)))
+    # a long list: ten times down, the highlighted row must be on the screen (the list scrolls with the selector)
+    sd2 = tmp + "/sd2"
+    os.makedirs(sd2 + "/nes"); os.makedirs(sd2 + "/docs"); os.makedirs(tmp + "/shots2")
+    for i in range(14):
+        shutil.copy(tmp + "/sd/nes/bmtest.nes", sd2 + "/nes/rom%02d.nes" % i)
+    nl = chr(10)
+    script2 = "5 shot top" + nl + "".join("%d pad 1 down" % (10 + 4 * k) + nl + "%d pad 1 none" % (12 + 4 * k) + nl for k in range(10)) + "80 shot low" + nl
+    open(tmp + "/in2.txt", "w").write(script2)
+    subprocess.check_call([host, cart, "--sd", sd2, "--seconds", "3", "--shots", tmp + "/shots2",
+                           "--input", tmp + "/in2.txt", "--quiet"], stdout=subprocess.DEVNULL)
+    hl = (0x60, 0x30, 0x40)
+    def hl_rows(path):
+        w, h, bpp, rows = read_png(path)
+        return [y for y in range(h) if any(near(tuple(rows[y][x * bpp:x * bpp + 3]), hl) for x in range(0, w, 4))], h
+    r_top, h_top = hl_rows(tmp + "/shots2/top.png")
+    r_low, h_low = hl_rows(tmp + "/shots2/low.png")
+    check("long list: the selector shows after ten downs", bool(r_low) and max(r_low) < h_low - 30)
+    check("long list: the list moved", bool(r_top) and bool(r_low) and max(r_low) >= min(r_top))
     print("nes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     if fails:
         shutil.copy(tmp + "/shots/f200.png", os.environ.get("NES_DBG", "build/nes_fail.png"))
