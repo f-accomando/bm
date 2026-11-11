@@ -36,6 +36,7 @@ Pi Zero W reports of 21-23 Oct (3D Bench, hero path, cel cost) and the user deci
 - Mali: the RGB30 triangle fails (`JS_STATUS` 58); the variant probe is ready but has no entry point since the GPU test page was removed (24 Oct 2026); see [graphics-mali](graphics-mali.md) `Open work`.
 - Sprite stacking (`stack()`, stack zones, `zstack()`) is done. It runs on the CPU only.
 Decisions from the Pi reports, `scaling_kernel` and what to measure on the Pi: [v3d-notes](v3d-notes.md). First QPU run (key `gpu3d_qpu`): same file, "First QPU run on the Pi".
+- Rule: `v3d_init` and `regs_init` (`src/gpu/v3d.c`) make no QPU power cycle by mailbox and write no `SRQCS`, `L2CACTL` or `SLCACTL`. A cycle before the probes made `probe_index` hang on the Pi Zero W (11 Nov 2026, kernel v0.3.0-12). The firmware then did not answer tag `0x00030012`. After a probe job that does not end, `recover()` calls `v3d_soft_reset()` (registers only). Do not call `v3d_reset()` (mailbox cycle) while a job is stuck: the firmware does not answer.
 
 ## Graphics keys (SYS-9 part 1)
 
