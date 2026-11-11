@@ -62,7 +62,7 @@ P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
 | G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; tables of Super Mario World (layers 43%, colour math 29%, sprites 17%, priority list 11%) and of Super Castlevania IV in `snes-measure.md`. Left: Mode 7 and HDMA scenes of SMW | 0 | 2 | a table for the scenes that drop |
-| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c` | 3 | 6 | byte for byte against `ppu_ref.c` |
+| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c`. Done on the PC (see "G2 result"); not run on the Pi | 3 | 6 | byte for byte against `ppu_ref.c` |
 | G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
 | G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |
 | G5 | Mode 1 shader (BG1 to BG3, sprites) | 4 | 8 | same, Super Mario World frames |
@@ -72,5 +72,17 @@ P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 | G9 | Modes 0, 2, 3, 4 (offset-per-tile) | 8 | 8 | same |
 | G10 | Modes 5, 6, interlace, mosaic: decide if they stay on the ARM | 8 | 1 | a written decision |
 | G11 | The GPU writes the 256x224 target directly, no blit (native mode only) | 7 | 5 | the draw cost measured before and after |
+
+## G2 result (prototype, PC only)
+
+Status: done on the V3D emulator. Nothing runs on the Pi, and the cart still uses the ARM PPU.
+
+- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is not in `src/gpu/qpuprog.h` and the kernel does not load it.
+- What it does: the picture of Mode 7 for a frame with only BG1 on. Each of 16 lanes makes two pixels of a block of 32. The ARM does the set-up of each line (X and Y at the start of the line, as `draw_mode7` does). The `mul24` of the QPU is unsigned and has 24 bits, so the 16-bit by 13-bit products of the set-up stay on the ARM. In the loop `a * xx` is `(a + 32768) * xx - (xx << 15)`.
+- Gate: 56 states give the same 57344 pixels as `ppu_line` of `ppu_ref.c`: identity, scroll, rotation, zoom out to the corner, mirrors, the four screen-over modes (wrap, wrap, clear, tile 0), the largest and the smallest matrix words, and 40 random states with any 16-bit matrix (16 fixed states, `make test-snes-g2` runs them and the 40).
+- What the QPU needs from the ARM: the 64 KB of video RAM in memory the V3D reads (a copy for each frame, or a change list), the colour table `lut` of `ppu_line` (256 halves, brightness applied), two words for each line, and the matrix words. The VRAM tile map (even bytes) and the 8-bit tiles (odd bytes) are read as they are.
+- Cost: 143 instructions for each block of 32 pixels (1792 blocks, 256732 instructions a frame) and 8 TMU reads for each block (6 gathers of 16 words, 2 shared words). The count is of instructions, not of cycles. Estimate for the Pi (not measured): 12 QPUs at 250 MHz give about 90 microseconds of instructions; the 170000 words of the gathers and the fixed cost of a job (about 0.3 ms) put the frame between 0.5 and 1 ms. The Mode 7 layer costs 3.7 ms on the ARM (Super Castlevania IV, `snes-measure.md`), so the gain could be 2.5 ms a Mode 7 frame, less the copy of the VRAM.
+- Left out: sprites, windows, colour math, HDMA (G3, G4, G6), the EXTBG mode, mosaic, direct colour, the layer as an input of the compose step (the shader gives the final colour of a frame with BG1 alone). A real path needs the layer with its priority (G6, G8).
+- Value: Super Mario World uses Mode 7 only in a few boss fights, so G2 helps few scenes there. The Mode 7 games gain most. The 72% of the PPU time in Super Mario World is Mode 1 (layers and colour math): G5 and G6.
 
 Order: G1, G2, G3, G4, G5, G6, G8, G7, G11, then G9 and G10.

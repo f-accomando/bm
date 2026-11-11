@@ -955,7 +955,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -1151,7 +1151,7 @@ qemu-screenshot: $(BUILD)/kernel.img
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
       test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-bmz test-loading \
-      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
+      test-release test-smp test-qpu test-qpurun test-qpucheck test-snes-g2 test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-shell-code test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/carts/hero.bm $(BUILD)/carts/mapkit.bm $(BUILD)/carts/testkit.bm
@@ -1926,6 +1926,19 @@ test-qpucheck: $(BUILD)/host/test_qpucheck
 	$< 0
 	$< 1
 	$< 2
+
+# G2 (docs/progress/snes-gpu.md): the Mode 7 layer of the SNES PPU on the QPUs, on the V3D emulator, against the reference PPU byte for byte
+$(BUILD)/qpu_snes.h: tools/qpusnes.py tools/qpuprogs.py tools/qpuasm.py
+	@mkdir -p $(BUILD)
+	$(PYTHON) tools/qpusnes.py -o $@
+$(BUILD)/host/test_snes_m7: tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h $(BUILD)/qpu_snes.h tests/snes/ppu_ref.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Isrc/bm -c -o $(BUILD)/host/snes_m7_ref.o tests/snes/ppu_ref.c
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc -Isrc/bm -Itests/gpu -I$(BUILD) -o $@ tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c src/gpu/v3d_cl.c src/gpu/etc1.c 	    $(BUILD)/host/snes_m7_ref.o src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+
+test-snes-g2: $(BUILD)/host/test_snes_m7
+	$<
+	$< cost
 
 HOSTCC ?= cc
 
