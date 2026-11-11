@@ -14,12 +14,14 @@ local BTNS = { { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start"
 -- same. On a keyboard or an Xbox pad bm's A is the bottom button and X the left one: swap them.
 local SWAP = { a = "b", b = "a", x = "y", y = "x" }
 local swap = false
--- The keyboard (read with keydown) plays player 1, or player 2 when a pad is player 1: one person on the keyboard and one on a pad can play together.
+-- Keyboard as player (menu): off, the keyboard plays together with pad 1 (player 1); on, it is a player of its own: player 2 when a pad is player 1,
+-- else player 1.
+local kb_player = false
 local kbp = 1                 -- the player the keyboard keys play
 local function pad_layout()
   local c = controller and controller(1)
   swap = not (c and c.layout == "nintendo")
-  kbp = (c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
+  kbp = (kb_player and c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
 end
 
 local frames = 0
@@ -238,7 +240,7 @@ local cur_lines = 224                          -- lines of the picture now: 224,
 -- Where the picture goes for `lines` lines. A new size makes a new render target: the machine fills it whole.
 local gmesh
 -- the menu is 228 pixels high: centred, but it never goes below the screen (the native screen is 256 high)
-function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 232)) end
+function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 256)) end
 -- The logger: one line a second in the kernel's log (`log`), no text on the screen. Read it with `pi.py line log` or the monitor command `log`.
 -- Fields: t seconds; upd = emulated frames; drw = pictures drawn; fps = the console's loop; pic = picture every N frames;
 -- umax/uavg = the longest and the mean update (ms); dmax/davg = the same for the draw; gap = the longest time between two draws (ms);
@@ -376,14 +378,15 @@ function _update()
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
     if nav_up() then menusel = math.max(1, menusel - 1) end
-    if nav_down() then menusel = math.min(7, menusel + 1) end
+    if nav_down() then menusel = math.min(8, menusel + 1) end
     if nav_ok() then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); snes_reset(); state = "run"
       elseif menusel == 3 then show_fps = not show_fps
       elseif menusel == 4 then next_mode()
-      elseif menusel == 5 then export_sprites()
-      elseif menusel == 6 then log_on = not log_on; log("snes log " .. (log_on and "on" or "off"))
+      elseif menusel == 5 then kb_player = not kb_player; pad_layout()
+      elseif menusel == 6 then export_sprites()
+      elseif menusel == 7 then log_on = not log_on; log("snes log " .. (log_on and "on" or "off"))
       else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") or kedge(0x29) then state = "run"; holdmenu = 0 end
@@ -435,10 +438,10 @@ function _draw()
     if log_on and state == "run" then log_draw(0) end
     if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
     if state == "menu" then
-      rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x101820)
-      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
-      for i = 1, 7 do print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
-      if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 200, 0xFFD050) end
+      rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0x101820)
+      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+      for i = 1, 8 do print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
+      if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 224, 0xFFD050) end
     end
     return
   end
@@ -513,14 +516,14 @@ function _draw()
   end
   if MINI or (show_fps and not AUTO) then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end   -- one line: the loop, the machine (updates a second), the picture rate
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x101820)
-    rect(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0xFFD050)
+    rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0x101820)
+    rect(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0xFFD050)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
-    for i = 1, 7 do
+                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+    for i = 1, 8 do
       print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
-    print(snes_info().title, SCREEN_W // 2 - 90, menu_top() + 184, 0x8090A0)
-    if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 200, 0xFFD050) end
+    print(snes_info().title, SCREEN_W // 2 - 90, menu_top() + 208, 0x8090A0)
+    if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 224, 0xFFD050) end
   end
 end

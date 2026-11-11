@@ -64,8 +64,8 @@ def main():
                           stdout=subprocess.DEVNULL)
     script = ("5 shot browse\n10 pad 1 a\n12 pad 1 none\n60 shot f60\n200 shot f200\n"
               "210 pad 1 l2 r2\n260 pad 1 none\n330 shot menu\n"
-              "336 pad 1 down\n338 pad 1 none\n340 pad 1 down\n342 pad 1 none\n344 pad 1 down\n346 pad 1 none\n348 pad 1 down\n350 pad 1 none\n"
-              "354 pad 1 a\n356 pad 1 none\n400 shot after\n")
+              "336 pad 1 down\n338 pad 1 none\n340 pad 1 down\n342 pad 1 none\n344 pad 1 down\n346 pad 1 none\n348 pad 1 down\n350 pad 1 none\n352 pad 1 down\n354 pad 1 none\n"
+              "358 pad 1 a\n360 pad 1 none\n400 shot after\n")
     open(tmp + "/in.txt", "w").write(script)
     subprocess.check_call([host, cart, "--sd", tmp + "/sd", "--seconds", "8", "--shots", tmp + "/shots",
                            "--input", tmp + "/in.txt", "--quiet"], stdout=subprocess.DEVNULL)

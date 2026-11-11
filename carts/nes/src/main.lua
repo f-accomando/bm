@@ -10,13 +10,15 @@ local PAD_A, PAD_B, PAD_SELECT, PAD_START, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT
 -- The NES has two buttons: B on the left, A on the right. On a pad the bottom and the right buttons are A, the left and the top
 -- buttons are B (both work, so any hand fits). bm's names: on the RGB30 (and Nintendo pads) bottom is "b", right "a", left "y", top "x";
 -- on a keyboard or an Xbox pad bottom is "a", right "b", left "x", top "y".
--- The keyboard (read with keydown) plays player 1, or player 2 when a pad is player 1: one person on the keyboard and one on a pad can play together.
+-- Keyboard as player (menu): off, the keyboard plays together with pad 1 (player 1); on, it is a player of its own: player 2 when a pad is player 1,
+-- else player 1.
+local kb_player = false
 local nintendo = false
 local kbp = 1                 -- the player the keyboard keys play
 local function pad_layout()
   local c = controller and controller(1)
   nintendo = c and c.layout == "nintendo"
-  kbp = (c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
+  kbp = (kb_player and c and c.kind ~= "keyboard" and c.kind ~= "none") and 2 or 1
 end
 
 local frames = 0
@@ -223,7 +225,7 @@ local MODE_LABEL = { sharp = "Scale: sharp", native = "Scale: native 256x256", g
 function mode_label() return MODE_LABEL[mode] end
 
 -- the menu is 204 pixels high: centred, but it never goes below the screen (the native screen is 256 high)
-function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 208)) end
+function menu_top() return math.max(4, math.min(SCREEN_H // 2 - 70, SCREEN_H - 232)) end
 
 -- Changes the scale mode. The GPU modes ask for a bigger screen (screen() takes effect at the next frame); a console that cannot give it keeps the mode it had.
 function set_mode(m)
@@ -290,13 +292,14 @@ function _update()
     if frames % 600 == 0 then save_sram() end
   elseif state == "menu" then
     if nav_up() then menusel = math.max(1, menusel - 1) end
-    if nav_down() then menusel = math.min(6, menusel + 1) end
+    if nav_down() then menusel = math.min(7, menusel + 1) end
     if nav_ok() then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); nes_reset(); frames = 0; lg.last = nil; lg.t0 = nil; state = "run"
       elseif menusel == 3 then show_fps = not show_fps
       elseif menusel == 4 then next_mode()
-      elseif menusel == 5 then log_on = not log_on; log("nes log " .. (log_on and "on" or "off"))
+      elseif menusel == 5 then kb_player = not kb_player; pad_layout()
+      elseif menusel == 6 then log_on = not log_on; log("nes log " .. (log_on and "on" or "off"))
       else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") or kedge(0x29) or kedge(0x12) then state = "run"; holdmenu = 0 end
@@ -363,15 +366,15 @@ function _draw()
   if dbg_n % 30 == 0 then dbg = nes_debug() end
   if show_fps then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end
   if state == "menu" then
-    rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 204, 0x201014)
-    rect(SCREEN_W // 2 - 110, menu_top(), 220, 204, 0xFF6060)
+    rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x201014)
+    rect(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0xFF6060)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), log_on and "Log: on" or "Log: off", "Back to the list" }
-    for i = 1, 6 do
+                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", log_on and "Log: on" or "Log: off", "Back to the list" }
+    for i = 1, 7 do
       print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x9090A0)
     end
     local info = nes_info()
-    print(string.format("mapper %d  %d KB", info.mapper, info.prg // 1024), SCREEN_W // 2 - 90, menu_top() + 164, 0x9090A0)
-    if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 184, 0xFFD050) end
+    print(string.format("mapper %d  %d KB", info.mapper, info.prg // 1024), SCREEN_W // 2 - 90, menu_top() + 188, 0x9090A0)
+    if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 208, 0xFFD050) end
   end
 end
