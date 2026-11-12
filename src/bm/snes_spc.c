@@ -86,7 +86,8 @@ static void setP(uint8_t v)
     fN = v >> 7 & 1; fV = v >> 6 & 1; fP = v >> 5 & 1; fB = v >> 4 & 1;
     fH = v >> 3 & 1; fI = v >> 2 & 1; fZ = v >> 1 & 1; fC = v & 1;
 }
-static void rel(int cond) { int8_t r = (int8_t)f8(); if (cond) rPC = (uint16_t)(rPC + r); }
+static int cyc_extra;                           /* cycles of the instruction that depend on the data: 2 for a branch taken */
+static void rel(int cond) { int8_t r = (int8_t)f8(); if (cond) { rPC = (uint16_t)(rPC + r); cyc_extra = 2; } }
 
 static uint8_t adc(uint8_t a, uint8_t b)
 {
@@ -333,6 +334,45 @@ static void step(void)
     }
 }
 
+/* the cycles of each opcode (the sound CPU runs at 1.024 MHz: 32 cycles are one sample of the DSP); a branch taken adds 2 (cyc_extra) */
+static const uint8_t spc_cyc[256] = {
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 6, 5, 4, 5, 4, 6, 8,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 6, 5, 2, 2, 4, 6,
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 6, 5, 4, 5, 4, 5, 2,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 6, 5, 2, 2, 3, 8,
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 6, 4, 4, 5, 4, 6, 6,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 4, 5, 2, 2, 4, 3,
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 6, 4, 4, 5, 4, 5, 5,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 5, 5, 2, 2, 3, 6,
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 6, 5, 4, 5, 2, 4, 5,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 5, 5, 2, 2, 12, 5,
+    3, 8, 4, 5, 3, 4, 3, 6, 2, 6, 4, 4, 5, 2, 4, 4,
+    2, 8, 4, 5, 4, 5, 5, 6, 5, 5, 5, 5, 2, 2, 3, 4,
+    3, 8, 4, 5, 4, 5, 4, 7, 2, 5, 6, 4, 5, 2, 4, 9,
+    2, 8, 4, 5, 5, 6, 6, 7, 4, 5, 5, 5, 2, 2, 6, 3,
+    2, 8, 4, 5, 3, 4, 3, 6, 2, 4, 5, 3, 4, 3, 4, 3,
+    2, 8, 4, 5, 4, 5, 5, 6, 3, 4, 5, 4, 2, 2, 4, 3
+};
+
+/* one instruction: its cycles */
+static int step_c(void)
+{
+    const uint8_t op = ram[rPC];
+    cyc_extra = 0;
+    step();
+    return spc_cyc[op] + cyc_extra;
+}
+
+/* for the tests (tests/snes/spc_ref.cpp): the registers a, x, y, sp, pc (lo, hi), psw; runs one instruction and returns its cycles */
+int spc_test_step(uint8_t r[7])
+{
+    rA = r[0]; rX = r[1]; rY = r[2]; rSP = r[3]; rPC = (uint16_t)(r[4] | (r[5] << 8)); setP(r[6]);
+    halted = 0;
+    const int c = step_c();
+    r[0] = rA; r[1] = rX; r[2] = rY; r[3] = rSP; r[4] = (uint8_t)rPC; r[5] = (uint8_t)(rPC >> 8); r[6] = getP();
+    return c;
+}
+
 /* ------------------------------------------------------------------ timers, the boot ROM and the ports */
 static void timers(unsigned c)
 {
@@ -440,9 +480,9 @@ int spc_run(int cycles)
         unsigned pend = 0;
         while (n < cycles) {
             if (rPC >= 0xFFC0 && (ctl & 0x80)) { ipl_start(); break; }     /* the program went back to the boot ROM */
-            step();
-            n += 3;
-            pend += 3;
+            const int cy = step_c();
+            n += cy;
+            pend += (unsigned)cy;
             if (pend >= 16) {
                 timers(pend);
                 dsp_acc += pend;                        /* the DSP makes a sample every 32 cycles */

@@ -47,12 +47,12 @@ machine was written again in C. The RGB30 is not measured.
 | `src/bm/snes_bus.c` | the memory map (LoROM, HiROM, WRAM, battery RAM), the PPU and CPU registers, joypads, DMA and HDMA, the frame clock (262 lines of 1364 master clocks), IRQ and NMI, the ROM loader |
 | `src/bm/snes_ppu.c` | the picture, a line at a time: BG modes 0-4 and 7, sprites, windows, colour math, brightness |
 | `src/bm/snes_spc.c` | the SPC700 (all opcodes, three timers, four ports) and the boot ROM protocol as a state machine |
-| `src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, cubic interpolation, ADSR and GAIN, noise, volumes), a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `src/audio/audio.c`) |
+| `src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, Gaussian interpolation, ADSR and GAIN, noise, volumes), the echo, a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `src/audio/audio.c`) |
 | `src/bm/snes_ppu_arm.S` | the colour mix with a sub screen for the ARM1176 (Pi): the same result as the C loop in `snes_ppu.c`, check on the console |
 | `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
 | `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
-| `tests/snes/dsp_golden.c` | the S-DSP on random voices: the output of `snes_audio_mix` and the registers hashed, against the table of the code with the integer cubic (`make test-snes-dsp`, `make bench-snes-dsp`); the float cubic that came before differs by a few steps of 16 bit (8 of 10 cases within 4 steps; two cases with pitch modulation drift apart in time) |
+| `tests/snes/dsp_golden.c` | the S-DSP on random voices: the output of `snes_audio_mix` and the registers hashed, against the table of the model that equals ares, plus small synthetic checks (KON delay, echo write, KOFF, SPC700 cycles) (`make test-snes-dsp`, `make bench-snes-dsp`); `tests/snes/dsp_ref.cpp` and `tests/snes/spc_ref.cpp` compare with ares (`make test-snes-audio-ref ARES=...`, skipped without ARES) |
 | `tests/snes/cpu_golden.c` | the CPU and the memory map on random programs (LoROM and HiROM, ROMs of odd sizes, with and without battery RAM): a hash of the registers, the clock and the memories after each frame, against the table of the code before the speed work (`make test-snes-cpu`) |
 | `tests/snes/ppu_equiv.c`, `ppu_ref.c` | the fast PPU against the reference copy of the old one: random states, every line equal (`make test-snes-ppu`); `make bench-snes-ppu` times both |
 | `tests/snes/render_test.py` | the cartridge in bmhost with a test ROM made by `make_testrom.py`: the picture, the sprite, the HDMA bands |
@@ -60,6 +60,7 @@ machine was written again in C. The RGB30 is not measured.
 | `tests/snes/game_run.c` | a host harness (built with `-DSNES_TRACE`) that plays a ROM from the disk with a scripted pad, saves pictures, pokes the work RAM, logs the PPU, DMA, DSP and CPU events and can lock-step a trace with another core; the header lists the options. It holds no game data |
 
 ## Rules (do not break)
+- The S-DSP (`snes_dsp.c`) and the SPC700 (`snes_spc.c`) must equal ares. Before you change them, run `make test-snes-audio-ref ARES=/path/to/ares`. The cycle table `spc_cyc` comes from ares; a golden hash changes only when ares agrees with the new value.
 
 - The machine is plain C with no dependence on the kernel, so the host tests build it alone. Keep `snes_*.c` free of kernel headers.
 - The time is in master clocks. Every bus access adds its cost (`access_clk`), an instruction adds 6 for the internal cycles.
@@ -112,9 +113,7 @@ machine was written again in C. The RGB30 is not measured.
   itself and shows the FPS, the times of the parts of a frame, the PPU registers and the first sprites; it draws every frame from 600 to 3200, sums the PPU parts
   (the line `PPU n fr`) and stops at frame 3200 (`SNES_NOHUD=1`: no text, for a picture to compare). With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
   screen with no key press.
-- Sound: the echo and its FIR filter are not done (the echo buffer is not written; games that use echo sound drier), the Gaussian table is a
-  cubic interpolation, a voice has no start delay, the envelope timing follows the public tables from memory. The output is 32 kHz
-  resampled to 48 kHz by linear interpolation. If the game is slower than real time the sound has gaps (the debug line counts them).
+- Sound (2026-11-12): the S-DSP follows the chip's pipeline (Gaussian table, 5 sample start delay, KON and KOFF read every second sample, echo with FIR and feedback, ENDX/OUTX/ENVX, modulation, noise) and equals ares sample by sample on random voices (`make test-snes-audio-ref ARES=/path/to/ares`: the output, the readable registers and the echo RAM of 120 cases). The SPC700 equals ares on all 256 opcodes (registers, flags, bytes written, cycles). Before this change the DSP had no echo (games that use it, such as Zelda, sounded wrong), a cubic instead of the Gaussian table, no start delay, and the SPC700 charged 3 cycles for every instruction (the chip: 2 to 12). Not checked: the DSP cost on the Pi (about 2 to 3 times the old code on the host bench: measure the `spc` time of the debug line) and how the sound effects of Zelda and Yoshi's Island sound on the console. The output is 32 kHz resampled to 48 kHz by linear interpolation. If the game is slower than real time the sound has gaps (the debug line counts them).
 - Sprite priority rotation ($2103 bit 7) is done: Super Mario World uses it (first sprite 120 on the overworld; without it the Mario head icon was hidden under 12 blank sprites). Found with the test build's OAM and register lines and checked on the Pi One (2026-11-09).
 - Picture: hires modes 5 and 6, mosaic, offset-per-tile (modes 2 and 4), direct colour, interlace, mode 7 EXTBG, the sprite
   limits of 34 tiles a line.

@@ -1,7 +1,6 @@
 /* dsp_golden.c: the S-DSP on random voices. The sound RAM holds random BRR blocks (all ranges, filters, end and loop flags) and a directory;
  * the eight voices get random pitch, volume, ADSR or GAIN, noise, pitch modulation, and random key on and key off while it runs. The output of
- * snes_audio_mix (32 kHz to 48 kHz, as floats) and the registers ENVX, OUTX and ENDX are hashed and must equal the table, made with the code
- * before the speed work.
+ * snes_audio_mix (32 kHz to 48 kHz, as floats) and the registers ENVX, OUTX and ENDX are hashed and must equal the table (the model that agrees with ares).
  *   dsp_golden             check against the table (exact)
  *   dsp_golden print       print the table
  *   dsp_golden diff        the largest difference of a sample against the saved samples of the old code (a file) (see the Makefile)
@@ -17,6 +16,8 @@
 
 extern uint8_t *spc_ram_ptr(void);
 extern uint8_t *spc_dsp_ptr(void);
+extern int snes_dsp_pop(int16_t out[2]);
+extern int spc_test_step(uint8_t r[7]);
 
 static uint64_t rs;
 static uint32_t rnd(void) { rs ^= rs << 13; rs ^= rs >> 7; rs ^= rs << 17; return (uint32_t)(rs >> 16); }
@@ -57,6 +58,85 @@ static void setup(int c)
     d[0x6C] = (uint8_t)(rnd() & 0x1F);                                                   /* not muted, not reset, noise rate */
 }
 
+
+/* Small checks of the chip's behaviour that the hashes do not show (each one failed with the old model). A constant sample (BRR: range 12, filter 0,
+ * all nybbles 7, looped) plays on voice 0 at pitch 0x1000. */
+static int synth_setup(void)
+{
+    spc_reset();
+    dsp_reset();
+    uint8_t *ram = spc_ram_ptr();
+    memset(ram, 0, 65536);
+    ram[0x1000] = 0x00; ram[0x1001] = 0x20; ram[0x1002] = 0x00; ram[0x1003] = 0x20;     /* sample 0: start and loop at $2000 */
+    ram[0x2000] = 0xC3;                                                                 /* range 12, filter 0, end and loop: a loop of one block */
+    for (int i = 1; i < 9; i++) ram[0x2000 + i] = 0x77;
+    dsp_write(0x5D, 0x10);
+    dsp_write(0x00, 0x7F); dsp_write(0x01, 0x7F);                                       /* volumes */
+    dsp_write(0x02, 0x00); dsp_write(0x03, 0x10);                                       /* pitch $1000 */
+    dsp_write(0x04, 0x00);
+    dsp_write(0x05, 0x00); dsp_write(0x07, 0x7F);                                       /* GAIN direct, $7F * 16 */
+    dsp_write(0x0C, 0x7F); dsp_write(0x1C, 0x7F);
+    dsp_write(0x6C, 0x20);                                                              /* not muted, echo write off */
+    return 0;
+}
+
+static int synth_checks(void)
+{
+    int bad = 0;
+    uint8_t *ram = spc_ram_ptr(), *d = spc_dsp_ptr();
+    int16_t o[2];
+    /* 1. KON: nothing is heard before the 5 sample start delay is over, and KON is read only every second sample */
+    synth_setup();
+    dsp_write(0x4C, 1);
+    int first = -1;
+    for (int t = 0; t < 40; t++) {
+        dsp_tick();
+        snes_dsp_pop(o);
+        if (first < 0 && o[0] != 0) first = t;
+    }
+    if (first < 7 || first > 12) { printf("synth: first sound at sample %d (the chip: 7 to 12)\n", first); bad++; }
+    /* 2. the Gaussian table: a constant sample gives a constant output (the table sums to 2048) */
+    {
+        int16_t a = 0, b = 0;
+        for (int t = 0; t < 8; t++) { dsp_tick(); snes_dsp_pop(o); a = o[0]; }
+        for (int t = 0; t < 8; t++) { dsp_tick(); snes_dsp_pop(o); b = o[0]; }
+        if (a != b || a == 0) { printf("synth: a constant sample is %d then %d\n", a, b); bad++; }
+    }
+    /* 3. the echo: the buffer in the sound RAM is written (the sample times EVOL does not matter), and not when FLG says so */
+    synth_setup();
+    dsp_write(0x6D, 0x40); dsp_write(0x7D, 1); dsp_write(0x4D, 1);                      /* ESA $4000, EDL 1 (2048 bytes), voice 0 into the echo */
+    dsp_write(0x4C, 1);
+    for (int t = 0; t < 200; t++) dsp_tick();
+    int any = 0;
+    for (int i = 0; i < 2048; i++) any |= ram[0x4000 + i];
+    if (any) { printf("synth: the echo wrote the RAM with the write off\n"); bad++; }
+    dsp_write(0x6C, 0x00);
+    for (int t = 0; t < 200; t++) dsp_tick();
+    any = 0;
+    for (int i = 0; i < 2048; i++) any |= ram[0x4000 + i];
+    if (!any) { printf("synth: the echo did not write the RAM with the write on\n"); bad++; }
+    /* 4. KOFF: the voice fades by 8 a sample (ENVX falls) */
+    synth_setup();
+    dsp_write(0x4C, 1);
+    for (int t = 0; t < 40; t++) dsp_tick();
+    const int e0 = d[0x08];
+    dsp_write(0x5C, 1);
+    for (int t = 0; t < 6; t++) dsp_tick();
+    if (!(e0 > 0x30 && d[0x08] < e0)) { printf("synth: KOFF: ENVX %02X then %02X\n", e0, d[0x08]); bad++; }
+    /* 5. the SPC700: the cycles of some instructions (NOP 2, MUL 9, DIV 12, a branch taken 4 and not taken 2) */
+    {
+        static const struct { uint8_t op, psw; int cyc; } c[] = { { 0x00, 0, 2 }, { 0xCF, 0, 9 }, { 0x9E, 0, 12 }, { 0xF0, 0x02, 4 }, { 0xF0, 0x00, 2 },
+                                                                   { 0x2F, 0, 4 }, { 0x3F, 0, 8 }, { 0x6F, 0, 5 } };
+        for (unsigned i = 0; i < sizeof c / sizeof c[0]; i++) {
+            ram[0x0300] = c[i].op;
+            uint8_t r[7] = { 0, 1, 1, 0xEF, 0x00, 0x03, c[i].psw };
+            const int n = spc_test_step(r);
+            if (n != c[i].cyc) { printf("synth: SPC700 opcode %02X takes %d cycles, the chip %d\n", c[i].op, n, c[i].cyc); bad++; }
+        }
+    }
+    return bad;
+}
+
 #define CASES 10
 #define TICKS 24000
 
@@ -95,19 +175,19 @@ static uint64_t run_case(int c, float *out, int *nout)
     return h;
 }
 
-/* The table is of the code with the integer cubic (32 x 32 to 64 bit products, rounded). The float cubic that came before gave the same samples within a few steps of
- * 16 bit: in 8 of these 10 cases at most 4 steps, in two cases (a voice that modulates its pitch from the one before) the samples drift apart in time (`dsp_golden diff`). */
+/* The table is of the chip model that was checked sample by sample against ares (tests/snes/dsp_ref.cpp, `make test-snes-audio-ref ARES=...`): Gaussian
+ * interpolation, key on delay, echo. The earlier table (cubic interpolation, no echo, no start delay) was wrong for these reasons and is replaced. */
 static const uint64_t GOLDEN[CASES] = {
-    0xB7D9994A2A699486ull,
-    0x2716BDCCF60DD069ull,
-    0x395C62181BC65E13ull,
-    0x6B2BE6B9DDFAE24Full,
-    0xDF4EAD607DF6B431ull,
-    0x310F8F4598A19715ull,
-    0x5CB07C2165904168ull,
-    0x594C017D2C563316ull,
-    0x16DBCAFEBF83011Full,
-    0x6FF0F939A5713266ull,
+    0x4D848880AF0B12BEull,
+    0x93FE6CEF43C188CAull,
+    0x51EF8F21C4F1EAE1ull,
+    0x0734AFA94C0DFB68ull,
+    0x98AA36C0B15049AAull,
+    0x28196EC8C47F5C4Dull,
+    0x3532D9B9E65F71B9ull,
+    0xD3A01C6086DCC5BFull,
+    0x622775D36DC7B4DAull,
+    0x8997EB73F6E08D77ull,
 };
 
 static void bench(void)
@@ -163,7 +243,7 @@ int main(int argc, char **argv)
         fclose(f);
         return big != 0;
     }
-    int bad = 0;
+    int bad = synth_checks();
     if (print) printf("static const uint64_t GOLDEN[CASES] = {\n");
     for (int c = 0; c < CASES; c++) {
         const uint64_t h = run_case(c, NULL, NULL);

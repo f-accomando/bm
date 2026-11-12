@@ -431,6 +431,25 @@ test-snes-dsp: $(BUILD)/host/snes_dsp_golden
 	$<
 bench-snes-dsp: $(BUILD)/host/snes_dsp_golden
 	$< bench
+# The S-DSP against ares, sample by sample (tests/snes/dsp_ref.cpp). ares (ISC) is not in the repository: make test-snes-audio-ref ARES=/path/to/ares
+test-snes-audio-ref:
+ifeq ($(ARES),)
+	@echo "test-snes-audio-ref: skipped (set ARES=/path/to/ares)"
+else
+	@mkdir -p $(BUILD)/host
+	sed -n '/^auto DSP::main/,/^}/p' $(ARES)/ares/sfc/dsp/dsp.cpp > $(BUILD)/host/dsp_ref_main.inc
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c0.o src/bm/snes_dsp.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c1.o src/bm/snes_spc.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c2.o src/bm/snes_cpu.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c3.o src/bm/snes_bus.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c4.o src/bm/snes_gsu.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c5.o src/bm/snes_dsp77.c
+	$(HOSTCC) -O2 -c -Isrc/bm -o $(BUILD)/host/dsp_ref_c6.o src/bm/snes_ppu.c
+	g++ -std=c++20 -O2 -w -I$(BUILD)/host -Isrc/bm -I$(ARES)/nall -I$(ARES)/ares -o $(BUILD)/host/snes_dsp_ref tests/snes/dsp_ref.cpp $(BUILD)/host/dsp_ref_c?.o -lm
+	$(BUILD)/host/snes_dsp_ref 40 40000
+	g++ -std=c++20 -O2 -w -Isrc/bm -I$(ARES)/nall -I$(ARES)/ares -I$(ARES) -I$(ARES)/thirdparty -o $(BUILD)/host/snes_spc_ref tests/snes/spc_ref.cpp $(BUILD)/host/dsp_ref_c?.o -lm
+	$(BUILD)/host/snes_spc_ref
+endif
 
 # Island Bench (carts/islandbench): the island of the map kit assets/island.bmk (map, models, sprites) with the
 # benchmark code in main.lua. The .bme is the source, the .bm the cartridge; the kit is merged in by bmres.py.
@@ -1023,7 +1042,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
