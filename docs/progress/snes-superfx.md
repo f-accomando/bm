@@ -90,6 +90,9 @@ Done 2026-11-11 (host only, no console test yet). Files: `src/bm/snes_gsu.c`, `s
 Costs on the host (x86, `make bench-snes-gsu`, a mix of PLOT, MULT, RAM moves and loops, 21 MHz): about 100 to 150 million instructions a second, so 350000 instructions (the most a GSU-2 can run in a frame) cost 2.3 to 3.5 ms. In Star Fox the GSU runs about 22000 instructions a frame on average (32.6 million in 1500 frames). A GSU-1 at 10.74 MHz runs at most about 100000 instructions a frame.
 The ARM1176 has no indirect branch prediction for a `switch`, and the loop head has about 35 instructions, so expect 10 to 20 times the host time: 25 to 50 ns an instruction. That is 3 to 5 ms for the average Star Fox frame and 10 ms or more for a frame that keeps the GSU busy.
 
+### Speed
+
+21 to 29 ARM instructions for a GSU instruction (was 42 to 55): [snes-superfx-speed.md](snes-superfx-speed.md).
 ### Not emulated, or approximate
 
 - The GSU never waits for RON or RAN. The SNES can read and write the cart RAM and the ROM while the GSU runs; the fixed vector pattern is the only effect of RON.
@@ -102,7 +105,7 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 
 - Doom (GSU-2): plays to the first level on the host. Check the 3D view (partial walls, a black upper part) and the speed. Notes: [snes-doom.md](snes-doom.md).
 - Play Star Fox and Yoshi's Island to the end with a real pad script, or on the console. Read the pictures for flicker, wrong colours and speed.
-- Speed on the Pi Zero W is not measured. Copy the kernel and the cart (the user does it), play Star Fox into a stage, and read `gsu` (microseconds in a frame) and `gins` (instructions in a frame) in the `us` debug line. If `upd/s` is under 60 and `gsu` is over 8000, speed up `gsu_run` again: a pointer into the cache line instead of the check at each byte, a `goto` table, fused pairs (FROM+op, TO+op). The cache misses are in `icache miss: cpu` of the `ppu us` line.
+- Speed on the Pi Zero W: the user reads `gsu` (microseconds in a frame), `gins` (instructions in a frame) and `arm instr cpu` in the `us` debug line. Expected: the heavy Yoshi's Island scene `m1/10/00` falls from 7.2 ms (75 ns an instruction) to about 3.5 to 4 ms; `arm instr cpu` falls by about 20 ARM instructions for each GSU instruction. If it does not, the next steps are: PLOT in assembly (62 ARM instructions), the tail of the opcodes (`wr_d`, `wr_n` clear the prefix with 3 instructions), fused FROM, TO and ALU triples.
 - Exact cycle counts, the wait of the GSU on RON and RAN, two pixel caches: only if a game needs them.
 
 ## Rules (do not break)
@@ -112,5 +115,6 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 - `make test-snes-gsu` holds a golden hash of a program. A speed-up of `gsu_run` must keep it.
 - The GSU IRQ is a level (`gsu_irq_line()`, cleared by a read of the high byte of SFR). A write to $4200 and a read of $4211 set `S.irq_pending = gsu_irq_line()`, not 0.
 - The GSU and the sound CPU run lazily (see Wiring). Do not call `gsu_run` from anywhere but `gsu_sync_pos`. A new CPU access to the cart RAM that skips `raw_read` and `raw_write` (a page table, a DMA fast path) must call `gsu_sync` first while `gsu_tab_off` is set.
-- `gsu_run` has common ends (`wr_d`, `wr_n`, `clr`, `fin`) and out-of-line slow fetch. Keep the hot loop small: it must stay near 4 KB of ARM code.
+- `gsu_run` (C) and `snes_gsu_arm.S` do the same work. `make test-snes-gsu-diff` (PC) and `make test-snes-gsu-arm` (ARM1176 in QEMU) compare the loop with the reference `tests/snes/gsu_ref.c` on random programs: a change of one loop goes in the other and in the reference only when the behaviour must change. The offsets of `gsu_t` that the assembly uses are in `snes_gsu_off.h` (checked by `_Static_assert`).
+- The `gsu_run` C loop has common ends (`wr_d`, `wr_n`, `clr`, `fin`) and out-of-line slow fetch. Keep the hot loop small: about 4 KB of ARM code (C) and 4 KB (assembly).
 - No ROM byte goes into the repository. `tests/snes/superfx_roms.py` reads ROMs from the folder in `BM_SNES_ROMS` and keeps nothing.

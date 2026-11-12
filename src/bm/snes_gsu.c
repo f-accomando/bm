@@ -3,42 +3,76 @@
  * the design, the register map and the source of each fact are in docs/progress/snes-superfx.md.
  *
  * The GSU reads the ROM and writes the cart RAM (S.sram) itself. It runs lazily: the bus calls gsu_run (from gsu_sync_pos) when
- * the CPU touches it. A jump takes effect after the next opcode (the delay slot): `jpend` holds the target.
- * gsu_run keeps the hot state (prefix, flags, pending jump) in locals, so the loop stays in the registers of the host CPU.
+ * the CPU touches it. A jump takes effect after the next opcode (the delay slot): `jt` holds the target.
+ * Speed (docs/progress/snes-superfx.md, "Speed"): gsu_run keeps the hot state in locals, fetches through a pointer into the code cache
+ * (`ip`, one test of its low bits per byte), dispatches with one table jump, and counts the master clocks straight in `budget`.
+ * tests/snes/gsu_ref.c is the plain version it must equal (tests/snes/gsu_diff.c).
  */
 #include "snes_int.h"
 #include "snes_gsu.h"
+#include "snes_gsu_off.h"
 
+#include <stddef.h>
 #include <string.h>
 
-typedef struct {
-    uint16_t r[16];
-    uint16_t cbr, latch;
-    uint8_t pbr, rombr, rambr, cfgr, scbr, clsr, scmr, colr, por, bramr;
+/* On the ARMv6 console the loop is assembly (snes_gsu_arm.S): the C loop below is the reference and runs on the PC, on the RGB30 (AArch64) and with -DSNES_GSU_C. */
+#if defined(__arm__) && !defined(__aarch64__) && !defined(SNES_GSU_C)
+#define GSU_ASM 1
+#else
+#define GSU_ASM 0
+#endif
+
+typedef uint16_t __attribute__((may_alias)) u16a;
+
+typedef struct {                            /* the first 256 bytes are reached by the assembly loop with short offsets: snes_gsu_off.h */
+    uint32_t r[16];                         /* R0-R15, each below 65536 (a 32-bit slot: the loop loads it with one instruction) */
     uint32_t sz;                            /* the flags S and Z, lazy: Z = the low 16 bits are 0, S = bit 15 or bit 16 (bit 16: S set apart from the result) */
-    uint8_t fcy, fov, go, irq, irq_line;
-    uint8_t alt, b, sreg, dreg;             /* alt: bit 0 ALT1, bit 1 ALT2 */
-    uint8_t rbuf, rbuf_bank, rbuf_ok;       /* the ROM buffer, and the bank and R14 it was read with (a change of either reloads it) */
-    uint16_t rbuf_r14;
-    uint8_t jpend; int16_t jpbr;            /* a jump waits for the delay slot; jpbr >= 0: LJMP changes the bank too */
-    uint16_t jaddr;
-    uint16_t ramaddr;
-    uint32_t rmask;
-    uint32_t cvalid;                        /* one bit for each line of the cache */
+    uint32_t fcy, fov;
+    uint32_t jt;                            /* a pending jump (it takes effect after the delay slot): 0 = none; else bit 16 | target, bit 31 = LJMP with the bank in bits 24-30 */
+    int budget;                             /* master clocks left */
     int mul;                                /* master clocks for a GSU cycle: 1 (21 MHz) or 2 (10 MHz) */
     int romcyc, ramcyc;                    /* master clocks of a ROM and a RAM access */
-    int budget;                             /* master clocks left */
+    uint32_t cvalid;                        /* one bit for each line of the cache */
+    uint32_t rm;                            /* rmask & $FFFF */
+    uint8_t *rbase;                         /* S.sram + the RAMBR page (set at the start of a run and by RAMB) */
+    uint8_t *ipn;                           /* the code pointer after a slow fetch (0: the next byte is not in the cache) */
     uint32_t insns;
-    uint8_t pmask, pcx, pcy; uint8_t pdata[8];   /* the pixel cache: one row of 8 pixels (X & $F8, Y) */
-    uint8_t cache[512];
+    uint16_t cbr;
+    uint16_t ramaddr;
+    uint8_t alt, b, sreg, dreg;             /* alt: bit 0 ALT1, bit 1 ALT2 */
+    uint8_t cfgr, rombr, dirty, pbr;
+    uint8_t pad_[128];
+    uint8_t cache[512] __attribute__((aligned(16)));
+    uint32_t rmask;
+    uint16_t latch;
+    uint8_t rambr, scbr, clsr, scmr, colr, por, bramr;
+    uint8_t go, irq, irq_line;
+    uint8_t rbuf, rbuf_bank, rbuf_ok;       /* the ROM buffer, and the bank and R14 it was read with (a change of either reloads it) */
+    uint16_t rbuf_r14;
+    uint8_t pmask, pcx, pcy;                /* the pixel cache: one row of 8 pixels (X & $F8, Y); pw: the bit planes of the 8 pixels, a byte for each plane (planes 0-3 in pw[0], 4-7 in pw[1]) */
+    uint32_t pw[2];
 } gsu_t;
 
-static gsu_t g;
+#if defined(__arm__) && !defined(__aarch64__)
+_Static_assert(offsetof(gsu_t, sz) == G_SZ && offsetof(gsu_t, fcy) == G_FCY && offsetof(gsu_t, fov) == G_FOV && offsetof(gsu_t, jt) == G_JT, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, budget) == G_BUDGET && offsetof(gsu_t, mul) == G_MUL && offsetof(gsu_t, romcyc) == G_ROMCYC && offsetof(gsu_t, ramcyc) == G_RAMCYC, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, cvalid) == G_CVALID && offsetof(gsu_t, rm) == G_RM && offsetof(gsu_t, rbase) == G_RBASE && offsetof(gsu_t, ipn) == G_IPN, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, insns) == G_INSNS && offsetof(gsu_t, cbr) == G_CBR && offsetof(gsu_t, ramaddr) == G_RAMADDR && offsetof(gsu_t, alt) == G_ALT, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, b) == G_B && offsetof(gsu_t, sreg) == G_SREG && offsetof(gsu_t, dreg) == G_DREG && offsetof(gsu_t, cfgr) == G_CFGR, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, rombr) == G_ROMBR && offsetof(gsu_t, dirty) == G_DIRTY && offsetof(gsu_t, pbr) == G_PBR && offsetof(gsu_t, cache) == G_CACHE, "gsu_t offsets");
+#endif
+
+static gsu_t g __attribute__((aligned(16)));
+#if GSU_ASM
+void gsu_run_asm(gsu_t *gp, int budget);          /* snes_gsu_arm.S: runs while budget > 0 and the program runs */
+#endif
 
 #define FLAG_S(sz) ((((sz) >> 15) | ((sz) >> 16)) & 1)
 #define FLAG_Z(sz) ((uint16_t)(sz) == 0)
 #define LIKELY(x) __builtin_expect(!!(x), 1)
-#define INLINE static inline __attribute__((always_inline))
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define JF 0x10000u                         /* a jump is pending */
+#define JL 0x80000000u                      /* LJMP */
 
 /* ------------------------------------------------------------------ memory seen by the GSU */
 static inline uint8_t rom_at(unsigned bank, uint16_t off)
@@ -55,11 +89,7 @@ static inline uint8_t code_byte(unsigned bank, uint16_t off)
     return 0;
 }
 
-INLINE uint8_t ram_rd(uint16_t a) { return S.sram[((((uint32_t)g.rambr) << 16) | a) & g.rmask]; }
-INLINE void ram_wr(uint16_t a, uint8_t v) { S.sram[((((uint32_t)g.rambr) << 16) | a) & g.rmask] = v; S.sram_dirty = 1; }
-/* a word: the low byte at the address, the high byte at the address with bit 0 flipped (the same RAM page); the mask keeps bit 0 */
-INLINE uint16_t ram_rw(uint16_t a) { const uint32_t i = ((((uint32_t)g.rambr) << 16) | a) & g.rmask; return (uint16_t)(S.sram[i] | (S.sram[i ^ 1] << 8)); }
-INLINE void ram_ww(uint16_t a, uint16_t v) { const uint32_t i = ((((uint32_t)g.rambr) << 16) | a) & g.rmask; S.sram[i] = (uint8_t)v; S.sram[i ^ 1] = (uint8_t)(v >> 8); S.sram_dirty = 1; }
+static inline void ram_base(void) { g.rbase = S.sram + (((uint32_t)g.rambr << 16) & g.rmask); }
 
 /* the line of the cache at CBR + 16 ln: 16 bytes, read from the ROM or the RAM (a line never crosses a bank: CBR and the line are 16-aligned) */
 static int cache_fill(unsigned ln, unsigned off)
@@ -78,25 +108,26 @@ static int cache_fill(unsigned ln, unsigned off)
     return g.romcyc * (int)(16 - (off & 15));
 }
 
-/* a fetch the cache does not have: a line to fill, or an address out of the 512 bytes. Returns the byte and, in bits 8 and up, the extra master clocks. */
-static __attribute__((noinline)) unsigned fetch_slow(uint16_t pc)
+/* a fetch the code pointer cannot do: the pointer is at a line start (or 0 after a jump). Returns the byte and, in bits 8 and up, the extra master clocks;
+ * g.ipn gets the pointer to the next byte when the byte is in the cache (the 512 bytes at CBR), else 0 (every byte comes here). */
+__attribute__((noinline)) unsigned gsu_fetch_slow(uint16_t pc)
 {
     const unsigned off = (uint16_t)(pc - g.cbr);
-    if (off < 512) { const int c = cache_fill(off >> 4, off); return g.cache[off] | ((unsigned)c << 8); }
+    if (off < 512) {
+        const int c = ((g.cvalid >> (off >> 4)) & 1) ? 0 : cache_fill(off >> 4, off);
+        g.ipn = &g.cache[off + 1];
+        return g.cache[off] | ((unsigned)c << 8);
+    }
+    g.ipn = 0;
     return code_byte(g.pbr, pc) | ((unsigned)g.romcyc << 8);
 }
 
-/* the opcode and operand bytes: from the cache when the address is in the 512 bytes at CBR and its line is filled; *cyc gets the extra clocks */
-INLINE uint8_t fetch(int *cyc, uint16_t pc)
-{
-    const unsigned off = (uint16_t)(pc - g.cbr);
-    if (LIKELY(off < 512 && ((g.cvalid >> (off >> 4)) & 1))) return g.cache[off];
-    const unsigned x = fetch_slow(pc);
-    *cyc += (int)(x >> 8);
-    return (uint8_t)x;
-}
 /* ------------------------------------------------------------------ the pixel cache */
 static const uint8_t bpp_of[4] = { 2, 4, 4, 8 };
+static const uint32_t spread[16] = {     /* the bit p of the colour in the byte p */
+    0x00000000, 0x00000001, 0x00000100, 0x00000101, 0x00010000, 0x00010001, 0x00010100, 0x00010101,
+    0x01000000, 0x01000001, 0x01000100, 0x01000101, 0x01010000, 0x01010001, 0x01010100, 0x01010101
+};
 
 static unsigned pix_addr(unsigned x, unsigned y)         /* the RAM offset of the row of the tile at the pixel (x, y), plane 0 */
 {
@@ -117,11 +148,11 @@ static void pix_flush(void)
     if (!g.pmask) return;
     const unsigned bpp = bpp_of[g.scmr & 3];
     const unsigned base = pix_addr(g.pcx, g.pcy);
+    const unsigned pm = g.pmask;
     for (unsigned p = 0; p < bpp; p++) {
-        unsigned byte = 0;
-        for (unsigned i = 0; i < 8; i++) byte |= (unsigned)((g.pdata[i] >> p) & 1) << (7 - i);
+        const unsigned byte = (g.pw[p >> 2] >> ((p & 3) * 8)) & 0xFF;
         uint8_t *d = &S.sram[(base + (p >> 1) * 16 + (p & 1)) & g.rmask];
-        *d = g.pmask == 0xFF ? (uint8_t)byte : (uint8_t)((*d & ~g.pmask) | (byte & g.pmask));
+        *d = pm == 0xFF ? (uint8_t)byte : (uint8_t)((*d & ~pm) | (byte & pm));
     }
     g.pmask = 0;
     S.sram_dirty = 1;
@@ -131,17 +162,20 @@ static void pix_flush(void)
 static void do_plot(void)
 {
     const unsigned x = g.r[1] & 0xFF, y = g.r[2] & 0xFF;
-    g.r[1]++;
-    if (!(g.por & 1)) {
-        if ((g.scmr & 3) == 3) { if (g.por & 8 ? (g.colr & 15) == 0 : g.colr == 0) return; }
-        else if ((g.colr & 15) == 0) return;
+    g.r[1] = (g.r[1] + 1) & 0xFFFF;
+    const unsigned por = g.por, md = g.scmr & 3;
+    unsigned c = g.colr;
+    if (!(por & 1)) {
+        if (md == 3) { if (por & 8 ? (c & 15) == 0 : c == 0) return; }
+        else if ((c & 15) == 0) return;
     }
-    uint8_t c = g.colr;
-    if ((g.por & 2) && (g.scmr & 3) != 3) { if ((x ^ y) & 1) c >>= 4; c &= 15; }
+    if ((por & 2) && md != 3) { if ((x ^ y) & 1) c >>= 4; c &= 15; }
     if (g.pmask && ((x & 0xF8) != g.pcx || y != g.pcy)) pix_flush();
     g.pcx = (uint8_t)(x & 0xF8); g.pcy = (uint8_t)y;
-    g.pdata[x & 7] = c;
-    g.pmask |= (uint8_t)(0x80 >> (x & 7));
+    const unsigned bit = 0x80u >> (x & 7);
+    g.pw[0] = (g.pw[0] & ~(bit * 0x01010101u)) | (spread[c & 15] * bit);
+    if (md == 3) g.pw[1] = (g.pw[1] & ~(bit * 0x01010101u)) | (spread[c >> 4] * bit);
+    g.pmask |= (uint8_t)bit;
     if (g.pmask == 0xFF) pix_flush();
 }
 
@@ -158,15 +192,16 @@ static uint8_t do_rpix(void)
 }
 
 /* ------------------------------------------------------------------ the registers */
-/* the ROM buffer: GETB reads it. It reloads when R14 or ROMBR changed since the last load (the real chip reloads at each write of R14) */
-INLINE uint8_t rom_buffer(int *cyc, int rom_c)
+/* the ROM buffer: GETB reads it. It reloads when R14 or ROMBR changed since the last load (the real chip reloads at each write of R14). Returns the byte and, in bits 8 and up, the extra clocks. */
+static unsigned rom_buffer(void)
 {
-    if (!LIKELY(g.rbuf_ok && g.rbuf_r14 == g.r[14] && g.rbuf_bank == g.rombr)) {
-        g.rbuf = rom_at(g.rombr, g.r[14]);
-        g.rbuf_r14 = g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1;
-        *cyc += rom_c;
+    unsigned c = 0;
+    if (!(g.rbuf_ok && g.rbuf_r14 == g.r[14] && g.rbuf_bank == g.rombr)) {
+        g.rbuf = rom_at(g.rombr, (uint16_t)g.r[14]);
+        g.rbuf_r14 = (uint16_t)g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1;
+        c = (unsigned)g.romcyc << 8;
     }
-    return g.rbuf;
+    return g.rbuf | c;
 }
 static inline uint8_t color_of(uint8_t src)
 {
@@ -186,232 +221,305 @@ void gsu_reset(uint32_t ram_size)
 {
     memset(&g, 0, sizeof g);
     g.rmask = ram_size - 1;
-    g.jpbr = -1;
+    g.rm = g.rmask & 0xFFFF;
     g.sz = 1;                               /* Z clear, S clear */
     clock_set();
 }
 
 /* ------------------------------------------------------------------ the instructions */
-/* One opcode: the switch only computes. The common ends are labels after it (wr_d and wr_n store the result in R(dreg) or R(n), clr clears the prefix,
- * fin takes the cycles): the code of an opcode is a few instructions and the loop is small enough to stay in the instruction cache of the Pi Zero W
- * next to the CPU core. `cyc` counts master clocks: the extra costs are multiples of `mul`. */
+/* One opcode: a table jump, then the code of the opcode computes. The common ends are labels after the opcodes (wr_d and wr_n store the result in R(dreg) or R(n),
+ * clr clears the prefix, fin takes the cycles): the code of an opcode is a few instructions and the loop is small enough to stay in the instruction cache of the
+ * Pi Zero W next to the CPU core. The master clocks of an instruction (`mul` and the extra costs, multiples of `mul`) go straight into `budget`.
+ * alt: bit 0 ALT1, bit 1 ALT2, bit 2 the B flag (WITH). sreg is the index of the source register, d4 the byte offset of the destination in the 32-bit slots (4 * dreg). */
 #define SZ(v) (sz = (uint16_t)(v))
-#define RS (r[sreg])
+#define RS (R[sreg])
 #define SFLAG FLAG_S(sz)
 #define ZFLAG FLAG_Z(sz)
-#define FETCH8() ({ const unsigned f_ = fetch(&cyc, pc); pc++; (uint8_t)f_; })
-#define FETCH16() ({ const unsigned l_ = FETCH8(); const unsigned h_ = FETCH8(); (uint16_t)(l_ | (h_ << 8)); })
+#define WR16(off, val) (*(u16a *)((char *)R + (off)) = (uint16_t)(val))
+#define FETCH8() ({                                                                                     \
+        unsigned f_;                                                                                    \
+        if (UNLIKELY(!((uintptr_t)ip & 15))) { f_ = gsu_fetch_slow((uint16_t)pc); budget -= (int)(f_ >> 8); f_ &= 255; ip = g.ipn; } \
+        else f_ = *ip++;                                                                                \
+        pc++; f_; })
+#define FETCH16() ({ const unsigned l_ = FETCH8(); const unsigned h_ = FETCH8(); l_ | (h_ << 8); })
+#define RDW(a) ({ const unsigned i_ = (a) & g.rm; (unsigned)(g.rbase[i_] | (g.rbase[i_ ^ 1] << 8)); })
+#define RDB(a) ((unsigned)g.rbase[(a) & g.rm])
+#define WRW(a, val) do { const unsigned i_ = (a) & g.rm; g.rbase[i_] = (uint8_t)(val); g.rbase[i_ ^ 1] = (uint8_t)((val) >> 8); g.dirty = 1; } while (0)
+#define WRB(a, val) do { g.rbase[(a) & g.rm] = (uint8_t)(val); g.dirty = 1; } while (0)
 
 void gsu_run(int clocks)
 {
     if (!g.go) { g.budget = 0; return; }
+    ram_base();
     int budget = g.budget + clocks;
+    if (budget <= 0) { g.budget = budget; return; }
+#if GSU_ASM
+    gsu_run_asm(&g, budget);
+    if (g.dirty) { g.dirty = 0; S.sram_dirty = 1; }
+}
+#else
     const int mul = g.mul;
-    const int rom_c = g.romcyc, ram_c = g.ramcyc;
-    unsigned alt = g.alt, b = g.b, sreg = g.sreg, dreg = g.dreg;
+    unsigned alt = g.alt | (g.b << 2), sreg = g.sreg, d4 = g.dreg << 2;
     uint32_t sz = g.sz;
     unsigned fcy = g.fcy, fov = g.fov;
-    int jpend = g.jpend, jpbr = g.jpbr;
-    uint16_t jaddr = g.jaddr;
-    uint16_t *const r = g.r;
-    uint16_t pc = r[15];
+    uint32_t jt = g.jt;
+    uint32_t *const R = g.r;
+    uint32_t pc = R[15];
     uint32_t cnt = 0;
-    int cyc;
-    unsigned n, k;
-    uint16_t v;
+    const uint8_t *ip = 0;                  /* the code byte at pc when its low 4 bits are not 0 (the line is in the cache); else a fetch goes through fetch_slow */
+    unsigned op, n, k, v;
 
-    while (budget > 0) {
-        cyc = mul;
-        const uint8_t op = fetch(&cyc, pc);
-        pc++;
+    static const void *const T[256] = {
+        [0x00] = &&L_stop, [0x01] = &&L_nop, [0x02] = &&L_cache, [0x03] = &&L_lsr, [0x04] = &&L_rol,
+        [0x05] = &&L_bra, [0x06] = &&L_bge, [0x07] = &&L_blt, [0x08] = &&L_bne, [0x09] = &&L_beq, [0x0A] = &&L_bpl, [0x0B] = &&L_bmi,
+        [0x0C] = &&L_bcc, [0x0D] = &&L_bcs, [0x0E] = &&L_bvc, [0x0F] = &&L_bvs,
+        [0x10 ... 0x1F] = &&L_to, [0x20 ... 0x2F] = &&L_with, [0x30 ... 0x3B] = &&L_st, [0x3C] = &&L_loop,
+        [0x3D] = &&L_alt1, [0x3E] = &&L_alt2, [0x3F] = &&L_alt3, [0x40 ... 0x4B] = &&L_ld, [0x4C] = &&L_plot, [0x4D] = &&L_swap,
+        [0x4E] = &&L_color, [0x4F] = &&L_not, [0x50 ... 0x5F] = &&L_add, [0x60 ... 0x6F] = &&L_sub, [0x70] = &&L_merge,
+        [0x71 ... 0x7F] = &&L_and, [0x80 ... 0x8F] = &&L_mult, [0x90] = &&L_sbk, [0x91 ... 0x94] = &&L_link, [0x95] = &&L_sex,
+        [0x96] = &&L_asr, [0x97] = &&L_ror, [0x98 ... 0x9D] = &&L_jmp, [0x9E] = &&L_lob, [0x9F] = &&L_fmult,
+        [0xA0 ... 0xAF] = &&L_ibt, [0xB0 ... 0xBF] = &&L_from, [0xC0] = &&L_hib, [0xC1 ... 0xCF] = &&L_or,
+        [0xD0 ... 0xDE] = &&L_inc, [0xDF] = &&L_getc, [0xE0 ... 0xEE] = &&L_dec, [0xEF] = &&L_getb, [0xF0 ... 0xFF] = &&L_iwt
+    };
+
+    if (jt) goto slot;
+    for (;;) {
+        op = FETCH8();
         cnt++;
-        if (jpend) {
-            jpend = 0;
-            pc = jaddr;
-            if (jpbr >= 0) { g.pbr = (uint8_t)jpbr; jpbr = -1; g.cbr = (uint16_t)(jaddr & 0xFFF0); g.cvalid = 0; }
-        }
-        r[15] = pc;
+    dispatch:
+        *(u16a *)&R[15] = (uint16_t)pc;
         n = op & 15;
-        switch (op) {
-        case 0x00:                                              /* STOP */
-            pix_flush();
-            g.go = 0; g.irq = 1;
-            if (!(g.cfgr & 0x80)) { g.irq_line = 1; S.irq_pending = 1; }
-            pc++;
-            b = alt = sreg = dreg = 0;
-            budget = 0;
-            goto out;
-        case 0x01: goto clr;                                    /* NOP */
-        case 0x02: {                                            /* CACHE */
-            const uint16_t nb = (uint16_t)((pc - 1) & 0xFFF0);
-            if (g.cbr != nb) { g.cbr = nb; g.cvalid = 0; }
-            goto clr;
+        goto *T[op];
+
+    L_stop:                                                     /* STOP */
+        pix_flush();
+        g.go = 0; g.irq = 1;
+        if (!(g.cfgr & 0x80)) { g.irq_line = 1; S.irq_pending = 1; }
+        pc++;
+        alt = sreg = d4 = 0;
+        budget = 0;
+        goto out;
+    L_nop: goto clr;
+    L_cache: {                                                  /* CACHE */
+        const uint16_t nb = (uint16_t)((pc - 1) & 0xFFF0);
+        if (g.cbr != nb) { g.cbr = nb; g.cvalid = 0; ip = 0; }
+        goto clr;
+    }
+    L_lsr: { const unsigned s = RS; fcy = s & 1; v = s >> 1; SZ(v); goto wr_d; }
+    L_rol: { const unsigned s = RS; v = (s << 1) | fcy; fcy = s >> 15; SZ(v); goto wr_d; }
+    L_bra: k = 1; goto branch;
+    L_bge: k = SFLAG == fov; goto branch;
+    L_blt: k = SFLAG != fov; goto branch;
+    L_bne: k = !ZFLAG; goto branch;
+    L_beq: k = ZFLAG; goto branch;
+    L_bpl: k = !SFLAG; goto branch;
+    L_bmi: k = SFLAG; goto branch;
+    L_bcc: k = !fcy; goto branch;
+    L_bcs: k = fcy; goto branch;
+    L_bvc: k = !fov; goto branch;
+    L_bvs: k = fov; goto branch;
+    L_to:                                                       /* TO / MOVE */
+        if (alt & 4) { v = RS; goto wr_n; }
+        d4 = n << 2;
+        goto fin;
+    L_with: sreg = n; d4 = n << 2; alt |= 4; goto fin;
+    L_st:                                                       /* STW / STB */
+        g.ramaddr = (uint16_t)R[n];
+        if (alt & 1) { WRB(R[n], RS); } else { WRW(R[n], RS); }
+        budget -= mul; goto clr;
+    L_loop:                                                     /* LOOP */
+        v = (R[12] - 1) & 0xFFFF;
+        R[12] = v;
+        SZ(v);
+        if (v) { jt = R[13] | JF; goto jclr; }
+        goto clr;
+    L_alt1: alt |= 1; goto fin;
+    L_alt2: alt |= 2; goto fin;
+    L_alt3: alt |= 3; goto fin;
+    L_ld:                                                       /* LDW / LDB */
+        g.ramaddr = (uint16_t)R[n];
+        v = (alt & 1) ? RDB(R[n]) : RDW(R[n]);
+        budget -= g.ramcyc;
+        goto wr_d;
+    L_plot:                                                     /* PLOT / RPIX */
+        if (alt & 1) { v = do_rpix(); sz = v; budget -= g.ramcyc * 3; goto wr_d; }
+        do_plot();
+        budget -= mul; goto clr;
+    L_swap: { const unsigned s = RS; v = ((s << 8) | (s >> 8)) & 0xFFFF; SZ(v); goto wr_d; }
+    L_color:                                                    /* COLOR / CMODE */
+        if (alt & 1) g.por = RS & 0x1F; else g.colr = color_of((uint8_t)RS);
+        goto clr;
+    L_not: v = ~RS & 0xFFFF; SZ(v); goto wr_d;
+    L_add: {                                                    /* ADD, ADC, ADD #, ADC # */
+        const uint32_t s = RS, m = (alt & 2) ? n : R[n];
+        const uint32_t res = s + m + ((alt & 1) ? fcy : 0);
+        fov = (~(s ^ m) & (s ^ res) & 0x8000) != 0;
+        fcy = res > 0xFFFF; SZ(res);
+        v = res; goto wr_d;
+    }
+    L_sub: {                                                    /* SUB, SBC, SUB #, CMP */
+        const unsigned a = alt & 3;
+        const uint32_t s = RS, m = (a == 2) ? n : R[n];
+        const uint32_t res = s - m - (a == 1 ? (fcy ^ 1) : 0);
+        fov = ((s ^ m) & (s ^ res) & 0x8000) != 0;
+        fcy = (int32_t)res >= 0; SZ(res);
+        if (a == 3) goto clr;
+        v = res; goto wr_d;
+    }
+    L_merge:                                                    /* MERGE: S, OV, CY and Z come from the masks, Z = (v & $F0F0) != 0 ([F]) */
+        v = (R[7] & 0xFF00) | (R[8] >> 8);
+        sz = ((v & 0x8080) ? 0x10000u : 0u) | ((v & 0xF0F0) ? 0u : 1u);   /* the Z flag is set when the low 16 bits are 0: so the flag (v & $F0F0) != 0 means they are 0 */
+        fov = (v & 0xC0C0) != 0; fcy = (v & 0xE0E0) != 0;
+        goto wr_d;
+    L_and: {                                                    /* AND, BIC, AND #, BIC # */
+        const unsigned m = (alt & 2) ? n : R[n];
+        v = (alt & 1) ? (RS & ~m) : (RS & m);
+        SZ(v); goto wr_d;
+    }
+    L_mult: {                                                   /* MULT, UMULT, MULT #, UMULT # */
+        const unsigned m = (alt & 2) ? n : R[n];
+        v = (alt & 1) ? (unsigned)((uint8_t)RS * (uint8_t)m) : (unsigned)((int8_t)RS * (int8_t)m);
+        SZ(v);
+        if (!(g.cfgr & 0x20)) budget -= mul;
+        goto wr_d;
+    }
+    L_sbk: { const unsigned a = g.ramaddr; WRW(a, RS); budget -= mul; goto clr; }   /* SBK */
+    L_link: R[11] = (uint16_t)(pc + n); goto clr;               /* LINK */
+    L_sex: v = (unsigned)(int)(int8_t)RS & 0xFFFF; SZ(v); goto wr_d;
+    L_asr: {                                                    /* ASR / DIV2 */
+        const unsigned s = RS;
+        v = (unsigned)((int16_t)s >> 1) & 0xFFFF;
+        if ((alt & 1) && s == 0xFFFF) v = 0;
+        fcy = s & 1; SZ(v); goto wr_d;
+    }
+    L_ror: { const unsigned s = RS; v = (s >> 1) | (fcy << 15); fcy = s & 1; SZ(v); goto wr_d; }
+    L_jmp:                                                      /* JMP / LJMP */
+        if (alt & 1) jt = RS | JF | JL | ((R[n] & 0x7F) << 24);
+        else jt = R[n] | JF;
+        goto jclr;
+    L_lob: v = RS & 0xFF; sz = v | ((v & 0x80) ? 0x10000u : 0u); goto wr_d;
+    L_fmult: {                                                  /* FMULT / LMULT */
+        const int32_t pr = (int32_t)(int16_t)RS * (int16_t)R[6];
+        v = (uint32_t)pr >> 16;
+        if (alt & 1) R[4] = (uint16_t)pr;
+        fcy = ((uint32_t)pr >> 15) & 1; SZ(v);
+        budget -= ((g.cfgr & 0x20) ? 3 : 7) * mul;
+        goto wr_d;
+    }
+    L_ibt: {                                                    /* IBT / LMS / SMS */
+        const unsigned a = alt & 3;
+        k = FETCH8();
+        if (a == 1) { g.ramaddr = (uint16_t)(k << 1); v = RDW(k << 1); budget -= g.ramcyc + 2 * mul; }
+        else if (a == 2) { g.ramaddr = (uint16_t)(k << 1); WRW(k << 1, R[n]); budget -= 2 * mul; goto clr; }
+        else v = (unsigned)(int)(int8_t)k & 0xFFFF;
+        goto wr_n;
+    }
+    L_from:                                                     /* FROM / MOVES */
+        if (alt & 4) {
+            v = R[n];
+            fov = (v >> 7) & 1; SZ(v); goto wr_d;
         }
-        case 0x03: { const uint16_t s = RS; fcy = s & 1; v = s >> 1; SZ(v); goto wr_d; }   /* LSR */
-        case 0x04: { const uint16_t s = RS; v = (uint16_t)((s << 1) | fcy); fcy = s >> 15; SZ(v); goto wr_d; }   /* ROL */
-        case 0x05: k = 1; goto branch;
-        case 0x06: k = SFLAG == fov; goto branch;               /* BGE */
-        case 0x07: k = SFLAG != fov; goto branch;               /* BLT */
-        case 0x08: k = !ZFLAG; goto branch;
-        case 0x09: k = ZFLAG; goto branch;
-        case 0x0A: k = !SFLAG; goto branch;
-        case 0x0B: k = SFLAG; goto branch;
-        case 0x0C: k = !fcy; goto branch;
-        case 0x0D: k = fcy; goto branch;
-        case 0x0E: k = !fov; goto branch;
-        case 0x0F: k = fov; goto branch;
-        case 0x10 ... 0x1F:                                     /* TO / MOVE */
-            if (b) { v = RS; goto wr_n; }
-            dreg = n;
-            goto fin;
-        case 0x20 ... 0x2F: sreg = dreg = n; b = 1; goto fin;   /* WITH */
-        case 0x30 ... 0x3B:                                     /* STW / STB */
-            g.ramaddr = r[n];
-            if (alt & 1) ram_wr(g.ramaddr, (uint8_t)RS); else ram_ww(g.ramaddr, RS);
-            cyc += mul; goto clr;
-        case 0x3C:                                              /* LOOP */
-            v = --r[12];
-            SZ(v);
-            if (v) { jpend = 1; jaddr = r[13]; jpbr = -1; }
-            goto clr;
-        case 0x3D: alt |= 1; goto fin;
-        case 0x3E: alt |= 2; goto fin;
-        case 0x3F: alt = 3; goto fin;
-        case 0x40 ... 0x4B:                                     /* LDW / LDB */
-            g.ramaddr = r[n];
-            v = (alt & 1) ? ram_rd(g.ramaddr) : ram_rw(g.ramaddr);
-            cyc += ram_c;
-            goto wr_d;
-        case 0x4C:                                              /* PLOT / RPIX */
-            if (alt & 1) { v = do_rpix(); sz = v; cyc += ram_c * 3; goto wr_d; }
-            do_plot();
-            cyc += mul; goto clr;
-        case 0x4D: { const uint16_t s = RS; v = (uint16_t)((s << 8) | (s >> 8)); SZ(v); goto wr_d; }   /* SWAP */
-        case 0x4E:                                              /* COLOR / CMODE */
-            if (alt & 1) g.por = RS & 0x1F; else g.colr = color_of((uint8_t)RS);
-            goto clr;
-        case 0x4F: v = (uint16_t)~RS; SZ(v); goto wr_d;         /* NOT */
-        case 0x50 ... 0x5F: {                                   /* ADD, ADC, ADD #, ADC # */
-            const uint32_t s = RS, m = (alt & 2) ? n : r[n];
-            const uint32_t res = s + m + ((alt & 1) ? fcy : 0);
-            fov = (~(s ^ m) & (s ^ res) & 0x8000) != 0;
-            fcy = res > 0xFFFF; SZ(res);
-            v = (uint16_t)res; goto wr_d;
+        sreg = n; goto fin;
+    L_hib: v = RS >> 8; sz = v | ((v & 0x80) ? 0x10000u : 0u); goto wr_d;
+    L_or: {                                                     /* OR, XOR, OR #, XOR # */
+        const unsigned m = (alt & 2) ? n : R[n];
+        v = (alt & 1) ? (RS ^ m) : (RS | m);
+        SZ(v); goto wr_d;
+    }
+    L_inc: v = (R[n] + 1) & 0xFFFF; SZ(v); goto wr_n;
+    L_getc: {                                                   /* GETC / RAMB / ROMB */
+        const unsigned a = alt & 3;
+        if (a == 2) { g.rambr = RS & 1; ram_base(); }
+        else if (a == 3) g.rombr = RS & 0x7F;
+        else { const unsigned x = rom_buffer(); budget -= (int)(x >> 8); g.colr = color_of((uint8_t)x); }
+        goto clr;
+    }
+    L_dec: v = (R[n] - 1) & 0xFFFF; SZ(v); goto wr_n;
+    L_getb: {                                                   /* GETB / GETBH / GETBL / GETBS */
+        const unsigned x = rom_buffer(), by = x & 255;
+        budget -= (int)(x >> 8);
+        switch (alt & 3) {
+        case 0: v = by; break;
+        case 1: v = (by << 8) | (RS & 0xFF); break;
+        case 2: v = (RS & 0xFF00) | by; break;
+        default: v = (unsigned)(int)(int8_t)by & 0xFFFF; break;
         }
-        case 0x60 ... 0x6F: {                                   /* SUB, SBC, SUB #, CMP */
-            const uint32_t s = RS, m = (alt == 2) ? n : r[n];
-            const uint32_t res = s - m - (alt == 1 ? (fcy ^ 1) : 0);
-            fov = ((s ^ m) & (s ^ res) & 0x8000) != 0;
-            fcy = (int32_t)res >= 0; SZ(res);
-            if (alt == 3) goto clr;
-            v = (uint16_t)res; goto wr_d;
-        }
-        case 0x70:                                              /* MERGE: S, OV, CY and Z come from the masks, Z = (v & $F0F0) != 0 ([F]) */
-            v = (uint16_t)((r[7] & 0xFF00) | (r[8] >> 8));
-            sz = ((v & 0x8080) ? 0x10000u : 0u) | ((v & 0xF0F0) ? 0u : 1u);   /* the Z flag is set when the low 16 bits are 0: so the flag (v & $F0F0) != 0 means they are 0 */
-            fov = (v & 0xC0C0) != 0; fcy = (v & 0xE0E0) != 0;
-            goto wr_d;
-        case 0x71 ... 0x7F: {                                   /* AND, BIC, AND #, BIC # */
-            const uint16_t m = (alt & 2) ? (uint16_t)n : r[n];
-            v = (alt & 1) ? (uint16_t)(RS & ~m) : (uint16_t)(RS & m);
-            SZ(v); goto wr_d;
-        }
-        case 0x80 ... 0x8F: {                                   /* MULT, UMULT, MULT #, UMULT # */
-            const uint16_t m = (alt & 2) ? (uint16_t)n : r[n];
-            v = (alt & 1) ? (uint16_t)((uint8_t)RS * (uint8_t)m) : (uint16_t)((int8_t)RS * (int8_t)m);
-            SZ(v);
-            if (!(g.cfgr & 0x20)) cyc += mul;
-            goto wr_d;
-        }
-        case 0x90: ram_ww(g.ramaddr, RS); cyc += mul; goto clr;   /* SBK */
-        case 0x91 ... 0x94: r[11] = (uint16_t)(pc + n); goto clr;   /* LINK */
-        case 0x95: v = (uint16_t)(int16_t)(int8_t)RS; SZ(v); goto wr_d;   /* SEX */
-        case 0x96: {                                            /* ASR / DIV2 */
-            const uint16_t s = RS;
-            v = (uint16_t)((int16_t)s >> 1);
-            if ((alt & 1) && s == 0xFFFF) v = 0;
-            fcy = s & 1; SZ(v); goto wr_d;
-        }
-        case 0x97: { const uint16_t s = RS; v = (uint16_t)((s >> 1) | (fcy << 15)); fcy = s & 1; SZ(v); goto wr_d; }   /* ROR */
-        case 0x98 ... 0x9D:                                     /* JMP / LJMP */
-            if (alt & 1) { jpend = 1; jaddr = RS; jpbr = r[n] & 0x7F; }
-            else { jpend = 1; jaddr = r[n]; jpbr = -1; }
-            goto clr;
-        case 0x9E: v = RS & 0xFF; sz = v | ((v & 0x80) ? 0x10000u : 0u); goto wr_d;   /* LOB */
-        case 0x9F: {                                            /* FMULT / LMULT */
-            const int32_t pr = (int32_t)(int16_t)RS * (int16_t)r[6];
-            v = (uint16_t)((uint32_t)pr >> 16);
-            if (alt & 1) r[4] = (uint16_t)pr;
-            fcy = ((uint32_t)pr >> 15) & 1; SZ(v);
-            cyc += ((g.cfgr & 0x20) ? 3 : 7) * mul;
-            goto wr_d;
-        }
-        case 0xA0 ... 0xAF:                                     /* IBT / LMS / SMS */
-            k = FETCH8();
-            if (alt == 1) { g.ramaddr = (uint16_t)(k << 1); v = ram_rw(g.ramaddr); cyc += ram_c + 2 * mul; }
-            else if (alt == 2) { g.ramaddr = (uint16_t)(k << 1); ram_ww(g.ramaddr, r[n]); cyc += 2 * mul; goto clr; }
-            else v = (uint16_t)(int16_t)(int8_t)k;
-            goto wr_n;
-        case 0xB0 ... 0xBF:                                     /* FROM / MOVES */
-            if (b) {
-                v = r[n];
-                fov = (v >> 7) & 1; SZ(v); goto wr_d;
-            }
-            sreg = n; goto fin;
-        case 0xC0: v = RS >> 8; sz = v | ((v & 0x80) ? 0x10000u : 0u); goto wr_d;   /* HIB */
-        case 0xC1 ... 0xCF: {                                   /* OR, XOR, OR #, XOR # */
-            const uint16_t m = (alt & 2) ? (uint16_t)n : r[n];
-            v = (alt & 1) ? (uint16_t)(RS ^ m) : (uint16_t)(RS | m);
-            SZ(v); goto wr_d;
-        }
-        case 0xD0 ... 0xDE: v = (uint16_t)(r[n] + 1); SZ(v); goto wr_n;   /* INC */
-        case 0xDF:                                              /* GETC / RAMB / ROMB */
-            if (alt == 2) g.rambr = RS & 1;
-            else if (alt == 3) g.rombr = RS & 0x7F;
-            else g.colr = color_of(rom_buffer(&cyc, rom_c));
-            goto clr;
-        case 0xE0 ... 0xEE: v = (uint16_t)(r[n] - 1); SZ(v); goto wr_n;   /* DEC */
-        case 0xEF: {                                            /* GETB / GETBH / GETBL / GETBS */
-            const uint8_t by = rom_buffer(&cyc, rom_c);
-            switch (alt) {
-            case 0: v = by; break;
-            case 1: v = (uint16_t)((by << 8) | (RS & 0xFF)); break;
-            case 2: v = (uint16_t)((RS & 0xFF00) | by); break;
-            default: v = (uint16_t)(int16_t)(int8_t)by; break;
-            }
-            goto wr_d;
-        }
-        case 0xF0 ... 0xFF:                                     /* IWT / LM / SM */
-            k = FETCH16();
-            if (alt == 1) { g.ramaddr = (uint16_t)k; v = ram_rw(g.ramaddr); cyc += ram_c + 3 * mul; }
-            else if (alt == 2) { g.ramaddr = (uint16_t)k; ram_ww(g.ramaddr, r[n]); cyc += 3 * mul; goto clr; }
-            else v = (uint16_t)k;
-            goto wr_n;
-        default: __builtin_unreachable();
-        }
+        goto wr_d;
+    }
+    L_iwt: {                                                    /* IWT / LM / SM */
+        const unsigned a = alt & 3;
+        k = FETCH16();
+        if (a == 1) { g.ramaddr = (uint16_t)k; v = RDW(k); budget -= g.ramcyc + 3 * mul; }
+        else if (a == 2) { g.ramaddr = (uint16_t)k; WRW(k, R[n]); budget -= 3 * mul; goto clr; }
+        else v = k;
+        goto wr_n;
+    }
     branch: {
-        const int8_t d = (int8_t)FETCH8();
-        if (k) { jpend = 1; jaddr = (uint16_t)(pc + d); jpbr = -1; }
+        const int d = (int8_t)FETCH8();
+        if (k) { jt = (uint16_t)(pc + d) | JF; goto jfin; }
         goto fin;
     }
     wr_n:
-        if (n == 15) { jpend = 1; jaddr = v; jpbr = -1; } else r[n] = v;
+        if (n == 15) { jt = (uint16_t)v | JF; goto jclr; }
+        WR16(n << 2, v);
         goto clr;
     wr_d:
-        if (dreg == 15) { jpend = 1; jaddr = v; jpbr = -1; } else r[dreg] = v;
+        if (d4 == 60) { jt = (uint16_t)v | JF; goto jclr; }
+        WR16(d4, v);
     clr:
-        b = alt = sreg = dreg = 0;
+        alt = sreg = d4 = 0;
     fin:
-        budget -= cyc;
+        if (LIKELY((budget -= mul) > 0)) continue;
+        break;
+    jclr:                                                       /* a jump is pending: the next opcode is the delay slot */
+        alt = sreg = d4 = 0;
+    jfin:
+        if ((budget -= mul) <= 0) break;
+    slot:
+        op = FETCH8();
+        cnt++;
+        pc = (uint16_t)jt;
+        if (UNLIKELY(jt >> 31)) {
+            g.pbr = (uint8_t)((jt >> 24) & 0x7F); g.cbr = (uint16_t)(pc & 0xFFF0); g.cvalid = 0; ip = 0;
+        } else {
+            const unsigned off = (uint16_t)(pc - g.cbr);
+            ip = (off < 512 && ((g.cvalid >> (off >> 4)) & 1)) ? &g.cache[off] : 0;
+        }
+        jt = 0;
+        goto dispatch;
     }
 out:
-    r[15] = pc;
+    *(u16a *)&R[15] = (uint16_t)pc;
     g.budget = budget;
-    g.alt = (uint8_t)alt; g.b = (uint8_t)b; g.sreg = (uint8_t)sreg; g.dreg = (uint8_t)dreg;
+    g.alt = (uint8_t)(alt & 3); g.b = (uint8_t)(alt >> 2); g.sreg = (uint8_t)sreg; g.dreg = (uint8_t)(d4 >> 2);
     g.sz = sz; g.fcy = (uint8_t)fcy; g.fov = (uint8_t)fov;
-    g.jpend = (uint8_t)jpend; g.jpbr = (int16_t)jpbr; g.jaddr = jaddr;
+    g.jt = jt;
     g.insns += cnt;
+    if (g.dirty) { g.dirty = 0; S.sram_dirty = 1; }
 }
+#endif
+
+#if GSU_ASM
+/* The calls of the assembly loop for the opcodes that are not worth assembly: they work on the state in g (R0-R15, the pixel cache, COLR, POR, the ROM buffer). */
+void gsu_c_stop(void) { pix_flush(); g.go = 0; g.irq = 1; if (!(g.cfgr & 0x80)) { g.irq_line = 1; S.irq_pending = 1; } }
+void gsu_c_plot(void) { do_plot(); }
+unsigned gsu_c_rpix(void) { return do_rpix(); }
+void gsu_c_color(unsigned src, unsigned alt) { if (alt & 1) g.por = src & 0x1F; else g.colr = color_of((uint8_t)src); }
+void gsu_c_ramb(unsigned src) { g.rambr = src & 1; ram_base(); }
+unsigned gsu_c_getc(void) { const unsigned x = rom_buffer(); g.colr = color_of((uint8_t)x); return x >> 8; }
+unsigned gsu_c_getb(unsigned alt, unsigned rs)         /* the value in bits 0-15, the extra clocks above */
+{
+    const unsigned x = rom_buffer(), by = x & 255;
+    unsigned v;
+    switch (alt & 3) {
+    case 0: v = by; break;
+    case 1: v = (by << 8) | (rs & 0xFF); break;
+    case 2: v = (rs & 0xFF00) | by; break;
+    default: v = (unsigned)(int)(int8_t)by & 0xFFFF; break;
+    }
+    return v | ((x >> 8) << 16);
+}
+#endif
 
 /* ------------------------------------------------------------------ the SNES side */
 int gsu_go(void) { return g.go; }
@@ -419,11 +527,11 @@ int gsu_owns_rom(void) { return g.go && (g.scmr & 0x10); }
 int gsu_irq_line(void) { return g.irq_line; }
 uint32_t gsu_instr_count(void) { return g.insns; }
 uint32_t gsu_ram_mask(void) { return g.rmask; }
-uint16_t gsu_reg(int n) { return g.r[n & 15]; }
+uint16_t gsu_reg(int n) { return (uint16_t)g.r[n & 15]; }
 
 void gsu_dbg(gsu_dbg_t *d)
 {
-    memcpy(d->r, g.r, sizeof d->r);
+    for (int i = 0; i < 16; i++) d->r[i] = (uint16_t)g.r[i];
     d->pbr = g.pbr; d->rombr = g.rombr; d->rambr = g.rambr; d->cfgr = g.cfgr; d->scbr = g.scbr; d->clsr = g.clsr; d->scmr = g.scmr;
     d->colr = g.colr; d->por = g.por; d->go = g.go; d->irq = g.irq; d->alt = g.alt; d->b = g.b; d->cbr = g.cbr;
     d->sfr_lo = (uint8_t)((FLAG_Z(g.sz) << 1) | (g.fcy << 2) | (FLAG_S(g.sz) << 3) | (g.fov << 4) | (g.go << 5));
@@ -439,7 +547,7 @@ uint8_t gsu_vector_byte(uint16_t off)
 static void start(void)
 {
     g.go = 1;
-    g.jpend = 0; g.jpbr = -1;
+    g.jt = 0;
     g.rbuf_ok = 0;
     g.budget = 0;
 }
@@ -448,7 +556,7 @@ uint8_t gsu_read(uint16_t off)
 {
     if (off >= 0x3100) return g.cache[(off - 0x3100) & 0x1FF];
     off = (uint16_t)(0x3000 | (off & 0x3F));
-    if (off < 0x3020) { const uint16_t v = g.r[(off >> 1) & 15]; return (off & 1) ? (uint8_t)(v >> 8) : (uint8_t)v; }
+    if (off < 0x3020) { const uint16_t v = (uint16_t)g.r[(off >> 1) & 15]; return (off & 1) ? (uint8_t)(v >> 8) : (uint8_t)v; }
     switch (off) {
     case 0x3030: return (uint8_t)((FLAG_Z(g.sz) << 1) | (g.fcy << 2) | (FLAG_S(g.sz) << 3) | (g.fov << 4) | (g.go << 5));
     case 0x3031: {

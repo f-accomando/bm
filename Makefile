@@ -353,7 +353,8 @@ test-snes-ppu-arm: tests/snes/ppu_equiv_arm.c tests/snes/ppu_equiv.c tests/snes/
 	$(SNES_ARM_CC) $(SNES_REF_DEFS) -c tests/snes/ppu_ref.c -o $(BUILD)/arm/ppuref.o
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
-	$(SNES_ARM_CC) -DCASES_ARM=$(or $(PPU_ARM_CASES),30) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/ppuequiv.elf tests/snes/ppu_equiv_arm.c $(BUILD)/arm/ppuref.o src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -Isrc/bm -c src/bm/snes_gsu_arm.S -o $(BUILD)/arm/gsuarm.o
+	$(SNES_ARM_CC) -DCASES_ARM=$(or $(PPU_ARM_CASES),30) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/ppuequiv.elf tests/snes/ppu_equiv_arm.c $(BUILD)/arm/ppuref.o src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
 	$(SNES_ARM_RUN) $(BUILD)/arm/ppuequiv.elf | tee $(BUILD)/arm/ppuequiv.out | tail -3; grep -q 'ppu equivalence: .* ok' $(BUILD)/arm/ppuequiv.out
 bench-snes-ppu: $(BUILD)/host/snes_ppu_equiv
 	$< bench 200
@@ -377,6 +378,20 @@ test-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$<
 bench-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$< bench
+# The Super FX interpreter against the plain C reference (tests/snes/gsu_ref.c) on random programs, pieces of random length, byte for byte.
+$(BUILD)/host/snes_gsu_diff: tests/snes/gsu_diff.c tests/snes/gsu_ref.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_gsu.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -Itests/snes -o $@ tests/snes/gsu_diff.c tests/snes/gsu_ref.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-gsu-diff: $(BUILD)/host/snes_gsu_diff
+	$<
+# The Super FX tests on an ARM1176 in QEMU with a count of the ARM instructions per GSU instruction (icount: one instruction is 1 ns, the board timer ticks each microsecond).
+test-snes-gsu-arm: tests/snes/gsu_arm.c tests/snes/gsu_test.c tests/snes/gsu_diff.c tests/snes/gsu_ref.c src/bm/snes_gsu.c src/bm/snes_gsu_arm.S src/bm/snes_gsu_off.h src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
+	@mkdir -p $(BUILD)/arm
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -Isrc/bm -c src/bm/snes_gsu_arm.S -o $(BUILD)/arm/gsuarm.o
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/gsu.elf tests/snes/gsu_arm.c tests/snes/gsu_ref.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
+	qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -icount shift=0 -semihosting -nographic -audio none -kernel $(BUILD)/arm/gsu.elf | tee $(BUILD)/arm/gsu.out | tail -16; grep -q 'gsu: .* 0 failed' $(BUILD)/arm/gsu.out; grep -q 'gsu diff: .* ok' $(BUILD)/arm/gsu.out
 # The DSP-1/2/3/4 core (docs/progress/snes-dsp.md): the uPD77C25 on small original firmware written in the test, and the cartridge ports in the map.
 $(BUILD)/host/snes_dsp77_test: tests/snes/dsp77_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_dsp77.h
 	@mkdir -p $(BUILD)/host
@@ -388,7 +403,8 @@ test-snes-dsp77-arm: tests/snes/dsp77_test.c src/bm/snes_dsp77.c src/bm/snes_dsp
 	@mkdir -p $(BUILD)/arm
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
-	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/dsp77.elf tests/snes/dsp77_test.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -Isrc/bm -c src/bm/snes_gsu_arm.S -o $(BUILD)/arm/gsuarm.o
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/dsp77.elf tests/snes/dsp77_test.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
 	$(SNES_ARM_RUN) $(BUILD)/arm/dsp77.elf | tee $(BUILD)/arm/dsp77.out | tail -3; grep -q 'snes dsp77: .* 0 failed' $(BUILD)/arm/dsp77.out
 # The assembly loop of the CPU (snes_cpu_arm.S) on an ARM1176 in QEMU (needs qemu-system-arm and arm-none-eabi-gcc): the golden hashes, and one random instruction
 # at a time against the C reference (tests/snes/cpu_diff.c). The PC build does not use the assembly.
@@ -401,8 +417,9 @@ test-snes-cpu-arm: tests/snes/cpu_golden_arm.c tests/snes/cpu_diff.c src/bm/snes
 	$(SNES_ARM_CC) $(SNES_ARM_REF) -c src/bm/snes_cpu.c -o $(BUILD)/arm/ref.o
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
 	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
-	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/golden.elf tests/snes/cpu_golden_arm.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
-	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/diff.elf tests/snes/cpu_diff.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ref.o $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o -lm
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -Isrc/bm -c src/bm/snes_gsu_arm.S -o $(BUILD)/arm/gsuarm.o
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/golden.elf tests/snes/cpu_golden_arm.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
+	$(SNES_ARM_CC) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/diff.elf tests/snes/cpu_diff.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ref.o $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
 	$(SNES_ARM_RUN) $(BUILD)/arm/golden.elf | tee $(BUILD)/arm/golden.out | tail -3; grep -q 'cpu golden arm: ok' $(BUILD)/arm/golden.out
 	$(SNES_ARM_RUN) $(BUILD)/arm/diff.elf | tee $(BUILD)/arm/diff.out | tail -3; grep -q ': ok' $(BUILD)/arm/diff.out
 # The S-DSP on random voices, against the hashes of the code before the speed work (tests/snes/dsp_golden.c).
@@ -1005,7 +1022,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -2088,3 +2105,7 @@ test-consistency:
 
 # Tropic Trail video series (docs/video/PIANO.md)
 -include video/3d/video3d.mk
+
+dbg-gsu-arm:
+	$(SNES_ARM_CC) $(DBGFLAGS) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/dbg.elf $(DBGSRC) tests/snes/gsu_ref.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
+	timeout 20 qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel $(BUILD)/arm/dbg.elf
