@@ -33,5 +33,7 @@ const char *crumbs_prev_state(void);
 void crumbs_restart(int halt) __attribute__((noreturn));
 /* 1 if the previous boot ended with VideoCore failing to answer on the mailbox. */
 int crumbs_prev_fw_dead(void);
+/* 1: the boot before ran another kernel build (a kernel was just replaced), 0: the same one, -1: no record (power-up). */
+int crumbs_new_build(void);
 
 #endif

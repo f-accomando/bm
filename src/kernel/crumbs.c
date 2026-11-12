@@ -36,6 +36,17 @@ typedef struct {
 } ring_t;
 static ring_t ring __attribute__((section(".noinit"), aligned(CACHE_LINE)));
 
+/* Which kernel build ran at the boot before, kept in the SDRAM apart from cr (a planned restart clears cr, this stays).
+ * A boot of another build than the one before is "the first boot of a new build": 12 Nov 2026, the first app start
+ * after a kernel was replaced froze the VideoCore firmware every time, the same kernel after a restart never did. */
+#define BUILD_MAGIC 0x42494C44u
+typedef struct {
+    uint32_t magic;
+    char kernel[44];
+} build_t;
+static build_t last_build __attribute__((section(".noinit"), aligned(CACHE_LINE)));
+static int new_build = -1;              /* 1 another build ran before, 0 the same one, -1 no record (power-up) */
+
 /* the report of the boot before, until main.c takes it */
 static char last[RING + 160];
 static const char *last_kind;
@@ -80,6 +91,15 @@ static void flush(void)
 void crumbs_boot(void)
 {
     prev_fw_dead = 0;
+    if (last_build.magic == BUILD_MAGIC) {
+        last_build.kernel[sizeof last_build.kernel - 1] = 0;
+        new_build = strcmp(last_build.kernel, bm_version) != 0;
+        kprintf("boot: %s (the boot before ran %.40s)\n", new_build ? "the first boot of a new kernel build" : "the same kernel build as the boot before",
+                last_build.kernel);
+    }
+    last_build.magic = BUILD_MAGIC;
+    ksnprintf(last_build.kernel, sizeof last_build.kernel, "%s", bm_version);
+    dcache_clean_range(&last_build, sizeof last_build);
     if (cr.magic == MAGIC) {
         cr.what[sizeof cr.what - 1] = 0;
         cr.kernel[sizeof cr.kernel - 1] = 0;
@@ -135,7 +155,7 @@ void crumbs_boot(void)
     memset(&cr, 0, sizeof cr);
     cr.magic = MAGIC;
     cr.irq = -1;
-    strcpy(cr.what, "boot");
+    strcpy(cr.what, new_build == 1 ? "boot (first boot of a new build)" : "boot");
     ksnprintf(cr.kernel, sizeof cr.kernel, "%s", bm_version);
     cr_live = 1;                        /* the old record is copied and cr is reset: cr is this boot's */
     flush();
@@ -278,6 +298,11 @@ void crumbs_clean_exit(void)
 {
     cr.magic = 0;
     flush();
+}
+
+int crumbs_new_build(void)
+{
+    return new_build;
 }
 
 int crumbs_prev_fw_dead(void)

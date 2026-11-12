@@ -259,6 +259,16 @@ void kernel_main(uint32_t atags)
     carts_init();
     config_load();
     {
+        /* The first boot of a new kernel build restarts once more before anything starts (12 Nov 2026: the first app
+         * start after a kernel was replaced froze the VideoCore firmware every time; the same kernel after one more
+         * restart never did). The second boot runs the same build, so it does not loop. Key newbuild_restart=0 turns it off. */
+        const char *nb = config_get("newbuild_restart");
+        if (crumbs_new_build() == 1 && !(nb && nb[0] == '0')) {
+            kprintf("boot: restarting once more (newbuild_restart=0 in bm/config.txt turns this off)\n");
+            crumbs_restart(0);
+        }
+    }
+    {
         const char *mf = config_get("monitor_font");
         if (mf && mf[0]) {
             const font_t *f = font_find(mf);
