@@ -101,6 +101,10 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 - The ROM buffer reloads when R14 or ROMBR changes, not at each write of R14. ROMB does not keep the old bank for a pending read.
 - BRAMR, the backup RAM at $78-$79 and the GSU-1 or GSU-2 differences (VCR, the clock of the GSU-1) are not emulated. The clock follows CLSR for both chips.
 
+## Checked against ares
+
+Our GSU was run against the GSU module of ares (ISC licence) on random programs: `make test-snes-ref ARES=/path/to/ares`. Five differences are open; the table, the method and the rules of the harness are in [snes-superfx-ares.md](snes-superfx-ares.md). Short list: (1) ALT3 on `A0-AF` and `F0-FF` is LMS and LM, ours runs IBT and IWT; (2) SMS and SM of R15 store R15 before or after the operand (references disagree); (3) ALT after WITH, TO or FROM clears B, ours keeps it; (4) CACHE uses R15 after the fetch, ours uses the opcode address; (5) GETB after ROMB without a write of R14 (decided: keep ours). Fix 1, 3 and 4 in `snes_gsu.c` after the speed work is merged.
+
 ## Open work
 
 - Doom (GSU-2): plays to the first level on the host. Check the 3D view (partial walls, a black upper part) and the speed. Notes: [snes-doom.md](snes-doom.md).

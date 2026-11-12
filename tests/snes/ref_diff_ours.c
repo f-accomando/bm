@@ -7,6 +7,7 @@
 
 #include "snes_int.h"
 
+#include "snes_gsu.h"
 #include "ref_diff_ours.h"
 
 static uint8_t *flat;
@@ -44,4 +45,31 @@ int ours_step(const rd_regs_t *in, rd_regs_t *out, int nmi, int irq, int *waitin
     *stopped = cpu_stopped;
     S.nmi_pending = S.irq_pending = 0;
     return snes_clk;
+}
+
+/* ---- the Super FX */
+void ours_gsu_load(const uint8_t *rom128k)
+{
+    static uint8_t rom[0x20000];
+    memcpy(rom, rom128k, sizeof rom);
+    snes_load(rom, sizeof rom, NULL);
+}
+uint8_t *ours_gsu_ram(void) { return S.sram; }
+unsigned ours_gsu_ram_size(void) { return S.sram_size; }
+void ours_wr(uint32_t addr, uint8_t v) { snes_write(addr, v); }
+int ours_gsu_run(int max_lines)
+{
+    int l = 0;
+    const uint32_t i0 = gsu_instr_count();
+    while (gsu_go() && l < max_lines) { gsu_run(1364); l++; }
+    if (gsu_go()) return -1;
+    return (int)(gsu_instr_count() - i0);
+}
+void ours_gsu_state(rd_gsu_t *o)
+{
+    gsu_dbg_t d;
+    gsu_dbg(&d);
+    for (int i = 0; i < 16; i++) o->r[i] = d.r[i];
+    o->pbr = d.pbr; o->rombr = d.rombr; o->rambr = d.rambr; o->scbr = d.scbr; o->scmr = d.scmr; o->colr = d.colr; o->por = d.por; o->clsr = d.clsr;
+    o->sfr_lo = d.sfr_lo; o->cbr = d.cbr;
 }

@@ -4,6 +4,7 @@
 #include <nall/platform.hpp>
 #include <nall/memory.hpp>
 #include <nall/array.hpp>
+#include <nall/case-range.hpp>
 #include <nall/endian.hpp>
 #include <nall/literals.hpp>
 #include <nall/serializer.hpp>
