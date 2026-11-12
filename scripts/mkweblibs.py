@@ -12,7 +12,7 @@ import sys
 
 LIBS = [("assist", "src/ai/assist.lua"), ("bm3d", "src/script/bm3d.lua"), ("bmlib", "src/script/bmlib.lua"),
         ("bmnet", "src/script/bmnet.lua"), ("predict", "src/ai/predict.lua"), ("words", None),
-        ("padtype", "src/ai/padtype.lua"), ("riff", "src/script/riff.lua"), ("bmui", "src/script/bmui.lua")]
+        ("padtype", "src/ai/padtype.lua"), ("riff", "src/script/riff.lua"), ("bmui", "src/script/bmui.lua"), ("snes_asm", "src/script/snes_asm.lua")]
 
 
 def main():

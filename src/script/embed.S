@@ -156,6 +156,14 @@ bm_lib_bmui:
     .incbin "src/script/bmui.lua"
 bm_lib_bmui_end:
 
+/* the 65C816 assembler and the SNES ROM builder (require "snes_asm") */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_snes_asm, bm_lib_snes_asm_end
+bm_lib_snes_asm:
+    .incbin "src/script/snes_asm.lua"
+bm_lib_snes_asm_end:
+
     .section .rodata
     .balign 4
     .globl bm_mesh_cart, bm_mesh_cart_end

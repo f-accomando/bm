@@ -59,6 +59,13 @@ bm_lib_bmui_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_snes_asm, bm_lib_snes_asm_end
+bm_lib_snes_asm:
+    .incbin "src/script/snes_asm.lua"
+bm_lib_snes_asm_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end
 bm_lib_words:
 bm_lib_words_end:

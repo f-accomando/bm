@@ -41,7 +41,7 @@ Read it to learn what a cartridge, a tool or the kernel can and cannot do.
 - **Libraries in a cartridge**: `base`, `table`, `string`, `math`, `coroutine`, `utf8`, and the bm API. [code, `src/bm/runtime.c:5802-5808`]
 - **Libraries not in a cartridge**: `io`, `os`, `package`, `debug`. They are not opened. [code, `src/bm/runtime.c:5802-5808`]
 - `dofile`, `loadfile` and `load` are set to nil in a cartridge. [code, `src/bm/runtime.c:5812`]
-- `require` is the kernel's own. It loads only the libraries built into the kernel (`assist`, `bm3d`, `bmlib`, `bmnet`, `predict`, `words`, `padtype`, `riff`, `bmui`). [code, `src/bm/require.c:12-33`]
+- `require` is the kernel's own. It loads only the libraries built into the kernel (`assist`, `bm3d`, `bmlib`, `bmnet`, `predict`, `words`, `padtype`, `riff`, `bmui`, `snes_asm`). [code, `src/bm/require.c:12-33`]
 - **Lua heap**: 64 MB for all Lua states together. The allocator refuses growth above it. [code, `src/script/luavm.c:13`, `src/script/luavm.c:28`]
 - **Time limit**: a callback that runs more than 20 million Lua instructions in one frame stops with "cart timeout". [code, `src/bm/runtime.c:79-80`, `src/bm/runtime.c:5776`]
 - **Garbage collector**: generational. [code, `src/bm/runtime.c:5872`]

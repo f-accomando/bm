@@ -20,6 +20,7 @@ extern const uint8_t bm_lib_words[], bm_lib_words_end[];
 extern const uint8_t bm_lib_padtype[], bm_lib_padtype_end[];
 extern const uint8_t bm_lib_riff[], bm_lib_riff_end[];
 extern const uint8_t bm_lib_bmui[], bm_lib_bmui_end[];
+extern const uint8_t bm_lib_snes_asm[], bm_lib_snes_asm_end[];
 
 static const struct {
     const char *name;
@@ -34,6 +35,7 @@ static const struct {
     { "padtype", bm_lib_padtype, bm_lib_padtype_end },  /* typing with the pad */
     { "riff", bm_lib_riff, bm_lib_riff_end },           /* the language of patterns (music) */
     { "bmui", bm_lib_bmui, bm_lib_bmui_end },           /* the mouse in bm's tools */
+    { "snes_asm", bm_lib_snes_asm, bm_lib_snes_asm_end },  /* the 65C816 assembler and the SNES ROM builder */
 };
 
 #define LOADED "bm.loaded"

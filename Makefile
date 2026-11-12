@@ -281,6 +281,14 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost $(BUILD)/carts/snes.bm
 	$(BUILD)/host/luahost tests/snes/pic_due_test.lua
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
+# bm SNES SDK: the 65C816 assembler and the ROM builder (src/script/snes_asm.lua). The unit tests run in the Lua of the
+# repository; the second test builds tests/snes/testrom.s, compares it with the ROM of make_testrom.py and runs it in the core.
+SNES_CORE_SRCS := src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+test-snes-asm: $(BUILD)/host/luahost src/script/snes_asm.lua tests/snes/asm_test.lua tests/snes/asm_cli.lua tests/snes/asm_rom_test.py tests/snes/asm_run.c tests/snes/testrom.s tests/snes/make_testrom.py $(wildcard src/bm/snes*.h)
+	$(BUILD)/host/luahost tests/snes/asm_test.lua
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_asm_run tests/snes/asm_run.c $(SNES_CORE_SRCS)
+	$(PYTHON) tests/snes/asm_rom_test.py $(BUILD)/host/luahost $(BUILD)/host/snes_asm_run
+
 # bm NES (carts/nes): the user interface of a Famicom / NES emulator whose machine is in C (src/bm/nes.c).
 # build.py packs carts/nes/src/main.lua and the cover. The .bme is the source, the .bm the cartridge.
 # Not in GAMES yet: the speed on the Pi Zero W and the RGB30 is not measured (docs/progress/nes.md).
@@ -953,7 +961,7 @@ $(BUILD)/host/bmhost/runtime-deps: $(wildcard src/bm/*.h src/audio/*.h src/kerne
 $(BMHOST_OBJS): $(BUILD)/host/bmhost/runtime-deps
 $(BUILD)/host/bmhost-bin: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h tests/host/libs.S \
                           $(BMHOST_OBJS) src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua src/ai/predict.lua $(BUILD)/words.lua src/ai/padtype.lua \
-                          src/script/riff.lua src/script/bmui.lua
+                          src/script/riff.lua src/script/bmui.lua src/script/snes_asm.lua
 	$(HOSTCC) -O2 -g -Wall -Wextra -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) \
 	    -o $@ tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/libs.S $(BMHOST_OBJS) -lm
 bmhost: $(BUILD)/host/bmhost-bin
@@ -962,7 +970,7 @@ bmhost: $(BUILD)/host/bmhost-bin
 # WebAssembly with Emscripten (source ~/emsdk/emsdk_env.sh first), run under Node.
 # libs.S cannot be assembled for wasm: scripts/mkweblibs.py writes the same data as C.
 EMCC ?= emcc
-$(BUILD)/web/libs.c: scripts/mkweblibs.py $(BUILD)/words.lua src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua                      src/ai/predict.lua src/ai/padtype.lua src/script/riff.lua src/script/bmui.lua
+$(BUILD)/web/libs.c: scripts/mkweblibs.py $(BUILD)/words.lua src/ai/assist.lua src/script/bm3d.lua src/script/bmlib.lua src/script/bmnet.lua                      src/ai/predict.lua src/ai/padtype.lua src/script/riff.lua src/script/bmui.lua src/script/snes_asm.lua
 	$(PYTHON) scripts/mkweblibs.py -o $@ --words $(BUILD)/words.lua
 $(BUILD)/web/bmhost.js: tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c tests/host/host.h tests/audio/wavout.h                         $(BMHOST_RT) $(BMHOST_LUA) $(BUILD)/web/libs.c
 	$(EMCC) -std=gnu11 -O2 -w -D_DEFAULT_SOURCE -Itests/host/shim -Isrc -Isrc/bm -Ithird_party/lua -I$(BUILD) 	    -sNODERAWFS -sENVIRONMENT=node -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=134217728 -sSTACK_SIZE=2097152 	    -o $@ 	    tests/host/bmhost.c tests/host/stubs.c tests/host/hostnet.c $(BUILD)/web/libs.c $(BMHOST_RT) $(BMHOST_LUA) -lm
@@ -1048,7 +1056,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-asm test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
