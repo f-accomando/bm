@@ -2109,3 +2109,20 @@ test-consistency:
 dbg-gsu-arm:
 	$(SNES_ARM_CC) $(DBGFLAGS) -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/dbg.elf $(DBGSRC) tests/snes/gsu_ref.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
 	timeout 20 qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel $(BUILD)/arm/dbg.elf
+
+# Our 65C816 and Super FX against the ares emulator (ISC licence), one instruction at a time (tests/snes/ref_diff.cpp).
+# OPTIONAL: set ARES to a checkout of github.com/ares-emulator/ares (kept OUTSIDE this repository; the harness #includes its processor modules at build
+# time and copies nothing). Without ARES the target prints a message and succeeds. Needs g++ with C++20. `make test-snes-ref ARES=/path/to/ares`
+SNES_REF_FLAGS := -Isrc/bm -Itests/snes -DSNES_TRACE
+test-snes-ref:
+ifeq ($(ARES),)
+	@echo "test-snes-ref: skipped (set ARES=/path/to/ares to compare with the ares emulator)"
+else
+	@mkdir -p $(BUILD)/host/ref
+	$(HOSTCC) -O2 -g -w $(SNES_REF_FLAGS) -c -o $(BUILD)/host/ref/ours.o tests/snes/ref_diff_ours.c
+	$(HOSTCC) -O2 -g -w $(SNES_REF_FLAGS) -c -o $(BUILD)/host/ref/cpu.o src/bm/snes_cpu.c
+	for f in snes_bus snes_gsu snes_dsp77 snes_spc snes_dsp snes_ppu; do $(HOSTCC) -O2 -g -w $(SNES_REF_FLAGS) -c -o $(BUILD)/host/ref/$$f.o src/bm/$$f.c || exit 1; done
+	g++ -std=c++20 -O2 -w -Itests/snes/ref_shim -Itests/snes -I$(ARES)/ares -I$(ARES)/nall -I$(ARES) -I$(ARES)/thirdparty -c -o $(BUILD)/host/ref/ref_diff.o tests/snes/ref_diff.cpp
+	g++ -o $(BUILD)/host/snes_ref_diff $(BUILD)/host/ref/ref_diff.o $(BUILD)/host/ref/ours.o $(BUILD)/host/ref/cpu.o $(foreach f,snes_bus snes_gsu snes_dsp77 snes_spc snes_dsp snes_ppu,$(BUILD)/host/ref/$(f).o) -lm
+	$(BUILD)/host/snes_ref_diff $(REF_ARGS)
+endif

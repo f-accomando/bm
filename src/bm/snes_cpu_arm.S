@@ -269,6 +269,8 @@ rd16s:
     str r0, [sp, #TA]
     ldr r0, [sp, #TB]
     add r0, r0, #1
+    tst r0, #0x1000000
+    bicne r0, r0, #0xFF0000
     bl rd8s
     ldr r1, [sp, #TA]
     orr r0, r1, r0, lsl #8
@@ -294,8 +296,25 @@ wr16s:
     bl wr8s
     ldr r0, [sp, #TB]
     add r0, r0, #1
+    tst r0, #0x1000000
+    bicne r0, r0, #0xFF0000
     ldr r1, [sp, #TA]
     mov r1, r1, lsr #8
+    bl wr8s
+    ldr pc, [sp, #TC]
+/* the 16 bit write of a read-modify-write: the high byte first, as the 65C816 does */
+wr16hs:
+    str lr, [sp, #TC]
+    str r0, [sp, #TB]
+    str r1, [sp, #TA]
+    add r0, r0, #1
+    tst r0, #0x1000000
+    bicne r0, r0, #0xFF0000
+    mov r1, r1, lsr #8
+    bl wr8s
+    ldr r0, [sp, #TB]
+    ldr r1, [sp, #TA]
+    and r1, r1, #255
     bl wr8s
     ldr pc, [sp, #TC]
 /* by the M flag (rdM, wrM) or the X flag (rdX, wrX); the value of a write is the full register in r1 */
@@ -383,28 +402,42 @@ m_immX:
     beq m_cold
     add r4, r4, #0x20000
     bx lr
+/* The direct page modes. In emulation mode C does the opcode (the page wrap with DL = 0). The address leaves with bit 24 set (DPF in snes_cpu.c):
+ * a 16 bit access then wraps its second byte in bank 0 (rd16s and wr16s); rd8s and wr8s drop the bit. */
 m_dp:
+    ldr r1, [sp, #EE]
+    cmp r1, #0
+    bne m_cold
     str lr, [sp, #KEEP]
     bl fetch8s
     ldr r1, [sp, #DD]
     add r0, r0, r1
     uxth r0, r0
+    orr r0, r0, #0x1000000
     ldr pc, [sp, #KEEP]
 m_dpx:
+    ldr r1, [sp, #EE]
+    cmp r1, #0
+    bne m_cold
     str lr, [sp, #KEEP]
     bl fetch8s
     ldr r1, [sp, #DD]
     add r0, r0, r1
     add r0, r0, r7
     uxth r0, r0
+    orr r0, r0, #0x1000000
     ldr pc, [sp, #KEEP]
 m_dpy:
+    ldr r1, [sp, #EE]
+    cmp r1, #0
+    bne m_cold
     str lr, [sp, #KEEP]
     bl fetch8s
     ldr r1, [sp, #DD]
     add r0, r0, r1
     add r0, r0, r8
     uxth r0, r0
+    orr r0, r0, #0x1000000
     ldr pc, [sp, #KEEP]
 m_abs:
     str lr, [sp, #KEEP]
@@ -447,6 +480,9 @@ m_longx:
     bic r0, r0, #0xFF000000
     ldr pc, [sp, #KEEP]
 m_indy:
+    ldr r1, [sp, #EE]
+    cmp r1, #0
+    bne m_cold
     str lr, [sp, #KEEP]
     bl fetch8s
     ldr r1, [sp, #DD]
@@ -722,7 +758,7 @@ op_mem_\name:
     NZ16 r0
     mov r1, r0
     ldr r0, [sp, #PL2]
-    bl wr16s
+    bl wr16hs
     add r9, r9, #6
     b next
 .endm
@@ -915,10 +951,21 @@ op_\name:
     PULLX ply, r8
 .ltorg
 
+/* JSL and RTL do not wrap at the page of the stack in emulation mode: C does them there (m_native). The bank byte of JSL is fetched after PB is pushed. */
+m_native:
+    ldr r1, [sp, #EE]
+    cmp r1, #0
+    bne m_cold
+    bx lr
 op_jsl:
+    bl fetch16s
     str r0, [sp, #PL2]
     mov r1, r5, lsr #16
     bl push8s
+    bl fetch8s
+    ldr r1, [sp, #PL2]
+    orr r0, r1, r0, lsl #16
+    str r0, [sp, #PL2]
     mov r1, r4, lsr #16
     sub r1, r1, #1
     uxth r1, r1
@@ -973,7 +1020,7 @@ optab:
     .word m_longx, op_ora
     .word m_none, op_jsr
     .word m_cold, m_cold
-    .word m_long, op_jsl
+    .word m_native, op_jsl
     .word m_cold, m_cold
     .word m_cold, m_cold
     .word m_dp, op_and
@@ -1046,7 +1093,7 @@ optab:
     .word m_none, op_pla
     .word dc_immM, op_adc
     .word m_none, op_acc_ror
-    .word m_none, op_rtl
+    .word m_native, op_rtl
     .word m_cold, m_cold
     .word dc_abs, op_adc
     .word m_abs, op_mem_ror

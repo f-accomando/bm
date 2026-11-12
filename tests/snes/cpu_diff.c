@@ -51,6 +51,8 @@ int main(int argc, char **argv)
         cpu_regs_t r;
         r.a = (uint16_t)rnd(); r.x = (uint16_t)rnd(); r.y = (uint16_t)rnd(); r.d = (rnd() & 3) ? (uint16_t)(rnd() & 0x1FFF) : (uint16_t)rnd();
         r.e = (rnd() & 7) == 0;
+        if ((rnd() & 7) == 0) r.d = (uint16_t)(0xFF00 | (rnd() & 0xFF));            /* the direct page at the end of bank 0: 16 bit accesses wrap there */
+        if ((rnd() & 7) == 0) { r.x = (uint16_t)(0xFF00 | (rnd() & 0xFF)); r.y = (uint16_t)(0xFF00 | (rnd() & 0xFF)); }
         r.s = r.e ? (uint16_t)(0x100 | (rnd() & 0xFF)) : (uint16_t)(0x100 + (rnd() & 0x1FFF));
         r.p = (uint8_t)rnd();
         if ((rnd() & 3) == 0) r.p &= (uint8_t)~0x08;                               /* mostly no decimal mode: the assembly leaves it to C */

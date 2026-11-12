@@ -59,6 +59,9 @@ AI void wr16(cpu_t *cu, uint32_t a, uint16_t v) { wr8(cu, a, (uint8_t)v); wr8(cu
 /* a read in bank 0 whose second byte wraps in the bank (pointers of the direct page and the stack) */
 AI uint16_t rd16b0(cpu_t *cu, uint16_t a) { uint16_t l = rd8(cu, a); return l | (uint16_t)(rd8(cu, (uint16_t)(a + 1)) << 8); }
 
+/* a 16 bit pointer in the program bank (JMP (a,X), JSR (a,X)): the second byte wraps in the bank */
+AI uint16_t rd16pb(cpu_t *cu, uint16_t a) { uint16_t l = rd8(cu, cu->pb | a); return l | (uint16_t)(rd8(cu, cu->pb | (uint16_t)(a + 1)) << 8); }
+
 AI uint8_t fetch8(cpu_t *cu) { uint8_t v = rd8(cu, cu->pb | cu->pc); cu->pc++; return v; }
 AI uint16_t fetch16(cpu_t *cu) { uint16_t l = fetch8(cu); return l | (uint16_t)(fetch8(cu) << 8); }
 AI uint32_t fetch24(cpu_t *cu) { uint32_t l = fetch16(cu); return l | ((uint32_t)fetch8(cu) << 16); }
@@ -88,6 +91,11 @@ AI uint8_t pull8(cpu_t *cu)
 }
 AI void push16(cpu_t *cu, uint16_t v) { push8(cu, (uint8_t)(v >> 8)); push8(cu, (uint8_t)v); }
 AI uint16_t pull16(cpu_t *cu) { uint16_t l = pull8(cu); return l | (uint16_t)(pull8(cu) << 8); }
+/* the instructions that the 65C816 added (PEA PEI PER PHD PLD PLB JSL RTL JSR (a,X)) do not wrap at the page of the stack in emulation mode; S gets its page back at the end */
+AI void pushN(cpu_t *cu, uint8_t v) { wr8(cu, cu->s, v); cu->s--; }
+AI uint8_t pullN(cpu_t *cu) { cu->s++; return rd8(cu, cu->s); }
+AI void stk_fix(cpu_t *cu) { if (cu->e) cu->s = (uint16_t)(0x100 | (cu->s & 0xFF)); }
+AI void pushN16(cpu_t *cu, uint16_t v) { pushN(cu, (uint8_t)(v >> 8)); pushN(cu, (uint8_t)v); stk_fix(cu); }
 
 AI void nz8(cpu_t *cu, uint8_t v) { cu->n = v >> 7; cu->z = v == 0; }
 AI void nz16(cpu_t *cu, uint16_t v) { cu->n = v >> 15; cu->z = v == 0; }
@@ -145,63 +153,87 @@ void cpu_info(uint32_t *pc, int *flags)
 }
 
 /* ------------------------------------------------------------------ addressing modes (24-bit addresses) */
-#define DPA(x) ((uint16_t)(cu->d + (x)))
-AI uint32_t a_dp(cpu_t *cu) { return DPA(fetch8(cu)); }
-AI uint32_t a_dpx(cpu_t *cu) { return (uint16_t)(cu->d + fetch8(cu) + cu->x); }
-AI uint32_t a_dpy(cpu_t *cu) { return (uint16_t)(cu->d + fetch8(cu) + cu->y); }
-AI uint32_t a_ind(cpu_t *cu) { return cu->db | rd16b0(cu, DPA(fetch8(cu))); }
-AI uint32_t a_indx(cpu_t *cu) { return cu->db | rd16b0(cu, (uint16_t)(cu->d + fetch8(cu) + cu->x)); }
-AI uint32_t a_indy(cpu_t *cu) { uint32_t b = cu->db | rd16b0(cu, DPA(fetch8(cu))); return (b + cu->y) & 0xFFFFFF; }
-AI uint32_t a_lng(cpu_t *cu) { uint16_t p = DPA(fetch8(cu)); return rd16b0(cu, p) | ((uint32_t)rd8(cu, (uint16_t)(p + 2)) << 16); }
+/* The direct page. In emulation mode with DL = 0 an access wraps inside the page (DPA: a 6502 program in page 0 works as on the 6502); otherwise it
+ * wraps in bank 0. The modes below return a bank-0 address with DPF (bit 24) set: a 16 bit data access then wraps its second byte in bank 0 too
+ * (rd16f, wr16f). rd8 and wr8 mask the bit. */
+#define DPF 0x1000000u
+#define DPA(x) ((uint16_t)((cu->e && !(cu->d & 0xFF)) ? (cu->d | ((x) & 0xFF)) : (cu->d + (x))))
+AI uint32_t a_dp(cpu_t *cu) { return DPA(fetch8(cu)) | DPF; }
+AI uint32_t a_dpx(cpu_t *cu) { return DPA(fetch8(cu) + cu->x) | DPF; }
+AI uint32_t a_dpy(cpu_t *cu) { return DPA(fetch8(cu) + cu->y) | DPF; }
+/* a pointer of the direct page: the second byte is at DPA(o + 1) */
+AI uint32_t dp_ptr(cpu_t *cu, unsigned o) { uint16_t l = rd8(cu, DPA(o)); return l | (uint16_t)(rd8(cu, DPA(o + 1)) << 8); }
+AI uint32_t a_ind(cpu_t *cu) { return cu->db | dp_ptr(cu, fetch8(cu)); }
+/* (dp,X): in emulation mode with DL != 0 the second byte of the pointer wraps inside the page of the first */
+AI uint32_t a_indx(cpu_t *cu)
+{
+    const unsigned o = fetch8(cu) + cu->x;
+    if (cu->e && (cu->d & 0xFF)) {
+        const uint16_t b = (uint16_t)(cu->d + o);
+        uint16_t l = rd8(cu, b);
+        l |= (uint16_t)(rd8(cu, (b & 0xFF00) | ((b + 1) & 0xFF)) << 8);
+        return cu->db | l;
+    }
+    return cu->db | dp_ptr(cu, o);
+}
+AI uint32_t a_indy(cpu_t *cu) { uint32_t b = cu->db | dp_ptr(cu, fetch8(cu)); return (b + cu->y) & 0xFFFFFF; }
+AI uint32_t a_lng(cpu_t *cu) { uint16_t p = (uint16_t)(cu->d + fetch8(cu)); return rd16b0(cu, p) | ((uint32_t)rd8(cu, (uint16_t)(p + 2)) << 16); }
 AI uint32_t a_lngy(cpu_t *cu) { return (a_lng(cu) + cu->y) & 0xFFFFFF; }
 AI uint32_t a_abs(cpu_t *cu) { return cu->db | fetch16(cu); }
 AI uint32_t a_absx(cpu_t *cu) { return ((cu->db | fetch16(cu)) + cu->x) & 0xFFFFFF; }
 AI uint32_t a_absy(cpu_t *cu) { return ((cu->db | fetch16(cu)) + cu->y) & 0xFFFFFF; }
 AI uint32_t a_long(cpu_t *cu) { return fetch24(cu); }
 AI uint32_t a_longx(cpu_t *cu) { return (fetch24(cu) + cu->x) & 0xFFFFFF; }
-AI uint32_t a_sr(cpu_t *cu) { return (uint16_t)(cu->s + fetch8(cu)); }
+AI uint32_t a_sr(cpu_t *cu) { return (uint16_t)(cu->s + fetch8(cu)) | DPF; }
 AI uint32_t a_sry(cpu_t *cu) { uint32_t b = cu->db | rd16b0(cu, (uint16_t)(cu->s + fetch8(cu))); return (b + cu->y) & 0xFFFFFF; }
 
-AI uint16_t readM(cpu_t *cu, uint32_t a) { return cu->m ? rd8(cu, a) : rd16(cu, a); }
-AI void writeM(cpu_t *cu, uint32_t a, uint16_t v) { if (cu->m) wr8(cu, a, (uint8_t)v); else wr16(cu, a, v); }
-AI uint16_t readX(cpu_t *cu, uint32_t a) { return cu->xf ? rd8(cu, a) : rd16(cu, a); }
+AI uint16_t rd16f(cpu_t *cu, uint32_t a) { return (a & DPF) ? rd16b0(cu, (uint16_t)a) : rd16(cu, a); }
+AI void wr16f(cpu_t *cu, uint32_t a, uint16_t v)
+{
+    if (a & DPF) { wr8(cu, a, (uint8_t)v); wr8(cu, (uint16_t)(a + 1), (uint8_t)(v >> 8)); } else wr16(cu, a, v);
+}
+/* a 16 bit read-modify-write writes the high byte first (the 65C816 does) */
+AI void wr16hl(cpu_t *cu, uint32_t a, uint16_t v)
+{
+    wr8(cu, (a & DPF) ? (uint16_t)(a + 1) : a + 1, (uint8_t)(v >> 8));
+    wr8(cu, a, (uint8_t)v);
+}
+AI uint16_t readM(cpu_t *cu, uint32_t a) { return cu->m ? rd8(cu, a) : rd16f(cu, a); }
+AI void writeM(cpu_t *cu, uint32_t a, uint16_t v) { if (cu->m) wr8(cu, a, (uint8_t)v); else wr16f(cu, a, v); }
+AI uint16_t readX(cpu_t *cu, uint32_t a) { return cu->xf ? rd8(cu, a) : rd16f(cu, a); }
 AI uint16_t fetchM(cpu_t *cu) { return cu->m ? fetch8(cu) : fetch16(cu); }
 AI uint16_t fetchX(cpu_t *cu) { return cu->xf ? fetch8(cu) : fetch16(cu); }
 
 /* ------------------------------------------------------------------ the ALU */
-/* decimal add and subtract, a nibble at a time (v is the complement of the operand for the subtract) */
-static unsigned bcd_add(unsigned a, unsigned v, int c, int nib, int *carry)
+/* Decimal add and subtract, a digit at a time (v is already the complement of the operand for the subtract). The lower digits are corrected one by one;
+ * the top digit is added raw, V is read from that raw sum, and only then the correction and the carry are made (this is what the 65C816 does, and the
+ * result of ares and Snes9x on odd digits too). */
+static unsigned dec_add(unsigned a, unsigned v, int c, int nib, int sub, int *carry, int *ov, unsigned top)
 {
     unsigned r = 0;
+    int t = 0;
     for (int i = 0; i < nib; i++) {
-        unsigned t = ((a >> (i * 4)) & 15) + ((v >> (i * 4)) & 15) + (unsigned)c;
-        if (t > 9) t += 6;
+        t = (int)((a >> (i * 4)) & 15) + (int)((v >> (i * 4)) & 15) + c;
+        if (i == nib - 1) break;
+        if (sub) { if (t < 16) t -= 6; } else if (t > 9) t += 6;
         c = t > 15;
-        r |= (t & 15) << (i * 4);
+        r |= (unsigned)(t & 15) << (i * 4);
     }
-    *carry = c;
-    return r;
-}
-static unsigned bcd_sub(unsigned a, unsigned v, int c, int nib, int *carry)
-{
-    unsigned r = 0;
-    for (int i = 0; i < nib; i++) {
-        unsigned t = ((a >> (i * 4)) & 15) + ((v >> (i * 4)) & 15) + (unsigned)c;
-        if (t <= 15) { t -= 6; c = 0; } else c = 1;
-        r |= (t & 15) << (i * 4);
-    }
-    *carry = c;
-    return r;
+    const unsigned raw = r + ((unsigned)t << ((nib - 1) * 4));
+    *ov = (~(a ^ v) & (a ^ raw) & top) != 0;
+    if (sub) { if (t < 16) t -= 6; } else if (t > 9) t += 6;
+    *carry = t > 15;
+    return r | ((unsigned)(t & 15) << ((nib - 1) * 4));
 }
 AI void do_adc(cpu_t *cu, uint16_t v)
 {
     const unsigned top = cu->m ? 0x80 : 0x8000, mask = cu->m ? 0xFF : 0xFFFF;
     unsigned a = cu->a & mask, r;
-    int c;
+    int c, ov;
     v &= mask;
-    if (cu->dec) r = bcd_add(a, v, cu->cf, cu->m ? 2 : 4, &c);
-    else { r = a + v + cu->cf; c = (r & ~mask) != 0; r &= mask; }
-    cu->v = (~(a ^ v) & (a ^ r) & top) != 0;
+    if (cu->dec) r = dec_add(a, v, cu->cf, cu->m ? 2 : 4, 0, &c, &ov, top);
+    else { r = a + v + cu->cf; c = (r & ~mask) != 0; r &= mask; ov = (~(a ^ v) & (a ^ r) & top) != 0; }
+    cu->v = ov;
     cu->cf = c;
     cu->a = cu->m ? (uint16_t)((cu->a & 0xFF00) | r) : (uint16_t)r;
     if (cu->m) nz8(cu, (uint8_t)r); else nz16(cu, (uint16_t)r);
@@ -210,11 +242,11 @@ AI void do_sbc(cpu_t *cu, uint16_t v)
 {
     const unsigned top = cu->m ? 0x80 : 0x8000, mask = cu->m ? 0xFF : 0xFFFF;
     unsigned a = cu->a & mask, r;
-    int c;
+    int c, ov;
     v = (uint16_t)(~v) & mask;
-    if (cu->dec) r = bcd_sub(a, v, cu->cf, cu->m ? 2 : 4, &c);
-    else { r = a + v + cu->cf; c = (r & ~mask) != 0; r &= mask; }
-    cu->v = (~(a ^ v) & (a ^ r) & top) != 0;
+    if (cu->dec) r = dec_add(a, v, cu->cf, cu->m ? 2 : 4, 1, &c, &ov, top);
+    else { r = a + v + cu->cf; c = (r & ~mask) != 0; r &= mask; ov = (~(a ^ v) & (a ^ r) & top) != 0; }
+    cu->v = ov;
     cu->cf = c;
     cu->a = cu->m ? (uint16_t)((cu->a & 0xFF00) | r) : (uint16_t)r;
     if (cu->m) nz8(cu, (uint8_t)r); else nz16(cu, (uint16_t)r);
@@ -252,7 +284,8 @@ AI uint16_t shiftval(cpu_t *cu, int kind, uint16_t v)    /* 0 ASL 1 LSR 2 ROL 3 
     cu->z = r == 0;
     return (uint16_t)r;
 }
-AI void rmw(cpu_t *cu, uint32_t a, int kind) { writeM(cu, a, shiftval(cu, kind, readM(cu, a))); cu->clk += 6; }
+AI void wrMrmw(cpu_t *cu, uint32_t a, uint16_t v) { if (cu->m) wr8(cu, a, (uint8_t)v); else wr16hl(cu, a, v); }
+AI void rmw(cpu_t *cu, uint32_t a, int kind) { const uint16_t v = shiftval(cu, kind, readM(cu, a)); cu->clk += 6; wrMrmw(cu, a, v); }
 AI void accshift(cpu_t *cu, int kind)
 {
     if (cu->m) cu->a = (cu->a & 0xFF00) | (uint8_t)shiftval(cu, kind, cu->a & 0xFF);
@@ -263,8 +296,8 @@ AI void tsb(cpu_t *cu, uint32_t a, int trb)
     uint16_t v = readM(cu, a), m = cu->m ? (cu->a & 0xFF) : cu->a;
     cu->z = (v & m) == 0;
     v = trb ? (uint16_t)(v & ~m) : (uint16_t)(v | m);
-    writeM(cu, a, v);
     cu->clk += 6;
+    wrMrmw(cu, a, v);
 }
 AI void bit(cpu_t *cu, uint16_t v, int imm)
 {
@@ -398,14 +431,14 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0x7A: if (cu->xf) { cu->y = pull8(cu); nz8(cu, (uint8_t)cu->y); } else { cu->y = pull16(cu); nz16(cu, cu->y); } return;
     case 0x08: push8(cu, getP(cu)); return;
     case 0x28: setP(cu, pull8(cu)); return;
-    case 0x0B: push16(cu, cu->d); return;
-    case 0x2B: cu->d = pull16(cu); nz16(cu, cu->d); return;
+    case 0x0B: pushN16(cu, cu->d); return;
+    case 0x2B: { uint16_t l = pullN(cu); cu->d = (uint16_t)(l | (pullN(cu) << 8)); stk_fix(cu); nz16(cu, cu->d); return; }
     case 0x8B: push8(cu, (uint8_t)(cu->db >> 16)); return;
-    case 0xAB: { uint8_t b = pull8(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); return; }
+    case 0xAB: { uint8_t b = pullN(cu); stk_fix(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); return; }
     case 0x4B: push8(cu, (uint8_t)(cu->pb >> 16)); return;
-    case 0xF4: push16(cu, fetch16(cu)); return;
-    case 0xD4: push16(cu, rd16b0(cu, DPA(fetch8(cu)))); return;
-    case 0x62: { uint16_t o = fetch16(cu); push16(cu, (uint16_t)(cu->pc + o)); return; }
+    case 0xF4: pushN16(cu, fetch16(cu)); return;
+    case 0xD4: { const uint16_t p = (uint16_t)(cu->d + fetch8(cu)); pushN16(cu, rd16b0(cu, p)); return; }
+    case 0x62: { uint16_t o = fetch16(cu); pushN16(cu, (uint16_t)(cu->pc + o)); return; }
     /* flags */
     case 0x18: cu->cf = 0; return;
     case 0x38: cu->cf = 1; return;
@@ -437,13 +470,13 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0x4C: cu->pc = fetch16(cu); return;
     case 0x5C: a = fetch24(cu); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return;
     case 0x6C: cu->pc = rd16b0(cu, fetch16(cu)); return;
-    case 0x7C: cu->pc = rd16(cu, cu->pb | (uint16_t)(fetch16(cu) + cu->x)); return;
+    case 0x7C: cu->pc = rd16pb(cu, (uint16_t)(fetch16(cu) + cu->x)); return;
     case 0xDC: { uint16_t p = fetch16(cu); a = rd16b0(cu, p) | ((uint32_t)rd8(cu, (uint16_t)(p + 2)) << 16); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return; }
     case 0x20: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = t; return; }
-    case 0xFC: { uint16_t t = fetch16(cu); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = rd16(cu, cu->pb | (uint16_t)(t + cu->x)); return; }
-    case 0x22: a = fetch24(cu); push8(cu, (uint8_t)(cu->pb >> 16)); push16(cu, (uint16_t)(cu->pc - 1)); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return;
+    case 0xFC: { uint16_t l = fetch8(cu); pushN16(cu, cu->pc); uint16_t t = (uint16_t)(l | (fetch8(cu) << 8)); cu->pc = rd16pb(cu, (uint16_t)(t + cu->x)); return; }
+    case 0x22: { uint16_t l = fetch16(cu); pushN(cu, (uint8_t)(cu->pb >> 16)); a = l | ((uint32_t)fetch8(cu) << 16); pushN16(cu, (uint16_t)(cu->pc - 1)); cu->pc = (uint16_t)a; cu->pb = a & 0xFF0000; return; }
     case 0x60: cu->pc = (uint16_t)(pull16(cu) + 1); return;
-    case 0x6B: cu->pc = (uint16_t)(pull16(cu) + 1); cu->pb = (uint32_t)pull8(cu) << 16; return;
+    case 0x6B: { uint16_t l = pullN(cu); l |= (uint16_t)(pullN(cu) << 8); cu->pc = (uint16_t)(l + 1); cu->pb = (uint32_t)pullN(cu) << 16; stk_fix(cu); return; }
     case 0x40: setP(cu, pull8(cu)); cu->pc = pull16(cu); if (!cu->e) cu->pb = (uint32_t)pull8(cu) << 16; return;
     case 0x54: case 0x44: {
         int dir = op == 0x54 ? 1 : -1;
@@ -506,8 +539,8 @@ mem:
     case K_BIT: bit(cu, readM(cu, a), 0); break;
     case K_LDY: v = readX(cu, a); cu->y = v; NZX(v); break;
     case K_LDX: v = readX(cu, a); cu->x = v; NZX(v); break;
-    case K_STY: if (cu->xf) wr8(cu, a, (uint8_t)cu->y); else wr16(cu, a, cu->y); break;
-    case K_STX: if (cu->xf) wr8(cu, a, (uint8_t)cu->x); else wr16(cu, a, cu->x); break;
+    case K_STY: if (cu->xf) wr8(cu, a, (uint8_t)cu->y); else wr16f(cu, a, cu->y); break;
+    case K_STX: if (cu->xf) wr8(cu, a, (uint8_t)cu->x); else wr16f(cu, a, cu->x); break;
     case K_STZ: writeM(cu, a, 0); break;
     case K_CPX: v = readX(cu, a); do_cmp(cu, cu->x, v, cu->xf); break;
     default: v = readX(cu, a); do_cmp(cu, cu->y, v, cu->xf); break;      /* K_CPY */
