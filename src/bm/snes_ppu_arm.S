@@ -16,6 +16,7 @@
  *   - a pixel with no flag takes the palette lookup (lut) in place of the result.
  *
  * mixbuf_t (the line buffers, one base register): idx[256] at +0, flag[256] at +256, unused[256] at +512, sidx[256] at +768.
+ * Mode bit 2 (brightness 15): the loop with four pixels a turn and no tables (PIX, FASTLOOP below).
  * mixctx_t, in the order that LDM loads it: pal8, lut (halfwords), rt, gt, bt (words), fix8, mode (0 sub, 1 sub and halve, 2 add, 3 add and halve).
  *
  * Registers: r0 dst, r1 buffers, r2 pixels left, r3 pal8, r4 lut, r5 rt, r6 gt, r7 bt, r8 fix8, r9-r12 and lr scratch (r9 holds the mode until the loop starts).
@@ -55,10 +56,73 @@
     bne     10b
     .endm
 
+/* The loop for brightness 15 (mode bit 2): four pixels a turn. A group with no flag is four palette lookups. In a group with a flag the maths
+ * runs for the four pixels and the flag selects the lookup (no branch on the data). The result is packed from the lanes with shifts (no tables):
+ * red = lane bits 3-7 to 11-15, green = bits 11-15 to 6-10 and its top bit also to bit 5, blue = bits 19-23 to 0-4. r5 holds the four flags. */
+    .macro PIX k, op, post=
+    ldrb    r11, [r1, #\k]
+    ldrb    r12, [r1, #768+\k]
+    ldr     r9, [r3, r11, lsl #2]
+    ldr     lr, [r3, r12, lsl #2]
+    add     r11, r4, r11, lsl #1
+    cmp     r12, #0
+    moveq   lr, r8
+    ldrh    r11, [r11]
+    \op     r9, r9, lr
+    \post
+    lsr     r12, r9, #19
+    and     r6, r9, #0xF8
+    orr     r12, r12, r6, lsl #8
+    and     r6, r9, #0xF800
+    orr     r12, r12, r6, lsr #5
+    and     r6, r9, #0x8000
+    orr     r12, r12, r6, lsr #10
+    tst     r5, #(1 << (8 * \k))
+    moveq   r12, r11
+    strh    r12, [r0, #2 * \k]
+    .endm
+
+    .macro FASTLOOP op, post=
+    add     r2, r1, #256                @ end of the line
+10:
+    ldr     r5, [r1, #256]              @ the flags of 4 pixels
+    cmp     r5, #0
+    bne     12f
+    ldrb    r9, [r1]
+    ldrb    r10, [r1, #1]
+    ldrb    r11, [r1, #2]
+    ldrb    r12, [r1, #3]
+    add     r9, r4, r9, lsl #1
+    add     r10, r4, r10, lsl #1
+    add     r11, r4, r11, lsl #1
+    add     r12, r4, r12, lsl #1
+    ldrh    r9, [r9]
+    ldrh    r10, [r10]
+    ldrh    r11, [r11]
+    ldrh    r12, [r12]
+    strh    r9, [r0]
+    strh    r10, [r0, #2]
+    strh    r11, [r0, #4]
+    strh    r12, [r0, #6]
+    b       13f
+12:
+    PIX     0, \op, "\post"
+    PIX     1, \op, "\post"
+    PIX     2, \op, "\post"
+    PIX     3, \op, "\post"
+13:
+    add     r0, r0, #8
+    add     r1, r1, #4
+    cmp     r1, r2
+    bne     10b
+    .endm
+
 ppu_mix_sub_arm:
     push    {r4-r11, lr}
     ldmia   r2, {r3-r9}                 @ pal8, lut, rt, gt, bt, fix8, mode
     mov     r2, #256
+    tst     r9, #4
+    bne     .Lfast
     cmp     r9, #2
     beq     .Ladd
     bhi     .Laddhalf
@@ -74,5 +138,23 @@ ppu_mix_sub_arm:
     pop     {r4-r11, pc}
 .Lsubhalf:
     MIXLOOP op=uqsub8, post="mov lr, #0 ; uhadd8 r9, r9, lr"
+    pop     {r4-r11, pc}
+.Lfast:
+    and     r9, r9, #3
+    cmp     r9, #2
+    beq     .Fadd
+    bhi     .Faddhalf
+    cmp     r9, #1
+    beq     .Fsubhalf
+    FASTLOOP op=uqsub8
+    pop     {r4-r11, pc}
+.Fadd:
+    FASTLOOP op=uqadd8
+    pop     {r4-r11, pc}
+.Faddhalf:
+    FASTLOOP op=uhadd8
+    pop     {r4-r11, pc}
+.Fsubhalf:
+    FASTLOOP op=uqsub8, post="mov lr, #0 ; uhadd8 r9, r9, lr"
     pop     {r4-r11, pc}
     .size   ppu_mix_sub_arm, .-ppu_mix_sub_arm

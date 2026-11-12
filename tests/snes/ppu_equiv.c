@@ -72,6 +72,12 @@ static int equiv(int cases)
     int bad = 0;
     for (int c = 0; c < cases && bad < 5; c++) {
         random_state();
+        if (c % 4 == 3) {                                                           /* the scenes of Super Mario World with the sub screen on (m1/15/02, m1/04/13): the mix loop with groups of pixels, the flags of a line from none to all */
+            static const uint8_t sub_math[] = { 0x23, 0x20, 0x21, 0x02, 0x7F, 0xA3, 0x60, 0xE1, 0x10, 0x01, 0x40, 0x80 };
+            S.bgmode = 1; S.tm = (uint8_t)(0x10 | (rnd() & 7)); S.ts = (uint8_t)(rnd() & 0x17);
+            S.cgwsel = (uint8_t)(0x02 | ((c & 8) ? 0x10 * (rnd() % 4) : 0)); S.cgadsub = sub_math[rnd() % sizeof sub_math];
+            S.inidisp = (uint8_t)((c & 16) ? (rnd() & 15) : 15);
+        }
         for (int y = 0; y < 224; y++) {
             if (rnd() % 8 == 0) { S.hofs[rnd() & 3] = (uint16_t)(rnd() & 0x3FF); S.cgadsub ^= (uint8_t)(rnd() & 1); }   /* a change in the middle of the frame */
             if (rnd() % 10 == 0) { S.wh0 = (uint8_t)rnd(); S.wh1 = (uint8_t)rnd(); S.wh2 = (uint8_t)(rnd() % 4 ? S.wh2 : rnd()); S.wh3 = (uint8_t)rnd(); }   /* an HDMA window effect: the window masks follow */
@@ -125,9 +131,11 @@ static void bench(int loops)
 {
     static const char *name[2] = { "reference", "fast" };
     for (int which = 0; which < 2; which++) {
-        for (int variant = 0; variant < 2; variant++) {
+        for (int variant = 0; variant < 4; variant++) {
             scene();
-            if (variant) { S.cgadsub = 0; }                 /* no maths: the common line */
+            if (variant == 1) { S.cgadsub = 0; }            /* no maths: the common line */
+            if (variant == 2) { S.ts = 0x02; S.cgwsel = 0x02; S.cgadsub = 0x23; }   /* SMW m1/15/02: BG2 on the sub screen, maths with the sub screen on BG1, BG2 and the backdrop */
+            if (variant == 3) { S.ts = 0x02; S.cgwsel = 0x02; S.cgadsub = 0x7F; }   /* every layer blends, half */
             memset(ppu_us, 0, sizeof ppu_us); memset(ppu_us_ref, 0, sizeof ppu_us);
             snes_now_us = (loops <= 40) ? host_us : NULL;   /* with a few loops: the parts are timed too (the clock itself costs) */
             double t0 = now();
@@ -135,7 +143,7 @@ static void bench(int loops)
                 for (int y = 0; y < 224; y++) { if (which) ppu_line(y); else ppu_line_ref(y); }
             double dt = now() - t0;
             const uint32_t *u = which ? ppu_us : ppu_us_ref;
-            printf("%-9s %-9s %6.2f us a line, %7.1f us a frame", name[which], variant ? "no maths" : "maths", dt / loops / 224, dt / loops);
+            printf("%-9s %-9s %6.2f us a line, %7.1f us a frame", name[which], variant == 1 ? "no maths" : variant == 2 ? "sub 23" : variant == 3 ? "sub half 7F" : "fixed", dt / loops / 224, dt / loops);
             if (snes_now_us) printf("   layers %.1f obj %.1f win %.1f compose %.1f mix %.1f us a frame", (double)u[0] / loops, (double)u[1] / loops, (double)u[2] / loops, (double)u[3] / loops, (double)u[4] / loops);
             printf("\n");
             snes_now_us = NULL;

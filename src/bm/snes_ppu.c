@@ -460,8 +460,15 @@ void ppu_line(int y)
         return;
     }
     if (fastmix) {                                      /* colour maths with no clip rule: the pixels with the flag are mixed, the others are a lookup */
-        if (use_sub) compose(slist, ns, s_idx, NULL, NULL, NULL);
-        else {                                          /* the fixed colour: the mixed colour of every palette entry, made once */
+        int any = 0;                                    /* a flag in the line? (a few cycles against a mix of the line) */
+        for (int x = 0; x < SNES_W; x += 4) any |= (ld(m_lay + x) != 0);
+        if (!any) { for (int x = 0; x < SNES_W; x++) dst[x] = lut[m_idx[x]]; TLAP(4); return; }
+        int sub_any = 0;
+        if (use_sub) {
+            compose(slist, ns, s_idx, NULL, NULL, NULL);
+            for (int x = 0; x < SNES_W; x += 4) sub_any |= (ld(s_idx + x) != 0);
+        }
+        if (!sub_any) {                                 /* the fixed colour, or a sub screen with nothing on it (the back drop is the fixed colour): the mixed colour of every palette entry, made once */
             static uint16_t mlut[256];
             static uint32_t m_gen, m_key = 0xFFFFFFFFu;
             const uint32_t key = (uint32_t)bright | (uint32_t)S.fixr << 4 | (uint32_t)S.fixg << 9 | (uint32_t)S.fixb << 14 | (uint32_t)(S.cgadsub & 0xC0) << 16;
@@ -485,7 +492,7 @@ void ppu_line(int y)
         const int mode_k = (add ? 2 : 0) | (half ? 1 : 0);
 #if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
         {
-            const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, (uint32_t)mode_k };
+            const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, (uint32_t)mode_k | (bright == 15 ? 4u : 0u) };
             ppu_mix_sub_arm(dst, &mbuf, &cx);
             TLAP(4);
             return;
