@@ -55,10 +55,17 @@ Trace tool: build the core with `-DSNES_TRACE` (hooks `snes_trace.wr`, `.op`, `.
 - The ray, tangent, arctangent and distance tables are made at build time (`MKRAY`, `MKTAN`, `MKARCTAN`, `RLSCNPIXSCALE`, `INVERSE`), because the chip has no divide and a small multiply.
 - **D**: the view is smaller than the DOS view, the world is drawn without the lights of the DOS engine (it uses `COLOUR_MAPS`), and the number of enemies is lower. Not checked in the source.
 
+## The noisy textures: solved (2026-11-12)
+
+Cause: the ROM buffer of the Super FX. The chip loads the buffer when R14 is written. `ROMB` changes the bank but keeps the buffer, so a `GETB` after `ROMB` without a new R14 returns the byte of the OLD bank. The core reloaded the buffer from the new bank at once. The hot loop of the engine (ROM `$00:E1B6`-`E1C7`, about 230000 runs in 2500 frames) does `FROM R4, ROMB, GETB`, so every texel and colour map byte came from the wrong bank: noisy walls. Fix: `set_rombr` in `snes_gsu.c` loads the buffer with the old bank before the bank changes; the buffer reloads only when R14 changes (C loop, `gsu_c_romb` for the ARM loop, and `tests/snes/gsu_ref.c`). Tests: `romb keeps buffer` and `romb then r14` in `gsu_test.c`. Approximation: a rewrite of R14 with the same value after ROMB does not reload (the chip does).
+
+Measured on the host (doom.sfc, no pad, frames 2450-2470): the picture is static (no flicker). One game frame takes 9 video frames in 3 passes: the GSU draws 9 tile columns (8 bpp, 160 lines, SCBR 1, RAN toggles 1F/17), the CPU sends them by 9 DMAs of 1152 bytes to VRAM (two views, `$1440` and `$5100`), then the next 9 columns. About 750000 GSU instructions per game frame: 20 to 40 ms on the Pi Zero W at 25-50 ns each, so a slow frame rate on the Pi is the GSU speed, not a bug.
+
 ## Open work
 
-- The 3D view of the first level is incomplete (a black upper part, partial walls at frame 2500 without input). Run the trace with a pad script and compare with a picture of a real console, then find which step stops: the Super FX drawing, the DMA of the picture, or the CPU.
-- Speed on the Pi Zero W and the RGB30 is not measured for Doom.
+- Check on the Pi that the walls are clean, and look for flicker with a pad script (the host picture does not flicker).
+- The 3D view of the first level shows one band of walls with dark floor and ceiling (indices 156-177 are dark grays in CGRAM). Compare with a picture of a real console: the first room may look like this.
+- Speed on the Pi Zero W and the RGB30 is not measured for Doom (about 750000 GSU instructions per game frame).
 - Compare the section map of a retail ROM with `RL.SEC` (the retail build may differ from the source of 1995).
 - If a disassembler is needed for the Super FX code of the ROM: write a SLEIGH module or a small script on the opcode table of [snes-superfx-isa.md](snes-superfx-isa.md).
 - Read the sound driver in the archive.org backup if the sound or its timing is a suspect.

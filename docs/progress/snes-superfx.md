@@ -103,7 +103,7 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 
 ## Checked against ares
 
-Our GSU was run against the GSU module of ares (ISC licence) on random programs: `make test-snes-ref ARES=/path/to/ares`. Five differences are open; the table, the method and the rules of the harness are in [snes-superfx-ares.md](snes-superfx-ares.md). Short list: (1) ALT3 on `A0-AF` and `F0-FF` is LMS and LM, ours runs IBT and IWT; (2) SMS and SM of R15 store R15 before or after the operand (references disagree); (3) ALT after WITH, TO or FROM clears B, ours keeps it; (4) CACHE uses R15 after the fetch, ours uses the opcode address; (5) GETB after ROMB without a write of R14 (decided: keep ours). Fix 1, 3 and 4 in `snes_gsu.c` after the speed work is merged.
+Our GSU was run against the GSU module of ares (ISC licence) on random programs: `make test-snes-ref ARES=/path/to/ares`. Five differences are open; the table, the method and the rules of the harness are in [snes-superfx-ares.md](snes-superfx-ares.md). Short list: (1) ALT3 on `A0-AF` and `F0-FF` is LMS and LM, ours runs IBT and IWT; (2) SMS and SM of R15 store R15 before or after the operand (references disagree); (3) ALT after WITH, TO or FROM clears B, ours keeps it; (4) CACHE uses R15 after the fetch, ours uses the opcode address; (5) GETB after ROMB without a write of R14 (fixed 2026-11-12: now as ares; Doom needs it). Fix 1, 3 and 4 in `snes_gsu.c` after the speed work is merged.
 
 ## Open work
 
@@ -122,3 +122,4 @@ Our GSU was run against the GSU module of ares (ISC licence) on random programs:
 - `gsu_run` (C) and `snes_gsu_arm.S` do the same work. `make test-snes-gsu-diff` (PC) and `make test-snes-gsu-arm` (ARM1176 in QEMU) compare the loop with the reference `tests/snes/gsu_ref.c` on random programs: a change of one loop goes in the other and in the reference only when the behaviour must change. The offsets of `gsu_t` that the assembly uses are in `snes_gsu_off.h` (checked by `_Static_assert`).
 - The `gsu_run` C loop has common ends (`wr_d`, `wr_n`, `clr`, `fin`) and out-of-line slow fetch. Keep the hot loop small: about 4 KB of ARM code (C) and 4 KB (assembly).
 - No ROM byte goes into the repository. `tests/snes/superfx_roms.py` reads ROMs from the folder in `BM_SNES_ROMS` and keeps nothing.
+- The ROM buffer loads when R14 changes; ROMB keeps the old buffer (`set_rombr`). `gsu_ref.c` has the same rule. Doom breaks without it.

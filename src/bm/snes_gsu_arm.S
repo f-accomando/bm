@@ -823,9 +823,8 @@ getc_ramb:
     CALLC gsu_c_ramb
     b clr_fin
 getc_romb:
-    ldr r1, [r4, r9]
-    and r1, r1, #0x7F
-    strb r1, [r4, #G_ROMBR]
+    ldr r0, [r4, r9]
+    CALLC gsu_c_romb
     b clr_fin
 h_getb:
     mov r0, r11

@@ -202,6 +202,11 @@ static void rom_tests(void)
     CHECKV("getbs", R(5), (uint16_t)(int16_t)(int8_t)rom[0x10]);
     RUN(0, IBT(1, 1), FROM(1), ALT3, 0xDF, IWT(14, 0x8010), TO(3), 0xEF, STOP);   /* ROMB 1 (then R14: the buffer reloads): bank 1 is $8000 in the ROM */
     CHECKV("romb", R(3), rom[0x8000 + 0x10]);
+    /* ROMB without a new R14: GETB returns the byte buffered from the old bank (the buffer loads when R14 is written; Doom relies on it) */
+    RUN(0, IWT(14, 0x8010), IBT(1, 1), FROM(1), ALT3, 0xDF, TO(3), 0xEF, STOP);
+    CHECKV("romb keeps buffer", R(3), rom[0x10]);
+    RUN(0, IWT(14, 0x8010), IBT(1, 1), FROM(1), ALT3, 0xDF, IWT(14, 0x8011), TO(3), 0xEF, STOP);   /* R14 written after ROMB: the new bank */
+    CHECKV("romb then r14", R(3), rom[0x8000 + 0x11]);
     /* the 64 KB banks $40-$5F: the same bytes */
     RUN(0, IBT(1, 0x40), FROM(1), ALT3, 0xDF, IWT(14, 0x0012), TO(3), 0xEF, STOP);
     CHECKV("rom bank 40", R(3), rom[0x12]);

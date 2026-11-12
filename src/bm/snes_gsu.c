@@ -47,7 +47,7 @@ typedef struct {                            /* the first 256 bytes are reached b
     uint16_t latch;
     uint8_t rambr, scbr, clsr, scmr, colr, por, bramr;
     uint8_t go, irq, irq_line;
-    uint8_t rbuf, rbuf_bank, rbuf_ok;       /* the ROM buffer, and the bank and R14 it was read with (a change of either reloads it) */
+    uint8_t rbuf, rbuf_bank, rbuf_ok;       /* the ROM buffer, and the bank and R14 it was read with (a change of R14 reloads it; ROMB does not) */
     uint16_t rbuf_r14;
     uint8_t pmask, pcx, pcy;                /* the pixel cache: one row of 8 pixels (X & $F8, Y); pw: the bit planes of the 8 pixels, a byte for each plane (planes 0-3 in pw[0], 4-7 in pw[1]) */
     uint32_t pw[2];
@@ -196,12 +196,21 @@ static uint8_t do_rpix(void)
 static unsigned rom_buffer(void)
 {
     unsigned c = 0;
-    if (!(g.rbuf_ok && g.rbuf_r14 == g.r[14] && g.rbuf_bank == g.rombr)) {
+    if (!(g.rbuf_ok && g.rbuf_r14 == (uint16_t)g.r[14])) {
         g.rbuf = rom_at(g.rombr, (uint16_t)g.r[14]);
         g.rbuf_r14 = (uint16_t)g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1;
         c = (unsigned)g.romcyc << 8;
     }
     return g.rbuf | c;
+}
+/* ROMB: the chip loads its ROM buffer when R14 is written, so a GETB after ROMB without a new R14 returns the byte of the OLD bank (ares and Snes9x do the same; Doom relies on it). Load the buffer with the old bank before the bank changes. */
+static inline void set_rombr(unsigned bank)
+{
+    if (!(g.rbuf_ok && g.rbuf_r14 == (uint16_t)g.r[14])) {
+        g.rbuf = rom_at(g.rombr, (uint16_t)g.r[14]);
+        g.rbuf_r14 = (uint16_t)g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1;
+    }
+    g.rombr = (uint8_t)bank;
 }
 static inline uint8_t color_of(uint8_t src)
 {
@@ -430,7 +439,7 @@ void gsu_run(int clocks)
     L_getc: {                                                   /* GETC / RAMB / ROMB */
         const unsigned a = alt & 3;
         if (a == 2) { g.rambr = RS & 1; ram_base(); }
-        else if (a == 3) g.rombr = RS & 0x7F;
+        else if (a == 3) set_rombr(RS & 0x7F);
         else { const unsigned x = rom_buffer(); budget -= (int)(x >> 8); g.colr = color_of((uint8_t)x); }
         goto clr;
     }
@@ -505,6 +514,7 @@ void gsu_c_stop(void) { pix_flush(); g.go = 0; g.irq = 1; if (!(g.cfgr & 0x80)) 
 void gsu_c_plot(void) { do_plot(); }
 unsigned gsu_c_rpix(void) { return do_rpix(); }
 void gsu_c_color(unsigned src, unsigned alt) { if (alt & 1) g.por = src & 0x1F; else g.colr = color_of((uint8_t)src); }
+void gsu_c_romb(unsigned src) { set_rombr(src & 0x7F); }
 void gsu_c_ramb(unsigned src) { g.rambr = src & 1; ram_base(); }
 unsigned gsu_c_getc(void) { const unsigned x = rom_buffer(); g.colr = color_of((uint8_t)x); return x >> 8; }
 unsigned gsu_c_getb(unsigned alt, unsigned rs)         /* the value in bits 0-15, the extra clocks above */

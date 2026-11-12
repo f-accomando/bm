@@ -167,7 +167,7 @@ static uint8_t do_rpix(void)
 /* the ROM buffer: GETB reads it. It reloads when R14 or ROMBR changed since the last load (the real chip reloads at each write of R14) */
 INLINE uint8_t rom_buffer(int *cyc, int rom_c)
 {
-    if (!LIKELY(g.rbuf_ok && g.rbuf_r14 == g.r[14] && g.rbuf_bank == g.rombr)) {
+    if (!LIKELY(g.rbuf_ok && g.rbuf_r14 == g.r[14])) {
         g.rbuf = rom_at(g.rombr, g.r[14]);
         g.rbuf_r14 = g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1;
         *cyc += rom_c;
@@ -373,7 +373,7 @@ void gsu_run(int clocks)
         case 0xD0 ... 0xDE: v = (uint16_t)(r[n] + 1); SZ(v); goto wr_n;   /* INC */
         case 0xDF:                                              /* GETC / RAMB / ROMB */
             if (alt == 2) g.rambr = RS & 1;
-            else if (alt == 3) g.rombr = RS & 0x7F;
+            else if (alt == 3) { if (!(g.rbuf_ok && g.rbuf_r14 == g.r[14])) { g.rbuf = rom_at(g.rombr, g.r[14]); g.rbuf_r14 = g.r[14]; g.rbuf_bank = g.rombr; g.rbuf_ok = 1; } g.rombr = RS & 0x7F; }   /* ROMB keeps the buffer of the old bank */
             else g.colr = color_of(rom_buffer(&cyc, rom_c));
             goto clr;
         case 0xE0 ... 0xEE: v = (uint16_t)(r[n] - 1); SZ(v); goto wr_n;   /* DEC */
