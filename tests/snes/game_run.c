@@ -3,6 +3,7 @@
  *   game_run rom fw|- frames script outprefix [dsplog]   script lines: "first last padhex" (frames); pictures at the frames listed after "shot" lines: "shot f"
  * Script: one line "first last padhex" holds the pad for those frames (pad bits as in snes.h: START 1000, A 0080, UP 0800); "shot f" saves picture f (PPM) and, with DUMPSTATE set, the OAM, CGRAM and WRAM of that frame.
  * Environment (all optional; the harness writes vram.bin, wram.bin, cgram.bin, oam.bin at the end and prints the PPU and DMA state):
+ *   RENDER_EVERY=n                 draws only every n-th frame and the shot frames (the frameskip of the cart): the shot must equal the one of a run that draws all
  *   POKE="frame:wramaddr=val,..."  writes the work RAM before a frame (a test hook: Zelda damage is 4 at $0373)
  *   REGLOG=file REGFROM=f REGFRAME=f2  logs, for frames f..f2: the PPU registers (HDMA too), the DMA to the video RAM and to the OAM, the CPU registers $4300-$420C, $4200, $4207, $4209
  *   WLO=hex WHI=hex [WRAW=1]       with REGLOG: the CPU writes in that address range (runs; WRAW: each one with its PC)
@@ -49,7 +50,7 @@ int main(int argc,char**argv){
     int isshot=0; for(int i=0;i<nsh;i++) if(sh[i]==frame) isshot=1;
     { const char*pk=getenv("POKE"); /* "frame:wramaddr=val,..." test hook: writes the work RAM before the frame */
       while(pk&&*pk){ int fr; unsigned ad,vl; int k; if(sscanf(pk,"%d:%x=%x%n",&fr,&ad,&vl,&k)==3){ if(fr==frame) S.wram[ad&0x1FFFF]=(uint8_t)vl; pk+=k; if(*pk==',')pk++; } else break; } }
-    snes_frame(p,0,isshot||frame==maxf-1); if(getenv("PRINTW")&&frame>=rlf0&&frame<=rlf){ unsigned ad=strtoul(getenv("PRINTW"),0,16); fprintf(rl?rl:stdout,"PW f%d %05X=%02X %02X %02X\n",frame,ad,S.wram[ad],S.wram[ad+1],S.wram[ad+2]); } if(isshot||frame==maxf-1) shot(argv[5],frame); }
+    { const char*re=getenv("RENDER_EVERY"); /* a test hook: draws only every Nth frame (the cart's frameskip), plus the shot frames */ int rn=re?atoi(re):1; snes_frame(p,0,isshot||frame==maxf-1||rn<=1||frame%rn==0); } if(getenv("PRINTW")&&frame>=rlf0&&frame<=rlf){ unsigned ad=strtoul(getenv("PRINTW"),0,16); fprintf(rl?rl:stdout,"PW f%d %05X=%02X %02X %02X\n",frame,ad,S.wram[ad],S.wram[ad+1],S.wram[ad+2]); } if(isshot||frame==maxf-1) shot(argv[5],frame); }
   {FILE*o=fopen("vram.bin","wb");fwrite(S.vram,1,65536,o);fclose(o);o=fopen("wram.bin","wb");fwrite(S.wram,1,131072,o);fclose(o);o=fopen("cgram.bin","wb");fwrite(S.cgram,1,512,o);fclose(o);o=fopen("oam.bin","wb");fwrite(S.oam,1,544,o);fclose(o);}
   printf("htime %d vtime %d nmitimen %02X\n",S.htime,S.vtime,S.nmitimen);printf("bgmode %02X m7sel %02X tm %02X ts %02X hdmaen %02X inidisp %02X setini %02X m7 a%d b%d c%d d%d x%d y%d ho%d vo%d\n",S.bgmode,S.m7sel,S.tm,S.ts,S.hdmaen,S.inidisp,S.setini,S.m7a,S.m7b,S.m7c,S.m7d,S.m7x,S.m7y,S.m7hofs,S.m7vofs);
   for(int c=0;c<8;c++) printf("dma%d dmap %02X bbad %02X a1 %02X:%04X das %04X dasb %02X tbl %04X line %02X ind %04X\n",c,S.dma[c].dmap,S.dma[c].bbad,S.dma[c].a1b,S.dma[c].a1t,S.dma[c].das,S.dma[c].dasb,S.dma[c].tbl,S.dma[c].line,S.dma[c].ind);
