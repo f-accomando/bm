@@ -8,7 +8,7 @@ Marks: **S** = stated in the original source or its build files (read on 2026-11
 
 | Source | What it holds | Licence and use |
 |---|---|---|
-| [RandalLinden/DOOM-FX](https://github.com/RandalLinden/DOOM-FX) (commit 90af514, 2022-06-19) | 65816 and Super FX assembly of Doom/FX, the section map `source/RL.SEC`, the tools that convert the WAD data, `docs/sfx.txt` and `docs/sfx.guide` | GPL-3.0. Read it to understand. Do not copy code into bm: bm keeps only original or permissive code |
+| [RandalLinden/DOOM-FX](https://github.com/RandalLinden/DOOM-FX) (commit 90af514, 2022-06-19) | 65816 and Super FX assembly of Doom/FX, the section map `source/RL.SEC`, the tools that convert the WAD data, the Super FX notes `sfx.txt` and `sfx.guide` of the repository | GPL-3.0. Read it to understand. Do not copy code into bm: bm keeps only original or permissive code |
 | [Sunlitspace542/DOOM-FX](https://github.com/Sunlitspace542/DOOM-FX) | A fork of the same project that builds it | Same licence |
 | Source backup of 2024 (archive.org, from floppy disks) | Reported to hold the sound driver and tools that the GitHub release lacks | Not read |
 | [SNESdev wiki: GSU](https://snes.nesdev.org/wiki/GSU), [SnesLab GSU](https://sneslab.net/wiki/GSU) | Registers, opcode matrix, cycle times, flag rules of the Super FX | Public. Already used for the core |
