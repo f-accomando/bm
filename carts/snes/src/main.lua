@@ -397,8 +397,8 @@ function _update()
     if not (AUTO and frames >= 3200) then                                -- the test build stops at frame 3200: the same picture in every run, to compare two kernels
       local tf = time()
       if not AUTO then adapt() end
-      local render = bench or frames % (AUTO and 4 or every) == 0
-      snes_frame(readpad(1), readpad(2), render)      -- a picture every `every` frames (the test build: every fourth)
+      local render = bench or pic_due(frames, AUTO and 4 or every)
+      snes_frame(readpad(1), readpad(2), render)      -- a picture every `every` frames (pic.lua); the test build: every fourth
       local u = (time() - tf) * 1000
       win_u = win_u + u
       if log_on then lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end

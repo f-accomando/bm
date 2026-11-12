@@ -611,6 +611,7 @@ int cpu_run(int limit)
         n++;
 #ifdef SNES_TRACE
         if (snes_trace.op) snes_trace.op(cu->pb | cu->pc);
+        if (snes_trace.opr) { cpu_regs_t tr = { cu->a, cu->x, cu->y, cu->s, cu->d, cu->pc, getP(cu), cu->e, (uint8_t)(cu->pb >> 16), (uint8_t)(cu->db >> 16) }; snes_trace.opr(&tr, cu->clk); }
 #endif
         S.line_clk = cu->clk;                       /* the slow bus reads the position in the line (the H and V counters) */
         if (S.nmi_pending || (S.irq_pending && !cu->i)) {

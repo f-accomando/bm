@@ -120,6 +120,9 @@ static uint8_t raw_read(uint32_t a)
         if (pt) {
             if (!dsp77_ready()) return pt == 2 ? 0x80 : 0;                  /* no firmware: RQM stays set, so a game does not wait for ever */
             dsp_sync();
+#ifdef SNES_TRACE
+            { const uint8_t r = pt == 1 ? dsp77_read_dr() : dsp77_read_sr(); if (snes_trace.dsp) snes_trace.dsp(pt == 1 ? 0 : 2, a, r); return r; }
+#endif
             return pt == 1 ? dsp77_read_dr() : dsp77_read_sr();
         }
     }
@@ -168,7 +171,11 @@ static void raw_write(uint32_t a, uint8_t v)
     const unsigned bank = a >> 16, off = a & 0xFFFF;
     if (S.dsp) {
         const int pt = dsp_port(a);
-        if (pt) { if (pt == 1 && dsp77_ready()) { dsp_sync(); dsp77_write_dr(v); } return; }
+        if (pt) { if (pt == 1 && dsp77_ready()) {
+#ifdef SNES_TRACE
+                if (snes_trace.dsp) snes_trace.dsp(1, a, v);
+#endif
+                dsp_sync(); dsp77_write_dr(v); } return; }
     }
     if (S.gsu && bank != 0x7E && bank != 0x7F) {
         const unsigned b7 = bank & 0x7F;
@@ -356,6 +363,9 @@ static int16_t sign13(unsigned v) { v &= 0x1FFF; return (int16_t)(v & 0x1000 ? v
 
 void snes_ppu_write(uint16_t o, uint8_t v)
 {
+#ifdef SNES_TRACE
+    if (snes_trace.ppu) snes_trace.ppu(o, v);
+#endif
     switch (o) {
     case 0x2100: S.inidisp = v; break;
     case 0x2101: S.obsel = v; break;
@@ -452,7 +462,7 @@ uint8_t snes_ppu_read(uint16_t o)
     case 0x2134: return (uint8_t)S.mpy;
     case 0x2135: return (uint8_t)(S.mpy >> 8);
     case 0x2136: return (uint8_t)(S.mpy >> 16);
-    case 0x2137: S.hcount = (uint16_t)(S.line_clk / 4); S.vcount = (uint16_t)S.line; return 0;
+    case 0x2137: S.hcount = (uint16_t)(S.line_clk / 4); S.vcount = (uint16_t)((S.line + 1) % 262); return 0;
     case 0x2138: {
         uint8_t v = S.oamaddr >= 0x200 ? S.oam[0x200 + (S.oamaddr & 0x1F)] : S.oam[S.oamaddr];
         S.oamaddr = (S.oamaddr + 1) & 0x3FF;
@@ -642,6 +652,9 @@ static uint8_t cpu_reg_read(uint16_t o)
 
 static void cpu_reg_write(uint16_t o, uint8_t v)
 {
+#ifdef SNES_TRACE
+    if (snes_trace.reg) snes_trace.reg(o, v);
+#endif
     if (o >= 0x4300) {
         snes_dma_t *d = &S.dma[(o >> 4) & 7];
         switch (o & 15) {
@@ -785,9 +798,10 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         /* IRQ: V, H or both */
         int ia = -1;
         const int m = (S.nmitimen >> 4) & 3;
+        const int vc = (L + 1) % 262;                                  /* the V counter: line 0 of this loop is the first picture line = V 1 (V 0 is the line before it, here L 261); the NMI is at V 225 */
         if (m == 1) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
-        else if (m == 2 && L == S.vtime) ia = 14;
-        else if (m == 3 && L == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
+        else if (m == 2 && vc == S.vtime) ia = 14;
+        else if (m == 3 && vc == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
         /* The line: the CPU runs the whole line. The sound CPU and the Super FX do not run here: each follows the CPU when the CPU touches it (spc_sync,
          * gsu_sync), and catches up now and then (below). The IRQ fires when the clock passes its time. */
         const int end = LINE_CLK;

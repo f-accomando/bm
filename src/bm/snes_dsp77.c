@@ -166,25 +166,28 @@ static void do_op(uint32_t op)
         case 10: r = ~q; break;                                         /* CMP: the 1's complement */
         case 11: r = (q >> 1) | (q & 0x8000); c = q & 1; break;        /* SHR1: the sign stays */
         case 12: r = (q << 1) | oc; c = q >> 15; break;
-        case 13: r = (q << 2) | 3; c = (q >> 14) & 1; break;
-        case 14: r = (q << 4) | 15; c = (q >> 12) & 1; break;
+        case 13: r = (q << 2) | 3; break;                                /* SHL2, SHL4: C is cleared (the reference core does so) */
+        case 14: r = (q << 4) | 15; break;
         default: r = (q << 8) | (q >> 8); break;                        /* 15: XCHG the bytes */
         }
         r &= 0xFFFF;
         D.acc[asl] = (uint16_t)r;
         f[FC] = (uint8_t)c; f[FZ] = r == 0; f[FS0] = (uint8_t)(r >> 15);
-        f[FOV0] = (uint8_t)ov; f[FOV1] = arith ? (uint8_t)(old_ov1 ^ (unsigned)ov) : 0;
+        f[FOV0] = (uint8_t)ov;
         if (!old_ov1) f[FS1] = f[FS0];
+        f[FOV1] = !arith ? 0 : (ov && old_ov1) ? (uint8_t)(f[FS0] == f[FS1]) : (uint8_t)(ov | old_ov1);   /* a second overflow in a row clears OV1 only when the sign went back to S1 */
     }
     put(op & 15, idb);
-    switch (dpl) {                                                      /* the low nibble of DP */
-    case 1: D.dp = (uint8_t)((D.dp & 0xF0) | ((D.dp + 1) & 15)); break;
-    case 2: D.dp = (uint8_t)((D.dp & 0xF0) | ((D.dp - 1) & 15)); break;
-    case 3: D.dp &= 0xF0; break;
-    default: break;
+    if ((op & 15) != 4) {                                               /* a load of DP: DP does not change after it */
+        switch (dpl) {                                                  /* the low nibble of DP */
+        case 1: D.dp = (uint8_t)((D.dp & 0xF0) | ((D.dp + 1) & 15)); break;
+        case 2: D.dp = (uint8_t)((D.dp & 0xF0) | ((D.dp - 1) & 15)); break;
+        case 3: D.dp &= 0xF0; break;
+        default: break;
+        }
+        D.dp = (uint8_t)((D.dp & 0x0F) | ((D.dp ^ (dphm << 4)) & 0xF0));    /* the high nibble: XOR */
     }
-    D.dp = (uint8_t)((D.dp & 0x0F) | ((D.dp ^ (dphm << 4)) & 0xF0));    /* the high nibble: XOR */
-    if (op & 0x100) D.rp = (uint16_t)((D.rp - 1) & 0x3FF);
+    if ((op & 0x100) && (op & 15) != 5) D.rp = (uint16_t)((D.rp - 1) & 0x3FF);    /* a load of RP: RP does not count down after it */
 }
 
 static int cond(unsigned br)

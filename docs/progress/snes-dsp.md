@@ -15,7 +15,7 @@ Each fact has a mark.
 - **[?]**: not sure. The sheet gives the choice of the code. Check it with a real firmware and a real game.
 - **[T]**: checked by `tests/snes/dsp77_test.c`. The test checks that the code does what this sheet says. It does not check that the chip does it. A synthetic program cannot do that.
 
-The code is original. No GPL emulator was read (bsnes/higan, snes9x, ZSNES, Mesen, ares, MAME).
+The code is original. No GPL emulator was read (bsnes/higan, snes9x, ZSNES, Mesen, MAME). On 2026-11-12 the ISC-licensed ares uPD96050 core was read and used as a reference for four rules (listed in Verified on the host); the code is not copied.
 
 ## The chip
 
@@ -26,14 +26,15 @@ The code is original. No GPL emulator was read (bsnes/higan, snes9x, ZSNES, Mese
   - OP: PSEL[21:20] ALU[19:16] ASL[15] DPL[14:13] DPH[12:9] RPDCR[8] SRC[7:4] DST[3:0].
   - JP: BRCH[21:13] NA[12:2]. LD: ID[21:6] DST[3:0].
 - Order inside an OP: the source goes on the bus, the ALU runs (PSEL picks the second operand: RAM[DP], the bus, M or N), the destination takes the bus value, then DP and RP change. A store to RAM[DP] uses the DP from before the change. [?][T]
-- ALU codes: 1 OR, 2 AND, 3 XOR, 4 SUB, 5 ADD, 6 SBB, 7 ADC, 8 DEC, 9 INC, 10 CMP (1's complement), 11 SHR1 (the sign stays), 12 SHL1, 13 SHL2, 14 SHL4, 15 XCHG (swap the bytes). Code 0 does nothing. ADC, SBB and SHL1 use the carry of the other accumulator. SHL2 and SHL4 fill with ones. [M][T]
+- ALU codes: 1 OR, 2 AND, 3 XOR, 4 SUB, 5 ADD, 6 SBB, 7 ADC, 8 DEC, 9 INC, 10 CMP (1's complement), 11 SHR1 (the sign stays), 12 SHL1, 13 SHL2, 14 SHL4, 15 XCHG (swap the bytes). Code 0 does nothing. ADC, SBB and SHL1 use the carry of the other accumulator. SHL2 and SHL4 fill with ones and clear C. [M][T]
 - Source codes: 0 TRB, 1 A, 2 B, 3 TR, 4 DP, 5 RP, 6 data ROM[RP], 7 SGN (0x8000 minus S1), 8 DR (and RQM = 1), 9 DR (no flag change), 10 SR, 11 and 12 SI, 13 K, 14 L, 15 RAM[DP]. [M]
 - Destination codes: 0 none, 1 A, 2 B, 3 TR, 4 DP, 5 RP, 6 DR (and RQM = 1), 7 SR (only the bits outside mask 0x907C), 8 and 9 SO, 10 K, 11 KLR (K = bus, L = data ROM[RP]), 12 KLM (L = bus, K = RAM[DP or 0x40]), 13 L, 14 TRB, 15 RAM[DP]. [M][T]
 - DPL: 1 increment, 2 decrement, 3 clear the low nibble of DP (the high nibble does not change). DPH: the high nibble of DP is XORed with the 4-bit field. RPDCR: RP = RP - 1 (10 bits). [M][T]
 - Flags of each accumulator: C, Z, OV0, OV1, S0, S1. [M]
-  - S0 is bit 15 of the result. Z is result = 0. C is the carry (ADD) or the borrow (SUB); for the shifts the last bit out.
+  - S0 is bit 15 of the result. Z is result = 0. C is the carry (ADD) or the borrow (SUB); SHR1 and SHL1 give the bit that goes out; the logic ops, SHL2, SHL4, CMP and XCHG clear it.
   - OV0 is the signed overflow of ADD and SUB. The logic ops, the shifts, CMP and XCHG clear OV0 and OV1.
-  - **[?] S1 and OV1.** The code does: OV1 = OV1 xor OV0 on ADD and SUB; S1 = S0 when OV1 was 0 before the instruction. After one overflow S1 is the wrapped sign, so SGN gives 0x7FFF after a positive overflow and 0x8000 after a negative one. [T] The rule for a second overflow in a row is a guess. The firmware of the chip uses SGN to saturate. If a game shows wrong signs, look here first.
+  - **S1 and OV1.** S1 = S0 when OV1 was 0 before the instruction. On ADD and SUB: OV1 = (S0 = S1) when OV0 and the old OV1 are both 1, else OV0 or the old OV1. After one overflow S1 is the wrapped sign, so SGN gives 0x7FFF after a positive overflow and 0x8000 after a negative one. [T] The second-overflow rule is the one of the reference core (ares uPD96050, read 2026-11-12). None of the five firmware files reaches it (see Status of the code).
+- A load of DP or RP in the destination field is not followed by the DP and RP changes of that instruction (DPL, DPH only when DST is not DP; RPDCR only when DST is not RP). [T] Reference core.
 - Jump conditions (BRCH): 0x100 JMP, 0x140 CALL (pushes the next PC). 0x80 to 0xAF: the group is `(BRCH - 0x80) / 8` = C, Z, OV0, OV1, S0, S1; bit 2 picks accumulator A (0) or B (1); bit 1 picks "flag set" (1) or "flag clear" (0). 0xB0 DP low nibble = 0, 0xB1 not 0, 0xB2 = 15, 0xB3 not 15. 0xB4 JNSIAK, 0xB6 JSIAK, 0xB8 JNSOAK, 0xBA JSOAK. 0xBC JNRQM, 0xBE JRQM. Another value: no jump. [M][T]
 - The serial port (SI, SO and the acknowledges) is not emulated. SIACK and SOACK stay 0. No SNES cartridge uses it. [?]
 
@@ -82,7 +83,7 @@ The time of one instruction is a switch of about 20 cases on the decoded word. M
 
 ## Status of the code
 
-Done 2026-11-12 (host only; no firmware and no ROM on the machine). 187 checks in `tests/snes/dsp77_test.c`:
+Done 2026-11-12. 192 checks in `tests/snes/dsp77_test.c` (programs of my own, no firmware):
 
 - every ALU code with its flags, A and B, the carry of the other accumulator, SGN after an overflow;
 - the multiplier (M, N, signed), KLR and KLM, every source and destination, SR write mask, DP and RP changes (DPL, DPH, RPDCR);
@@ -92,15 +93,19 @@ Done 2026-11-12 (host only; no firmware and no ROM on the machine). 187 checks i
 - the speed: 7600 instructions in 21477 master clocks, and three frames of a chip that never waits;
 - the cartridge: chip detection (the four titles, a Super FX and a RAM-only cartridge are not DSP), the three port maps with their mirrors, the page table, the lazy run (the SNES sees RQM only when the time has gone), no firmware, a reset, a ROM with no chip.
 
+### Verified on the host (2026-11-12)
+
+- **Super Mario Kart runs with the real DSP-1 firmware** (`dsp1b.rom`, the dump that the ares repository ships in `mia/Firmware/Super Famicom`, kept outside this repository; 8192 bytes, little endian: the byte order guess was right). The game starts, plays the 1P and the 2P race, and draws the track, the karts and the map. The picture was wrong at first, and the DSP was not the cause: the V-IRQ was one line late (see [snes.md](snes.md), Rules). The DSP calls of the game: `0x02` parameter, `0x06` project (about 10 a frame), `0x0A` raster, `0x00` multiply, `0x28` distance, `0x0C` rotate. The game writes the command as one 8-bit write and the parameters as 16-bit stores (the firmware switches DRC), and reads the results the same way; the handshake of the sheet works. The ports are at `$00-$1F:$6000` (DR) and `$7000` (SR) with the mirror in `$80-$9F`: the HiROM board of the table.
+- **Lock-step against the reference core.** A transliteration of the ares uPD96050 core (ISC licence, scratch copy outside the repository) and `snes_dsp77.c` run the same firmware and the same random DR traffic (command words from the DSP-1 list, random parameters, reads), compared after every instruction (A, B, TR, TRB, K, L, DP, RP, PC, DR, RQM, DRS, DRC, both flag sets, the 256 words of RAM). Five firmware files (dsp1, dsp1b, dsp2, dsp3, dsp4) times four seeds of 3 million steps: no difference. Before the change below the code and the reference differed in four rules that the firmware never reaches (C of SHL2 and SHL4, OV1 on a second overflow, DPL, DPH and RPDCR after a load of DP or RP); the code now follows the reference and `dsp77_test.c` holds them. DSP-2, DSP-3 and DSP-4 have run only in this lock-step, no game.
+
 ### What cannot be checked here
 
-- **No real firmware and no real ROM was used.** The core is tested only on programs that I wrote. A program of mine proves that the code does what this sheet says. It does not prove that the sheet is what the chip does. Every [?] above can be wrong, and each wrong point can hide in a game as a wrong track, a wrong angle or a hang. The points that matter most: the S1/OV1 rule, the order of DST and ALU in one instruction, the byte order of the firmware file, the clock, the title rule that picks DSP-1 to DSP-4, the addresses of the ports for the ROM above 1 MB and for HiROM.
-- No game was run. Super Mario Kart, Pilotwings, Dungeon Master, SD Gundam GX and Top Gear 3000 are untested.
+- The core is tested on programs that I wrote and, since 2026-11-12, against the reference core on the real firmware. It is not tested against a chip. Each wrong point can hide in a game as a wrong track, a wrong angle or a hang. Still open: the clock (7.6 MHz and one instruction a clock are the values of the reference core), the title rule that picks DSP-1 to DSP-4, the addresses of the ports for the LoROM boards and the ROM above 1 MB. Pilotwings, Dungeon Master, SD Gundam GX and Top Gear 3000 are untested.
 - The ARM1176 speed is not measured. The chip is idle most of the time. When it computes at the full rate it runs 126000 instructions a frame; at about 30 ns each that is 4 ms.
 
 ## Open work
 
-- Test with a real firmware: put `dsp1b.rom` (or `dsp1.rom`) in `/sfc` next to Super Mario Kart. Look at the log line `snes dsp1 firmware ...`. If the karts and the track draw, the core is right. If it hangs on a black screen, read `snes_debug().pc` and the SR reads.
+- Pi Zero W and RGB30: Super Mario Kart with the firmware in `/sfc` (the track, the karts and the map must draw; read the log line `snes dsp1 firmware ...`). The DSP time on the Pi is not measured: Mario Kart calls the chip about 10 times a frame.
 - Test DSP-2 (Dungeon Master), DSP-3 (SD Gundam GX) and DSP-4 (Top Gear 3000) the same way. The DSP-2 to DSP-4 firmware may use the serial port or a DR mode that the code does not do.
 - Measure `dsp77_run` on the Pi Zero W: add the chip time to `snes_debug` as the GSU does (`us_gsu`) if a game keeps it busy.
 - A small time check of the real chip (clock, one instruction per clock) is needed only if a game depends on it.

@@ -74,8 +74,8 @@ static void test_alu(void)
     ALU("cmp", 0, 0x00FF, 0, CMP, 0xFF00, F_S0);
     ALU("shr1", 0, 0x8001, 0, SHR1, 0xC000, F_C | F_S0);
     ALU("shl1", 0, 0x8001, 0, SHL1, 0x0002, F_C);
-    ALU("shl2", 0, 0x4001, 0, SHL2, 0x0007, F_C);
-    ALU("shl4", 0, 0x1234, 0, SHL4, 0x234F, F_C);
+    ALU("shl2", 0, 0x4001, 0, SHL2, 0x0007, 0);
+    ALU("shl4", 0, 0x1234, 0, SHL4, 0x234F, 0);
     ALU("xchg", 0, 0x1234, 0, XCHG, 0x3412, 0);
     /* ADC, SBB and SHL1 take the carry of the other accumulator */
     RUN(LD(0xFFFF, D_B), LD(1, D_TR), OP(1, ADD, 1, 0, 0, 0, S_TR, D_NON), LD(1, D_A), OP(1, ADC, 0, 0, 0, 0, S_TR, D_NON), JMP_SELF(5));
@@ -126,6 +126,18 @@ static void test_mul_and_moves(void)
     CHECKV("rpdcr", d.rp, 0x3FF);
     RUN(LD(0x1234, D_A), LD(7, D_DP), OP(0, NOP, 0, 1, 0, 0, S_A, D_MEM), JMP_SELF(3));            /* the store uses DP before it changes */
     CHECKV("mem store before dpl", d.ram[7], 0x1234); CHECKV("dp after", d.dp, 8);
+    /* a load of DP or RP (the destination field) is not followed by the DP and RP changes of the same instruction (the reference core: DPL and DPH only when the destination is not DP, RPDCR only when it is not RP) */
+    RUN(LD(0x0123, D_TR), OP(0, NOP, 0, 1, 3, 0, S_TR, D_DP), JMP_SELF(2));
+    CHECKV("load DP: no DPL, no DPH", d.dp, 0x23);
+    RUN(LD(0x0123, D_TR), OP(0, NOP, 0, 0, 0, 1, S_TR, D_RP), JMP_SELF(2));
+    CHECKV("load RP: no RPDCR", d.rp, 0x0123);
+    RUN(LD(0x0123, D_TR), OP(0, NOP, 0, 0, 0, 1, S_TR, D_A), JMP_SELF(2));
+    CHECKV("RPDCR with another destination", d.rp, 0x3FF);
+    /* OV1 when a second overflow comes while OV1 is set: OV1 is then (S0 == S1) after it, not OV1 xor OV0 (the reference core). The first overflow (0x7FFF + 1) sets OV1 and S1 = 1;
+     * additions that do not overflow keep OV1 and S1 (S0 goes 1, 1, 0, 0); the last one overflows to a negative result, S0 = S1 = 1, so OV1 stays set. */
+    RUN(LD(0x7FFF, D_A), LD(1, D_TR), OP(1, ADD, 0, 0, 0, 0, S_TR, D_NON), LD(0x7FFF, D_TR), OP(1, ADD, 0, 0, 0, 0, S_TR, D_NON),
+        LD(1, D_TR), OP(1, ADD, 0, 0, 0, 0, S_TR, D_NON), LD(0x7FFF, D_TR), OP(1, ADD, 0, 0, 0, 0, S_TR, D_NON), OP(1, ADD, 0, 0, 0, 0, S_TR, D_NON), JMP_SELF(10));
+    CHECKV("two overflows: A", d.a, 0xFFFE); CHECKV("two overflows: OV0 and OV1 and S1", d.fa & (F_OV0 | F_OV1 | F_S1), F_OV0 | F_OV1 | F_S1);
     RUN(LD(0x0123, D_TRB), OP(0, NOP, 0, 0, 0, 0, S_TRB, D_B), JMP_SELF(2));
     CHECKV("trb", d.b, 0x0123);
     RUN(LD(0x1111, D_A), LD(0x2222, D_K), LD(0x3333, D_L), OP(0, NOP, 0, 0, 0, 0, S_K, D_TR), OP(0, NOP, 0, 0, 0, 0, S_L, D_TRB), JMP_SELF(5));

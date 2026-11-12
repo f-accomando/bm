@@ -275,9 +275,10 @@ test-psx: tests/psx/core_test.c $(PSX_CORE) $(wildcard src/bm/psx*.h)
 
 # bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
-test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py
+test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py tests/snes/pic_due_test.lua carts/snes/src/pic.lua
 	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 	$(BUILD)/host/snes_core_test
+	$(BUILD)/host/luahost tests/snes/pic_due_test.lua
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
 # bm NES (carts/nes): the user interface of a Famicom / NES emulator whose machine is in C (src/bm/nes.c).

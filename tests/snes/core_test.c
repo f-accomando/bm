@@ -233,10 +233,57 @@ static void timing_tests(void)
     CHECK("timing: a second read gives the same parts (no reset by the read)", d.us_bg < 40);
 }
 
+/* The V counter. The first picture line is V 1 (V 0 is the line before it); the NMI is at V 225. A V-IRQ at VTIME fires on the line whose V counter is VTIME, so VTIME 219 comes
+ * 6 lines before the NMI. The handler reads the V counter ($2137 latch, $213D) and counts. (Super Mario Kart starts its IRQ routines 6 lines before the NMI; with 5 lines the
+ * NMI came in the middle of a DMA set-up and the game wiped the video RAM.) */
+static void vcounter_tests(void)
+{
+    static const uint8_t main_code[] = {
+        0xA9, 0x00, 0x8D, 0x09, 0x42,                   /* LDA #VTIME (patched); STA $4209 */
+        0xA9, 0x00, 0x8D, 0x0A, 0x42,                   /* LDA #VTIME high; STA $420A */
+        0xA9, 0xA0, 0x8D, 0x00, 0x42,                   /* LDA #$A0; STA $4200: NMI and V-IRQ */
+        0x58, 0x80, 0xFE                                /* CLI; BRA * */
+    };
+    static const uint8_t irq_code[] = {
+        0xAD, 0x11, 0x42,                               /* LDA $4211 (acknowledge) */
+        0xAD, 0x3F, 0x21, 0xAD, 0x37, 0x21,             /* LDA $213F (reset the read flip-flops); LDA $2137 (latch the counters) */
+        0xAD, 0x3D, 0x21, 0x85, 0x00,                   /* LDA $213D; STA $00: V low */
+        0xAD, 0x3D, 0x21, 0x85, 0x01,                   /* LDA $213D; STA $01: V high */
+        0xE6, 0x02, 0x40                                /* INC $02; RTI */
+    };
+    static const uint8_t nmi_code[] = {
+        0xAD, 0x10, 0x42,                               /* LDA $4210 (acknowledge) */
+        0xAD, 0x3F, 0x21, 0xAD, 0x37, 0x21,             /* the same latch */
+        0xAD, 0x3D, 0x21, 0x85, 0x03,                   /* STA $03: V low */
+        0xAD, 0x3D, 0x21, 0x85, 0x04, 0x40              /* STA $04: V high; RTI */
+    };
+    static const int vt[] = { 1, 100, 219, 225, 261, 0 };
+    for (unsigned i = 0; i < sizeof vt / sizeof vt[0]; i++) {
+        static uint8_t rom[0x8000];
+        memset(rom, 0, sizeof rom);
+        memcpy(rom, main_code, sizeof main_code); rom[1] = (uint8_t)vt[i]; rom[6] = (uint8_t)(vt[i] >> 8);
+        memcpy(rom + 0x100, irq_code, sizeof irq_code);
+        memcpy(rom + 0x200, nmi_code, sizeof nmi_code);
+        rom[0x7FFA] = 0x00; rom[0x7FFB] = 0x82;
+        rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80; rom[0x7FFE] = 0x00; rom[0x7FFF] = 0x81;
+        snes_load(rom, sizeof rom, NULL);
+        for (int f = 0; f < 3; f++) snes_frame(0, 0, 0);
+        char nm[64];
+        snprintf(nm, sizeof nm, "V-IRQ at VTIME %d: the handler reads V = %d", vt[i], vt[i]);
+        CHECK(nm, S.wram[0] + 256 * S.wram[1] == vt[i]);
+        if (S.wram[0] + 256 * S.wram[1] != vt[i]) printf("  got %d (wram %02X %02X %02X)\n", S.wram[0] + 256 * S.wram[1], S.wram[0], S.wram[1], S.wram[2]);
+        snprintf(nm, sizeof nm, "NMI: the V counter is 225 (VTIME %d)", vt[i]);
+        CHECK(nm, S.wram[3] + 256 * S.wram[4] == 225);
+        snprintf(nm, sizeof nm, "V-IRQ at VTIME %d: once a frame", vt[i]);
+        CHECK(nm, S.wram[2] >= 2 && S.wram[2] <= 3);
+    }
+}
+
 int main(void)
 {
     scroll_tests();
     timing_tests();
+    vcounter_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();
