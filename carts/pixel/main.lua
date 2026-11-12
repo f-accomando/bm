@@ -452,6 +452,7 @@ end
 local dp, draw_reset, draw_key, draw_pad, draw_update, draw_actions, draw_draw, draw_mouse
 local shp, sheet_reset, sheet_key, sheet_pad, sheet_actions, draw_sheet, sheet_mouse
 local pp, pal_reset, pal_key, pal_pad, pal_actions, draw_palette, pal_mouse
+local snp, snp_actions, snp_key, snp_pad, snp_mouse, draw_snes
 
 ----------------------------------------------------------------- blocks of pixels
 
@@ -1249,6 +1250,8 @@ end
 -- Import a PNG of /docs (bm SNES writes one: menu > Export sprites) at the top left of the sheet. The sheet grows to hold it. A
 -- transparent pixel of the picture stays transparent. Undo puts the old pixels back.
 local function import_png()
+  local from_snes = snp.after_import
+  snp.after_import = nil
   ask("PNG name in /docs (8.3)", "spr1.png", function(t)
     local name = t:match("([^/]+)$") or ""
     if name == "" then return end
@@ -1272,6 +1275,7 @@ local function import_png()
     sheet_reset()
     dirty = true
     say("imported " .. r.w .. "x" .. r.h .. " from " .. path, C_ACC, 300)
+    if from_snes then snp.import_done() end
   end)
 end
 shp.import_png = import_png
@@ -1610,6 +1614,436 @@ function draw_palette()
     hint({ { { "up", "down", "left", "right" }, "choose" }, { { "enter" }, "draw with it" }, { { "e" }, "edit" }, { { "a" }, "add" },
            { { "del" }, "remove" }, { { "s" }, "sort" }, { { "f" }, "from the sheet" } })
   end
+end
+end
+
+----------------------------------------------------------------- SNES page
+-- F7: the sheet as SNES graphics. Depth 2/4/8 bpp, the sprite sizes, the sub-palettes (BGR555, colour 0
+-- transparent), the sub-palette of each tile, an OAM preview, PNG import with the quantiser, and the export
+-- of .chr and .pal to /docs. The converters are in carts/pixel/src/snesgfx.lua (no UI; tests/snes/snesgfx_test.lua).
+do
+
+local G                                      -- snesgfx: loaded at the first use (carts/pixel/src/snesgfx.lua)
+local PALCOL = { 0xE04040, 0x40C040, 0x4080F0, 0xE0C040, 0xC050D0, 0x40C0C0, 0xF08030, 0xA0A0A0 }
+local SV_X, SV_Y, SV_W, SV_H = 8, 32, 296, 272    -- the sheet view; the panel is right of it
+local PX = 320
+
+snp = { bpp = 4, set = 0, large = false, cur = 1, sel = 2, ch = 1, pals = {}, tp = {}, fx = false, fy = false, prio = 0,
+        zoom = 1 }
+LY.on_resize(function(w, h)
+  SV_W, SV_H = w // 2 - 24, HINT_Y - 48
+  PX = w // 2
+end)
+
+local function lib()
+  if not G then G = SNESGFX or require "snesgfx" end      -- (the build puts the module in SNESGFX, after this file)
+  return G
+end
+local function npal() return 1 << snp.bpp end
+local function nsub() return snp.bpp == 8 and 1 or 8 end
+-- the sub-palette i: a list of npal() BGR555 words (entry 1 is colour 0, the transparent one)
+local function subpal(i)
+  local p = snp.pals[i]
+  if not p then p = {}; snp.pals[i] = p end
+  for k = #p + 1, npal() do p[k] = 0 end
+  for k = #p, npal() + 1, -1 do p[k] = nil end
+  return p
+end
+local function cur_pal() return subpal(snp.cur) end
+local function tile_of(x, y) return (y // 8) * (sw // 8) + x // 8 end
+local function sub_of(x, y)
+  if snp.bpp == 8 then return 1 end
+  return snp.tp[tile_of(x, y)] or snp.cur
+end
+local function dims() lib(); return G.sprite_dims(snp.set, snp.large) end
+
+local function set_size()
+  rs = (dims())
+  fit_region()
+  draw_reset()
+end
+
+-- the colours of a rectangle of the sheet, 0xRRGGBB or false (transparent)
+local function rgb_list(x0, y0, w, h)
+  local list = {}
+  for y = y0, y0 + h - 1 do
+    for x = x0, x0 + w - 1 do list[#list + 1] = sget(x, y) or false end
+  end
+  return list
+end
+
+-- a palette for the colours of a rectangle: the quantiser, 2^bpp - 1 colours and the transparent one
+local function quantise_into(x0, y0, w, h)
+  lib()
+  local pal = G.quantize(rgb_list(x0, y0, w, h), npal() - 1)
+  local p = cur_pal()
+  for k = 1, npal() do p[k] = pal[k] or 0 end
+  snp.sel = clamp(snp.sel, 1, npal())
+  return #pal - 1
+end
+
+-- the pixels of a rectangle take the nearest colour of the sub-palette of their tile (as the export does)
+local function conform(x0, y0, w, h)
+  lib()
+  begin(x0, y0, w, h)
+  for y = y0, y0 + h - 1 do
+    for x = x0, x0 + w - 1 do
+      local c = sget(x, y)
+      if c then
+        local p = subpal(sub_of(x, y))
+        local i = G.nearest(p, c)
+        sset(x, y, i > 0 and G.to_rgb(p[i + 1]) or nil)
+      end
+    end
+  end
+  edits = edits + 1
+end
+
+local function too_big()
+  if sw * sh > 512 * 512 then say("the sheet is over 512x512: use the shift key for one sprite", C_ERR); return true end
+end
+
+local function chan_get(v, k) return (v >> ((k - 1) * 5)) & 31 end
+local function chan_set(i, k, n)
+  local p = cur_pal()
+  local at = (k - 1) * 5
+  p[i] = (p[i] & ~(31 << at)) | (clamp(n, 0, 31) << at)
+  dirty = true
+end
+
+-- the sub-palette of each tile of the sprite
+local function assign_sprite()
+  for y = ry, ry + rs - 1, 8 do
+    for x = rx, rx + rs - 1, 8 do snp.tp[tile_of(x, y)] = snp.cur end
+  end
+  say("sub-palette " .. snp.cur .. " for the " .. (rs // 8) * (rs // 8) .. " tile(s) of the sprite", C_ACC, 120)
+end
+
+local function assign_all()
+  lib()
+  if too_big() then return end
+  local pals = {}
+  for i = 1, nsub() do pals[i] = subpal(i) end
+  local n, miss = 0, 0
+  for ty = 0, sh // 8 - 1 do
+    for tx = 0, sw // 8 - 1 do
+      local cols = {}
+      for y = 0, 7 do
+        for x = 0, 7 do
+          local c = sget(tx * 8 + x, ty * 8 + y)
+          if c then cols[#cols + 1] = G.from_rgb(c) end
+        end
+      end
+      if #cols > 0 then
+        local i, m = G.match_palette(cols, pals)
+        snp.tp[ty * (sw // 8) + tx] = i
+        n = n + 1
+        if m > 0 then miss = miss + 1 end
+      end
+    end
+  end
+  say(n .. " tiles matched to a sub-palette" .. (miss > 0 and (", " .. miss .. " fit none") or ""), miss > 0 and C_ERR or C_ACC, 200)
+end
+
+local function export_files()
+  lib()
+  local base = (proj.path and proj.path:match("([^/]+)$") or "sprites"):gsub("%.[^.]*$", ""):lower():gsub("[^%w_]", "")
+  if base == "" then base = "sprites" end
+  ask("name for the .chr and .pal files (8.3, in /docs)", base:sub(1, 8), function(t)
+    local stem = t:lower():gsub("%.[^.]*$", ""):gsub("[^%w_]", ""):sub(1, 8)
+    if stem == "" then return end
+    if not doc_write then say("export: this console cannot write files", C_ERR); return end
+    busy = { text = "exporting the tiles...", wait = 2, fn = function()
+      local get = function(x, y)
+        local c = sget(x, y)
+        if not c then return 0 end
+        return G.nearest(subpal(sub_of(x, y)), c)
+      end
+      local chr = G.encode_sheet(get, sw, sh, snp.bpp, max(16, sw // 8))
+      local words = {}
+      for i = 1, nsub() do
+        local p = subpal(i)
+        for k = 1, npal() do words[#words + 1] = p[k] end
+      end
+      local ok1, e1 = doc_write(stem .. ".chr", chr)
+      local ok2, e2 = doc_write(stem .. ".pal", G.pal_bytes(words))
+      if not ok1 or not ok2 then say("export failed: " .. tostring(e1 or e2), C_ERR, 300); return end
+      say("saved /docs/" .. stem .. ".chr (" .. #chr .. " bytes) and .pal (" .. #words * 2 .. " bytes)"
+          .. (sw ~= 128 and "; OAM wants 16 tiles a row: a sheet 128 wide" or ""), C_ACC, 400)
+    end }
+  end)
+end
+
+local function load_pal()
+  lib()
+  ask("a .pal file in /docs (8.3)", "sprites.pal", function(t)
+    local name = t:match("([^/]+)$") or ""
+    local bytes, why = doc_read(name)
+    if not bytes then say("cannot read it: " .. tostring(why), C_ERR, 300); return end
+    local words, n = G.pal_words(bytes), 0
+    for i = 1, nsub() do
+      local p = subpal(i)
+      for k = 1, npal() do
+        n = n + 1
+        if words[n] then p[k] = words[n] end
+      end
+    end
+    say(#words .. " colours read from " .. name, C_ACC, 200)
+  end)
+end
+
+-- the sub-palette becomes the drawing palette of F1 (colours 1 to 2^bpp - 1; colour 0 stays transparent)
+local function use_palette()
+  lib()
+  local p = cur_pal()
+  proj.palette = {}
+  for k = 2, #p do proj.palette[#proj.palette + 1] = G.to_rgb(p[k]) end
+  ci = clamp(ci, 0, #proj.palette)
+  dirty = true
+  say("the drawing palette is sub-palette " .. snp.cur .. " (" .. #proj.palette .. " colours)", C_ACC, 150)
+end
+
+-- the end of a PNG import that was started from this page: quantise, then use the colours
+function snp.import_done()
+  snp.after_import = nil
+  if too_big() then return end
+  local n = quantise_into(0, 0, sw, sh)
+  conform(0, 0, sw, sh)
+  fit_region()
+  say("imported: " .. n .. " colours + transparent in sub-palette " .. snp.cur .. " (the sheet now uses them)", C_ACC, 400)
+end
+
+local ACTIONS
+function snp_actions()
+  choose("SNES graphics: " .. snp.bpp .. " bpp", ACTIONS)
+end
+
+local function pal_step(d)
+  snp.cur = (snp.cur - 1 + d) % nsub() + 1
+  say("sub-palette " .. snp.cur .. " (sprite palette bits " .. ((snp.cur - 1) & 7) .. ")", C_DIM, 90)
+end
+
+local function chan_add(d)
+  if snp.sel > 1 then chan_set(snp.sel, snp.ch, chan_get(cur_pal()[snp.sel], snp.ch) + d) end
+end
+
+function snp_key(k)
+  lib()
+  if k == "left" or k == "right" or k == "up" or k == "down" or k == "pgup" or k == "pgdn" or k == "home"
+     or k == "^c" or k == "^v" or k == "del" then
+    sheet_key(k)
+  elseif k == "\n" then go("draw")
+  elseif k == "b" then
+    snp.bpp = snp.bpp == 2 and 4 or (snp.bpp == 4 and 8 or 2)
+    snp.cur = clamp(snp.cur, 1, nsub())
+    snp.sel = clamp(snp.sel, 1, npal())
+    say(snp.bpp .. " bits per pixel: " .. npal() .. " colours in a sub-palette, " .. nsub() .. " sub-palette(s)", C_ACC, 150)
+  elseif k == "s" or k == "S" then
+    snp.set = (snp.set + (k == "s" and 1 or 5)) % 6
+    set_size()
+  elseif k == "l" then snp.large = not snp.large; set_size()
+  elseif k == "," then pal_step(-1)
+  elseif k == "." then pal_step(1)
+  elseif k == "[" then snp.sel = clamp(snp.sel - 1, 1, npal())
+  elseif k == "]" then snp.sel = clamp(snp.sel + 1, 1, npal())
+  elseif k == "1" or k == "2" or k == "3" then snp.ch = tonumber(k)
+  elseif k == "+" or k == "=" then chan_add(1)
+  elseif k == "-" then chan_add(-1)
+  elseif k == "x" then snp.fx = not snp.fx
+  elseif k == "y" then snp.fy = not snp.fy
+  elseif k == "p" then snp.prio = (snp.prio + 1) % 4
+  elseif k == "t" then
+    local c = colour()
+    if snp.sel > 1 and c then cur_pal()[snp.sel] = G.from_rgb(c); dirty = true
+    else say("pick colour 1 or higher here, and a drawing colour (F1)", C_ERR) end
+  elseif k == "a" then assign_sprite()
+  elseif k == "A" then assign_all()
+  elseif k == "f" then
+    if too_big() then return end
+    say(quantise_into(0, 0, sw, sh) .. " colours from the sheet into sub-palette " .. snp.cur, C_ACC, 150)
+  elseif k == "F" then
+    say(quantise_into(rx, ry, rs, rs) .. " colours from the sprite into sub-palette " .. snp.cur, C_ACC, 150)
+  elseif k == "c" then conform(rx, ry, rs, rs); say("the sprite uses the sub-palette colours", C_ACC, 120)
+  elseif k == "C" then
+    if too_big() then return end
+    conform(0, 0, sw, sh); say("the sheet uses the sub-palette colours", C_ACC, 120)
+  elseif k == "d" then use_palette()
+  elseif k == "i" then snp.after_import = true; shp.import_png()
+  elseif k == "e" then export_files()
+  elseif k == "L" then load_pal()
+  end
+end
+
+ACTIONS = {
+  { "Draw this sprite (Enter)", function() snp_key("\n") end },
+  { "Depth 2 / 4 / 8 bpp (b)", function() snp_key("b") end },
+  { "Sprite sizes: next pair (s)", function() snp_key("s") end },
+  { "Sprite: small or large (l)", function() snp_key("l") end },
+  { "Next sub-palette (.)", function() snp_key(".") end },
+  { "Import a PNG and quantise (i)", function() snp_key("i") end },
+  { "Colours from the sheet (f)", function() snp_key("f") end },
+  { "Colours from the sprite (shift f)", function() snp_key("F") end },
+  { "Sprite uses the sub-palette (c)", function() snp_key("c") end },
+  { "Sheet uses the sub-palettes (shift c)", function() snp_key("C") end },
+  { "Sub-palette for the sprite tiles (a)", function() snp_key("a") end },
+  { "Match the tiles to the sub-palettes (shift a)", function() snp_key("A") end },
+  { "Drawing colour into this entry (t)", function() snp_key("t") end },
+  { "Draw with this sub-palette (d)", function() snp_key("d") end },
+  { "Read a .pal from /docs (shift l)", function() snp_key("L") end },
+  { "Export .chr and .pal to /docs (e)", function() snp_key("e") end },
+}
+
+function snp_pad()
+  if btn(6) then                               -- X held: the colour and its channel
+    if rp[0] then snp_key("[") end
+    if rp[1] then snp_key("]") end
+    if rp[2] then snp_key("+") end
+    if rp[3] then snp_key("-") end
+    return
+  end
+  if rp[0] then snp_key("left") end
+  if rp[1] then snp_key("right") end
+  if rp[2] then snp_key("up") end
+  if rp[3] then snp_key("down") end
+  if btnp(4) then snp_actions() end
+  if tap[6] then snp_key(".") end
+end
+
+function snp_mouse()
+  local z = U.at()
+  if not z then return end
+  if z.kind == "snview" then
+    if U.click(0) then
+      local x = clamp(floor((U.x - SV_X) / snp.zoom), 0, sw - 1)
+      local y = clamp(floor((U.y - SV_Y) / snp.zoom), 0, sh - 1)
+      local nx, ny = x // rs * rs, y // rs * rs
+      if U.double and nx == rx and ny == ry then snp_key("\n"); return end
+      rx, ry = nx, ny
+      fit_region()
+      draw_reset()
+    end
+  elseif z.kind == "pcol" then
+    if U.click(0) then snp.sel = z.a end
+    if U.wheel ~= 0 then chan_add(U.wheel > 0 and 1 or -1) end
+  elseif z.kind == "chan" then
+    if U.click(0) then
+      snp.ch = z.a
+      if snp.sel > 1 then chan_set(snp.sel, z.a, floor((U.x - z.x) / (z.w / 32))) end
+    end
+    if U.wheel ~= 0 then
+      snp.ch = z.a
+      chan_add(U.wheel > 0 and 1 or -1)
+    end
+  end
+end
+
+function draw_snes()
+  lib()
+  cls(C_BG)
+  -- the sheet, with the tile grid and the sub-palette of each tile
+  local z = ZOOMS[1]
+  for _, zz in ipairs(ZOOMS) do if sw * zz <= SV_W and sh * zz <= SV_H then z = zz end end
+  snp.zoom = z
+  local vw, vh = min(sw, floor(SV_W / z)), min(sh, floor(SV_H / z))
+  checker(SV_X, SV_Y, floor(vw * z), floor(vh * z), 16)
+  U.zone(SV_X, SV_Y, floor(vw * z), floor(vh * z), "snview", z)
+  sspr(0, 0, vw, vh, SV_X, SV_Y, false, false, z)
+  local step = 8 * z
+  if step >= 4 then
+    for gx = 0, vw // 8 do rectfill(SV_X + floor(gx * step), SV_Y, 1, floor(vh * z), C_GRID) end
+    for gy = 0, vh // 8 do rectfill(SV_X, SV_Y + floor(gy * step), floor(vw * z), 1, C_GRID) end
+  end
+  local tw = sw // 8
+  for t, spi in pairs(snp.tp) do
+    local tx, ty = t % tw, t // tw
+    if tx < vw // 8 and ty < vh // 8 then
+      local x, y = SV_X + floor(tx * step), SV_Y + floor(ty * step)
+      local c = PALCOL[(spi - 1) % 8 + 1]
+      local m = max(2, min(5, floor(step / 3)))
+      rectfill(x + 1, y + 1, m, m, c)
+      if step >= 16 then print(tostring(spi), x + 4, y + 1, c) end
+    end
+  end
+  local sx, sy = SV_X + floor(rx * z), SV_Y + floor(ry * z)
+  rect(sx - 1, sy - 1, floor(rs * z) + 2, floor(rs * z) + 2, 0x000000)
+  rect(sx, sy, floor(rs * z), floor(rs * z), (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
+
+  -- the panel
+  local p = cur_pal()
+  local y = 32
+  local w0, h0 = dims()
+  local function item(txt, key, x, yy, c)
+    print(txt, x, yy, c or C_TEXT)
+    U.key_zone(x, yy, #txt * 8, 16, key)
+    return x + #txt * 8 + 16
+  end
+  local x = PX
+  x = item(snp.bpp .. " bpp", "b", x, y)
+  x = item("sizes " .. G.SIZE_SETS[snp.set][1][1] .. "/" .. G.SIZE_SETS[snp.set][2][1], "s", x, y)
+  item(snp.large and ("large " .. w0 .. "x" .. h0) or ("small " .. w0 .. "x" .. h0), "l", x, y, C_ACC)
+  y = y + 16
+  local line = string.format("sub-palette %d of %d (OAM bits %d, CGRAM %d)", snp.cur, nsub(), (snp.cur - 1) & 7,
+                             128 + ((snp.cur - 1) & 7) * 16)
+  print(line, PX, y, C_TEXT)
+  U.key_zone(PX, y, #line * 8, 16, ".")
+  y = y + 16
+  -- the colours of the sub-palette
+  local n = npal()
+  local cell, per = 16, 16
+  if n > 16 then cell, per = 8, 32 end
+  if n < 16 then per = n end
+  for i = 1, n do
+    local cx, cy = PX + ((i - 1) % per) * cell, y + ((i - 1) // per) * cell
+    if i == 1 then checker(cx, cy, cell - 1, cell - 1, cell // 2)
+    else rectfill(cx, cy, cell - 1, cell - 1, G.to_rgb(p[i])) end
+    if i == snp.sel then rect(cx - 1, cy - 1, cell + 1, cell + 1, C_ACC) end
+    U.zone(cx, cy, cell, cell, "pcol", i)
+  end
+  y = y + ((n - 1) // per + 1) * cell + 8
+  -- the selected colour: 5 bits a channel, live
+  local v = p[snp.sel] or 0
+  print(string.format("colour %d%s  BGR555 $%04X", snp.sel - 1, snp.sel == 1 and " (clear)" or "", v), PX, y, C_TEXT)
+  y = y + 16
+  local by0 = y
+  for k = 1, 3 do
+    local val = chan_get(v, k)
+    print(({ "R", "G", "B" })[k] .. string.format(" %2d", val), PX, y, snp.ch == k and C_ACC or C_DIM)
+    rectfill(PX + 40, y + 4, 128, 8, C_PANEL)
+    rectfill(PX + 40, y + 4, val * 4 + 4, 8, k == 1 and 0xE04040 or (k == 2 and 0x40C040 or 0x4080F0))
+    U.zone(PX + 40, y, 128, 16, "chan", k)
+    y = y + 16
+  end
+  -- the preview: the drawing colour of F1 as 8 bits, what the SNES shows of it, and the entry
+  local dc = colour()
+  rectfill(PX + 176, by0, 24, 16, dc or C_PANEL)
+  rectfill(PX + 208, by0, 24, 16, dc and G.snap_rgb(dc) or C_PANEL)
+  rectfill(PX + 240, by0, 24, 16, G.to_rgb(v))
+  print("8bit  5bit  entry", PX + 176, by0 + 16, C_DIM)
+  print("t: entry = F1 colour", PX + 176, by0 + 32, C_DIM)
+  y = y + 8
+  -- the OAM preview of the sprite
+  local pz = max(1, 80 // rs)
+  local pw = rs * pz
+  if pw > 80 then pz = 1; pw = rs end
+  local ox, oy = PX, y
+  checker(ox, oy, 80, 80, 8)
+  sspr(rx, ry, rs, rs, ox + (80 - pw) // 2, oy + (80 - pw) // 2, snp.fx, snp.fy, pz)
+  rect(ox + (80 - pw) // 2 - 1, oy + (80 - pw) // 2 - 1, pw + 2, pw + 2, C_GRID8)
+  local tile = (ry // 8) * 16 + (rx // 8)
+  local e = G.oam_entry(0, 0, tile, (snp.cur - 1) & 7, snp.prio, snp.fx, snp.fy)
+  local tx = ox + 96
+  print(string.format("OAM tile $%03X", tile), tx, y, C_TEXT)
+  print(string.format("attr $%02X %s", e:byte(4), snp.large and "large" or "small"), tx, y + 16, C_TEXT)
+  item(snp.fx and "[x] flip X" or "[ ] flip X", "x", tx, y + 32, snp.fx and C_ACC or C_DIM)
+  item(snp.fy and "[y] flip Y" or "[ ] flip Y", "y", tx, y + 48, snp.fy and C_ACC or C_DIM)
+  item("priority " .. snp.prio, "p", tx, y + 64, C_TEXT)
+
+  rectfill(0, 16, W, 16, C_BG)
+  print(string.format("sheet %dx%d  sprite %d at (%d,%d) %dx%d%s", sw, sh, sprite_index(), rx, ry, rs, rs,
+                      sw ~= 128 and "  (OAM: 128 wide)" or ""), 8, 16, C_TEXT)
+  hint({ { { "b" }, "depth" }, { { "s" }, "sizes" }, { { "l" }, "large" }, { { ",", "." }, "sub-palette" },
+         { { "+", "-" }, "channel" }, { { "i" }, "import PNG" }, { { "f" }, "colours" }, { { "e" }, "export" },
+         { { "tab" }, "more" } })
 end
 end
 
@@ -2015,7 +2449,7 @@ local last_page = "draw"
 -- shows them): keyboard keys in lower case, the pad's buttons in upper case
 local HELP = {
   all = {
-    { "f1 / f2 / f3 / f4", "draw / sheet / palette / stack" },
+    { "f1 / f2 / f3 / f4 / f7", "draw / sheet / palette / stack / SNES" },
     { "tab", "the commands" },
     { "ctrl e", "export to /docs: a PNG (sprite, animation, sheet) or the animation as a GIF" },
   },
@@ -2042,6 +2476,22 @@ local HELP = {
     { "z", "sprite size" },
     { "q", "tile view: the sprite 3 x 3" },
     { "pgup / pgdn", "the sprite before / after" },
+  },
+  snes = {
+    { "b", "depth: 2, 4 or 8 bits a pixel" },
+    { "s / shift s / l", "sprite sizes: next pair, small or large" },
+    { ", / .", "the sub-palette (OAM palette bits)" },
+    { "[ / ]", "the colour of the sub-palette" },
+    { "1 2 3 / + -", "the channel R G B / its value (5 bits)" },
+    { "t", "the entry takes the drawing colour of F1" },
+    { "x / y / p", "OAM preview: flip X, flip Y, priority" },
+    { "a / shift a", "the sprite's tiles use this sub-palette / match all tiles" },
+    { "i", "import a PNG from /docs and quantise it (15 colours + clear)" },
+    { "f / shift f", "colours from the sheet / the sprite (quantiser)" },
+    { "c / shift c", "the sprite / the sheet use the sub-palette colours" },
+    { "d", "draw with this sub-palette (F1)" },
+    { "shift l", "read a .pal from /docs" },
+    { "e", "export .chr and .pal to /docs" },
   },
   sheet = {
     { "up down left right", "the sprite" },
@@ -2213,6 +2663,7 @@ local MENU = {
   { "Try the game (F5)", try_game },
   { "Export a PNG or GIF to /docs...   (Ctrl+E)", function() shp.export_png() end },
   { "Sheet size...", function() go("sheet"); shp.resize() end },
+  { "SNES sprites and palettes (F7)", function() go("snes") end },
   { LY.label(), LY.switch },
   { "Exit bm Pixel", function() if not dirty or confirmed("exit", "unsaved changes: choose again to exit") then remember(); quit() end end },
 }
@@ -2241,7 +2692,8 @@ local function draw_menu()
   print("sheet " .. sw .. "x" .. sh .. ", " .. #pal() .. " colours", x, 96, C_TEXT)
   print("sprite " .. sprite_index() .. ", " .. rs .. "x" .. rs, x, 112, C_TEXT)
   chip_hint("f3", nil, "palette", chip_hint("f2", nil, "sheet", chip_hint("f1", nil, "draw", x, 144), 144), 144)
-  chip_hint("f5", nil, "try the game", x, 160)
+  chip_hint("f7", nil, "SNES", x, 160)
+  chip_hint("f5", nil, "try the game", x + 96, 160)
   chip_hint("f12", nil, "held: the keys", x, 176)
   print("the sheet as the SDK, bm Studio, bm", x, 208, C_DIM)
   print("Animator and the games read it; the", x, 224, C_DIM)
@@ -2285,9 +2737,11 @@ local function global_key(k)
   elseif k == "f2" then go("sheet"); return true
   elseif k == "f3" then go("palette"); return true
   elseif k == "f4" then go("stack"); return true
+  elseif k == "f7" then go("snes"); return true
   elseif k == "\t" then
     if page == "draw" then draw_actions() elseif page == "sheet" then sheet_actions()
-    elseif page == "palette" then pal_actions() elseif page == "stack" then stack_actions() end
+    elseif page == "palette" then pal_actions() elseif page == "stack" then stack_actions()
+    elseif page == "snes" then snp_actions() end
     return true
   elseif k == "esc" and page ~= "menu" and not (page == "draw" and (dp.float or dp.anchor or dp.sel)) and
          not (page == "palette" and pp.edit) then go("menu"); return true
@@ -2307,7 +2761,7 @@ local function global_key(k)
   return false
 end
 
-local PAGES = { "draw", "sheet", "palette", "stack", "menu" }
+local PAGES = { "draw", "sheet", "palette", "stack", "snes", "menu" }
 
 -- Ctrl+Esc or PS (the system's keys): back to bm's menu; with unsaved
 -- changes it asks first, and the same again leaves without saving
@@ -2328,6 +2782,7 @@ local function mouse_frame()
   elseif page == "sheet" then sheet_mouse()
   elseif page == "palette" then pal_mouse()
   elseif page == "stack" then stack_mouse()
+  elseif page == "snes" then snp_mouse()
   else
     if U.wheel ~= 0 then msel = clamp(msel - U.wheel, 1, #MENU) end
     local z = U.click(0)
@@ -2344,6 +2799,9 @@ local function mouse_frame()
   elseif page == "stack" then
     list = { { "Draw this slice", "\n" }, { "Onion skin", "k" }, { "Copy the slice to the next", "c" }, { "New zone", "n" },
              { "Change the zone", "e" }, { "Delete the zone", "del" }, { "Turn or stop", "p" } }
+  elseif page == "snes" then
+    list = { { "Draw it", "\n" }, { "Depth", "b" }, { "Sizes", "s" }, { "Small or large", "l" }, { "Next sub-palette", "." },
+             { "Import a PNG", "i" }, { "Colours from the sheet", "f" }, { "Export .chr and .pal", "e" } }
   elseif page == "sheet" then
     list = { { "Draw it", "\n" }, { "Size", "z" }, { "Zoom in", "+" }, { "Zoom out", "-" }, { "Copy", "^c" },
              { "Paste", "^v" }, { "Clear", "del" }, { "Sheet size...", "R" } }
@@ -2391,6 +2849,7 @@ function _update()
       elseif page == "sheet" then sheet_key(k)
       elseif page == "palette" then pal_key(k)
       elseif page == "stack" then stack_key(k)
+      elseif page == "snes" then snp_key(k)
       else menu_key(k) end
     end
   end
@@ -2417,7 +2876,8 @@ function _update()
   elseif page == "draw" then draw_pad()
   elseif page == "sheet" then sheet_pad()
   elseif page == "palette" then pal_pad()
-  elseif page == "stack" then stack_pad() end
+  elseif page == "stack" then stack_pad()
+  elseif page == "snes" then snp_pad() end
 
   if page == "draw" then draw_update(dt) elseif anim.play then anim.t = anim.t + dt end
   if page == "stack" then stack_update() end
@@ -2430,11 +2890,13 @@ function _draw()
   elseif page == "sheet" then draw_sheet()
   elseif page == "palette" then draw_palette()
   elseif page == "stack" then draw_stack()
+  elseif page == "snes" then draw_snes()
   else draw_menu() end
 
   rectfill(0, 0, W, 16, C_BAR)               -- the tabs: each page with its key
   local tabs = { { "draw", "f1", "draw" }, { "sheet", "f2", "sheet" }, { "palette", "f3", "palette" },
                  { "stack", "f4", "stack" }, { "menu", "esc", "menu" } }
+  if page == "snes" then table.insert(tabs, 5, { "snes", "f7", "snes" }) end   -- (the tab shows while it is in use: the bar's room goes to the file name)
   local x = U.bar_title("bm Pixel", C_ACC)      -- the name first, at the left
   for _, t in ipairs(tabs) do
     local lx = snap(x + prompt(t[2]) + 3)

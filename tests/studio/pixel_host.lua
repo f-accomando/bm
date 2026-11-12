@@ -153,7 +153,10 @@ E.require = function(name)
     bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
-  assert(name == "bmui", "require: only bmui and bmlib here")
+  if name == "snesgfx" then              -- the SNES converters (the build puts them into the cart)
+    return assert(loadfile(ROOT .. "/carts/pixel/src/snesgfx.lua", "t", E))()
+  end
+  assert(name == "bmui", "require: only bmui, bmlib and snesgfx here")
   bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
   return bmui
 end
@@ -403,7 +406,8 @@ E.doc_write = function(name, bytes)
   return true
 end
 
-local chunk = assert(loadfile(ROOT .. "/carts/pixel/main.lua", "t", E))
+-- the third argument: the built main.lua (build/pixel/main.lua, with the module as SNESGFX); none: the source
+local chunk = assert(loadfile(arg[3] or (ROOT .. "/carts/pixel/main.lua"), "t", E))
 chunk()
 
 local function screen()
@@ -1094,6 +1098,60 @@ do
   key("f1")
 end
 
+-- the SNES page (F7): depth, sizes, a sub-palette from the sprite, the export of .chr and .pal
+do
+  key("f2")
+  key("f7")
+  check(sees("4 bpp") and sees("sub-palette 1 of 8"), "SNES page: 4 bpp and 8 sub-palettes at the start")
+  key("b")
+  check(sees("8 bpp") and sees("sub-palette 1 of 1"), "SNES page: 8 bpp has one palette of 256")
+  key("b")
+  check(sees("2 bpp"), "SNES page: 2 bpp")
+  key("b")
+  check(sees("4 bpp"), "SNES page: back to 4 bpp")
+  key("s")
+  check(sees("sizes 8/32") and sees("small 8x8"), "SNES page: s gives the pair 8/32, small 8x8")
+  key("l")
+  check(sees("large 32x32"), "SNES page: l makes the sprite 32x32")
+  key("l", "S")
+  check(sees("sizes 8/16") and sees("small 8x8"), "SNES page: shift S goes back one pair")
+  key("x", "p")
+  check(sees("[x] flip X") and sees("priority 1"), "SNES page: flip X and priority")
+  key("x", "p", "p", "p")
+  -- one red pixel at (0,0) in an empty sprite: the quantiser takes it, the export writes the tile
+  key("home")
+  for y = 0, 7 do for x = 0, 7 do E.sset(x, y, nil) end end
+  E.sset(0, 0, 0xFF0000)
+  key("F")
+  check(sees("1 colours from the sprite"), "SNES page: shift F reads one colour from the sprite: " .. status())
+  key("e")
+  type_text("tst")
+  check(docs["tst.chr"] ~= nil and docs["tst.pal"] ~= nil, "SNES page: e writes tst.chr and tst.pal")
+  local chr, pal = docs["tst.chr"] or "", docs["tst.pal"] or ""
+  check(chr:sub(1, 2) == "\x80\x00" and chr:sub(17, 18) == "\0\0", "the .chr: pixel (0,0) = colour 1 is plane 0, bit 7")
+  check(#chr % 32 == 0 and #chr >= 16 * 32, "the .chr is 4bpp tiles, 16 tiles a row at least")
+  check(pal:sub(1, 4) == "\0\0\x1F\0" and #pal == 8 * 16 * 2, "the .pal: entry 0 clear, entry 1 red $001F, 8 x 16 words")
+  -- a PNG with many colours: the import quantises the sheet to 15 colours + clear, the sheet uses only those
+  E.image_file = function(path, sx, sy, w, h)
+    for y = 0, 15 do for x = 0, 15 do E.sset(sx + x, sy + y, ((x * 16) << 16) | ((y * 16) << 8) | 0x40) end end
+    return { x = sx, y = sy, w = 16, h = 16, sw = 16, sh = 16 }
+  end
+  key("home", "i")
+  key("\n")
+  check(status():find("imported:", 1, true), "SNES page: the import ends with the quantiser: " .. status())
+  local seen, n = {}, 0
+  for y = 0, 15 do for x = 0, 15 do
+    local c = E.sget(x, y)
+    if c and not seen[c] then seen[c] = true; n = n + 1 end
+  end end
+  check(n >= 2 and n <= 15, "SNES page: the 256-colour picture now has " .. n .. " colours (15 at most)")
+  E.image_file = nil
+  key("\t")
+  check(sees("Depth 2 / 4 / 8 bpp"), "SNES page: Tab lists the commands")
+  key("esc")
+  key("f1")
+end
+
 -- the fixed chip "F12 keys" on the hint bar of every page
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm Pixel", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
@@ -1103,6 +1161,7 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "sheet", go = function() key("f2") end },
     { name = "palette", go = function() key("f3") end },
     { name = "stack", go = function() key("f4") end },
+    { name = "snes", go = function() key("f7") end },
     { name = "menu", go = function() key("esc") end },
   } }
 key("f1")

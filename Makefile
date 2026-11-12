@@ -395,6 +395,9 @@ test-snes-debug: $(BUILD)/host/snes_debug_test
 	$<
 test-snes-sa1: $(BUILD)/host/snes_sa1_test
 	$<
+# the SNES graphics converters of bm Pixel (carts/pixel/src/snesgfx.lua)
+test-snes-gfx: $(BUILD)/host/luahost
+	$(BUILD)/host/luahost tests/snes/snesgfx_test.lua .
 test-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$<
 bench-snes-gsu: $(BUILD)/host/snes_gsu_test
@@ -519,6 +522,13 @@ SDK_B16_RES ?= 360x360
 SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/build/build.py
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) carts/sdk_b16/build/build.py $@
+
+# bm Pixel: main.lua, then the SNES converter module (carts/pixel/src/snesgfx.lua) as the global SNESGFX
+# (a cart has no other Lua file; the module goes after main.lua, so its line numbers stay)
+$(BUILD)/pixel/main.lua: carts/pixel/main.lua carts/pixel/src/snesgfx.lua
+	@mkdir -p $(dir $@)
+	{ cat carts/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/pixel/src/snesgfx.lua; printf '\nend)()\n'; } > $@
+lua_pixel := $(BUILD)/pixel/main.lua
 
 lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
 cover_sdk_b16 := carts/editor/icon.png
@@ -1062,7 +1072,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-asm test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-asm test-snes-gfx test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -1834,7 +1844,7 @@ test-img2mesh: $(BUILD)/host/meshview
 # PC (luahost), then the files they wrote read by the Python of the build
 # (tests/studio/check_files.py) and by the kernel's parser.
 test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahost $(BUILD)/carts/testkit.bm \
-             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap
+             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap $(BUILD)/pixel/main.lua
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
 	$(BUILD)/host/luahost tests/studio/layout_host.lua .
 	$(BUILD)/host/luahost tests/studio/code_templates_host.lua .
@@ -1856,6 +1866,9 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahos
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
 	cp $(BUILD)/carts/testkit.bm $(BUILD)/carts/mapkit.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
+	cp $(BUILD)/carts/testkit.bm $(BUILD)/carts/mapkit.bm $(BUILD)/pixel-sd/carts/
+	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd $(BUILD)/pixel/main.lua
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/testkit.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
 	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
 	$(BUILD)/host/luahost tests/studio/humanoid_host.lua . $(BUILD)/humanoid-sd
