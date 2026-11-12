@@ -276,7 +276,7 @@ test-psx: tests/psx/core_test.c $(PSX_CORE) $(wildcard src/bm/psx*.h)
 # bm SNES tests: the C core on small programs (tests/snes/core_test.c) and the cartridge in bmhost with a test ROM
 # made by tests/snes/make_testrom.py (tests/snes/render_test.py reads the pictures).
 test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost $(BUILD)/carts/snes.bm tests/snes/render_test.py tests/snes/make_testrom.py tests/snes/pic_due_test.lua carts/snes/src/pic.lua
-	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+	$(HOSTCC) -O1 -g -Wall -Wextra -Isrc/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 	$(BUILD)/host/snes_core_test
 	$(BUILD)/host/luahost tests/snes/pic_due_test.lua
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
@@ -340,7 +340,7 @@ test-tape: $(BUILD)/tape/bank.json $(BUILD)/host/luahost $(BUILD)/host/bmhost-bi
 	$(PYTHON) -I tests/tape/sound_test.py $(BUILD)/host/bmhost-bin $(BUILD)/carts/tape.bm $(BUILD)/tape-test/demo.wav $(BUILD)/tape-t1/tape.bm
 
 # The fast PPU against the reference copy (tests/snes/ppu_ref.c): random states, every line equal bit for bit. `make bench-snes-ppu` times both.
-SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
+SNES_PPU_SRCS := src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_spc.c src/bm/snes_dsp.c
 SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
 $(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
@@ -375,6 +375,12 @@ bench-snes-cpu: $(BUILD)/host/snes_cpu_bench
 $(BUILD)/host/snes_gsu_test: tests/snes/gsu_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_gsu.h
 	@mkdir -p $(BUILD)/host
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/gsu_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+# The SA-1 (docs/progress/snes-sa1.md): small original programs on a made-up ROM (tests/snes/sa1_test.c).
+$(BUILD)/host/snes_sa1_test: tests/snes/sa1_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_sa1.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/sa1_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-sa1: $(BUILD)/host/snes_sa1_test
+	$<
 test-snes-gsu: $(BUILD)/host/snes_gsu_test
 	$<
 bench-snes-gsu: $(BUILD)/host/snes_gsu_test
@@ -410,7 +416,7 @@ test-snes-dsp77-arm: tests/snes/dsp77_test.c src/bm/snes_dsp77.c src/bm/snes_dsp
 # The assembly loop of the CPU (snes_cpu_arm.S) on an ARM1176 in QEMU (needs qemu-system-arm and arm-none-eabi-gcc): the golden hashes, and one random instruction
 # at a time against the C reference (tests/snes/cpu_diff.c). The PC build does not use the assembly.
 SNES_ARM_CC := arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -mfloat-abi=soft -O2 -std=gnu11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Isrc/bm -Itests/snes -w
-SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c src/bm/snes_dsp77.c tests/snes/arm_mmu.c
+SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c src/bm/snes_dsp77.c tests/snes/arm_mmu.c
 SNES_ARM_REF := -DSNES_CPU_C -Dcpu_run=ref_run -Dcpu_step=ref_step -Dcpu_reset=ref_reset -Dcpu_get=ref_get -Dcpu_set=ref_set -Dcpu_info=ref_info -Dcpu_waiting=ref_waiting -Dcpu_stopped=ref_stopped
 SNES_ARM_RUN := qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel
 test-snes-cpu-arm: tests/snes/cpu_golden_arm.c tests/snes/cpu_diff.c src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
@@ -928,7 +934,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
+BMHOST_RT := src/bm/runtime.c src/bm/api_jobs.c src/kernel/jobs.c src/kernel/offload.c src/bm/api_world.c src/bm/api_anim.c src/bm/api_net.c src/bm/api_save.c src/bm/api_shot.c src/bm/api_docs.c src/bm/api_snes.c src/bm/api_nes.c src/bm/nes.c src/bm/api_snes16.c src/bm/snes16.c src/bm/api_psx.c src/bm/psx_cpu.c src/bm/psx_gte.c src/bm/psx_bus.c src/bm/psx_gpu.c src/bm/psx_cd.c src/bm/psx_spu.c src/bm/psx_jit.c src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/api_sound.c src/bm/api_light.c src/bm/api_map.c src/bm/api_vm.c src/bm/bmvm.c src/bm/bmlc.c src/bm/bmnative.c src/bm/api_collmap.c src/bm/api_prompts.c src/bm/api_keys.c src/bm/api_web.c src/bm/api_video.c src/bm/api_perm.c src/bm/api_editor.c src/bm/api_text.c src/bm/api_debug.c src/bm/api_math.c src/bm/phys2d.c src/bm/api_phys2d.c src/bm/tokens.c src/bm/gfx16.c src/bm/r3d.c src/bm/world3d.c src/bm/map3d.c src/bm/format.c src/bm/meshcap.c src/bm/vfont.c \
              src/kernel/syskeys.c src/kernel/controls.c \
              src/bm/require.c src/kernel/prompts.c src/gfx/font8x16.c src/gfx/font8x14.c src/gfx/font_inter8x16.c src/gfx/font_bmf.c \
              src/gfx/font_bm12x32.c src/gfx/font_bm18x48.c src/bm/api_font.c \

@@ -23,11 +23,12 @@ typedef struct {
     uint8_t oam[544];
     uint8_t cgram[512];
     uint16_t pal[256];      /* the colours as RGB565 */
-    uint8_t sram[131072];
+    uint8_t sram[262144];
     uint8_t *rom;
     uint32_t rom_size, rom_mask;
     uint32_t sram_size;
     int hirom, sram_dirty;
+    int sa1;                            /* an SA-1 cartridge (docs/progress/snes-sa1.md); the BW-RAM is sram */
     int gsu, gsu_battery;               /* a Super FX cartridge (docs/progress/snes-superfx.md); the cart RAM is sram; the battery flag tells the cart to save it */
     int dsp, dsp_map;                   /* a DSP-1/2/3/4 cartridge (docs/progress/snes-dsp.md): the chip 1-4 (0: none) and where its ports are (0 LoROM $20-$3F, 1 LoROM $60-$6F, 2 HiROM) */
     snes_info_t info;

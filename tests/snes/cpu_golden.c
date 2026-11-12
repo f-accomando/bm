@@ -64,7 +64,7 @@ static uint64_t run_case(int c)
         const int clk = snes_clk; memcpy(tmp + 16, &clk, 4);
         h = hash_bytes(h, tmp, 20);
         h = hash_bytes(h, S.wram, sizeof S.wram);
-        h = hash_bytes(h, S.sram, sizeof S.sram);
+        h = hash_bytes(h, S.sram, 131072);
         h = hash_bytes(h, S.vram, sizeof S.vram);
         h = hash_bytes(h, S.oam, sizeof S.oam);
         h = hash_bytes(h, (const uint8_t *)&S.frames, 4);

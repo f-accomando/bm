@@ -4,6 +4,7 @@
  * a line is 1364 of them, a frame 262 lines. Original code.
  */
 #include "snes_int.h"
+#include "snes_sa1.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -115,6 +116,7 @@ static void dsp_sync(void) { dsp_sync_pos((uint32_t)S.line * LINE_CLK + (uint32_
 static uint8_t raw_read(uint32_t a)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.sa1) { uint8_t sv; if (sa1_cpu_read(a, &sv)) return sv; }
     if (S.dsp) {
         const int pt = dsp_port(a);
         if (pt) {
@@ -169,6 +171,7 @@ static uint8_t raw_read(uint32_t a)
 static void raw_write(uint32_t a, uint8_t v)
 {
     const unsigned bank = a >> 16, off = a & 0xFFFF;
+    if (S.sa1 && sa1_cpu_write(a, v)) return;
     if (S.dsp) {
         const int pt = dsp_port(a);
         if (pt) { if (pt == 1 && dsp77_ready()) {
@@ -255,6 +258,7 @@ static const uint8_t *gsu_map_ptr(uint32_t a, int page)   /* page 1: for the pag
 
 static const uint8_t *map_ptr(uint32_t a)
 {
+    if (S.sa1) { const uint8_t *sp; if (sa1_cpu_map(a, &sp)) return sp; }
     if (S.gsu) return gsu_map_ptr(a, 1);
     if (S.dsp && dsp_port(a)) return NULL;                         /* the ports: the slow path */
     const unsigned bank = a >> 16, off = a & 0xFFFF;
@@ -635,7 +639,7 @@ static uint8_t cpu_reg_read(uint16_t o)
     }
     switch (o) {
     case 0x4210: { uint8_t v = (uint8_t)((S.nmiflag << 7) | 0x02); S.nmiflag = 0; return v; }
-    case 0x4211: { uint8_t v = (uint8_t)(S.timeup << 7); S.timeup = 0; S.irq_pending = gsu_irq_line(); return v; }
+    case 0x4211: { uint8_t v = (uint8_t)(S.timeup << 7); S.timeup = 0; S.irq_pending = gsu_irq_line() | (S.sa1 ? sa1_irq_line() : 0); return v; }
     case 0x4212: return (uint8_t)((S.vblank ? 0x80 : 0) | (S.line_clk >= 1096 ? 0x40 : 0) | S.joybusy);
     case 0x4213: return 0xC0;
     case 0x4214: return (uint8_t)S.rddiv;
@@ -676,7 +680,7 @@ static void cpu_reg_write(uint16_t o, uint8_t v)
     case 0x4200:
         if (!(S.nmitimen & 0x80) && (v & 0x80) && S.nmiflag) S.nmi_pending = 1;
         S.nmitimen = v;
-        if ((v & 0x30) == 0) { S.irq_pending = gsu_irq_line(); S.timeup = 0; }
+        if ((v & 0x30) == 0) { S.irq_pending = gsu_irq_line() | (S.sa1 ? sa1_irq_line() : 0); S.timeup = 0; }
         break;
     case 0x4202: S.wrmpya = v; break;
     case 0x4203: S.wrmpyb = v; S.rdmpy = (uint16_t)(S.wrmpya * v); S.rddiv = v; break;
@@ -732,6 +736,7 @@ void snes_bus_reset(void)
     S.rddiv = 0; S.rdmpy = 0; S.wrdiv = 0xFFFF; S.wrmpya = 0xFF;
     ppu_reset();
     if (S.gsu) gsu_reset(S.sram_size);
+    if (S.sa1) sa1_reset();
     if (dsp77_ready()) dsp77_reset();
     snes_map_build();
 }
@@ -811,6 +816,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         if (ia >= 0) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; }
         n_instr += (uint32_t)cpu_run(end);
         S.line_clk = 0; snes_clk -= end;
+        if (S.sa1) sa1_line_end(L);
         if (S.gsu && gsu_go() && (cpu_waiting || (L + 1) % GSU_LAG_LINES == 0 || L == 261))
             gsu_sync_pos((uint32_t)(L + 1) * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0), 1);
         if (S.dsp && L == 261 && dsp77_ready() && !dsp77_idle())            /* a chip that computes catches up at the end of the frame */
@@ -835,6 +841,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         } else if (L < S.lines && render) ppu_line(L);
     }
     gsu_done -= 262 * LINE_CLK;
+    if (S.sa1) sa1_frame_end();
     dsp_done -= 262 * LINE_CLK;
     spc_done -= 262 * 65;                                                // the next frame counts from here
     S.frames++;
@@ -917,6 +924,7 @@ int snes_load(const uint8_t *data, size_t len, const char **why)
     const unsigned rs = data[off + 0x18];
     S.sram_size = (rs > 0 && rs <= 7) ? (1024u << rs) : 0;
     S.gsu = S.gsu_battery = 0;
+    S.sa1 = 0;
     if (!S.hirom && data[off + 0x16] >= 0x13 && data[off + 0x16] <= 0x1A) {      /* a Super FX cartridge: chipset $13-$1A, LoROM header */
         unsigned kb = rs;                                                           /* the RAM: the extended header ($FFBD), else $FFD8, else 64 KB */
         if (data[off + 0x1A] == 0x33 && data[off - 3] > 0) kb = data[off - 3];
@@ -925,11 +933,15 @@ int snes_load(const uint8_t *data, size_t len, const char **why)
         S.gsu = 1; S.sram_size = ram;
         S.gsu_battery = data[off + 0x16] == 0x15 || data[off + 0x16] == 0x1A;
     }
+    if (!S.hirom && !S.gsu && data[off + 0x16] >= 0x32 && data[off + 0x16] <= 0x35) {    /* an SA-1 cartridge: chipset $32-$35, LoROM header; the BW-RAM size is 2^n KB (up to 256 KB) */
+        S.sa1 = 1;
+        S.sram_size = (rs > 0 && rs <= 8) ? (1024u << rs) : 32768u;
+    }
     S.dsp = S.dsp_map = 0;
     dsp77_unload();
     {   /* a DSP cartridge: chipset $03-$05 (DSP, +RAM, +battery). The header does not say which DSP: the title does (DSP-2: Dungeon Master, DSP-3: SD Gundam GX, DSP-4: Top Gear 3000), else DSP-1. [F] */
         const unsigned cs = data[off + 0x16];
-        if (cs >= 3 && cs <= 5 && !S.gsu) {
+        if (cs >= 3 && cs <= 5 && !S.gsu && !S.sa1) {
             S.dsp = 1;
             if (strstr(S.info.title, "DUNGEON MASTER")) S.dsp = 2;
             else if (strstr(S.info.title, "GUNDAM GX")) S.dsp = 3;
