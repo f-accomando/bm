@@ -53,7 +53,9 @@ static uint64_t run_case(int c)
     S.nmitimen = (uint8_t)(c % 4 == 0 ? 0xB1 : c % 4 == 1 ? 0x81 : 0x00);   /* NMI and the joypad read on, or not */
     uint64_t h = 0xCBF29CE484222325ull;
     for (int f = 0; f < 5; f++) {
-        snes_frame((uint16_t)rnd(), (uint16_t)rnd(), 0);
+        const uint16_t pad2 = (uint16_t)rnd();                          /* two calls in one argument list run in an order the compiler picks (x86: from the right, ARM: from the left): the table has pad 2 first */
+        const uint16_t pad1 = (uint16_t)rnd();
+        snes_frame(pad1, pad2, 0);
         cpu_regs_t r;
         cpu_get(&r);
         uint8_t tmp[32];
