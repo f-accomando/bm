@@ -100,7 +100,7 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 
 ## Open work
 
-- Doom (GSU-2): boots and passes the sound loader, then the CPU returns into a table of code stubs at $7E:5980 that is still zero (BRK, garbage picture). Find who writes those stubs on a console: a DMA from the cart RAM, or the CPU from the output of the GSU. Compare with the DMA list of the machine.
+- Doom (GSU-2): boots and passes the sound loader, then the CPU returns into a table of code stubs at $7E:5980 that is still zero (BRK, garbage picture). Find who writes those stubs on a console: a DMA from the cart RAM, or the CPU from the output of the GSU. Compare with the DMA list of the machine. Notes from the original source: [snes-doom.md](snes-doom.md).
 - Play Star Fox and Yoshi's Island to the end with a real pad script, or on the console. Read the pictures for flicker, wrong colours and speed.
 - Speed on the Pi Zero W is not measured. Copy the kernel and the cart (the user does it), play Star Fox into a stage, and read `gsu` (microseconds in a frame) and `gins` (instructions in a frame) in the `us` debug line. If `upd/s` is under 60 and `gsu` is over 8000, speed up `gsu_run` again: a pointer into the cache line instead of the check at each byte, a `goto` table, fused pairs (FROM+op, TO+op). The cache misses are in `icache miss: cpu` of the `ppu us` line.
 - Exact cycle counts, the wait of the GSU on RON and RAN, two pixel caches: only if a game needs them.
