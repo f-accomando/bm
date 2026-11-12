@@ -94,7 +94,7 @@ void crumbs_boot(void)
     if (last_build.magic == BUILD_MAGIC) {
         last_build.kernel[sizeof last_build.kernel - 1] = 0;
         new_build = strcmp(last_build.kernel, bm_version) != 0;
-        kprintf("boot: %s (the boot before ran %.40s)\n", new_build ? "the first boot of a new kernel build" : "the same kernel build as the boot before",
+        kprintf("boot: %s (the boot before ran %s)\n", new_build ? "the first boot of a new kernel build" : "the same kernel build as the boot before",
                 last_build.kernel);
     }
     last_build.magic = BUILD_MAGIC;
