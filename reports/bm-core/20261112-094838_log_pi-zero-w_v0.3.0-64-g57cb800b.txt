@@ -1,0 +1,414 @@
+bm report
+kind: log
+kernel: v0.3.0-64-g57cb800b
+branch: bm-core
+board: Pi Zero W
+date: 2026-11-12 09:48:38
+file: 20261112-094838_log_pi-zero-w_v0.3.0-64-g57cb800b.txt
+
+
+bm kernel v0.3.0-64-g57cb800b - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 46.5 C
+ARM1176 from SVC, MMU+caches on, heap 418 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+the Pi froze last time and the watchdog restarted it:
+  doing: cartoCore firmware does not answer (mailbox, frame 0, 37069 s after boot, kernel v0.3.0-64-g57cb800b
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:0267 'Magic Keyboard', full speed, layout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 4/10
+report: nodate-62d3c5_freeze_pi-zero-w_v0.3.0-64-g57cb800b.txt saved as bm/reports/rpt00001.txt
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -60 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -74 dBm  ch  9  WPA2  Wind3 HUB - ED4188
+   3   -76 dBm  ch  4  WPA2  FASTWEB-325YFF
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+covers: all 24 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.5 ms past its slice
+net: time 2026-11-12 09:26 UTC
+fiber: reports did not yield: 98.0 ms past its slice
+report: sending nodate-62d3c5_freeze_pi-zero-w_v0.3.0-64-g57cb800b.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-62d3c5_freeze_pi-zero-w_v0.3.0-64-g57cb800b.txt
+menu idle: 300/300 frames, 1333 of 2004 ms taken, 100.5 ms past a frame; covers 137 ms (+2.3, stk 0.8/16K), reports 1176 ms (+98.0, stk 7.6/128K); min slack -15269 us, paced 0
+menu idle: sd first word <1ms 224 <3ms 12 (max 1.4 ms)
+menu stalls: tls handshake 1x last 265.9 worst 265.9 ms
+menu frame: 1x, a frame averages draw 8959 us, enlarge 1 us, flip 91 us, free time used 4444 us (300 frames)
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 20524 ms, 0 jobs)
+menu idle: sd first word <1ms 10 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8920 us, enlarge 1 us, flip 90 us, free time used 35 us (300 frames)
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 24085 ms, 0 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 24094 ms, 0 jobs)
+bm > Report the log
+
+report: 20261112-092629_log_pi-zero-w_v0.3.0-64-g57cb800b.txt saved as bm/reports/rpt00001.txt
+report: sending 20261112-092629_log_pi-zero-w_v0.3.0-64-g57cb800b.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261112-092629_log_pi-zero-w_v0.3.0-64-g57cb800b.txt
+
+A, Esc or any key: back to the menu
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+menu idle: sd first word <1ms 195 <3ms 4 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 9547 us, enlarge 1 us, flip 91 us, free time used 17 us (300 frames)
+menu frame: 1x, a frame averages draw 7965 us, enlarge 1 us, flip 92 us, free time used 38 us (300 frames)
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39354 ms, 0 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39363 ms, 0 jobs)
+
+playing snes.bm
+play: /bm/snes.bm (63672 bytes)
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39405 ms, 0 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39414 ms, 0 jobs)
+load: bm SNES 57 ms (close 0, parse 1, assets+state 24, mode 16, audio 0, lua 13)
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39457 ms, 0 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 39465 ms, 0 jobs)
+bm: screen 256x256
+bt:   <- L2CAP connect request (02) 01 00 40 00 00 00
+bt:   <- L2CAP config request (04) 42 00 00 00 01 02
+bt:   <- L2CAP config response (05) 42 00 00 00 00 00
+bt:   SDP request 06 answered (no records): 35 03 19 01 00 08 00 35 05 0a
+bt:   <- L2CAP disconnect (06) 42 00 40 00 00 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- encryption change (08) 00 0b 00 01
+bt:   <- L2CAP connect request (02) 11 00 41 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP connect request (02) 13 00 42 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt:   -> output report 11 (light 00 20 80, reports every 8 ms)
+bt:   <- first input report 01 (11 bytes)
+bt:   <- battery 4/10
+snes rom smw.sfc
+snes t=21.8 upd=62 drw=58 fps=54 pic=1/3 umax=73.4 uavg=6.2 dmax=3.3 davg=3.2 gap=87 late=1 lua=7 mode=native rom=smw.sfc scn=m0/00/00 | us frame 10744 ppu 313 spc 5886 cpu 4739 dma 1 hdma 0 ins 13272 | ppu us: bg 0 obj 0 win 0 comp 0 mix 0 | arm instr cpu 2461651 spc 3757071 ppu 28150 | cycles cpu 4748712 spc 5873766 ppu 117803 | icache miss: cpu 44446 spc 476212 ppu 1234 | dcache miss: cpu 4073 spc 5347 ppu 6 | mispredict: cpu 28778 spc 23365 ppu 0 | bus ppuw 1 ppur 0 apu 4163 wram 0 cpu 1 dmar 0 other 0 | dma runs 0 bytes 0
+snes t=22.8 upd=60 drw=59 fps=59 pic=1/3 umax=8.8 uavg=4.7 dmax=3.3 davg=3.2 gap=41 late=1 lua=12 mode=native rom=smw.sfc scn=m1/10/04 | us frame 4472 ppu 2992 spc 1224 cpu 1790 dma 66 hdma 0 ins 12085 | ppu us: bg 1645 obj 1594 win 36 comp 355 mix 1974 | arm instr cpu 897744 spc 670118 ppu 856874 | cycles cpu 1794091 spc 1224276 ppu 1449876 | icache miss: cpu 21315 spc 66125 ppu 4384 | dcache miss: cpu 1716 spc 3201 ppu 5 | mispredict: cpu 9072 spc 13725 ppu 0 | bus ppuw 90 ppur 0 apu 38 wram 0 cpu 11 dmar 26 other 0 | dma runs 3 bytes 660
+snes t=23.8 upd=60 drw=59 fps=59 pic=1/3 umax=9.4 uavg=5.2 dmax=3.3 davg=3.2 gap=46 late=1 lua=12 mode=native rom=smw.sfc scn=m1/10/04 | us frame 5076 ppu 5376 spc 1025 cpu 2379 dma 5 hdma 0 ins 11427 | ppu us: bg 1650 obj 1572 win 38 comp 363 mix 2028 | arm instr cpu 1217528 spc 551400 ppu 979017 | cycles cpu 2380092 spc 1024761 ppu 1667153 | icache miss: cpu 12627 spc 12115 ppu 8362 | dcache miss: cpu 3838 spc 2982 ppu 3 | mispredict: cpu 4759 spc 9569 ppu 0 | bus ppuw 22 ppur 0 apu 6 wram 0 cpu 5 dmar 2 other 0 | dma runs 1 bytes 44
+snes t=24.8 upd=60 drw=59 fps=59 pic=1/3 umax=13.0 uavg=5.0 dmax=3.4 davg=3.2 gap=46 late=1 lua=8 mode=native rom=smw.sfc scn=m1/10/04 | us frame 8287 ppu 5748 spc 1483 cpu 3445 dma 33 hdma 0 ins 12746 | ppu us: bg 1771 obj 1510 win 38 comp 374 mix 2033 | arm instr cpu 1664319 spc 652678 ppu 1933968 | cycles cpu 3431647 spc 1494595 ppu 3357118 | icache miss: cpu 41435 spc 19198 ppu 12169 | dcache miss: cpu 1963 spc 2892 ppu 2 | mispredict: cpu 2692 spc 9068 ppu 0 | bus ppuw 19 ppur 0 apu 2136 wram 0 cpu 6 dmar 12 other 0 | dma runs 2 bytes 330
+snes t=25.8 upd=60 drw=59 fps=59 pic=1/2 umax=13.2 uavg=5.1 dmax=3.4 davg=3.2 gap=43 late=1 lua=16 mode=native rom=smw.sfc scn=m1/15/02 | us frame 3811 ppu 1670 spc 1294 cpu 2452 dma 5 hdma 0 ins 10620 | ppu us: bg 443 obj 378 win 10 comp 94 mix 509 | arm instr cpu 1284043 spc 689331 ppu 16926 | cycles cpu 2455180 spc 1294381 ppu 58421 | icache miss: cpu 14605 spc 7404 ppu 2106 | dcache miss: cpu 2980 spc 2865 ppu 2 | mispredict: cpu 5473 spc 14807 ppu 6 | bus ppuw 327 ppur 0 apu 5 wram 0 cpu 1 dmar 2 other 0 | dma runs 1 bytes 34
+snes t=26.8 upd=61 drw=58 fps=58 pic=1/2 umax=13.7 uavg=8.3 dmax=3.4 davg=3.3 gap=63 late=1 lua=7 mode=native rom=smw.sfc scn=m1/04/13 | us frame 10013 ppu 8948 spc 1586 cpu 2107 dma 116 hdma 133 ins 12021 | ppu us: bg 3400 obj 1356 win 48 comp 1514 mix 2549 | arm instr cpu 981608 spc 863364 ppu 4371998 | cycles cpu 2105586 spc 1587724 ppu 6317223 | icache miss: cpu 14857 spc 7339 ppu 6848 | dcache miss: cpu 8255 spc 3337 ppu 91628 | mispredict: cpu 3682 spc 13488 ppu 8417 | bus ppuw 43 ppur 0 apu 4 wram 0 cpu 176 dmar 64 other 0 | dma runs 12 bytes 1231
+snes t=27.8 upd=61 drw=59 fps=59 pic=1/2 umax=13.5 uavg=8.1 dmax=3.4 davg=3.2 gap=51 late=1 lua=16 mode=native rom=smw.sfc scn=m1/04/13 | us frame 6828 ppu 9522 spc 1443 cpu 2166 dma 32 hdma 1 ins 12117 | ppu us: bg 3582 obj 1422 win 46 comp 1324 mix 3078 | arm instr cpu 1098260 spc 758334 ppu 2226753 | cycles cpu 2168824 spc 1445063 ppu 3210392 | icache miss: cpu 14267 spc 7549 ppu 3339 | dcache miss: cpu 3970 spc 2543 ppu 56247 | mispredict: cpu 3514 spc 11970 ppu 23228 | bus ppuw 28 ppur 0 apu 4 wram 0 cpu 10 dmar 21 other 31 | dma runs 4 bytes 323
+snes t=28.9 upd=60 drw=59 fps=59 pic=1/2 umax=13.1 uavg=4.6 dmax=3.3 davg=3.2 gap=51 late=1 lua=7 mode=native rom=smw.sfc scn=m1/15/02 | us frame 4121 ppu 1460 spc 1055 cpu 2754 dma 4 hdma 1 ins 10443 | ppu us: bg 445 obj 183 win 5 comp 164 mix 383 | arm instr cpu 1455351 spc 564095 ppu 117791 | cycles cpu 2749934 spc 1055728 ppu 309852 | icache miss: cpu 12658 spc 4734 ppu 2169 | dcache miss: cpu 3569 spc 2827 ppu 43362 | mispredict: cpu 13902 spc 13766 ppu 3184 | bus ppuw 1136 ppur 0 apu 134 wram 0 cpu 1 dmar 2 other 1 | dma runs 1 bytes 37
+snes t=29.9 upd=60 drw=59 fps=59 pic=1/2 umax=14.1 uavg=6.9 dmax=3.4 davg=3.2 gap=42 late=1 lua=17 mode=native rom=smw.sfc scn=m1/15/02 | us frame 9727 ppu 7521 spc 1489 cpu 1982 dma 87 hdma 111 ins 11676 | ppu us: bg 3086 obj 1130 win 27 comp 949 mix 2197 | arm instr cpu 958839 spc 771271 ppu 4430057 | cycles cpu 1988543 spc 1489772 ppu 6245029 | icache miss: cpu 11199 spc 4698 ppu 5138 | dcache miss: cpu 3455 spc 5049 ppu 12595 | mispredict: cpu 5819 spc 12889 ppu 18631 | bus ppuw 52 ppur 0 apu 5 wram 0 cpu 15 dmar 46 other 1 | dma runs 8 bytes 1165
+--- (older lines left out) ---
+snes t=238.7 upd=60 drw=57 fps=58 pic=1/3 umax=16.0 uavg=8.9 dmax=3.4 davg=3.3 gap=62 late=1 lua=14 mode=native rom=smw2.smc scn=m1/17/00 | us frame 8565 ppu 9888 spc 1434 cpu 1031 dma 135 hdma 137 ins 10368 gsu 1619 gins 20937 | ppu us: bg 3696 obj 2085 win 48 comp 3008 mix 991 | arm instr cpu 2466085 spc 744988 ppu 1947514 | cycles cpu 4263154 spc 1435185 ppu 2862895 | icache miss: cpu 23072 spc 6793 ppu 13182 | dcache miss: cpu 8828 spc 3953 ppu 8 | mispredict: cpu 13913 spc 12957 ppu 2 | bus ppuw 34 ppur 1 apu 5 wram 1 cpu 959 dmar 42 other 611 | dma runs 5 bytes 1567
+snes t=239.7 upd=62 drw=59 fps=57 pic=1/3 umax=16.0 uavg=8.3 dmax=3.3 davg=3.2 gap=62 late=1 lua=8 mode=native rom=smw2.smc scn=m1/17/00 | us frame 8186 ppu 9841 spc 1662 cpu 1393 dma 124 hdma 136 ins 10454 gsu 1145 gins 12786 | ppu us: bg 3585 obj 2147 win 48 comp 2965 mix 1030 | arm instr cpu 2065244 spc 898639 ppu 1946995 | cycles cpu 3677749 spc 1664160 ppu 2840507 | icache miss: cpu 22377 spc 6619 ppu 12853 | dcache miss: cpu 6916 spc 4739 ppu 13 | mispredict: cpu 14470 spc 13071 ppu 1 | bus ppuw 29 ppur 1 apu 5 wram 1 cpu 713 dmar 29 other 638 | dma runs 4 bytes 1312
+snes t=240.7 upd=60 drw=50 fps=59 pic=1/3 umax=23.6 uavg=9.6 dmax=3.4 davg=3.2 gap=63 late=4 lua=10 mode=native rom=smw2.smc scn=m1/15/02 | us frame 8192 ppu 5041 spc 1215 cpu 1793 dma 153 hdma 29 ins 11221 gsu 3298 gins 47810 | ppu us: bg 1775 obj 1062 win 24 comp 1446 mix 503 | arm instr cpu 4116240 spc 610488 ppu 140379 | cycles cpu 6720497 spc 1218588 ppu 248886 | icache miss: cpu 36184 spc 15053 ppu 6773 | dcache miss: cpu 27728 spc 4925 ppu 6 | mispredict: cpu 17053 spc 13437 ppu 1 | bus ppuw 21 ppur 2 apu 803 wram 1 cpu 2261 dmar 75 other 192 | dma runs 10 bytes 4114
+snes t=241.8 upd=61 drw=58 fps=49 pic=1/3 umax=16.8 uavg=9.3 dmax=3.3 davg=3.3 gap=59 late=1 lua=9 mode=native rom=smw2.smc scn=m1/15/02 | us frame 7118 ppu 8543 spc 1398 cpu 1715 dma 160 hdma 35 ins 9982 gsu 1350 gins 17964 | ppu us: bg 3366 obj 1474 win 39 comp 1580 mix 1975 | arm instr cpu 2456842 spc 732419 ppu 856232 | cycles cpu 4404372 spc 1399862 ppu 1310451 | icache miss: cpu 30935 spc 7707 ppu 13616 | dcache miss: cpu 17121 spc 4727 ppu 7 | mispredict: cpu 18865 spc 12925 ppu 1 | bus ppuw 37 ppur 15 apu 6 wram 1 cpu 1396 dmar 140 other 681 | dma runs 19 bytes 2253
+snes t=242.8 upd=60 drw=58 fps=58 pic=1/3 umax=15.3 uavg=8.7 dmax=3.4 davg=3.3 gap=62 late=1 lua=9 mode=native rom=smw2.smc scn=m1/15/02 | us frame 6981 ppu 8990 spc 1329 cpu 1615 dma 158 hdma 36 ins 9938 gsu 1361 gins 17983 | ppu us: bg 3520 obj 1503 win 41 comp 1626 mix 2207 | arm instr cpu 2394122 spc 682377 ppu 863560 | cycles cpu 4331594 spc 1329410 ppu 1316183 | icache miss: cpu 32609 spc 7723 ppu 12782 | dcache miss: cpu 16512 spc 3395 ppu 10 | mispredict: cpu 18586 spc 13222 ppu 4 | bus ppuw 37 ppur 5 apu 5 wram 1 cpu 1389 dmar 139 other 364 | dma runs 19 bytes 2089
+snes t=243.8 upd=60 drw=58 fps=58 pic=1/3 umax=15.6 uavg=8.5 dmax=3.4 davg=3.2 gap=62 late=1 lua=9 mode=native rom=smw2.smc scn=m1/15/02 | us frame 6602 ppu 9030 spc 1214 cpu 1590 dma 245 hdma 38 ins 10116 gsu 1235 gins 18831 | ppu us: bg 3541 obj 1495 win 45 comp 1671 mix 2164 | arm instr cpu 2211148 spc 638523 ppu 870672 | cycles cpu 4065848 spc 1214011 ppu 1318540 | icache miss: cpu 32065 spc 5892 ppu 12109 | dcache miss: cpu 15719 spc 4961 ppu 8 | mispredict: cpu 15600 spc 11715 ppu 1 | bus ppuw 47 ppur 5 apu 5 wram 1 cpu 1288 dmar 148 other 373 | dma runs 21 bytes 3428
+snes t=244.8 upd=60 drw=58 fps=58 pic=1/3 umax=16.1 uavg=9.4 dmax=3.4 davg=3.3 gap=62 late=1 lua=10 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9022 ppu 9310 spc 1168 cpu 1263 dma 313 hdma 45 ins 10006 gsu 1954 gins 26994 | ppu us: bg 3776 obj 1565 win 36 comp 1323 mix 2501 | arm instr cpu 2967452 spc 601724 ppu 1723909 | cycles cpu 5166142 spc 1169765 ppu 2684438 | icache miss: cpu 28661 spc 6463 ppu 12251 | dcache miss: cpu 18961 spc 3697 ppu 12 | mispredict: cpu 16907 spc 11044 ppu 1 | bus ppuw 53 ppur 5 apu 5 wram 3 cpu 1791 dmar 155 other 543 | dma runs 22 bytes 3409
+snes t=245.8 upd=60 drw=57 fps=57 pic=1/3 umax=18.0 uavg=10.3 dmax=3.4 davg=3.3 gap=63 late=1 lua=11 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10167 ppu 9448 spc 1119 cpu 834 dma 302 hdma 102 ins 9737 gsu 2717 gins 32532 | ppu us: bg 3999 obj 1489 win 41 comp 1188 mix 2640 | arm instr cpu 3600831 spc 574054 ppu 1829793 | cycles cpu 6269867 spc 1119891 ppu 2773681 | icache miss: cpu 31077 spc 7149 ppu 13203 | dcache miss: cpu 22610 spc 3496 ppu 12 | mispredict: cpu 21882 spc 8731 ppu 1 | bus ppuw 57 ppur 7 apu 5 wram 1 cpu 2492 dmar 156 other 725 | dma runs 22 bytes 4486
+snes t=246.8 upd=61 drw=56 fps=56 pic=1/3 umax=19.7 uavg=11.6 dmax=3.7 davg=3.3 gap=70 late=1 lua=22 mode=native rom=smw2.smc scn=m1/15/02 | us frame 11435 ppu 10058 spc 1543 cpu 504 dma 313 hdma 36 ins 9603 gsu 3237 gins 38385 | ppu us: bg 4505 obj 1532 win 37 comp 1302 mix 2597 | arm instr cpu 4043823 spc 812517 ppu 1932655 | cycles cpu 6978605 spc 1545991 ppu 2906161 | icache miss: cpu 33572 spc 7524 ppu 13938 | dcache miss: cpu 29448 spc 2905 ppu 11 | mispredict: cpu 26349 spc 14550 ppu 1 | bus ppuw 58 ppur 13 apu 5 wram 1 cpu 3018 dmar 157 other 730 | dma runs 23 bytes 4725
+snes t=247.8 upd=60 drw=56 fps=56 pic=1/3 umax=19.4 uavg=11.2 dmax=3.4 davg=3.3 gap=70 late=1 lua=21 mode=native rom=smw2.smc scn=m1/15/02 | us frame 11030 ppu 10538 spc 1281 cpu 998 dma 308 hdma 37 ins 9736 gsu 2834 gins 32704 | ppu us: bg 4793 obj 1526 win 36 comp 1455 mix 2640 | arm instr cpu 3788375 spc 635653 ppu 2063549 | cycles cpu 6665196 spc 1282040 ppu 3078796 | icache miss: cpu 36569 spc 8886 ppu 14254 | dcache miss: cpu 29529 spc 3682 ppu 14 | mispredict: cpu 29176 spc 9552 ppu 5 | bus ppuw 55 ppur 17 apu 5 wram 1 cpu 2954 dmar 154 other 717 | dma runs 22 bytes 4643
+snes t=248.8 upd=62 drw=57 fps=57 pic=1/3 umax=18.1 uavg=10.3 dmax=3.4 davg=3.3 gap=68 late=1 lua=10 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10045 ppu 10330 spc 1542 cpu 1210 dma 169 hdma 38 ins 10150 gsu 2129 gins 25956 | ppu us: bg 4378 obj 1499 win 39 comp 1585 mix 2744 | arm instr cpu 3120373 spc 784900 ppu 2024652 | cycles cpu 5466942 spc 1545368 ppu 3029289 | icache miss: cpu 32351 spc 9319 ppu 13998 | dcache miss: cpu 21962 spc 5094 ppu 15 | mispredict: cpu 23286 spc 13492 ppu 1 | bus ppuw 53 ppur 9 apu 5 wram 1 cpu 2410 dmar 149 other 674 | dma runs 21 bytes 2597
+snes t=249.8 upd=60 drw=57 fps=56 pic=1/3 umax=19.6 uavg=10.9 dmax=3.4 davg=3.2 gap=67 late=1 lua=11 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10458 ppu 10507 spc 1274 cpu 810 dma 202 hdma 45 ins 10006 gsu 2698 gins 31915 | ppu us: bg 4737 obj 1518 win 36 comp 1488 mix 2641 | arm instr cpu 3566599 spc 636541 ppu 1960917 | cycles cpu 6207687 spc 1274726 ppu 2973036 | icache miss: cpu 33509 spc 8633 ppu 14161 | dcache miss: cpu 23757 spc 4007 ppu 11 | mispredict: cpu 24676 spc 12173 ppu 1 | bus ppuw 55 ppur 18 apu 5 wram 1 cpu 2696 dmar 152 other 734 | dma runs 22 bytes 2988
+snes t=250.8 upd=61 drw=53 fps=53 pic=1/3 umax=20.5 uavg=11.6 dmax=3.3 davg=3.2 gap=73 late=2 lua=22 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9714 ppu 10775 spc 1508 cpu 739 dma 244 hdma 31 ins 10012 gsu 2943 gins 32565 | ppu us: bg 4844 obj 1524 win 105 comp 1616 mix 2591 | arm instr cpu 3838297 spc 772749 ppu 1051304 | cycles cpu 6625990 spc 1507001 ppu 1577049 | icache miss: cpu 36144 spc 9486 ppu 14441 | dcache miss: cpu 28736 spc 3215 ppu 15 | mispredict: cpu 27332 spc 11563 ppu 1 | bus ppuw 54 ppur 13 apu 5 wram 1 cpu 2957 dmar 151 other 658 | dma runs 21 bytes 3740
+snes t=251.8 upd=60 drw=56 fps=56 pic=1/3 umax=19.0 uavg=10.8 dmax=3.3 davg=3.3 gap=70 late=1 lua=21 mode=native rom=smw2.smc scn=m1/15/02 | us frame 8727 ppu 10579 spc 1504 cpu 927 dma 214 hdma 39 ins 10038 gsu 2386 gins 29022 | ppu us: bg 4732 obj 1539 win 43 comp 1562 mix 2618 | arm instr cpu 3254999 spc 758933 ppu 998411 | cycles cpu 5699116 spc 1506851 ppu 1516621 | icache miss: cpu 34542 spc 7926 ppu 14788 | dcache miss: cpu 24421 spc 4857 ppu 12 | mispredict: cpu 22965 spc 12970 ppu 1 | bus ppuw 56 ppur 13 apu 5 wram 1 cpu 2331 dmar 161 other 673 | dma runs 24 bytes 3330
+snes t=252.8 upd=60 drw=56 fps=56 pic=1/3 umax=19.0 uavg=10.7 dmax=3.3 davg=3.3 gap=68 late=1 lua=22 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10161 ppu 10600 spc 1429 cpu 1133 dma 186 hdma 42 ins 10009 gsu 2273 gins 29681 | ppu us: bg 4847 obj 1504 win 44 comp 1471 mix 2651 | arm instr cpu 3237359 spc 737429 ppu 2029228 | cycles cpu 5680289 spc 1429808 ppu 3046923 | icache miss: cpu 32704 spc 9048 ppu 14149 | dcache miss: cpu 21262 spc 3594 ppu 11 | mispredict: cpu 23909 spc 13832 ppu 1 | bus ppuw 53 ppur 13 apu 5 wram 1 cpu 2381 dmar 150 other 681 | dma runs 21 bytes 2871
+snes t=253.9 upd=62 drw=57 fps=56 pic=1/3 umax=20.2 uavg=11.6 dmax=3.4 davg=3.3 gap=70 late=1 lua=12 mode=native rom=smw2.smc scn=m1/15/02 | us frame 11164 ppu 9917 spc 1434 cpu 575 dma 296 hdma 38 ins 9593 gsu 3245 gins 42336 | ppu us: bg 4249 obj 1532 win 43 comp 1355 mix 2641 | arm instr cpu 4062000 spc 721857 ppu 1754054 | cycles cpu 7003244 spc 1435170 ppu 2721699 | icache miss: cpu 34621 spc 9708 ppu 14715 | dcache miss: cpu 28126 spc 3108 ppu 20 | mispredict: cpu 29635 spc 13895 ppu 1 | bus ppuw 56 ppur 15 apu 5 wram 1 cpu 2928 dmar 158 other 782 | dma runs 23 bytes 4586
+snes t=254.9 upd=61 drw=57 fps=56 pic=1/3 umax=22.8 uavg=9.9 dmax=3.4 davg=3.2 gap=70 late=1 lua=20 mode=native rom=smw2.smc scn=m1/15/02 | us frame 11268 ppu 9846 spc 2070 cpu 1002 dma 290 hdma 37 ins 9978 gsu 2859 gins 23874 | ppu us: bg 4301 obj 1502 win 41 comp 1228 mix 2679 | arm instr cpu 3656751 spc 1126018 ppu 1877000 | cycles cpu 6273633 spc 2072045 ppu 2918239 | icache miss: cpu 40701 spc 10176 ppu 15397 | dcache miss: cpu 21395 spc 4220 ppu 15 | mispredict: cpu 22320 spc 16957 ppu 1 | bus ppuw 57 ppur 5 apu 5 wram 3 cpu 2342 dmar 158 other 463 | dma runs 23 bytes 3773
+snes t=255.9 upd=60 drw=58 fps=59 pic=1/3 umax=20.2 uavg=10.7 dmax=3.4 davg=3.2 gap=59 late=1 lua=22 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10353 ppu 10192 spc 1730 cpu 1030 dma 223 hdma 38 ins 9571 gsu 2326 gins 31471 | ppu us: bg 4499 obj 1472 win 35 comp 1439 mix 2664 | arm instr cpu 3285591 spc 881381 ppu 1940526 | cycles cpu 5686743 spc 1730467 ppu 2933116 | icache miss: cpu 25754 spc 10692 ppu 11849 | dcache miss: cpu 21493 spc 3395 ppu 12 | mispredict: cpu 15538 spc 17443 ppu 1 | bus ppuw 59 ppur 5 apu 5 wram 1 cpu 2713 dmar 162 other 463 | dma runs 23 bytes 4637
+snes t=256.9 upd=60 drw=57 fps=57 pic=1/3 umax=17.0 uavg=9.6 dmax=3.4 davg=3.3 gap=65 late=1 lua=19 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9379 ppu 10294 spc 1674 cpu 1357 dma 315 hdma 38 ins 9971 gsu 1697 gins 22578 | ppu us: bg 4448 obj 1556 win 37 comp 1455 mix 2712 | arm instr cpu 2679761 spc 884125 ppu 1954038 | cycles cpu 4746103 spc 1673435 ppu 2955263 | icache miss: cpu 26170 spc 8335 ppu 11924 | dcache miss: cpu 20365 spc 3076 ppu 14 | mispredict: cpu 16707 spc 13455 ppu 1 | bus ppuw 56 ppur 5 apu 5 wram 3 cpu 1459 dmar 157 other 452 | dma runs 23 bytes 3584
+snes t=257.9 upd=61 drw=57 fps=57 pic=1/3 umax=20.2 uavg=11.0 dmax=3.3 davg=3.2 gap=65 late=1 lua=11 mode=native rom=smw2.smc scn=m1/15/02 | us frame 11145 ppu 10205 spc 1764 cpu 952 dma 268 hdma 35 ins 9675 gsu 2719 gins 37133 | ppu us: bg 4590 obj 1506 win 50 comp 1368 mix 2596 | arm instr cpu 3657260 spc 927502 ppu 1969667 | cycles cpu 6391479 spc 1764939 ppu 2984618 | icache miss: cpu 31895 spc 8622 ppu 13461 | dcache miss: cpu 24524 spc 3019 ppu 11 | mispredict: cpu 19840 spc 17439 ppu 1 | bus ppuw 55 ppur 10 apu 5 wram 1 cpu 2574 dmar 152 other 726 | dma runs 21 bytes 4136
+snes t=258.9 upd=60 drw=54 fps=57 pic=1/3 umax=19.7 uavg=11.2 dmax=3.4 davg=3.2 gap=61 late=1 lua=11 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9383 ppu 10478 spc 1795 cpu 672 dma 307 hdma 40 ins 9669 gsu 2689 gins 33449 | ppu us: bg 4657 obj 1594 win 58 comp 1438 mix 2637 | arm instr cpu 3481074 spc 939950 ppu 1014243 | cycles cpu 6044576 spc 1797760 ppu 1536561 | icache miss: cpu 32312 spc 9943 ppu 13848 | dcache miss: cpu 26371 spc 2471 ppu 15 | mispredict: cpu 23540 spc 17222 ppu 19 | bus ppuw 56 ppur 11 apu 5 wram 1 cpu 2098 dmar 158 other 606 | dma runs 23 bytes 4721
+snes t=259.9 upd=61 drw=58 fps=55 pic=1/3 umax=18.6 uavg=10.4 dmax=3.3 davg=3.2 gap=66 late=1 lua=9 mode=native rom=smw2.smc scn=m1/15/02 | us frame 7804 ppu 11012 spc 1446 cpu 1346 dma 244 hdma 29 ins 9711 gsu 1692 gins 21906 | ppu us: bg 4696 obj 1650 win 44 comp 1829 mix 2695 | arm instr cpu 2656770 spc 744429 ppu 1072630 | cycles cpu 4732766 spc 1446297 ppu 1621373 | icache miss: cpu 28869 spc 10261 ppu 13308 | dcache miss: cpu 19076 spc 4276 ppu 15 | mispredict: cpu 18279 spc 13355 ppu 3 | bus ppuw 59 ppur 11 apu 5 wram 1 cpu 1604 dmar 162 other 499 | dma runs 23 bytes 4495
+snes t=260.9 upd=60 drw=56 fps=57 pic=1/3 umax=22.0 uavg=11.2 dmax=3.4 davg=3.2 gap=66 late=1 lua=12 mode=native rom=smw2.smc scn=m1/15/02 | us frame 10351 ppu 11317 spc 1308 cpu 492 dma 221 hdma 54 ins 9529 gsu 3443 gins 37204 | ppu us: bg 4778 obj 1598 win 35 comp 2057 mix 2758 | arm instr cpu 4398930 spc 677173 ppu 1078262 | cycles cpu 7384404 spc 1308104 ppu 1654934 | icache miss: cpu 36114 spc 8828 ppu 14640 | dcache miss: cpu 20620 spc 3871 ppu 11 | mispredict: cpu 26247 spc 11311 ppu 1 | bus ppuw 59 ppur 11 apu 5 wram 1 cpu 4241 dmar 162 other 506 | dma runs 23 bytes 4641
+snes t=261.9 upd=60 drw=55 fps=54 pic=1/3 umax=20.5 uavg=10.2 dmax=3.4 davg=3.2 gap=74 late=1 lua=10 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9966 ppu 11311 spc 1821 cpu 1391 dma 230 hdma 40 ins 9684 gsu 1761 gins 21994 | ppu us: bg 4744 obj 1613 win 45 comp 2045 mix 2779 | arm instr cpu 2740497 spc 991080 ppu 2147281 | cycles cpu 4905400 spc 1823422 ppu 3233429 | icache miss: cpu 31254 spc 7906 ppu 13868 | dcache miss: cpu 21454 spc 4043 ppu 9 | mispredict: cpu 21555 spc 13221 ppu 1 | bus ppuw 59 ppur 11 apu 5 wram 1 cpu 1759 dmar 162 other 506 | dma runs 23 bytes 4641
+snes t=262.9 upd=62 drw=58 fps=57 pic=1/3 umax=18.3 uavg=10.0 dmax=3.4 davg=3.2 gap=67 late=1 lua=9 mode=native rom=smw2.smc scn=m1/15/02 | us frame 9536 ppu 11400 spc 1495 cpu 1187 dma 231 hdma 37 ins 9685 gsu 1772 gins 21684 | ppu us: bg 4858 obj 1596 win 40 comp 2037 mix 2777 | arm instr cpu 2621377 spc 773902 ppu 2173710 | cycles cpu 4732549 spc 1496287 ppu 3303381 | icache miss: cpu 26257 spc 9574 ppu 13180 | dcache miss: cpu 21143 spc 2504 ppu 735 | mispredict: cpu 17618 spc 14934 ppu 1 | bus ppuw 59 ppur 11 apu 5 wram 1 cpu 1594 dmar 162 other 506 | dma runs 23 bytes 4641
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 8004 frames, 55.2 fps, 455 dropped
+     update+draw avg 14.39 ms (86% of frame), max 185.48 ms, Lua 190 KB
+     dev kit: Lua peak 4248 KB, data 516 KB, busiest frame 3k instructions, 2440 frames over 16.7 ms, 4169 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00002.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+fiber: reports did not yield: 101.3 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+menu idle: 300/300 frames, 1603 of 1760 ms taken, 103.9 ms past a frame; reports 1570 ms (+101.3, stk 7.6/128K, stop 15.5); min slack -10501 us, paced 0
+menu idle: sd first word <1ms 237 <3ms 31 (max 1.4 ms)
+menu stalls: tls handshake 2x last 287.7 worst 287.7 ms
+menu frame: 1x, a frame averages draw 9304 us, enlarge 1 us, flip 94 us, free time used 5344 us (300 frames)
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 1832 of 2006 ms taken, 99.1 ms past a frame; reports 1821 ms (+99.1, stk 7.6/128K); min slack -12359 us, paced 0
+menu idle: sd first word <1ms 77 <3ms 4 (max 1.4 ms)
+menu stalls: tls handshake 1x last 284.4 worst 284.4 ms
+menu frame: 1x, a frame averages draw 8393 us, enlarge 1 us, flip 97 us, free time used 6109 us (300 frames)
+menu frame: 1x, a frame averages draw 8321 us, enlarge 1 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8340 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8250 us, enlarge 1 us, flip 93 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8173 us, enlarge 1 us, flip 93 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8330 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8261 us, enlarge 1 us, flip 96 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8130 us, enlarge 1 us, flip 93 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8374 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8289 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8220 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8201 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8363 us, enlarge 1 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8264 us, enlarge 1 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8211 us, enlarge 1 us, flip 91 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 8304 us, enlarge 1 us, flip 91 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8425 us, enlarge 1 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8308 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8255 us, enlarge 1 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8335 us, enlarge 1 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8340 us, enlarge 1 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8251 us, enlarge 1 us, flip 93 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8174 us, enlarge 1 us, flip 92 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 8360 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8351 us, enlarge 1 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8237 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8126 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8361 us, enlarge 1 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8278 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8205 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8172 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8350 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8271 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 1 us, flip 92 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8215 us, enlarge 1 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8338 us, enlarge 1 us, flip 93 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8255 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8175 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8255 us, enlarge 1 us, flip 94 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8308 us, enlarge 1 us, flip 93 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8222 us, enlarge 1 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8136 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8296 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8273 us, enlarge 1 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8201 us, enlarge 1 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8107 us, enlarge 1 us, flip 97 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8333 us, enlarge 1 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8274 us, enlarge 1 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8185 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8124 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8348 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8258 us, enlarge 1 us, flip 95 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8178 us, enlarge 1 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8179 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8348 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8254 us, enlarge 1 us, flip 89 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8231 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8329 us, enlarge 1 us, flip 94 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8242 us, enlarge 1 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8160 us, enlarge 1 us, flip 93 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8299 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8359 us, enlarge 1 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8259 us, enlarge 1 us, flip 93 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8134 us, enlarge 1 us, flip 93 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8296 us, enlarge 1 us, flip 96 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8266 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8189 us, enlarge 1 us, flip 93 us, free time used 46 us (300 frames)
+menu idle: sd first word <1ms 7 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8203 us, enlarge 1 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8359 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8265 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8194 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8150 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8361 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8266 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8189 us, enlarge 1 us, flip 90 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8208 us, enlarge 1 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8357 us, enlarge 1 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8272 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8187 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8277 us, enlarge 1 us, flip 91 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8339 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8252 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8178 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8280 us, enlarge 1 us, flip 93 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8289 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8201 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8114 us, enlarge 1 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8311 us, enlarge 1 us, flip 96 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8260 us, enlarge 1 us, flip 96 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8181 us, enlarge 1 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8111 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8344 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8251 us, enlarge 1 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8175 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8171 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8326 us, enlarge 1 us, flip 100 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8232 us, enlarge 1 us, flip 99 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8160 us, enlarge 1 us, flip 98 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8219 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8326 us, enlarge 1 us, flip 93 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8247 us, enlarge 1 us, flip 94 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8176 us, enlarge 1 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8282 us, enlarge 1 us, flip 98 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8335 us, enlarge 1 us, flip 100 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8260 us, enlarge 1 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8171 us, enlarge 1 us, flip 99 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8309 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8287 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8195 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8113 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8338 us, enlarge 1 us, flip 97 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8258 us, enlarge 1 us, flip 96 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8194 us, enlarge 1 us, flip 96 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8151 us, enlarge 1 us, flip 94 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8352 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8270 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8188 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8211 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8340 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8249 us, enlarge 1 us, flip 96 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8162 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8236 us, enlarge 1 us, flip 96 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8315 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8223 us, enlarge 1 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8134 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8320 us, enlarge 1 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8343 us, enlarge 1 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8250 us, enlarge 1 us, flip 97 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 8177 us, enlarge 1 us, flip 97 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8381 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8345 us, enlarge 1 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8261 us, enlarge 1 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8202 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8438 us, enlarge 1 us, flip 95 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8327 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8243 us, enlarge 1 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8160 us, enlarge 1 us, flip 96 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8341 us, enlarge 1 us, flip 95 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8254 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8164 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8227 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8327 us, enlarge 1 us, flip 101 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8243 us, enlarge 1 us, flip 99 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8164 us, enlarge 1 us, flip 101 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8284 us, enlarge 1 us, flip 97 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8330 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8250 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8167 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8324 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8325 us, enlarge 1 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8206 us, enlarge 1 us, flip 95 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8138 us, enlarge 1 us, flip 95 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8372 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8310 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8216 us, enlarge 1 us, flip 93 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8171 us, enlarge 1 us, flip 95 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8344 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8249 us, enlarge 1 us, flip 94 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8160 us, enlarge 1 us, flip 92 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 8189 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8340 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8253 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8160 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8242 us, enlarge 1 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8308 us, enlarge 1 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8221 us, enlarge 1 us, flip 94 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8139 us, enlarge 1 us, flip 95 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8286 us, enlarge 1 us, flip 93 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8310 us, enlarge 1 us, flip 94 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8222 us, enlarge 1 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8143 us, enlarge 1 us, flip 92 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8335 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8295 us, enlarge 1 us, flip 98 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8205 us, enlarge 1 us, flip 98 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8148 us, enlarge 1 us, flip 98 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8368 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8275 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8180 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8169 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8327 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8248 us, enlarge 1 us, flip 99 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8170 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8209 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8322 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8233 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8156 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8280 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8318 us, enlarge 1 us, flip 95 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8228 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8142 us, enlarge 1 us, flip 97 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8320 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8302 us, enlarge 1 us, flip 94 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8218 us, enlarge 1 us, flip 93 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8135 us, enlarge 1 us, flip 93 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8351 us, enlarge 1 us, flip 98 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8290 us, enlarge 1 us, flip 98 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8199 us, enlarge 1 us, flip 98 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8153 us, enlarge 1 us, flip 98 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8361 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8270 us, enlarge 1 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8189 us, enlarge 1 us, flip 96 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8200 us, enlarge 1 us, flip 96 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8351 us, enlarge 1 us, flip 96 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8244 us, enlarge 1 us, flip 95 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8155 us, enlarge 1 us, flip 96 us, free time used 43 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8243 us, enlarge 1 us, flip 94 us, free time used 44 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 1353091 ms, 0 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 1353100 ms, 0 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
