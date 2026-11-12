@@ -81,6 +81,25 @@ static void cpu_tests(void)
          0x8D,0x16,0x21, 0x8D,0x17,0x21,
          0xA9,0x01, 0x8D,0x0B,0x42, 0xDB);
     CHECK("dma to vram", S.vram[0] == 0x11 && S.vram[1] == 0x22 && S.vram[2] == 0x33 && S.vram[3] == 0x44);
+    /* VRAM read buffer (Doom's stack trick): VMADD loads the buffer; a read that steps the address refills the buffer from the address BEFORE the step.
+     * So a dummy pair after VMADD returns W0 and leaves W0 in the buffer, and the pairs after it give W0, W1, W2. */
+    {
+        snes_load((const uint8_t[0x8000]){ 0 }, 0x8000, NULL);
+        snes_write(0x2115, 0x80);
+        snes_write(0x2116, 0x00); snes_write(0x2117, 0x75);
+        for (int i = 0; i < 4; i++) { snes_write(0x2118, (uint8_t)(0x10 + i)); snes_write(0x2119, (uint8_t)(0x20 + i)); }
+        snes_write(0x2116, 0x00); snes_write(0x2117, 0x75);
+        unsigned w[4];
+        for (int i = 0; i < 4; i++) { w[i] = snes_read(0x2139); w[i] |= (unsigned)snes_read(0x213A) << 8; }   /* the first pair is the dummy read */
+        CHECK("vram read dummy", w[0] == 0x2010);
+        CHECK("vram read W0", w[1] == 0x2010);
+        CHECK("vram read W1", w[2] == 0x2111);
+        CHECK("vram read W2", w[3] == 0x2212);
+        snes_write(0x2115, 0x00);                                /* step after the low byte */
+        snes_write(0x2116, 0x00); snes_write(0x2117, 0x75);
+        unsigned b0 = snes_read(0x2139), b1 = snes_read(0x2139), b2 = snes_read(0x2139);
+        CHECK("vram read lo step", b0 == 0x10 && b1 == 0x10 && b2 == 0x11);
+    }
 }
 
 /* the SPC700 through the ports, as a game does it */

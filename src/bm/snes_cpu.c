@@ -44,6 +44,9 @@ AI uint8_t rd8(cpu_t *cu, uint32_t a)
 AI void wr8(cpu_t *cu, uint32_t a, uint8_t v)
 {
     a &= 0xFFFFFF;
+#ifdef SNES_TRACE
+    if (snes_trace.wr) snes_trace.wr(a, v, cu->pb | (uint16_t)(cu->pc - 1));
+#endif
     const unsigned pg = a >> 12;
     uint8_t *p = snes_wtab[pg];
     if (__builtin_expect(p != 0, 1)) { cu->clk += snes_ctab[pg]; p[a & 0xFFF] = v; return; }
@@ -445,6 +448,9 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0x54: case 0x44: {
         int dir = op == 0x54 ? 1 : -1;
         uint8_t db = fetch8(cu), sb = fetch8(cu);
+#ifdef SNES_TRACE
+        if (snes_trace.mv) snes_trace.mv(((uint32_t)sb << 16) | cu->x, ((uint32_t)db << 16) | cu->y, (uint32_t)cu->a + 1, op == 0x44, cu->pb | (uint16_t)(cu->pc - 3));
+#endif
         wr8(cu, ((uint32_t)db << 16) | cu->y, rd8(cu, ((uint32_t)sb << 16) | cu->x));
         if (cu->xf) { cu->x = (cu->x + dir) & 0xFF; cu->y = (cu->y + dir) & 0xFF; } else { cu->x = (uint16_t)(cu->x + dir); cu->y = (uint16_t)(cu->y + dir); }
         cu->a--;
@@ -570,6 +576,9 @@ int cpu_run(int limit)
     cu->clk = snes_clk;
     while (cu->clk < limit) {
         n++;
+#ifdef SNES_TRACE
+        if (snes_trace.op) snes_trace.op(cu->pb | cu->pc);
+#endif
         S.line_clk = cu->clk;                       /* the slow bus reads the position in the line (the H and V counters) */
         if (S.nmi_pending || (S.irq_pending && !cu->i)) {
             uint16_t ivn = 0xFFEE, ive = 0xFFFE;

@@ -16,6 +16,9 @@
 #include <string.h>
 
 snes_t S;
+#ifdef SNES_TRACE
+snes_trace_t snes_trace;
+#endif
 uint32_t (*snes_now_us)(void);
 uint32_t ppu_us[5], ppu_n[5];                     /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) */
 static uint32_t pal_gen = 1;            /* grows with every palette write: the colour tables are made again */

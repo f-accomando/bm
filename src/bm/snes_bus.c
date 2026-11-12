@@ -432,7 +432,11 @@ void snes_ppu_write(uint16_t o, uint8_t v)
     }
     case 0x2133: S.setini = v; break;
     case 0x2140: case 0x2141: case 0x2142: case 0x2143: spc_sync(); spc_port_write(o & 3, v); break;
-    case 0x2180: S.wram[S.wmadd & 0x1FFFF] = v; S.wmadd = (S.wmadd + 1) & 0x1FFFF; break;
+    case 0x2180:
+#ifdef SNES_TRACE
+        if (snes_trace.wport) snes_trace.wport(S.wmadd, v);
+#endif
+        S.wram[S.wmadd & 0x1FFFF] = v; S.wmadd = (S.wmadd + 1) & 0x1FFFF; break;
     case 0x2181: S.wmadd = (S.wmadd & 0x1FF00) | v; break;
     case 0x2182: S.wmadd = (S.wmadd & 0x100FF) | ((uint32_t)v << 8); break;
     case 0x2183: S.wmadd = (S.wmadd & 0x0FFFF) | ((uint32_t)(v & 1) << 16); break;
@@ -457,7 +461,7 @@ uint8_t snes_ppu_read(uint16_t o)
     case 0x2139: case 0x213A: {
         int hi = o == 0x213A;
         uint8_t v = hi ? (uint8_t)(S.vmpre >> 8) : (uint8_t)S.vmpre;
-        if (((S.vmain & 0x80) != 0) == hi) { S.vmaddr = (uint16_t)(S.vmaddr + vmstep[S.vmain & 3]); vprefetch(); }
+        if (((S.vmain & 0x80) != 0) == hi) { vprefetch(); S.vmaddr = (uint16_t)(S.vmaddr + vmstep[S.vmain & 3]); }   /* the buffer is refilled from the address before the step */
         return v;
     }
     case 0x213B: {
@@ -514,6 +518,9 @@ static void run_dma(uint8_t mask)
         uint16_t a = d->a1t;
         int idx = 0;
         snes_clk += 8;
+#ifdef SNES_TRACE
+        if (snes_trace.dma) snes_trace.dma(c, to_b, ((uint32_t)d->a1b << 16) | a, d->bbad, count);
+#endif
         bus_cnt_dma_runs++; bus_cnt_dma_bytes += count;
         /* the fast path: memory to a PPU register, the A-bus address counting up. The bytes are read from the pointer (no map lookup for each byte), and the
          * VRAM ports go straight to vwrite; the Super FX's cart RAM (the sprite and tile data it made) is the main source on a Super FX cart. */

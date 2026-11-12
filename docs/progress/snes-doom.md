@@ -1,6 +1,6 @@
 # SNES: Doom (Super FX 2) reverse-engineering notes
 
-Status: 2026-11-12. Notes from the source of the original port and public documents. Nothing here is built in bm. Doom does not play in bm SNES yet: after the start and the sound load, the 65816 jumps into zero bytes at `$7E:5980` ([snes-superfx.md](snes-superfx.md) has the chip rules).
+Status: 2026-11-12. The crash at `$7E:5980` is solved (section below). Doom now plays to the first level on the host with an incomplete 3D view. The rest of this sheet is notes from the source of the original port and public documents ([snes-superfx.md](snes-superfx.md) has the chip rules).
 
 Marks: **S** = stated in the original source or its build files (read on 2026-11-12). **D** = deduced by us, not checked. Each **D** line is a lead to test, not a fact.
 
@@ -32,16 +32,22 @@ The release is partial: the repository has no sound driver source in `source/`, 
 - The Super FX draws the 3D view (walls, floors, sprites in the world; the BSP walk and the ray tables are its input). It sets the screen base with `sfxSCBR` from `_RLGSUChrDef`, so the picture is made in the cart RAM as character data and the CPU sends it to the PPU by DMA. **D**: this is the same split as in Star Fox, with a 2-bit colour plane count chosen for Doom.
 - The 65816 runs the rules of the game (players, enemies, sectors, weapons, menus) and the sound: it talks to the sound program through `musicdrv.a` (`__SendDriverCommand`).
 
-## What we know about the crash (`$7E:5980`)
+## The crash at `$7E:5980`: solved (trace of 2026-11-12)
 
-- S: the engine RAM code ends at about `$7E51AB` (`$2000 + $31AB`), so `$7E:5980` is not inside it. Something that is not in the copied block runs there.
-- D, to check in this order (each needs a trace, not a guess):
-  1. The `mvn` block move from a ROM bank at `$5C0000` in the GSU map: check that the core reads the ROM bytes of banks `$40` to `$5F` for a 2 MB cart, and that `mvn` crosses from one bank to another with the right count and no early stop. A wrong copy leaves zeros in WRAM and the CPU then falls into zeros.
-  2. The pointer table (`PTRL*`): the log of the 65816 at the start can show which pointer is read before it is written (bm may start the game logic before `_RLInitGSU` ends because of an interrupt or a wait on the GSU).
-  3. The Super FX stop (`STOP`, `GO` flag and the interrupt of the GSU): the CPU waits for it, and a core that never raises the IRQ or the flag in time makes the CPU run on.
-  4. A return from a call through the stack: the stack lives in WRAM bank 0 (`$0000` to `$1FFF` mirror of `$7E`), where `RAM1` has game data at `$0100` to `$0BBE`.
-- Searched in the source on 2026-11-12: no text holds `$5980`, and no routine that builds code into WRAM was found (words searched: stub, generate, self-modify, build code). The pointer table at `$7F:4F72` is inside `RAM3` (`$7F0000`, `$D5E0` bytes). The next step is to find which routine reads that table in the ROM trace, then match it to a name in the source.
-- The earlier note in [snes-superfx.md](snes-superfx.md) says the stubs are written by a DMA from the cart RAM. **D**: this fits item 1 only if the engine copies code another way too. Look for it in the trace.
+Cause: a bug of the VRAM read buffer in `snes_bus.c`. The engine does not run code at `$7E:5980`. The values `$5980`, `$59A0`, ... are pointers to 4 bpp character data (32 bytes each, `$7F:5960` + 32 * n, loaded by three DMAs of 1024 bytes from the ROM). They are arguments, not code.
+
+How the engine uses them (read on the trace, no source copied):
+- The 65816 code at `$7E:2D0A`-`$7E:2D4D` builds a call list at `$7F:4F72`. Each group is one routine address (`$2D84`, `$2E3E`, ... for 8, 3, ... pointers) followed by its pointers. The list ends with `$2003`, `$25EF`.
+- At `$7E:2570`-`$7E:25EF` the engine sends the list to VRAM word `$7500` by DMA (48 bytes), sets the same VRAM address, makes a 16-bit dummy read (`LDA $2139`, which reads `$2139` and `$213A`), then reads 48 bytes back with a DMA (B bus to A bus, mode 1) into WRAM `$0780`. Then it does `TCS` with `$077F` and `RTS`: the list is a stack that the CPU "returns" through. Routine `$2D84` pops the 8 pointers into direct page slots `$02`, `$12`, ... and draws.
+- The core refilled the read buffer after the address step. The dummy pair then consumed word 0 and the DMA started at word 1: the first entry, the routine `$2D84`, was lost and the first `RTS` jumped to `$5981`. The hardware refills the buffer from the address before the step: after the dummy pair the buffer still holds word 0, and the DMA reads word 0, 1, 2, ...
+
+The four leads of the earlier note, checked on the trace:
+1. ROM banks `$40`-`$5F` and `mvn`: correct. One `mvn` copies `$31AB` bytes from `$5C:0000` to `$7E:2000` (the engine RAM code, as the source says). The three DMAs of 1024 bytes come from `$5F:711D`, `$5F:751D`, `$5F:791D` with `$2183` = 1 (WRAM `$7F`), and the bytes are the ROM bytes.
+2. Pointer table read before written: no. The table is written (`$7F:4F72`) at frame 1077 and read at frame 1087.
+3. Super FX STOP, GO and IRQ: not involved. The CPU sets SCMR to `$0F` around its ROM DMAs (the CPU owns the ROM) and back to `$1F`: the core handled it.
+4. Stack return: yes, the stack is a list built in WRAM `$0780` on purpose (see above).
+
+Trace tool: build the core with `-DSNES_TRACE` (hooks `snes_trace.wr`, `.op`, `.mv`, `.dma`, `.wport` in `snes_int.h`; the Pi and RGB30 builds do not define it) and link `tests/snes/doom_trace.c`. The header of that file has the command. It needs the user's ROM and keeps no ROM data.
 
 ## Differences from Doom for DOS (S for the data, D for the rest)
 
@@ -51,7 +57,8 @@ The release is partial: the repository has no sound driver source in `source/`, 
 
 ## Open work
 
-- Run the 4 checks above on the real ROM in the host build with a trace of the 65816 from the reset to the first jump to `$7E:5980`.
+- The 3D view of the first level is incomplete (a black upper part, partial walls at frame 2500 without input). Run the trace with a pad script and compare with a picture of a real console, then find which step stops: the Super FX drawing, the DMA of the picture, or the CPU.
+- Speed on the Pi Zero W and the RGB30 is not measured for Doom.
 - Compare the section map of a retail ROM with `RL.SEC` (the retail build may differ from the source of 1995).
 - If a disassembler is needed for the Super FX code of the ROM: write a SLEIGH module or a small script on the opcode table of [snes-superfx-isa.md](snes-superfx-isa.md).
 - Read the sound driver in the archive.org backup if the sound or its timing is a suspect.

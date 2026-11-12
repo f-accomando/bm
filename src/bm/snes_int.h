@@ -79,6 +79,19 @@ typedef struct {
 
 extern snes_t S;
 
+#ifdef SNES_TRACE
+/* Debug hooks of the host build only (make with -DSNES_TRACE; the Pi and the RGB30 builds do not define it, so the hot path is unchanged). Set a hook to
+ * a function to watch; NULL means off. pc is the 24-bit address of the instruction that does the access. */
+typedef struct {
+    void (*wr)(uint32_t a, uint8_t v, uint32_t pc);                  /* every CPU write of one byte (plain memory and registers) */
+    void (*op)(uint32_t pc);                                         /* before each CPU instruction */
+    void (*mv)(uint32_t src, uint32_t dst, uint32_t count, int mvp, uint32_t pc);   /* the start of an mvn or mvp (count = A + 1) */
+    void (*dma)(int ch, int to_b, uint32_t abus, uint8_t bbad, uint32_t count);     /* a general DMA channel starts */
+    void (*wport)(uint32_t wmadd, uint8_t v);                        /* a byte written through the WRAM port $2180 (CPU or DMA) */
+} snes_trace_t;
+extern snes_trace_t snes_trace;
+#endif
+
 /* snes_bus.c */
 uint8_t snes_read(uint32_t a);
 void snes_write(uint32_t a, uint8_t v);

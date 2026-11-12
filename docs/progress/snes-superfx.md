@@ -85,7 +85,7 @@ Done 2026-11-11 (host only, no console test yet). Files: `src/bm/snes_gsu.c`, `s
 |---|---|
 | Star Fox (GSU-1) | boots, the title with the moving star field, the controls page, the Arwing in flight over the terrain (the GSU draws the 3D), the planet map. Not played for long: the pad script only presses START and A. |
 | Yoshi's Island (GSU-2, SP1) | boots, the intro and a level scene with the scaled and morphed background (the GSU effects). Not played for long. The intro needs HDMA that the game switches on a few lines into the frame: `$420C` sets up at once the channels that are new (`hdma_init_ch`), else the layers do not scroll at different speeds. |
-| Doom (GSU-2) | boots, the legal screen, and the sound CPU loader (a transfer of its own) passes. The GSU runs (2 million instructions in the first load, CFGR $20, 21 MHz). At frame 1084 the CPU returns through a table of code stubs at $7E:5980-$7E:5B80 that is still zero, runs into BRK and the picture stays black or garbage. **Cause not found.** What is known: the table `$7F:4F72` holds the 16-bit pointers $5980, $59A0, ..., so the stubs are code that something has to make. The Doom boot has not made them. Not the word access at an odd address (tested with +1 and with xor 1: same failure). Next: find who writes $7E:5980 on a real console (a DMA from the cart RAM, or the CPU from the output of the GSU) and compare with the DMA list of the machine. |
+| Doom (GSU-2) | boots, the sound CPU loader passes, the level loads and the picture shows the status bar, the weapon and part of the 3D view (2026-11-12, host, 2500 frames without a pad). The crash at `$7E:5980` was a bug of the VRAM read buffer in `snes_bus.c`, not the Super FX (see [snes-doom.md](snes-doom.md)). The 3D view is still incomplete: not checked yet. |
 
 Costs on the host (x86, `make bench-snes-gsu`, a mix of PLOT, MULT, RAM moves and loops, 21 MHz): about 100 to 150 million instructions a second, so 350000 instructions (the most a GSU-2 can run in a frame) cost 2.3 to 3.5 ms. In Star Fox the GSU runs about 22000 instructions a frame on average (32.6 million in 1500 frames). A GSU-1 at 10.74 MHz runs at most about 100000 instructions a frame.
 The ARM1176 has no indirect branch prediction for a `switch`, and the loop head has about 35 instructions, so expect 10 to 20 times the host time: 25 to 50 ns an instruction. That is 3 to 5 ms for the average Star Fox frame and 10 ms or more for a frame that keeps the GSU busy.
@@ -100,13 +100,14 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 
 ## Open work
 
-- Doom (GSU-2): boots and passes the sound loader, then the CPU returns into a table of code stubs at $7E:5980 that is still zero (BRK, garbage picture). Find who writes those stubs on a console: a DMA from the cart RAM, or the CPU from the output of the GSU. Compare with the DMA list of the machine. Notes from the original source: [snes-doom.md](snes-doom.md).
+- Doom (GSU-2): plays to the first level on the host. Check the 3D view (partial walls, a black upper part) and the speed. Notes: [snes-doom.md](snes-doom.md).
 - Play Star Fox and Yoshi's Island to the end with a real pad script, or on the console. Read the pictures for flicker, wrong colours and speed.
 - Speed on the Pi Zero W is not measured. Copy the kernel and the cart (the user does it), play Star Fox into a stage, and read `gsu` (microseconds in a frame) and `gins` (instructions in a frame) in the `us` debug line. If `upd/s` is under 60 and `gsu` is over 8000, speed up `gsu_run` again: a pointer into the cache line instead of the check at each byte, a `goto` table, fused pairs (FROM+op, TO+op). The cache misses are in `icache miss: cpu` of the `ppu us` line.
 - Exact cycle counts, the wait of the GSU on RON and RAN, two pixel caches: only if a game needs them.
 
 ## Rules (do not break)
 
+- A read of `$2139`/`$213A` that steps the VRAM address refills the read buffer from the address BEFORE the step (a dummy pair after VMADD returns word 0 and keeps word 0 in the buffer). Doom reads its call list back from VRAM this way. Test: `vram read` in `tests/snes/core_test.c`.
 - The GSU is plain C in `snes_gsu.c` and owns the cart RAM (`S.sram`). A change of the cart map goes in `gsu_map_ptr`, `raw_read` and `raw_write` together. The pages $F000-$FFFF of the banks $00-$3F stay slow (the vector pattern).
 - `make test-snes-gsu` holds a golden hash of a program. A speed-up of `gsu_run` must keep it.
 - The GSU IRQ is a level (`gsu_irq_line()`, cleared by a read of the high byte of SFR). A write to $4200 and a read of $4211 set `S.irq_pending = gsu_irq_line()`, not 0.
