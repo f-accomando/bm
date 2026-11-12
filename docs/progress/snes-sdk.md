@@ -60,7 +60,7 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 
 - Code tab on `carts/code`: a 65C816 language mode with the errors of `A.assemble` (Phase 1, step 3).
 - A project layout: `src/*.s`, `gfx/*.png`, `snes.bme`, with `.include` read from the project (Phase 1, steps 2 and 6).
-- The debug API (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`) and the sprite tab: other sessions.
+- The sprite tab and the code tab: other sessions. The debug API is done (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md) rules).
 - The assembler has no listing file, no `.struct`, no `.enum`, no anonymous labels (`+`, `-`) and no linker. Add them when a game needs them.
 - A disassembler that follows M and X (Phase 2), built on `A.opcodes`.
 - Measure the speed of `A.assemble` on the Pi Zero W with a large source. The tests run on the PC only.

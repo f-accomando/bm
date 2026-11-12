@@ -62,6 +62,8 @@ machine was written again in C. The RGB30 is not measured.
 ## Rules (do not break)
 - The S-DSP (`snes_dsp.c`) and the SPC700 (`snes_spc.c`) must equal ares. Before you change them, run `make test-snes-audio-ref ARES=/path/to/ares`. The cycle table `spc_cyc` comes from ares; a golden hash changes only when ares agrees with the new value.
 
+- The debug API of the carts (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`) uses a separate CPU loop, `cpu_run_dbg` in `snes_cpu.c`. `snes_frame_break` enters it only while a breakpoint is armed. Add no check for the API to `cpu_run` or `snes_cpu_arm.S`: the hot loop must cost nothing with debugging off. A debug change to the CPU loop needs `make test-snes-cpu`, `make test-snes-cpu-arm` and `make test-snes-debug`.
+- `snes_peek8` has no side effect. When you add a register that has a read side effect, add its pure read to `snes_peek8`. The SA-1 CPU has no debug path (`SNES_NO_DBG`).
 - The machine is plain C with no dependence on the kernel, so the host tests build it alone. Keep `snes_*.c` free of kernel headers.
 - The time is in master clocks. Every bus access adds its cost (`access_clk`), an instruction adds 6 for the internal cycles.
   A line is 1364 clocks. NMI starts at line 224 (239 with overscan), HDMA runs before each visible line.
