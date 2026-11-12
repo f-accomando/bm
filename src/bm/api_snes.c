@@ -13,6 +13,9 @@
  *   snes_sram([bytes])          -> the battery RAM as a string if it changed since the last call, else nil;
  *                                  with bytes: puts them in it
  *   snes_debug()                -> {pc, wai, stp, io = {..}, spc = "boot"/"run"/"halt", spc_pc, inidisp, tm, nmi, frames}
+ *
+ * The debug API (docs/api/snes.md, "Debug API"): snes_peek, snes_poke, snes_regs, snes_step, snes_break, snes_run. Only a breakpoint and a step enter the
+ * slow debug loop of the CPU; with none armed the machine runs the same loop as without the API.
  */
 #include "rt_internal.h"
 #include "audio/audio.h"
@@ -320,5 +323,81 @@ int l_snes_debug(lua_State *L)
     for (int i = 0; i < 12; i++)
         n += snprintf(tb + n, sizeof tb - (size_t)n, "%d:%02X ", (d.trace_s[i] >> 8) & 15, d.trace_s[i] & 255);
     lua_pushstring(L, tb); lua_setfield(L, -2, "trace_s");
+    return 1;
+}
+
+/* ------------------------------------------------------------------ the debug API */
+static uint32_t dbg_addr(lua_State *L, int i)
+{
+    const lua_Integer a = luaL_checkinteger(L, i);
+    if (a < 0 || a > 0xFFFFFF) luaL_argerror(L, i, "the address is 0 to 0xFFFFFF");
+    return (uint32_t)a;
+}
+
+/* snes_peek(addr24 [, len]) -> a byte, or with len a string of len bytes (up to 65536); no register side effect */
+int l_snes_peek(lua_State *L)
+{
+    const uint32_t a = dbg_addr(L, 1);
+    if (lua_isnoneornil(L, 2)) { lua_pushinteger(L, snes_peek8(a)); return 1; }
+    const lua_Integer n = luaL_checkinteger(L, 2);
+    if (n < 0 || n > 65536) return luaL_argerror(L, 2, "the length is 0 to 65536");
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    for (lua_Integer i = 0; i < n; i++) luaL_addchar(&b, (char)snes_peek8((a + (uint32_t)i) & 0xFFFFFF));
+    luaL_pushresult(&b);
+    return 1;
+}
+
+/* snes_poke(addr24, byte) */
+int l_snes_poke(lua_State *L)
+{
+    const uint32_t a = dbg_addr(L, 1);
+    snes_poke8(a, (uint8_t)luaL_checkinteger(L, 2));
+    return 0;
+}
+
+/* snes_regs() -> {a, x, y, s, d, db, pb, pc, p, e, pc24, cycle, frames, wai, stp} */
+int l_snes_regs(lua_State *L)
+{
+    snes_dbg_regs_t r;
+    snes_dbg_regs(&r);
+    lua_createtable(L, 0, 15);
+#define F(name, v) lua_pushinteger(L, (lua_Integer)(v)); lua_setfield(L, -2, name)
+    F("a", r.a); F("x", r.x); F("y", r.y); F("s", r.s); F("d", r.d); F("db", r.db); F("pb", r.pb); F("pc", r.pc); F("p", r.p);
+    F("pc24", ((uint32_t)r.pb << 16) | r.pc); F("cycle", r.cycle); F("frames", r.frames);
+#undef F
+    lua_pushboolean(L, r.e); lua_setfield(L, -2, "e");
+    lua_pushboolean(L, r.waiting); lua_setfield(L, -2, "wai");
+    lua_pushboolean(L, r.stopped); lua_setfield(L, -2, "stp");
+    return 1;
+}
+
+/* snes_step() -> pc24 after the instruction */
+int l_snes_step(lua_State *L)
+{
+    snes_dbg_step();
+    snes_dbg_regs_t r;
+    snes_dbg_regs(&r);
+    lua_pushinteger(L, ((lua_Integer)r.pb << 16) | r.pc);
+    return 1;
+}
+
+/* snes_break(addr24 | nil) -> the count of breakpoints; an address adds one (up to 8), nil clears all; nil and a text when the table is full */
+int l_snes_break(lua_State *L)
+{
+    int n;
+    if (lua_isnoneornil(L, 1)) n = snes_dbg_break(-1);
+    else n = snes_dbg_break((int32_t)dbg_addr(L, 1));
+    if (n < 0) { lua_pushnil(L); lua_pushstring(L, "8 breakpoints are armed"); return 2; }
+    lua_pushinteger(L, n);
+    return 1;
+}
+
+/* snes_run([pad1, pad2, render]) -> nil when the frame is done, or the pc24 of the breakpoint that stopped it (call it again to go on with the same frame) */
+int l_snes_run(lua_State *L)
+{
+    const int r = snes_frame_break((uint16_t)luaL_optinteger(L, 1, 0), (uint16_t)luaL_optinteger(L, 2, 0), lua_isnone(L, 3) || lua_toboolean(L, 3), 1);
+    if (r < 0) { lua_pushnil(L); return 1; }
+    lua_pushinteger(L, r);
     return 1;
 }

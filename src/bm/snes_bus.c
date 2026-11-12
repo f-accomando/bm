@@ -741,8 +741,10 @@ void snes_bus_reset(void)
     snes_map_build();
 }
 
+static int rs_line = -1, rs_ia = -1;              /* a frame that a breakpoint stopped: the line, and the IRQ clock still to come in it (-1 none) */
 void snes_reset(void)
 {
+    rs_line = -1; cpu_dbg_clear_stop();
     if (!S.rom) return;
     snes_bus_reset();
     spc_reset();
@@ -763,10 +765,16 @@ static uint32_t (*clock_fn)(void);
 void snes_set_clock(uint32_t (*f)(void)) { clock_fn = f; now_us = f; }
 void snes_set_meter(void (*r)(uint32_t *), void (*e)(int)) { meter_fn = r; meter_ev_fn = e; }
 
-void snes_frame(uint16_t pad1, uint16_t pad2, int render)
+static int cpu_pc24(void) { uint32_t pc; int fl; cpu_info(&pc, &fl); return (int)pc; }
+void snes_frame(uint16_t pad1, uint16_t pad2, int render) { snes_frame_break(pad1, pad2, render, 0); }
+
+/* One frame. brk 0: plain frame (a breakpoint does not stop it; a frame that a breakpoint stopped is finished). brk 1: the CPU runs on the debug path while a
+ * breakpoint is armed; it returns the 24-bit address of the instruction that it stopped on, and the next call goes on with the same frame. -1: the frame is done. */
+int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
 {
-    if (!S.rom) return;
-    const int timed = clock_fn && (S.frames % 7) == 0;   /* 7 and not 8: it must not stay on the frames a picture is (never) made in */
+    if (!S.rom) return -1;
+    const int resume = rs_line >= 0, dbg = brk && cpu_nbp > 0;
+    const int timed = clock_fn && !resume && !dbg && (S.frames % 7) == 0;   /* 7 and not 8: it must not stay on the frames a picture is (never) made in */
     now_us = timed ? clock_fn : NULL;
     uint32_t rc10 = 0;                             /* the cost of one clock read, in tenths of a microsecond */
     if (timed) { const uint32_t r0 = clock_fn(); for (int i = 0; i < 64; i++) (void)clock_fn(); rc10 = (clock_fn() - r0) * 10 / 65; }
@@ -781,7 +789,11 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     acc_dma = 0; acc_gsu = n_gsu_sync = 0; acc_spc = n_spc_sync = 0; acc_spc_m[0] = acc_spc_m[1] = acc_spc_m[2] = 0;
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
-    for (int L = 0; L < 262; L++) {
+    int cont = resume;                             /* the first line of a resumed frame: its start was done */
+    for (int L = resume ? rs_line : 0; L < 262; L++) {
+        int ia = -1;
+        if (cont) ia = rs_ia, rs_line = -1;
+        else {
         S.line = L;
         S.line_clk = 0;
         if (L == 0) {
@@ -801,7 +813,6 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
             }
         }
         /* IRQ: V, H or both */
-        int ia = -1;
         const int m = (S.nmitimen >> 4) & 3;
         const int vc = (L + 1) % 262;                                  /* the V counter: line 0 of this loop is the first picture line = V 1 (V 0 is the line before it, here L 261); the NMI is at V 225 */
         if (m == 1) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
@@ -809,12 +820,26 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
         else if (m == 3 && vc == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
         /* The line: the CPU runs the whole line. The sound CPU and the Super FX do not run here: each follows the CPU when the CPU touches it (spc_sync,
          * gsu_sync), and catches up now and then (below). The IRQ fires when the clock passes its time. */
+        }
         const int end = LINE_CLK;
+        if (!cont) {
         S.line_clk = 0;
         if (ia >= end) ia = -1;
+        }
+        cont = 0;
         const uint32_t sp0 = acc_spc, sm0[3] = { acc_spc_m[0], acc_spc_m[1], acc_spc_m[2] }, gs0 = acc_gsu;
-        if (ia >= 0) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; }
-        n_instr += (uint32_t)cpu_run(end);
+        if (dbg) {
+            if (ia >= 0) {
+                n_instr += (uint32_t)cpu_run_dbg(ia, 0);
+                if (cpu_dbg_hit) { rs_line = L; rs_ia = ia; return cpu_pc24(); }
+                S.irq_pending = 1; S.timeup = 1;
+            }
+            n_instr += (uint32_t)cpu_run_dbg(end, 0);
+            if (cpu_dbg_hit) { rs_line = L; rs_ia = -1; return cpu_pc24(); }
+        } else {
+            if (ia >= 0) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; }
+            n_instr += (uint32_t)cpu_run(end);
+        }
         S.line_clk = 0; snes_clk -= end;
         if (S.sa1) sa1_line_end(L);
         if (S.gsu && gsu_go() && (cpu_waiting || (L + 1) % GSU_LAG_LINES == 0 || L == 261))
@@ -878,6 +903,7 @@ void snes_frame(uint16_t pad1, uint16_t pad2, int render)
     }
     avg_gsu_i = (uint32_t)((int32_t)avg_gsu_i + ((int32_t)(gsu_instr_count() - gsu_i0) - (int32_t)avg_gsu_i) / 8);
     avg_instr = (uint32_t)((int32_t)avg_instr + ((int32_t)n_instr - (int32_t)avg_instr) / 8);   /* the instructions are counted in every frame */
+    return -1;
 }
 
 /* ------------------------------------------------------------------ the loader and the small API */
@@ -1006,4 +1032,76 @@ void snes_debug(snes_debug_t *d)
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;
     d->bgmode = S.bgmode; d->obsel = S.obsel; d->ts = S.ts;
     for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i] & 0x3FF; d->vofs[i] = S.vofs[i]; }
+}
+
+/* ------------------------------------------------------------------ the debug API of the carts (docs/api/snes.md) */
+/* One byte as the CPU would read it, with no side effect: no latch steps, no flag clears, no clock. Plain memory is read from the map; the registers return the
+ * byte that the next read would return; the cart chips and what is not mapped read as 0. */
+uint8_t snes_peek8(uint32_t a)
+{
+    a &= 0xFFFFFF;
+    if (!S.rom) return 0;
+    const unsigned bank = a >> 16, off = a & 0xFFFF;
+    const uint8_t *p = map_ptr(a);
+    if (p) return *p;
+    if ((bank & 0x7F) >= 0x40) return 0;
+    if (off >= 0x2100 && off < 0x2200) {
+        switch (off) {
+        case 0x2134: return (uint8_t)S.mpy;
+        case 0x2135: return (uint8_t)(S.mpy >> 8);
+        case 0x2136: return (uint8_t)(S.mpy >> 16);
+        case 0x2138: return S.oamaddr >= 0x200 ? S.oam[0x200 + (S.oamaddr & 0x1F)] : S.oam[S.oamaddr];
+        case 0x2139: return (uint8_t)S.vmpre;
+        case 0x213A: return (uint8_t)(S.vmpre >> 8);
+        case 0x213B: return S.cgram[S.cgadd * 2 + S.cgflip];
+        case 0x213C: return S.ophct_flip ? (uint8_t)(S.hcount >> 8 & 1) : (uint8_t)S.hcount;     /* the byte of the next read */
+        case 0x213D: return S.opvct_flip ? (uint8_t)(S.vcount >> 8 & 1) : (uint8_t)S.vcount;
+        case 0x213E: return 0x01;
+        case 0x213F: return 0x03;
+        case 0x2180: return S.wram[S.wmadd & 0x1FFFF];
+        default: return 0;
+        }
+    }
+    if (off >= 0x2140 && off < 0x2180) return 0;                       /* the sound ports: a read syncs the sound CPU, so peek does not read them */
+    if (off == 0x4016) return (uint8_t)(S.joyshift1 >> 15 & 1);
+    if (off == 0x4017) return (uint8_t)((S.joyshift2 >> 15 & 1) | 0x1C);
+    if (off == 0x4210) return (uint8_t)((S.nmiflag << 7) | 0x02);      /* the flag stays set */
+    if (off == 0x4211) return (uint8_t)(S.timeup << 7);
+    if (off >= 0x4200 && off < 0x4380) return cpu_reg_read((uint16_t)off);
+    return 0;
+}
+
+/* One byte written as the CPU would write it (a register write has its effect), with no clock. A write to the ROM does nothing. */
+void snes_poke8(uint32_t a, uint8_t v)
+{
+    if (!S.rom) return;
+    raw_write(a & 0xFFFFFF, v);
+}
+
+/* The registers of the S-CPU, and the position in master clocks since the start of the machine. */
+void snes_dbg_regs(snes_dbg_regs_t *r)
+{
+    cpu_regs_t c;
+    cpu_get(&c);
+    r->a = c.a; r->x = c.x; r->y = c.y; r->s = c.s; r->d = c.d; r->pc = c.pc; r->p = c.p; r->e = c.e; r->pb = c.pb; r->db = c.db;
+    r->frames = S.frames;
+    r->cycle = (uint64_t)S.frames * 262u * LINE_CLK + (uint64_t)(rs_line >= 0 ? (unsigned)S.line * LINE_CLK : 0) + (uint64_t)(snes_clk > 0 ? snes_clk : 0);
+    r->waiting = cpu_waiting; r->stopped = cpu_stopped;
+}
+
+/* One instruction (an interrupt that is pending is taken first). The line and the frame do not advance: the clock counts on; a frame that follows ends the line. */
+void snes_dbg_step(void)
+{
+    if (!S.rom) return;
+    cpu_run_dbg(0x7FFFFFFF, 1);
+}
+
+/* Breakpoints: addr24 adds one (up to CPU_BP_MAX); -1 clears all. Returns how many are armed, or -1 when the table is full. */
+int snes_dbg_break(int32_t addr)
+{
+    if (addr < 0) { cpu_nbp = 0; cpu_dbg_clear_stop(); return 0; }
+    for (int i = 0; i < cpu_nbp; i++) if (cpu_bp[i] == (uint32_t)(addr & 0xFFFFFF)) return cpu_nbp;
+    if (cpu_nbp >= CPU_BP_MAX) return -1;
+    cpu_bp[cpu_nbp++] = (uint32_t)addr & 0xFFFFFF;
+    return cpu_nbp;
 }

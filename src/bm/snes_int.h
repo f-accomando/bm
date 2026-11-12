@@ -137,6 +137,11 @@ int cpu_run(int limit);                         /* runs instructions while snes_
 void cpu_info(uint32_t *pc, int *flags);
 extern int cpu_waiting, cpu_stopped;
 typedef struct cpu_regs_s { uint16_t a, x, y, s, d, pc; uint8_t p; int e; uint8_t pb, db; } cpu_regs_t;
+#define CPU_BP_MAX 8
+extern uint32_t cpu_bp[CPU_BP_MAX];             /* debug API: the breakpoints (24-bit addresses) */
+extern int cpu_nbp, cpu_dbg_hit;                /* how many are armed; the last cpu_run_dbg stopped on one */
+int cpu_run_dbg(int limit, int single);         /* the slow run path: breakpoints are checked; single = run one instruction (no breakpoint check); returns how many */
+void cpu_dbg_clear_stop(void);
 void cpu_get(cpu_regs_t *r);                    /* for the tests */
 void cpu_set(const cpu_regs_t *r);                  /* for the tests */
 

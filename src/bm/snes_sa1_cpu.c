@@ -17,6 +17,7 @@ uint8_t sa1_bus_read(uint32_t a);                   /* the slow bus of the SA-1 
 void sa1_bus_write(uint32_t a, uint8_t v);
 
 #undef SNES_TRACE
+#define SNES_NO_DBG 1                               /* the debug run path is for the S-CPU only */
 #define SNES_CPU_C 1
 #define S sa1_s
 #define snes_rtab sa1_rtab

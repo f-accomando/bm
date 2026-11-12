@@ -387,6 +387,12 @@ $(BUILD)/host/snes_gsu_test: tests/snes/gsu_test.c $(SNES_PPU_SRCS) src/bm/snes_
 $(BUILD)/host/snes_sa1_test: tests/snes/sa1_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes_sa1.h
 	@mkdir -p $(BUILD)/host
 	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/sa1_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+# The debug API (docs/api/snes.md): peek, poke, regs, step, breakpoints on a made-up ROM (tests/snes/debug_test.c).
+$(BUILD)/host/snes_debug_test: tests/snes/debug_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c src/bm/snes_int.h src/bm/snes.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc/bm -o $@ tests/snes/debug_test.c $(SNES_PPU_SRCS) src/bm/snes_ppu.c -lm
+test-snes-debug: $(BUILD)/host/snes_debug_test
+	$<
 test-snes-sa1: $(BUILD)/host/snes_sa1_test
 	$<
 test-snes-gsu: $(BUILD)/host/snes_gsu_test
@@ -425,7 +431,7 @@ test-snes-dsp77-arm: tests/snes/dsp77_test.c src/bm/snes_dsp77.c src/bm/snes_dsp
 # at a time against the C reference (tests/snes/cpu_diff.c). The PC build does not use the assembly.
 SNES_ARM_CC := arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -mfloat-abi=soft -O2 -std=gnu11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Isrc/bm -Itests/snes -w
 SNES_ARM_SRCS := src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c src/bm/snes_gsu.c src/bm/snes_dsp77.c tests/snes/arm_mmu.c
-SNES_ARM_REF := -DSNES_CPU_C -Dcpu_run=ref_run -Dcpu_step=ref_step -Dcpu_reset=ref_reset -Dcpu_get=ref_get -Dcpu_set=ref_set -Dcpu_info=ref_info -Dcpu_waiting=ref_waiting -Dcpu_stopped=ref_stopped
+SNES_ARM_REF := -DSNES_CPU_C -DSNES_NO_DBG -Dcpu_run=ref_run -Dcpu_step=ref_step -Dcpu_reset=ref_reset -Dcpu_get=ref_get -Dcpu_set=ref_set -Dcpu_info=ref_info -Dcpu_waiting=ref_waiting -Dcpu_stopped=ref_stopped
 SNES_ARM_RUN := qemu-system-arm -M versatilepb -cpu arm1176 -m 128 -semihosting -nographic -audio none -kernel
 test-snes-cpu-arm: tests/snes/cpu_golden_arm.c tests/snes/cpu_diff.c src/bm/snes_cpu.c src/bm/snes_cpu_arm.S src/bm/snes_int.h
 	@mkdir -p $(BUILD)/arm

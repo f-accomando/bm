@@ -2275,6 +2275,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet }, { "snes_tiles", l_snes_tiles },
     { "snes_info", l_snes_info }, { "snes_dsp_firmware", l_snes_dsp_firmware }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
+    { "snes_peek", l_snes_peek }, { "snes_poke", l_snes_poke }, { "snes_regs", l_snes_regs }, { "snes_step", l_snes_step }, { "snes_break", l_snes_break }, { "snes_run", l_snes_run },
     { "nes_load", l_nes_load }, { "nes_reset", l_nes_reset }, { "nes_frame", l_nes_frame }, { "nes_draw", l_nes_draw }, { "nes_to_sheet", l_nes_to_sheet },
     { "nes_info", l_nes_info }, { "nes_sram", l_nes_sram }, { "nes_debug", l_nes_debug },
     { "s16_init", l_s16_init }, { "s16_mode", l_s16_mode }, { "s16_bg", l_s16_bg }, { "s16_scroll", l_s16_scroll },

@@ -636,3 +636,50 @@ int cpu_run(int limit)
 #endif
 
 void cpu_step(void) { cpu_run(snes_clk + 1); }          /* one instruction: it adds at least 6 clocks */
+
+#ifndef SNES_NO_DBG
+/* The debug run path (the debug API of the carts, docs/api/snes.md). It is a separate loop, and snes_frame enters it only while a breakpoint is armed
+ * (cpu_nbp > 0) and when a cart steps one instruction. The hot loops above have no check for it, so with debugging off they cost nothing.
+ * The loop works on the same registers C, in C on every target (it calls exec_op, which the assembly loop calls too). */
+uint32_t cpu_bp[CPU_BP_MAX];                    /* the breakpoints: 24-bit addresses (PB:PC of an instruction) */
+int cpu_nbp;                                    /* how many are armed */
+int cpu_dbg_hit;                                /* the last cpu_run_dbg stopped on a breakpoint */
+static int bp_skip;                             /* the next run starts on a breakpoint: execute that instruction first */
+
+int cpu_run_dbg(int limit, int single)
+{
+    cpu_t c = C, *cu = &c;
+    int n = 0, skip = bp_skip;
+    bp_skip = 0;
+    cpu_dbg_hit = 0;
+    cu->clk = snes_clk;
+    while (cu->clk < limit) {
+        S.line_clk = cu->clk;
+        if (S.nmi_pending || (S.irq_pending && !cu->i)) {
+            uint16_t ivn = 0xFFEE, ive = 0xFFFE;
+            if (S.nmi_pending) { S.nmi_pending = 0; ivn = 0xFFEA; ive = 0xFFFA; }
+            interrupt(cu, ivn, ive, 0);
+        }
+        if (cpu_waiting) {
+            if (S.irq_pending) cpu_waiting = 0;
+            else { cu->clk += 8; n++; if (single) break; continue; }
+        }
+        if (cpu_stopped) { cu->clk += 8; n++; if (single) break; continue; }
+        if (!single && !skip) {
+            const uint32_t pc = cu->pb | cu->pc;
+            int hit = 0;
+            for (int i = 0; i < cpu_nbp; i++) if (cpu_bp[i] == pc) hit = 1;
+            if (hit) { cpu_dbg_hit = 1; bp_skip = 1; break; }
+        }
+        skip = 0;
+        n++;
+        cu->clk += 6;
+        exec_op(cu, fetch8(cu));
+        if (single) break;
+    }
+    C = c;
+    snes_clk = cu->clk;
+    return n;
+}
+void cpu_dbg_clear_stop(void) { bp_skip = 0; }
+#endif

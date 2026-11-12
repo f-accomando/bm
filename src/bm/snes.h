@@ -46,6 +46,16 @@ void snes_reset(void);
 int snes_dsp_firmware(const uint8_t *a, size_t na, const uint8_t *b, size_t nb, const char **why);
 /* one frame with the two pads; the picture is ready after it */
 void snes_frame(uint16_t pad1, uint16_t pad2, int render);   /* render 0: the picture is not drawn (a frame that is skipped) */
+/* The debug API (docs/api/snes.md). snes_frame_break is snes_frame that can stop on a breakpoint (brk 1): it returns the 24-bit address of the instruction that
+ * it stopped on (the next call goes on with the same frame), or -1 when the frame is done. With no breakpoint armed the hot CPU loop is the same as without
+ * the API: only a breakpoint (and a step) enters the slow debug loop. */
+int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk);
+uint8_t snes_peek8(uint32_t addr24);            /* a read with no side effect (a latch or a flag is not stepped) */
+void snes_poke8(uint32_t addr24, uint8_t v);    /* a write that works as a CPU write, with no clock */
+typedef struct { uint16_t a, x, y, s, d, pc; uint8_t p, pb, db; int e; uint32_t frames; uint64_t cycle; int waiting, stopped; } snes_dbg_regs_t;
+void snes_dbg_regs(snes_dbg_regs_t *r);
+void snes_dbg_step(void);
+int snes_dbg_break(int32_t addr24);             /* adds a breakpoint; -1 clears them all; returns the count, or -1 when full */
 /* the picture: SNES_W x lines of RGB565 (lines is 224 or 239) */
 const uint16_t *snes_picture(int *lines);
 const snes_info_t *snes_info(void);
