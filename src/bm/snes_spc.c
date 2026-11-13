@@ -9,9 +9,10 @@
 
 #include <string.h>
 
-/* The Pi Zero W (ARMv6) has a 16 KB instruction cache that the CPU loop, the PPU and the S-DSP share. At -O2 the opcode switch (step) is 12 KB; at -Os it is 4.8 KB
- * and runs about 12% more ARM instructions, a small part of a frame (docs/progress/snes-cpu.md, "I-cache work"). Only the 32-bit ARM build is changed. */
-#if defined(__arm__) && !defined(__aarch64__) && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) && !defined(SNES_SPC_O2)
+/* SNES_SPC_OS (make SNES_SPC_OS=1) builds this file at -Os on the 32-bit ARM build: `step` is 4.8 KB instead of 12 KB and runs about 12% more ARM instructions.
+ * In the PC model of the instruction cache it saved misses; on the Pi (SMW2, kernel 123) the SPC700 misses rose by 46%, so it is off by default
+ * (docs/progress/snes-icache.md, "The Pi result"). */
+#if defined(__arm__) && !defined(__aarch64__) && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) && defined(SNES_SPC_OS)
 #pragma GCC optimize("Os")
 #endif
 

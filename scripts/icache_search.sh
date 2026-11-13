@@ -1,7 +1,7 @@
 #!/bin/bash
 # icache_search.sh TAG [extra icache_sim.py arguments]
 # The whole I-cache measure for one build of the SNES core, on Linux or in WSL (arm-none-eabi-gcc, qemu-system-arm, gcc, python3):
-#   1. plays SMW and SMW2 from the ROMs in $SFC (default ~/Desktop/sfc or /mnt/c/Users/*/Desktop/sfc) and records the instruction fetches of 10 frames of each,
+#   1. plays SMW and SMW2 from the ROMs in $SFC (default the Desktop/snes (or sfc) folder) and records the instruction fetches of 10 frames of each,
 #   2. lists the executed sections, takes the SNES ones as the movable set,
 #   3. searches the order and the gaps of the movable sections (tests/snes/icache_layout.c) and writes the result to build/icache_$TAG/best.ld.
 # The numbers: misses a frame of the model (see docs/progress/snes-cpu.md, "I-cache work"); "after the search" is what the searched layout gives on the
@@ -10,7 +10,8 @@
 set -e
 cd "$(dirname "$0")/.."
 TAG=$1; shift
-SFC=${SFC:-$(ls -d /mnt/c/Users/*/Desktop/sfc ~/Desktop/sfc 2>/dev/null | head -1)}
+SFC=${SFC:-$(ls -d /mnt/c/Users/*/Desktop/snes ~/Desktop/snes /mnt/c/Users/*/Desktop/sfc ~/Desktop/sfc 2>/dev/null | head -1)}
+mkdir -p build
 OUT=build/icache_$TAG
 python3 scripts/icache_sim.py "$SFC/smw.sfc" --warm 900 --frames 10 --pad tests/snes/icache_pad_smw.txt --out ${OUT}_smw "$@" > ${OUT}_smw.log 2>&1 &
 python3 scripts/icache_sim.py "$SFC/smw2.smc" --warm 1200 --frames 10 --pad tests/snes/icache_pad_smw2.txt --out ${OUT}_smw2 "$@" > ${OUT}_smw2.log 2>&1 &

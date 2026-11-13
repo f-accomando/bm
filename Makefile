@@ -1146,10 +1146,21 @@ $(BUILD)/l/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(LCFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld src/bm/snes_hot.ld
+# SNES instruction-cache switches (docs/progress/snes-icache.md). SNES_HOT=0: the SNES code stays where the linker puts it (no block, src/bm/snes_hot.ld not used).
+# SNES_SPC_OS=1: the SPC700 file is built at -Os. After a change of either, delete build/k/src/bm/snes_spc.c.o (the flag is not a prerequisite).
+SNES_HOT ?= 1
+SNES_SPC_OS ?= 0
+ifeq ($(SNES_SPC_OS),1)
+$(BUILD)/k/src/bm/snes_spc.c.o: CFLAGS += -DSNES_SPC_OS
+endif
+$(BUILD)/snes_hot_sel.ld: FORCE
+	@mkdir -p $(BUILD)
+	@if [ "$(SNES_HOT)" = 1 ]; then cp src/bm/snes_hot.ld $@.new; else echo "/* SNES_HOT=0: no hot block */" > $@.new; fi; if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
+
+$(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld $(BUILD)/snes_hot_sel.ld
 	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
 
-$(BUILD)/kernel7.elf: $(KERNEL7_OBJS) linker.ld
+$(BUILD)/kernel7.elf: $(KERNEL7_OBJS) linker.ld $(BUILD)/snes_hot_sel.ld
 	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel7.map $(KERNEL7_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/chainloader.elf: $(LOADER_OBJS) chainloader/linker.ld
@@ -1504,7 +1515,7 @@ market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 # start.S and vectors.S in QEMU's virt machine with the virtualization
 # extensions (raspi2b starts in SVC), tests/boot/hyp_main.c on its PL011
 HYP_DIR := $(BUILD)/hyp
-$(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o $(BUILD)/k7/src/kernel/vectors.S.o linker.ld
+$(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o $(BUILD)/k7/src/kernel/vectors.S.o linker.ld $(BUILD)/snes_hot_sel.ld
 	@mkdir -p $(dir $@)
 	sed 's/^    \. = 0x8000;/    . = 0x40008000;/' linker.ld > $(HYP_DIR)/linker.ld
 	$(CC) $(ARCH7) -DBM_ZERO2 -O2 -Wall -Wextra -Isrc/kernel -ffreestanding -nostdlib -nostartfiles \

@@ -4,9 +4,43 @@ Part of [snes-cpu.md](snes-cpu.md).
 
 ## I-cache work
 
-Branch `claude/snes-icache`, 2026-11-13. Aim: fewer misses in the 16 KB instruction cache (4 ways, 32-byte lines) of the Pi Zero W, with no change of behaviour. Nothing here is measured on the Pi: the figures come from a model on the PC (below). The CPU loop, the SPC700, the S-DSP and the PPU run in turn in every line and push each other out of the cache. One miss costs about 0.06 us.
+Branch `claude/snes-icache`, 2026-11-13. Aim: fewer misses in the 16 KB instruction cache (4 ways, 32-byte lines) of the Pi Zero W, with no change of behaviour. The stage figures below come from a model on the PC. The first Pi read does not agree with it: see "The Pi result". The CPU loop, the SPC700, the S-DSP and the PPU run in turn in every line and push each other out of the cache. One miss costs about 0.06 us.
 
-### The footprint (ARM build, `-O2`, before the work)
+### The Pi result (kernel 123, 2026-11-13): the PC model did not carry over
+
+Status: the first version of this work (stages 1 to 3 below, bm-core `612e494a`) gave no stable gain on the Pi Zero W. Read the stage table as what the PC model said, not as what the Pi does.
+
+SMW2, same scene `m1/15/02` (gameplay), kernel of before this work (`pi_run4`) against kernel 123 (`pi_run6`):
+
+| Field | Before | After | Change |
+|---|---|---|---|
+| fps | 47 | 48 | |
+| `us frame` | 12061 | 12435 | +3% |
+| `us ppu` | 10080 | 9784 | -3% |
+| `us spc` | 3024 | 3068 | +1% |
+| `us cpu` | 2037 | 2131 | +5% |
+| `icache miss: cpu` | 55963 | 53839 | -4% (the model said about -36%) |
+| `icache miss: spc` | 16247 | 23793 | +46% (worse) |
+
+What this says:
+- The model counts 2000 to 4000 misses a frame in the CPU and SPC parts of SMW2. The Pi counts 56000 and 16000. The Pi misses are not the capacity and conflict misses between the SNES functions that the model measures. A better order of those functions moves the Pi counters by a few percent at most. The cause of the other 90% is not found. Candidates, none tested: fetches after a wrongly predicted indirect jump (the CPU loop dispatches with `ldr pc`), interrupts and other kernel code that run between the parts, a cache smaller than 16 KB in practice, the replacement policy of the ARM1176.
+- The SPC part got worse (+46% misses) although `step` is 2.5 times smaller. Two changes touch it: the `-Os` build of `snes_spc.c` and the new place of the SPC700 functions in the block. The Pi data cannot tell them apart. `-Os` code has more calls and jumps and 12% more instructions; the block puts `step_c`, `dsp_tick` and `voice_run` at addresses that the search chose for the model, not for the Pi.
+- The `ppu` gain (-3%) is the only one that is near what the model promised, and it comes at least partly from `pfill` (fewer instructions), not from the layout.
+
+Decision (this branch, `claude/snes-icache-pi`): the SPC700 file is back at `-O2` (`SNES_SPC_OS=1` builds the `-Os` version). The order of the block was searched again on the `-O2` code. Both changes are guesses until the Pi has read them. To find which of the three things matters, build the four images and read the same scene:
+
+| Image | Command | What it shows |
+|---|---|---|
+| A | `make build/kernel.img` | the default: block, SPC700 at `-O2` |
+| B | `make build/kernel.img SNES_SPC_OS=1` (delete `build/k/src/bm/snes_spc.c.o` first) | the first version, the one that was read |
+| C | `make build/kernel.img SNES_HOT=0` | no block; `exec_fast` and `pfill` stay |
+| D | `SNES_HOT=0` and `git revert` of `exec_fast` | only if C is also worse than the kernel of before this work |
+
+Sizes of the default image (A): block from `__snes_hot_start` to `__snes_hot_end` 67 KB with the gaps (67 sections), `step` 12 KB. In the model this image is not better than the first version: the search found 60154 misses on the subset (SMW + SMW2), the first version 49228 with the SPC700 at `-Os`. That is the price of the revert; the Pi had said the other way.
+
+Keep the one with the best `us frame` in 2 minutes of the same scene. The miss counters alone are not a reason to keep a change: `us` is.
+
+## The footprint (ARM build, `-O2`, before the work)
 
 | Code | Bytes | Remark |
 |---|---|---|
@@ -18,13 +52,13 @@ Branch `claude/snes-icache`, 2026-11-13. Aim: fewer misses in the 16 KB instruct
 | bus (`raw_read`, `raw_write`, `snes_ppu_write`, `snes_frame_break`, ...) | about 11000 | with the load, debug and DMA code between the hot functions |
 | libc `memset` | 256 | the PPU calls it about 15 times a line, about 170 ARM instructions for 256 bytes |
 
-The hot code is about 45 KB, three times the cache. The address of a function modulo 4 KB decides which functions fight for the same sets.
+The hot code is about 45 KB, three times the cache (PC model). The address of a function modulo 4 KB decides which functions fight for the same sets.
 
 ### The measure (PC and QEMU)
 
 `python3 scripts/icache_sim.py ROM` (Linux or WSL; needs `arm-none-eabi-gcc`, `qemu-system-arm`, `gcc`) builds the SNES core with `tests/snes/icache_run.c`, plays the ROM in QEMU, switches the trace of every fetched instruction on after the warm-up, and sends it to `tests/snes/icache_sim.c`, a model of the cache (round-robin replacement). It prints the misses a frame by area and the worst functions. `scripts/icache_search.sh TAG` does SMW (900 frames of warm-up) and SMW2 (1200 frames) with 10 traced frames each, then searches the layout. `tests/snes/icache_layout.c` moves the sections inside a recorded trace and counts again, so an order is searched in minutes (simulated annealing over the order and the gaps of the sections).
 
-Limits. The model has no prefetch and no branch predictor. It counts 3 to 10 times fewer misses than the Pi log (SMW: model 9300 in all, Pi 24000 in the CPU part alone). The Pi counter probably also counts the fetches that follow a wrongly predicted indirect jump (the CPU loop dispatches with `ldr pc`). Use the model to compare two builds. The ROMs are read from your disk (folder `SFC=`). The scene is the title and the first level with a held button, not a full play. A relink of the same code in another object order moved the model by 10%, so a gain below that is noise.
+Limits (the Pi read proved them important: the model counts the PC cache, not the ARM1176). The model has no prefetch and no branch predictor. It counts 3 to 10 times fewer misses than the Pi log (SMW: model 9300 in all, Pi 24000 in the CPU part alone). The Pi counter probably also counts the fetches that follow a wrongly predicted indirect jump (the CPU loop dispatches with `ldr pc`). Use the model to compare two builds. The ROMs are read from your disk (folder `SFC=`). The scene is the title and the first level with a held button, not a full play. A relink of the same code in another object order moved the model by 10%, so a gain below that is noise.
 
 ### Stages
 
@@ -44,25 +78,14 @@ Checks done: `make test-snes`, `test-snes-cpu` (golden hashes), `test-snes-cpu-a
 
 ### What to read on the Pi
 
-Build the image of this branch (`make build/kernel.img`, then `./easy_install.sh`). Play SMW and SMW2 (Yoshi's Island) for 2 minutes each with the logger. In the log, read the fields `cpu`, `spc`, `ppu` of the line `us ...` and the numbers `icache miss: cpu N spc N ppu N` of the line `ppu us: ...`. Read the same fields in the last log of the kernel before this branch (`reports/`). Compare the median of the lines `m1/15/02` (SMW level) and of the lines with `gins` (SMW2).
-
-| Game | Field | Before (earlier plays) | Expected after |
-|---|---|---|---|
-| SMW | `icache miss: cpu` | about 24000 | 12000 to 17000 |
-| SMW | `icache miss: spc` | about 13000 | 7000 to 10000 |
-| SMW | `icache miss: ppu` | not noted | a fifth to a third lower |
-| SMW | `us cpu` / `us spc` / `us ppu` | 3.3 / 1.8 / 9.1 ms | cpu 0.2 to 0.5 ms less, spc equal or 0.2 ms less, ppu 0.3 to 0.6 ms less |
-| SMW2 | `icache miss: cpu` | about 41000 (peak 75000) | 22000 to 30000 |
-| SMW2 | `icache miss: spc` | about 15000 | 8000 to 11000 |
-| both | `ins` (65816 instructions) | unchanged | unchanged (the work is the same) |
-
-The "expected" column is an estimate from the model (a third to a half fewer misses). If the Pi shows less, the likely cause is the wrong-path fetches: no layout removes them. The next step is then fewer indirect jumps in the CPU loop, not more ordering.
+Build the four images of "The Pi result" and play SMW and SMW2 (Yoshi's Island) for 2 minutes each with the logger. Read `us frame`, `cpu`, `spc`, `ppu` and `icache miss: cpu N spc N ppu N` (line `ppu us: ...`), median of the lines `m1/15/02` (SMW level) and of the lines with `gins` (SMW2). Reference (kernel before this work, SMW2 `m1/15/02`): frame 12061 us, cpu 2037, spc 3024, ppu 10080, misses cpu 55963, spc 16247. Reference of the first version (kernel 123): frame 12435, cpu 2131, spc 3068, ppu 9784, misses cpu 53839, spc 23793. The earlier expectation of this section (a third to a half fewer misses) was wrong and is removed.
 
 ### Rules (do not break)
 
-- `src/bm/snes_hot.ld` is made by `scripts/icache_search.sh` (`build/icache_TAG/best.ld`; keep the header comment). Do not reorder it by hand. After a change that moves the size of a hot section (`step_c`, `ppu_line`, `draw_bg`, `voice_run`, `snes_cpu_hot`, the bus functions), run the search again. The old order is then only a guess. A name in the file that no longer exists is harmless: the section goes to the normal place.
+- `src/bm/snes_hot.ld` is made by `scripts/icache_search.sh` (`build/icache_TAG/best.ld`; keep the header comment). Do not reorder it by hand. After a change that moves the size of a hot section (`step`, `step_c`, `ppu_line`, `draw_bg`, `voice_run`, `snes_cpu_hot`, the bus functions), run the search again. The old order is then only a guess. A name in the file that no longer exists is harmless: the section goes to the normal place.
 - A new hot function needs a line in the file and a new search. Without it the function lands outside the block.
-- `snes_spc.c` has `#pragma GCC optimize("Os")` on the 32-bit ARM build. A change to the SPC700 must keep the hash of `icache_run` equal in both builds (`--filefl snes_spc=-DSNES_SPC_O2`).
+- `snes_spc.c` is built at `-Os` only with `SNES_SPC_OS=1` (off by default: the first Pi read was worse). A change to the SPC700 must keep the hash of `icache_run` equal in both builds (`--filefl snes_spc=-DSNES_SPC_OS` builds the `-Os` one).
+- No layout or code-size change for the instruction cache is accepted on the PC model alone. It needs an A/B read of `us frame` on the Pi in the same scene (`SNES_HOT=0` and `SNES_SPC_OS` give the images). The model has been wrong by a factor of 10 on the miss count and by the sign on the SPC700.
 - `FAST_OPS` in `snes_cpu.c` holds the cases of `exec_op` that `exec_fast` also runs. Add an opcode only when a trace of a game shows that the assembly loop hands it to C often.
 - The run order is not changed by this work: CPU, SPC700 and PPU in the same line, the lazy sound sync, `gsu_sync_pos`, `dsp_sync_pos`, the HDMA and IRQ times.
 
