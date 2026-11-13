@@ -13,7 +13,7 @@ SECTIONS
 
     .text : {
         KEEP(*(.text.boot))
-        INCLUDE build/snes_hot_sel.ld
+        INCLUDE snes_hot_sel.ld
         *(.text .text.*)
         __text_end = .;     /* the crash screen's return addresses */
     }

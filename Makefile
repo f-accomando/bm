@@ -1123,10 +1123,10 @@ $(BUILD)/snes_hot_sel.ld: FORCE
 	@if [ "$(SNES_HOT)" = 1 ]; then cp core/src/bm/snes_hot.ld $@.new; else echo "/* SNES_HOT=0: no hot block */" > $@.new; fi; if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) core/linker.ld $(BUILD)/snes_hot_sel.ld
-	$(CC) $(LDFLAGS) -T core/linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) -Wl,-L$(BUILD) -T core/linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/kernel7.elf: $(KERNEL7_OBJS) core/linker.ld $(BUILD)/snes_hot_sel.ld
-	$(CC) $(LDFLAGS) -T core/linker.ld -Wl,-Map=$(BUILD)/kernel7.map $(KERNEL7_OBJS) $(LDLIBS) -o $@
+	$(CC) $(LDFLAGS) -Wl,-L$(BUILD) -T core/linker.ld -Wl,-Map=$(BUILD)/kernel7.map $(KERNEL7_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/chainloader.elf: $(LOADER_OBJS) core/chainloader/linker.ld
 	$(CC) $(LDFLAGS) -T core/chainloader/linker.ld -Wl,-Map=$(BUILD)/chainloader.map $(LOADER_OBJS) $(LLDLIBS) -o $@
@@ -1471,9 +1471,9 @@ market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 HYP_DIR := $(BUILD)/hyp
 $(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/core/src/boot/start.S.o $(BUILD)/k7/core/src/kernel/vectors.S.o core/linker.ld $(BUILD)/snes_hot_sel.ld
 	@mkdir -p $(dir $@)
-	sed 's/^    \. = 0x8000;/    . = 0x40008000;/' core/linker.ld > $(HYP_DIR)/core/linker.ld
+	sed 's/^    \. = 0x8000;/    . = 0x40008000;/' core/linker.ld > $(HYP_DIR)/linker.ld
 	$(CC) $(ARCH7) -DBM_ZERO2 -O2 -Wall -Wextra -Icore/src/kernel -ffreestanding -nostdlib -nostartfiles \
-	    -T $(HYP_DIR)/core/linker.ld tests/boot/hyp_main.c $(BUILD)/k7/core/src/boot/start.S.o \
+	    -Wl,-L$(BUILD) -T $(HYP_DIR)/linker.ld tests/boot/hyp_main.c $(BUILD)/k7/core/src/boot/start.S.o \
 	    $(BUILD)/k7/core/src/kernel/vectors.S.o -lgcc -o $@
 
 test-hyp: $(HYP_DIR)/hyp.elf
