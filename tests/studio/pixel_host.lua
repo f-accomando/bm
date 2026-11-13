@@ -154,7 +154,7 @@ E.require = function(name)
     return bmlib
   end
   if name == "snesgfx" then              -- the SNES converters (the build puts them into the cart)
-    return assert(loadfile(ROOT .. "/carts/pixel/src/snesgfx.lua", "t", E))()
+    return assert(loadfile(ROOT .. "/carts/shared/snesgfx.lua", "t", E))()
   end
   assert(name == "bmui", "require: only bmui, bmlib and snesgfx here")
   bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)

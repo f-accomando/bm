@@ -1620,10 +1620,10 @@ end
 ----------------------------------------------------------------- SNES page
 -- F7: the sheet as SNES graphics. Depth 2/4/8 bpp, the sprite sizes, the sub-palettes (BGR555, colour 0
 -- transparent), the sub-palette of each tile, an OAM preview, PNG import with the quantiser, and the export
--- of .chr and .pal to /docs. The converters are in carts/pixel/src/snesgfx.lua (no UI; tests/snes/snesgfx_test.lua).
+-- of .chr and .pal to /docs. The converters are in carts/shared/snesgfx.lua (no UI; tests/snes/snesgfx_test.lua).
 do
 
-local G                                      -- snesgfx: loaded at the first use (carts/pixel/src/snesgfx.lua)
+local G                                      -- snesgfx: loaded at the first use (carts/shared/snesgfx.lua)
 local PALCOL = { 0xE04040, 0x40C040, 0x4080F0, 0xE0C040, 0xC050D0, 0x40C0C0, 0xF08030, 0xA0A0A0 }
 local SV_X, SV_Y, SV_W, SV_H = 8, 32, 296, 272    -- the sheet view; the panel is right of it
 local PX = 320

@@ -178,7 +178,7 @@ endef
 
 .SECONDEXPANSION:
 # The built-in tools: $(BUILD)/<tool>.bm. They print carts/<tool>/icon.png on the cartridge.
-TOOL_BMS := code assistant editor sound studio animator mesh pixel
+TOOL_BMS := code assistant editor sound studio animator mesh pixel snes_sdk
 $(foreach t,$(TOOL_BMS),$(eval cover_$(t) := carts/$(t)/icon.png))
 cover_assistant := carts/assistant/icon.png
 # the Assistant app carries the dictionaries and the knowledge file (DATA section): a clean kernel has none
@@ -395,7 +395,7 @@ test-snes-debug: $(BUILD)/host/snes_debug_test
 	$<
 test-snes-sa1: $(BUILD)/host/snes_sa1_test
 	$<
-# the SNES graphics converters of bm Pixel (carts/pixel/src/snesgfx.lua)
+# the SNES graphics converters (bm Pixel, bm SNES SDK) (carts/shared/snesgfx.lua)
 test-snes-gfx: $(BUILD)/host/luahost
 	$(BUILD)/host/luahost tests/snes/snesgfx_test.lua .
 test-snes-gsu: $(BUILD)/host/snes_gsu_test
@@ -523,12 +523,18 @@ SDK_B16_SRC := carts/sdk_b16/layout.lua carts/sdk_b16/main.lua carts/sdk_b16/bui
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) carts/sdk_b16/build/build.py $@
 
-# bm Pixel: main.lua, then the SNES converter module (carts/pixel/src/snesgfx.lua) as the global SNESGFX
+# bm Pixel: main.lua, then the SNES converter module (carts/shared/snesgfx.lua) as the global SNESGFX
 # (a cart has no other Lua file; the module goes after main.lua, so its line numbers stay)
-$(BUILD)/pixel/main.lua: carts/pixel/main.lua carts/pixel/src/snesgfx.lua
+$(BUILD)/pixel/main.lua: carts/pixel/main.lua carts/shared/snesgfx.lua
 	@mkdir -p $(dir $@)
-	{ cat carts/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/pixel/src/snesgfx.lua; printf '\nend)()\n'; } > $@
+	{ cat carts/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/shared/snesgfx.lua; printf '\nend)()\n'; } > $@
 lua_pixel := $(BUILD)/pixel/main.lua
+
+# bm SNES SDK: main.lua, then the same converter module as the global SNESGFX
+$(BUILD)/snes_sdk/main.lua: carts/snes_sdk/main.lua carts/shared/snesgfx.lua
+	@mkdir -p $(dir $@)
+	{ cat carts/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/shared/snesgfx.lua; printf '\nend)()\n'; } > $@
+lua_snes_sdk := $(BUILD)/snes_sdk/main.lua
 
 lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
 cover_sdk_b16 := carts/editor/icon.png
@@ -1844,7 +1850,7 @@ test-img2mesh: $(BUILD)/host/meshview
 # PC (luahost), then the files they wrote read by the Python of the build
 # (tests/studio/check_files.py) and by the kernel's parser.
 test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahost $(BUILD)/carts/testkit.bm \
-             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap $(BUILD)/pixel/main.lua
+             $(BUILD)/carts/astrowing.bm $(BUILD)/host/test_meshcap $(BUILD)/pixel/main.lua $(BUILD)/snes_sdk/main.lua
 	$(BUILD)/host/luahost tests/studio/bmui_host.lua .
 	$(BUILD)/host/luahost tests/studio/layout_host.lua .
 	$(BUILD)/host/luahost tests/studio/code_templates_host.lua .
@@ -1869,6 +1875,8 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/carts/mapkit.bm $(BUILD)/host/luahos
 	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
 	cp $(BUILD)/carts/testkit.bm $(BUILD)/carts/mapkit.bm $(BUILD)/pixel-sd/carts/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd $(BUILD)/pixel/main.lua
+	rm -rf $(BUILD)/snes-sdk-sd && mkdir -p $(BUILD)/snes-sdk-sd/carts $(BUILD)/snes-sdk-sd/bme
+	$(BUILD)/host/luahost tests/studio/snes_sdk_host.lua . $(BUILD)/snes-sdk-sd $(BUILD)/snes_sdk/main.lua
 	$(BUILD)/host/test_meshcap src/bm/runtime.c $(BUILD)/pixel-sd/bme/testkit.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
 	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
 	$(BUILD)/host/luahost tests/studio/humanoid_host.lua . $(BUILD)/humanoid-sd

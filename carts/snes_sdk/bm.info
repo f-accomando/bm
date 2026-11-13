@@ -1,0 +1,9 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md). Same syntax as the INFO
+# section of a .bm: mkbm.py --info copies it in.
+name: bm SNES SDK
+desc: One app to make SNES games: code, sprites, map, music and run, as tabs.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 0.1
+tags: app, tool, snes
+resolution: 640x360
