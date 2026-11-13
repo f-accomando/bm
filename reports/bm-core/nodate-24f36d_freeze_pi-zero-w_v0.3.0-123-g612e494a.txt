@@ -1,0 +1,71 @@
+bm report
+kind: freeze
+kernel: v0.3.0-123-g612e494a
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-24f36d_freeze_pi-zero-w_v0.3.0-123-g612e494a.txt
+
+the Pi froze (the watchdog restarted it) while: monioCore firmware does not answer (mailbox, frame 0, 2608 s after boot, kernel v0.3.0-123-g612e494a, ring 1668920, sink on
+--- the last lines printed ---
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-150949_log_pi-zero-w_v0.3.0-123-g612e494a.txt
+the line is done
+> 
+net: console closed
+bt:   <- L2CAP connect request (02) 01 00 40 00 00 00
+bt:   <- L2CAP config request (04) 42 00 00 00 01 02
+bt:   <- L2CAP config response (05) 42 00 00 00 00 00
+bt:   SDP request 06 answered (no records): 35 03 19 01 00 08 00 35 05 0a
+bt:   <- L2CAP disconnect (06) 42 00 40 00 00 00
+bt:   <- link key request (17) dd d7 bf e2
+bt:   <- encryption change (08) 00 0b 00 01
+bt:   <- L2CAP connect request (02) 11 00 41 00 00 00
+bt:   <- L2CAP config request (04) 40 00 00 00 01 02
+bt:   <- L2CAP config response (05) 40 00 00 00 00 00
+bt:   <- L2CAP connect request (02) 13 00 42 00 00 00
+bt:   <- L2CAP config request (04) 41 00 00 00 01 02
+bt:   <- L2CAP config response (05) 41 00 00 00 00 00
+bt: controller 00:1f:e2:bf:d7:dd connected (player 1)
+bt:   -> output report 11 (light 00 20 80, reports every 8 ms)
+bt:   <- first input report 01 (11 bytes)
+bt:   <- input report 11 now (3 so far)
+> > > > > > > > > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboes draw 13346 us, enlargoptions, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 3x, 360p on the ARM
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+ames)
+menu frame: 1x, a frame averages draw 13145 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13350 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13268 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13181 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13199 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13338 us, enlarge 0 us, flip 96 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13247 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13161 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13234 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13310 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13231 us, enlarge 0 us, flip 92 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13146 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13266 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13299 us, enlarge 0 us, flip 93 us, free time used 40 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 2610992 ms, 1 jobs)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2039 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 2613015 ms, 1 jobs)
+back to the monitor
+> :
+:net: not served for 2124 ms (up 2611100 ms), while: monitor key
+net:   pc at 1s: 0013bc24
+net:   pc at 2s: 0013bc80
+log
+: log
+report: 20261113-150949_log_pi-zero-w_v0.3.0-123-g612e494a.txt saved as bm/reports/rpt00001.txt
