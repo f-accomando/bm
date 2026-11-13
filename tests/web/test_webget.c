@@ -1,5 +1,5 @@
 /*
- * Host test of the web API for cartridges (src/bm/webpolicy.c, webget.c, webimg.c) over POSIX
+ * Host test of the web API for cartridges (core/src/bm/webpolicy.c, webget.c, webimg.c) over POSIX
  * sockets, against tests/web/run_webget_test.py. The kernel's fibers are replaced by ucontext
  * ones, and the TLS transport by plain sockets (web_policy_allow_http): the https rules are
  * checked on the address text, the TLS code is tested by test-https.
@@ -314,7 +314,7 @@ static void test_policy(void)
         CHECK(web_file_name(good[i], n, err, sizeof err) == 0, "file name \"%s\" -> %s", good[i], n);
     CHECK(web_file_name("model.glb", n, err, sizeof err) == 0 && strcmp(n, "model.glb") == 0, "lower case");
     static const char *const badf[] = {
-        "../x.txt", "..", "a/../b.txt", "/etc/passwd", "/kernel.img", "/bm/config.txt", "carts/x.txt", "bm/web/sub/x.txt",
+        "../x.txt", "..", "a/../b.txt", "/etc/passwd", "/kernel.img", "/bm/config.txt", "bm/x.txt", "bm/web/sub/x.txt",
         "bm/web/../x.txt", "x\\y.txt", ".hidden", "game.bm", "GAME.BME", "game.b16", "Game.Bm", "toolongname1.txt",
         "name.toolong", "a.b.c", "sp ace.txt", "", "dir/", "bm/web/", "name.", "bm/web//x.txt",
     };

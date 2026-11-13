@@ -17,9 +17,9 @@ footer: bm manuals - api-lib
 
 ## What they are
 
-`bmlib` is what every game used to write again by itself, now in a single library written in Lua and kept in the kernel (`src/script/bmlib.lua`). It covers: numbers and random numbers, collisions, the map (walls, platforms, gravity), hitboxes and hurtboxes, easing, tweens, timers and scripts, particles, a camera, game states, text, menus and the pause menu, players on one console, jingles, saves, animations, colours and a 3D mesh builder.
+`bmlib` is what every game used to write again by itself, now in a single library written in Lua and kept in the kernel (`core/src/script/bmlib.lua`). It covers: numbers and random numbers, collisions, the map (walls, platforms, gravity), hitboxes and hurtboxes, easing, tweens, timers and scripts, particles, a camera, game states, text, menus and the pause menu, players on one console, jingles, saves, animations, colours and a 3D mesh builder.
 
-`bmnet` is the network code of the game Overbit, made available to every game (`src/script/bmnet.lua`). Consoles find each other on the **LAN** (UDP broadcasts) or over the **internet** through a relay; one console **hosts** a match and the others **join**; they send **messages** and, for action games, the match runs in **lockstep**.
+`bmnet` is the network code of the game Overbit, made available to every game (`core/src/script/bmnet.lua`). Consoles find each other on the **LAN** (UDP broadcasts) or over the **internet** through a relay; one console **hosts** a match and the others **join**; they send **messages** and, for action games, the match runs in **lockstep**.
 
 ## How to load them
 
@@ -49,7 +49,7 @@ end
 
 - Call `net.update()` once in each `_update`: it returns the events of the frame.
 - Call `net.close()` when the game ends, and from `_leave()` too.
-- The packets are described at the top of `src/script/bmnet.lua`.
+- The packets are described at the top of `core/src/script/bmnet.lua`.
 - The SDK's *Online 2D* template is a whole example of a game over the network. The *Versus 2D* template is a whole example of players on one console.
 
 # Tutorial: a platformer step with bmlib
@@ -518,7 +518,7 @@ Tests of the whole library: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua
 
 # bmnet: opening the network and the lobby
 
-The consoles find each other on the **LAN** (UDP broadcasts) or over the **internet** through a relay (`tools/overbit_relay.py`: a room passes every packet to the other consoles, as a broadcast would). One console **hosts** the match and the others **join**.
+The consoles find each other on the **LAN** (UDP broadcasts) or over the **internet** through a relay (`core/tools/overbit_relay.py`: a room passes every packet to the other consoles, as a broadcast would). One console **hosts** the match and the others **join**.
 
 | Function | Description |
 |---|---|
@@ -529,7 +529,7 @@ The consoles find each other on the **LAN** (UDP broadcasts) or over the **inter
 | `net.join(id)` | asks console `id` for a seat: the event `"joined"` when it says yes, `"refused"` if it is full or has begun |
 | `net.peers()` | the consoles in the room or the match: `{id, name, seat, me}`, by seat |
 
-[TO FILL: how to run the relay for a match over the internet; the sources only name `tools/overbit_relay.py --port N`]
+[TO FILL: how to run the relay for a match over the internet; the sources only name `core/tools/overbit_relay.py --port N`]
 
 # bmnet: messages and events
 
@@ -604,6 +604,6 @@ end
 
 ## Trying it on the PC
 
-Two `bmhost` on the same PC are two consoles: `BMHOST_NET_ID=0` and `BMHOST_NET_ID=1`, with `--realtime`; the relay runs with `tools/overbit_relay.py --port N`.
+Two `bmhost` on the same PC are two consoles: `BMHOST_NET_ID=0` and `BMHOST_NET_ID=1`, with `--realtime`; the relay runs with `core/tools/overbit_relay.py --port N`.
 
 `make test-bmnet` does it: the lobby, sure messages with a fifth of the packets lost (`loss = 0.2` in `net.open`, for tests only), a lockstep match the same on both consoles, a player leaving; on the LAN and through the relay.

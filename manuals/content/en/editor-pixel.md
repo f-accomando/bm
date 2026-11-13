@@ -359,12 +359,12 @@ A resource is one thing taken out of a cartridge in its own file. For pictures, 
 ## What you can do today
 
 - The menu has no tab for resource files. Open a resource file from the editors.
-- On the PC, `scripts/bmres.py` extracts a sprite zone into a `.bmi` (with its boxes), adds a resource to a `.bm`, and converts to and from `.png`, `.hex` and `.gpl`.
+- On the PC, `core/scripts/bmres.py` extracts a sprite zone into a `.bmi` (with its boxes), adds a resource to a `.bm`, and converts to and from `.png`, `.hex` and `.gpl`.
 
 ::: copy
-python3 scripts/bmres.py list GAME.bm
-python3 scripts/bmres.py extract GAME.bm --sprite coin -o COIN.bmi
-python3 scripts/bmres.py add GAME.bm COIN.bmi
+python3 core/scripts/bmres.py list GAME.bm
+python3 core/scripts/bmres.py extract GAME.bm --sprite coin -o COIN.bmi
+python3 core/scripts/bmres.py add GAME.bm COIN.bmi
 :::
 
 ## Caveats

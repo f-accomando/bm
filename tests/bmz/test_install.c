@@ -1,5 +1,5 @@
 /*
- * Host test for src/kernel/bmz_install.c: the SD card is an image file (tests/fs/test_fat.c does the same).
+ * Host test for core/src/kernel/bmz_install.c: the SD card is an image file (tests/fs/test_fat.c does the same).
  *
  *   test_install IMAGE EXPECT_DONE EXPECT_FAILED
  *

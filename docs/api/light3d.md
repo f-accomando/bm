@@ -4,11 +4,11 @@ Part of the game API. Index and basics: [API.md](../API.md).
 
 ### nano8 (the `n8` library)
 
-Every cartridge also sees the `n8` table: the **nano8** machine (`src/bm/n8*.c`), with the
+Every cartridge also sees the `n8` table: the **nano8** machine (`core/src/bm/n8*.c`), with the
 functions of the `.p8` cartridges (`n8.spr`, `n8.map`, `n8.print`, `n8.peek`…, with their
 arguments and numbers as they want them) and those to load, start and show them
 (`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). It is made
-for `carts/nano8` (see the comment in `src/bm/n8lua.c`); a `.bm` game does not need it.
+for `bm/nano8` (see the comment in `core/src/bm/n8lua.c`); a `.bm` game does not need it.
 
 ### Light
 
@@ -31,7 +31,7 @@ light_end()
 print("life", 4, 4, 0xFFFFFF)                -- the HUD is not darkened
 ```
 
-No game of the repository uses `light_begin` now. A complete game with lights is in the next section (`carts/yharnam`).
+No game of the repository uses `light_begin` now. A complete game with lights is in the next section (`bm/yharnam`).
 
 ### Light by levels (as in Dank Tomb)
 
@@ -41,7 +41,7 @@ make concentric rings of levels, from their level in the middle down to 0 at the
 rings' edges are mixed with a 4×4 ordered dither; where two lamps meet the stronger wins.
 The tables are chosen by the cartridge: shadows can turn night blue and colours near the
 lamps orange, staying on the colours of its own palette. All in C (`g16_fade_*` in
-`src/bm/gfx16.c`).
+`core/src/bm/gfx16.c`).
 
 | Function | Description |
 |---|---|
@@ -62,7 +62,7 @@ spr(FLAME, fx, fy)                           -- the flames are not darkened
 
 On the Pi Zero W the light can run on the GPU: the user sets `gpu3d_light=1` in `bm/config.txt`. The game code does not change. The GPU light is continuous and the lamps add up; `dither` and `step` do not apply. Details: [graphics](../progress/graphics.md).
 
-Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256×256 cartridge).
+Complete example: `bm/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256×256 cartridge).
 
 ### 3D (software)
 
@@ -70,7 +70,7 @@ Complete example: `carts/yharnam`; a small one: `SQUARE_CART` in `tests/qemu_tes
 |---|---|
 | `mesh(v, f, [uv])` | a mesh from tables (up to 65535 vertices and 65535 faces: 4096 and 16384 before bm3d 5.0): `v` = {x,y,z, x,y,z, …}, `f` = {a,b,c,colour, …} (indices from 1; a face shows from the side where its vertices appear **clockwise**). With `uv` (6 numbers per face: u,v of the three vertices in sprite sheet pixels) the faces with colour `-1` have the sprite sheet's **texture** (perspective correct, transparent pixels stay empty). The colour can have the **material bits** (table below) |
 | `mesh_sphere([rings, segments, c1, c2])` (defaults 8, 16, 0xFFFFFF, 0xC0C0C0; no radius: scale with `draw3d`), `mesh_cube([c])` (default 0xFFFFFF) | ready-made meshes |
-| `model(name)` / `model(n)` | a **3D model of the cartridge** (made with [bm Studio](../../sdk/README.md), MESH section) as a mesh, with the sprite sheet's texture; `n` counts from 1; `nil` if it is not there. Every call builds a new mesh: do it in `_init`. A model with **baked light** (MESH's "lit" bit, `src/bm/bm.h`: the light of each corner of the faces, made by a script, as Overbit's map) is drawn smooth with that light, without sun or sky but with the lamps (`lamp3d`) and the fog: it costs less than computed light; its textured faces (windows, signs) have one light per face, coloured, and the fog |
+| `model(name)` / `model(n)` | a **3D model of the cartridge** (made with [bm Studio](../../sdk/README.md), MESH section) as a mesh, with the sprite sheet's texture; `n` counts from 1; `nil` if it is not there. Every call builds a new mesh: do it in `_init`. A model with **baked light** (MESH's "lit" bit, `core/src/bm/bm.h`: the light of each corner of the faces, made by a script, as Overbit's map) is drawn smooth with that light, without sun or sky but with the lamps (`lamp3d`) and the fog: it costs less than computed light; its textured faces (windows, signs) have one light per face, coloured, and the fog |
 | `models()` | the names of the cartridge's models, in order (`{}` if it has none) |
 | `bounds3d(m)` | `x0, y0, z0, x1, y1, z1`: the box round a mesh's vertices, in its coordinates (before moving, turning and scaling it with `draw3d`): to centre it, for collisions |
 | `animate(m, [anim, t, anim2, t2, k, bone])` | **skeletal animation**: a model with a skeleton from [bm Animator](../../sdk/README.md#bm-animator) takes the pose of animation `anim` (name or number) at time `t` in seconds (looping, if the animation loops); with `anim2, t2` it blends two animations (`k` from 0, the first only, to 1, the second only: to go from one to the other); with `bone` the second holds only for that bone and those under it (a torso that shoots on running legs); without an animation the rest pose. Returns the animation's length. An error if the mesh has no skeleton or the animation is not there. The bones move the vertices while the mesh is drawn (rigid skinning): `animate` costs only the bones |
@@ -124,7 +124,7 @@ local DETAIL = 0xFFFFFF | 0x02000000                 -- white, only from detail 
 ### Collision worlds
 
 Solid boxes, rays and bodies that move sliding on the walls (in C: much faster than in
-Lua). Complete example: `carts/overbit`. For the 2D map there are the tiles' flags
+Lua). Complete example: `bm/overbit`. For the 2D map there are the tiles' flags
 (`mflags`) and bmlib's `lib.move` / `lib.step`.
 
 | Function | Description |
@@ -139,7 +139,7 @@ Lua). Complete example: `carts/overbit`. For the 2D map there are the tiles' fla
 
 Speed: a floor tile with id 0 makes no triangles, so cut the tiles that a sea model or the sky covers (Island Bench: 10400 to 4900 triangles). See [graphics](../progress/graphics.md), "Performance techniques".
 
-Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `objects`) with frustum culling (`r3d_visible`), height queries and collision detection (`src/bm/map3d.c`).
+Chunked 3D terrain built from 2D tilemap layers (`floor`, `height`, `walls`, `objects`) with frustum culling (`r3d_visible`), height queries and collision detection (`core/src/bm/map3d.c`).
 
 | Function | Description |
 |---|---|
@@ -196,7 +196,7 @@ HUD after the 3D; `pget` reads the page being drawn. Not in games played `online
 out there), via RAM (`light_begin`, `dark_begin`) and in the frame of a `screen()` change.
 Off by default until it is measured on the Pi.
 
-Complete example: `carts/astrowing` (Star Fox-style flight: models built in code, horizon
-with `project3d`, fog, explosions, boss). With bm Studio's models: `carts/overbit`
+Complete example: `bm/astrowing` (Star Fox-style flight: models built in code, horizon
+with `project3d`, fog, explosions, boss). With bm Studio's models: `bm/overbit`
 (`model()` for each model, night with `lamp3d` and `fog3d`; bm Animator's skeletons with
 `animate()`, two animations blended, a bone's place with `bone3d()` and `bone_turn()`).

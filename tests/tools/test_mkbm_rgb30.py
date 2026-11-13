@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit test for scripts/mkbm.py and the RGB30: a cartridge lists the RGB30 in its header block, a
+Unit test for core/scripts/mkbm.py and the RGB30: a cartridge lists the RGB30 in its header block, a
 need of a mouse device warns, any screen size and any list of kernels is quiet, and the tool
 no longer writes a .b16 (one cartridge type, .bm).
 """
@@ -14,9 +14,9 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-MKBM_PATH = os.path.join(ROOT, "scripts", "mkbm.py")
+MKBM_PATH = os.path.join(ROOT, "core", "scripts", "mkbm.py")
 
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import mkbm  # noqa: E402
 
 

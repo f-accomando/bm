@@ -1,4 +1,4 @@
--- bm Write (carts/write) on the PC with a mouse and a keyboard (M48): the
+-- bm Write (bm/write) on the PC with a mouse and a keyboard (M48): the
 -- bm API as stand-ins (a table is /docs), keys typed into it, the pointer
 -- moved, pressed and rolled frame by frame, and checks on the document it
 -- saves and the words it prints. No pad.
@@ -51,7 +51,7 @@ E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui
 E.require = function(name)
   if name == "bmui" then
-    bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+    bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
     return bmui
   end
   if name == "predict" then
@@ -64,7 +64,7 @@ E.require = function(name)
   error("require: " .. name)
 end
 
-assert(loadfile(ROOT .. "/carts/write/main.lua", "t", E))()
+assert(loadfile(ROOT .. "/bm/write/main.lua", "t", E))()
 
 local function tick()
   frame = frame + 1

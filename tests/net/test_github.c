@@ -1,5 +1,5 @@
 /*
- * Host test of publishing to the Market (src/net/github.c) over POSIX
+ * Host test of publishing to the Market (core/src/net/github.c) over POSIX
  * sockets, against the fake GitHub API of tests/net/run_github_test.py.
  *   test_github PORT TOKEN ID NAME CART TITLE VERSION BRANCH
  *   test_github put PORT TOKEN REPO BRANCH PATH FILE      (a report: github_put)
@@ -132,9 +132,9 @@ int main(int argc, char **argv)
         printf("error %s\n", err);
 
     char id[32];
-    const char *names[][2] = { { "/carts/My Game.bm", "my-game" }, { "SNAKE.BM", "snake" },
-                               { "/carts/__x__.bm", "x" }, { "/carts/.bm", "" },
-                               { "/carts/abcdefghijklmnopqrstuvwxyz.bm", "abcdefghijklmnopqrstuvw" } };
+    const char *names[][2] = { { "/bm/My Game.bm", "my-game" }, { "SNAKE.BM", "snake" },
+                               { "/bm/__x__.bm", "x" }, { "/bm/.bm", "" },
+                               { "/bm/abcdefghijklmnopqrstuvwxyz.bm", "abcdefghijklmnopqrstuvw" } };
     for (int i = 0; i < 5; i++) {
         int r = github_id_from_name(names[i][0], id, sizeof id);
         const char *got = r == 0 ? id : "";

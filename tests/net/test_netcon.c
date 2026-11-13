@@ -1,10 +1,10 @@
 /*
- * Host test of the network console (src/net/netcon.c) on lwIP with its
+ * Host test of the network console (core/src/net/netcon.c) on lwIP with its
  * loopback interface: a client connects to 127.0.0.1:3333, gets the
  * greeting, fails and passes the password, sees what kprintf prints, and
  * its keys come out of netcon_getc; a second client takes over (a lost
  * connection must not lock the console).
- * Then the transfers (src/net/netxfer.c): a file saved on the "SD card",
+ * Then the transfers (core/src/net/netxfer.c): a file saved on the "SD card",
  * a wrong password, a damaged file, a cartridge to play, a kernel. A file
  * (S) is answered QD once checked and written later by netxfer_write_tick
  * (the menu's fiber, run straight through here): one waits at a time.
@@ -581,7 +581,7 @@ int main(int argc, char **argv)
         memset(b, 'b', sizeof b);
         client_t x;
         w_name[0] = 0;
-        xfer(&x, 'S', "secret", "carts/game.bm", a, sizeof a, 0, 4);
+        xfer(&x, 'S', "secret", "bm/game.bm", a, sizeof a, 0, 4);
         check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "file: QD once checked, nothing written yet");
         check(netxfer_write_pending() && netxfer_updating("/BM/GAME.BM") == NETXFER_QUEUED &&
               !netxfer_updating("/bm/other.bm"), "  queued: the menu tags that game only");
@@ -589,11 +589,11 @@ int main(int argc, char **argv)
         uint32_t d = 1, t = 0;
         check(netxfer_file_state(nm, sizeof nm, &d, &t) == NETXFER_QUEUED && strcmp(nm, "game.bm") == 0 &&
               d == 0 && t == sizeof a, "  its name and size");
-        xfer(&x, 'S', "secret", "carts/other.bm", b, sizeof b, 0, 2);
+        xfer(&x, 'S', "secret", "bm/other.bm", b, sizeof b, 0, 2);
         check(strcmp(x.got, "BY") == 0, "  another file meanwhile: BY, refused after the header");
         xfer(&x, 'K', "secret", "kernel.img", b, sizeof b, 0, 2);
         check(strcmp(x.got, "BY") == 0, "  a kernel meanwhile: BY");
-        xfer(&x, 'S', "secret", "/carts/GAME.BM", b, sizeof b, 0, 4);
+        xfer(&x, 'S', "secret", "/bm/GAME.BM", b, sizeof b, 0, 4);
         check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "  the same game again: QD, it replaces the copy waiting");
         netxfer_write_pause();
         check(w_name[0] == 0 && netxfer_write_pending(), "  a pause before the write started: still waiting");
@@ -729,9 +729,9 @@ int main(int argc, char **argv)
      * RGB30's kernel8.img, "ARM\x64" at +56 (no bmK mark) */
     const unsigned saves0 = netxfer_saves();
     struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; int arm64; } cases[] = {
-        { 'S', "secret", "carts/pong.bm", 0, "OKQD", "file saved on the SD card", NULL, 0 },
-        { 'S', "nope", "carts/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
-        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
+        { 'S', "secret", "bm/pong.bm", 0, "OKQD", "file saved on the SD card", NULL, 0 },
+        { 'S', "nope", "bm/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
+        { 'S', "secret", "bm/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
         { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL, 0 },
         { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7", 0 },
         { 'K', "secret", "kernel8.img", 0, "OKKA", "the RGB30's kernel refused", "\x10\0\0\x14", 1 },
@@ -744,7 +744,7 @@ int main(int argc, char **argv)
     test_bridge = 0;                    /* the bridge off: every operation refused, BO */
     {
         client_t x;
-        xfer(&x, 'S', "secret", "carts/pong.bm", file, sizeof file, 0, 2);
+        xfer(&x, 'S', "secret", "bm/pong.bm", file, sizeof file, 0, 2);
         check(strcmp(x.got, "BO") == 0, "  bridge off: S refused (BO)");
         xfer(&x, 'K', "secret", "kernel.img", file, sizeof file, 0, 2);
         check(strcmp(x.got, "BO") == 0, "  bridge off: K refused (BO)");
@@ -820,7 +820,7 @@ int main(int argc, char **argv)
         if (t == 0)
             check(strcmp(w_dir, "/bm") == 0 && strcmp(w_name, "pong.bm") == 0 &&
                   w_len == sizeof file && memcmp(w_data, file, w_len) == 0 && netxfer_saves() == saves0 + 1,
-                  "  carts/pong.bm is written in /bm/pong.bm, same bytes");
+                  "  bm/pong.bm is written in /bm/pong.bm, same bytes");
         if (t == 1 || t == 2 || t == 4)
             check(w_name[0] == 0, "  nothing written");
         if (t == 3) {

@@ -1,6 +1,6 @@
 ---
 name: bm-translate
-description: Translate repo documents between Italian and English (docs, CLAUDE.md-style notes, agents, skills, progress files, protocol files) and verify the translation with scripts/translate_check.py. Use for any IT to EN or EN to IT document translation in bm, before spawning a translating agent.
+description: Translate repo documents between Italian and English (docs, CLAUDE.md-style notes, agents, skills, progress files, protocol files) and verify the translation with core/scripts/translate_check.py. Use for any IT to EN or EN to IT document translation in bm, before spawning a translating agent.
 ---
 
 # bm-translate: translate documents, check them deterministically
@@ -46,11 +46,11 @@ verify command. A group is about 3 to 6 files; a very large file gets its own ag
 
 1. Translate the group (when translating in place, save the original with `git show <rev>:<path>` in a temp folder first).
 2. For each pair run
-   `python scripts/translate_check.py SRC DST --glossary .claude/skills/bm-translate/glossary.tsv`
+   `python core/scripts/translate_check.py SRC DST --glossary .claude/skills/bm-translate/glossary.tsv`
    (`--strict` turns glossary warnings into errors, `--lenient-code` also ignores text inside quotes in code blocks,
    `--reverse` is for EN to IT). Exit 0 is required; every line `SRC:line: DST:line: reason` is a difference to fix.
    Typical true findings: a placeholder in backticks that changed, a number or link target retyped, a line left in Italian.
-3. `python scripts/docs_audit.py score`: no broken links, no orphans (penalty 0).
-4. `python scripts/consistency.py check` when the change touches `docs/spec/`.
+3. `python core/scripts/docs_audit.py score`: no broken links, no orphans (penalty 0).
+4. `python core/scripts/consistency.py check` when the change touches `docs/spec/`.
 
 Report the status (`DONE` / `BLOCKED: <reason>`), the check output per pair and the glossary warnings left.

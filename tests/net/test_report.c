@@ -1,5 +1,5 @@
 /*
- * The reports' names and header (src/net/report.c): the parts made safe for
+ * The reports' names and header (core/src/net/report.c): the parts made safe for
  * a path, the date, the file's name with and without the network's time,
  * the header written and read back, the place in the repository.
  */

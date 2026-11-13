@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tropic Trail, video 1: bm Studio. Pico, Apple and Crate built from blocks with the console's own editor
-(carts/studio/main.lua) run by bmhost --tool, from an empty project and a clean SD.
+(bm/studio/main.lua) run by bmhost --tool, from an empty project and a clean SD.
 
   python3 video/3d/01-studio/record.py [--build-only] [--stage N] [--log] [--no-video] [--cart FILE]
 
@@ -16,7 +16,7 @@ The editor saves a PROJECT (.bme), not a .bm. The chain (video/3d/chain/) keeps 
 The 0:00-0:08 hook of the shot list needs the finished models: it is cut in post from the end of the run (hook_cmd),
 so the first 8 s of the recording show the Studio menu waiting (the Dev tab shot, 0:08, is a QEMU/board card: PIANO D1).
 Studio needs build/host/bmhost-bin and its cartridge: build/studio.bm is used when it runs, else the same cartridge is
-made here from carts/studio with scripts/mkbm.py (out/studio.bm), so the run never depends on a stale build.
+made here from bm/studio with core/scripts/mkbm.py (out/studio.bm), so the run never depends on a stale build.
 """
 import argparse
 import json
@@ -35,7 +35,7 @@ OUT = os.path.join(HERE, "out")
 SD = os.path.join(OUT, "sd")
 SHOTS = os.path.join(OUT, "shots")
 TITLE = "TROPIC TRAIL  ·  1  ·  bm Studio"
-BME = os.path.join(SD, "carts", "TROPIC.BME")
+BME = os.path.join(SD, "bm", "TROPIC.BME")
 
 # the colours of bm Studio's palette (T.PALETTE, 1-based), 6 per row on the picker
 # the arrows from the corner the vertex pointer stands on (-1,2,2) to each corner of the top face of the middle
@@ -489,7 +489,7 @@ T.say = function(t, ...) log("F" .. tostring(S.frame) .. " SAY " .. tostring(t))
 
 
 def logged_lua(src):
-    """carts/studio/main.lua with log() lines (key, tool, cell, counts, pointer): only for finding the keys."""
+    """bm/studio/main.lua with log() lines (key, tool, cell, counts, pointer): only for finding the keys."""
     t = src.replace("\r\n", "\n")
     t = t.replace("local M, say = T.M, T.say", LOG_PATCH + "local M, say = T.M, T.say", 1)
     t = t.replace("function build.key(k)", "function build.key0(k)", 1)
@@ -547,7 +547,7 @@ function models_page.pad()''', 1)
 def make_cart(log=False, cart=None):
     """The cartridge of bm Studio: `cart`, or build/studio.bm when it runs, else made here (out/studio.bm)."""
     os.makedirs(OUT, exist_ok=True)
-    src = os.path.join(ROOT, "carts", "studio")
+    src = os.path.join(ROOT, "bm", "studio")
     out = os.path.join(OUT, "studio_log.bm" if log else "studio.bm")
     if cart and not log:
         return cart
@@ -556,7 +556,7 @@ def make_cart(log=False, cart=None):
         lua = os.path.join(OUT, "main_log.lua")
         with open(os.path.join(src, "main.lua"), encoding="utf-8", newline="") as f:
             open(lua, "w", encoding="utf-8", newline="\n").write(logged_lua(f.read()))
-    cmd = [sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", out, "--lua", lua,
+    cmd = [sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", out, "--lua", lua,
            "--cover", os.path.join(src, "icon.png"), "--sheet", os.path.join(src, "assets", "sheet.png"), "--sheet8",
            "--info", os.path.join(src, "bm.info")]
     subprocess.run(cmd, check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
@@ -602,7 +602,7 @@ def main():
         return 1
     # the chain: the project as saved, and the cartridge of the models made from it (bm_forge, the real step)
     lib3d.chain_put(BME, "01-studio.bme")
-    forge = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
+    forge = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
     dst = os.path.join(lib3d.CHAIN, "01-studio.bm")
     q = subprocess.run([sys.executable, forge, "export", "models", BME, "-o", dst, "--title", "tropic"],
                        capture_output=True, text=True, cwd=ROOT)

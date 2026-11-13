@@ -7,7 +7,7 @@ code. Nobody ran the Pi for it.
 
 ## Confirmed by the code
 
-- The only caller of `watchdog_pet()` was `heartbeat()` in `src/kernel/main.c`. The 1 kHz timer IRQ
+- The only caller of `watchdog_pet()` was `heartbeat()` in `core/src/kernel/main.c`. The 1 kHz timer IRQ
   calls it (10 Hz). So the watchdog proved only that IRQs run. A hang of the main code with IRQs on
   was never reset. This fits "frozen for hours": the screen and the netcon stop, the timer goes on.
 - A hang with IRQs off, or inside the IRQ, is reset after 3 s. So the two freezes were hangs with
@@ -16,7 +16,7 @@ code. Nobody ran the Pi for it.
 
 ## Waits that can hang the main code (IRQs on)
 
-1. `mbox_call()` (`src/drivers/mbox.c`) had no time limit, in two loops (mailbox full, no reply).
+1. `mbox_call()` (`core/src/drivers/mbox.c`) had no time limit, in two loops (mailbox full, no reply).
    The 3D path calls it: `prop_query` for the clocks at the start of each 3D Bench, `PROP_ENABLE_QPU`
    off and on after a QPU timeout (`v3d_run_qpu`), `fb_flip` (vsync tag). A firmware that does not
    answer (VPU busy or stopped after a QPU or V3D reset) hangs the call for ever. Likely cause.
@@ -48,7 +48,7 @@ The hang risk is in the firmware call that follows the reset.
 ## Audit of long blocks (false restart)
 
 A block of the main code longer than 20 s with no mark would reset the Pi. The RGB30 is not at risk:
-`src/rgb30/glue.c` has stubs (`watchdog_arm` returns -1, `watchdog_progress` does nothing).
+`core/src/rgb30/glue.c` has stubs (`watchdog_arm` returns -1, `watchdog_progress` does nothing).
 Result, by reading the code (nothing ran on a Pi):
 
 - Boot (SD init, FAT scan, USB, `wifi_boot`, TLS in the first reports): no mark exists before the

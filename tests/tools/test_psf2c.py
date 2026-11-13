@@ -1,8 +1,8 @@
-"""Tests for scripts/psf2c.py: the script runs as a subprocess on PSF fonts built in a temporary folder."""
+"""Tests for core/scripts/psf2c.py: the script runs as a subprocess on PSF fonts built in a temporary folder."""
 import ast, gzip, os, struct, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "psf2c.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "psf2c.py")
 
 A_ROWS = bytes([0x18, 0x24, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 

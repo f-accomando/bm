@@ -1,12 +1,12 @@
 /*
- * The crash record (src/kernel/crumbs.c) on the PC: the record of the boot before is in RAM when the
+ * The crash record (core/src/kernel/crumbs.c) on the PC: the record of the boot before is in RAM when the
  * kernel starts and the timer IRQ is already on, so crumb_irq(), crumb_tick(), crumb_frame() and crumb()
  * run before crumbs_boot() reads that record. They must not write into it (BETA-1 C4: a freeze header
  * said "ring 3601, sink off" because flush() wrote the new boot's state over the old record). QEMU
  * cannot test this: it has no freeze guard, so it never restarts on the watchdog.
  * crumbs.c is included, to reach its statics.
  */
-#include "../../src/kernel/crumbs.c"
+#include "../../core/src/kernel/crumbs.c"
 
 #include <setjmp.h>
 #include <stdio.h>

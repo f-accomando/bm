@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    # the consoles' test reports (src/kernel/reports.c) are not code; the sync/*
+    # the consoles' test reports (core/src/kernel/reports.c) are not code; the sync/*
     # branches carry coordination files (SYNC.md), not code
     branches-ignore: [reports, 'sync/**']
     # with a branch filter alone GitHub skips the tags: the releases (v*,
@@ -42,12 +42,12 @@ jobs:
           REF: ${{ github.ref }}
         run: |
           # ALLOWLIST: paths that cannot affect the qemu and rgb30 jobs.
-          # scripts/ and tools/ are build inputs (mkbm.py, img2mesh.py, ...),
+          # core/scripts/ and core/tools/ are build inputs (mkbm.py, img2mesh.py, ...),
           # so only the audit/ledger/sync helpers are listed, one by one.
           # docs/api/** and tests/tools/* stay here: the host job always runs
           # make test-host, which checks them (test-api: mkapi --check, the
-          # unit tests of mkapi and api_lint). scripts/mkapi.py, scripts/api_lint.py
-          # and src/ai/api.tsv are not listed: they make the heavy jobs run.
+          # unit tests of mkapi and api_lint). core/scripts/mkapi.py, core/scripts/api_lint.py
+          # and core/src/ai/api.tsv are not listed: they make the heavy jobs run.
           allowed() {
             case "$1" in
               docs/*|manuals/*|tests/tools/*|.claude/*) return 0 ;;
@@ -55,9 +55,9 @@ jobs:
               *.md) return 0 ;;
             esac
             case "$1" in
-              scripts/agent_audit.py|scripts/ci_audit.py|scripts/consistency.py|scripts/cindex.py) return 0 ;;
-              scripts/ctx_guard.py|scripts/docs_audit.py|scripts/ledger_add.py|scripts/ledger_repeats.py|scripts/wo_scope.py) return 0 ;;
-              scripts/recipe_bench.py|scripts/wsl-run.ps1|scripts/hooks/*) return 0 ;;
+              core/scripts/agent_audit.py|core/scripts/ci_audit.py|core/scripts/consistency.py|core/scripts/cindex.py) return 0 ;;
+              core/scripts/ctx_guard.py|core/scripts/docs_audit.py|core/scripts/ledger_add.py|core/scripts/ledger_repeats.py|core/scripts/wo_scope.py) return 0 ;;
+              core/scripts/recipe_bench.py|core/scripts/wsl-run.ps1|core/scripts/hooks/*) return 0 ;;
             esac
             return 1
           }
@@ -121,7 +121,7 @@ jobs:
         run: make -j"$(nproc)"
 
       - name: Check documentation audit
-        run: python3 scripts/docs_audit.py score
+        run: python3 core/scripts/docs_audit.py score
 
       - name: Tests on the PC
         run: make test-host
@@ -183,7 +183,7 @@ jobs:
 
   rgb30:
     # bm for the PowKiddy RGB30 (RK3566, AArch64): the console's kernel, and
-    # the same kernel for QEMU's virt machine with its tests (rgb30.mk)
+    # the same kernel for QEMU's virt machine with its tests (core/rgb30.mk)
     needs: [tested, changes]
     if: ${{ !cancelled() && needs.tested.outputs.tested != 'true' && needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-24.04
@@ -209,8 +209,8 @@ jobs:
   release:
     # A tag v* whose tests passed (M19): the bare kernels (no games) and bm/ca.pem
     # on a GitHub release, with manifest.txt signed by the secret
-    # BM_RELEASE_KEY (scripts/release-key.sh). The Pi checks the signature
-    # with keys/release-pub.pem, built into the kernel, and each file's
+    # BM_RELEASE_KEY (core/scripts/release-key.sh). The Pi checks the signature
+    # with core/keys/release-pub.pem, built into the kernel, and each file's
     # SHA-256 before installing it. All the tests passed here, or on a
     # branch before the tag (the job tested).
     needs: [tested, host, qemu, rgb30]
@@ -250,4 +250,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag \
             --title "bm $GITHUB_REF_NAME" --generate-notes \
-            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W, se c'è; kernel8.img per la RGB30) e bm/ca.pem, nessun gioco (i giochi vengono dal Market). manifest.txt (Pi) e manifest-rgb30.txt (RGB30) dicono dove va ogni file sulla SD, la dimensione e lo SHA-256; i .sig sono le loro firme (ECDSA P-256), controllate dalla console con la chiave nel kernel. A mano: python3 tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W, kernel8.img sulla RGB30)"
+            --notes "Kernel (kernel.img; kernel7.img per il Pi Zero 2 W, se c'è; kernel8.img per la RGB30) e bm/ca.pem, nessun gioco (i giochi vengono dal Market). manifest.txt (Pi) e manifest-rgb30.txt (RGB30) dicono dove va ogni file sulla SD, la dimensione e lo SHA-256; i .sig sono le loro firme (ECDSA P-256), controllate dalla console con la chiave nel kernel. A mano: python3 core/tools/bm_net.py IP --kernel kernel.img (kernel7.img sul Zero 2 W, kernel8.img sulla RGB30)"

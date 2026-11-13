@@ -11,7 +11,7 @@
 (function () {
   "use strict";
 
-  /* HID_* bits of src/usb/hid.h */
+  /* HID_* bits of core/src/usb/hid.h */
   var B = { LEFT: 1, RIGHT: 2, UP: 4, DOWN: 8, A: 16, B: 32, START: 64, SELECT: 128, X: 256, Y: 512,
             L1: 1024, R1: 2048, L2: 4096, R2: 8192, L3: 16384, R3: 32768 };
   /* keyboard: the keys of the serial console of the runtime (space/j = A, k/x = B), the arrows */

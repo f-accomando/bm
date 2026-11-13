@@ -12,12 +12,12 @@ Decided by the user, 19 Oct 2026. `lib.input()` always sets `confirm = "ok"`, `c
 
 | Action | RGB30 | Pi keyboard (target) | Pi keyboard today | Pi pad |
 |---|---|---|---|---|
-| confirm (`"ok"`) | B (`pad_ok = PAD_B`, `src/rgb30/pad.c:10`; `confirm=a` swaps to A) | Enter: to implement (kernel) | Space (`docs/api/input.md:9`) | cross (DS4) / A (Xbox) (`docs/api/input.md:9`) |
+| confirm (`"ok"`) | B (`pad_ok = PAD_B`, `core/src/rgb30/pad.c:10`; `confirm=a` swaps to A) | Enter: to implement (kernel) | Space (`docs/api/input.md:9`) | cross (DS4) / A (Xbox) (`docs/api/input.md:9`) |
 | cancel (`"back"`) | Y only, A is no back (`claude/pad-y-cancel`, to merge; games keep A/B as before) | Esc: to implement (kernel) | X (`docs/api/input.md:9`, `:75`) | circle (DS4) / B (Xbox) (`docs/api/input.md:9`) |
 | pause (`"start"`) | Start: system menu (controls, volume, save, quit) | Esc as well: to implement (kernel) | Enter (`docs/api/input.md:78`) | Start / Options (`docs/api/input.md:78`) |
 | home | Start+Select: back to the bm menu, the game frozen (`docs/api/input.md:81-82`) | | | |
 
-Start opens `lib.pause` (`src/script/bmlib.lua:1201`, opened by `btnp("start")` at `:1218`). Select may open an in-game menu where a game has one.
+Start opens `lib.pause` (`core/src/script/bmlib.lua:1201`, opened by `btnp("start")` at `:1218`). Select may open an in-game menu where a game has one.
 
 ## 2. Gameplay Schemes
 
@@ -48,7 +48,7 @@ The editors keep their own keyboard model; the standard above is for games. See 
 
 ## 6. Inventory
 
-`python scripts/input_inventory.py --games` lists the raw buttons each game reads and compares them with this table. It prints one markdown table, cart by cart (`std`, `exc:<button>`, `raw:<button>` or `-`); read-only, exit 0.
+`python core/scripts/input_inventory.py --games` lists the raw buttons each game reads and compares them with this table. It prints one markdown table, cart by cart (`std`, `exc:<button>`, `raw:<button>` or `-`); read-only, exit 0.
 
 ---
 

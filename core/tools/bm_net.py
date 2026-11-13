@@ -1,0 +1,678 @@
+#!/usr/bin/env python3
+"""
+bm network console: the monitor of a Pi running bm, over WiFi (M18.7) or
+the Ethernet of a Pi 1 B / B+ (M29).
+Standard library only (Linux / macOS / WSL).
+
+  bm_net.py 192.168.1.108             asks for the password
+  bm_net.py 192.168.1.108 -p 123456   (or BM_PASSWORD=123456)
+
+  bm_net.py IP --send build/bm/pong.bm   saved on the SD card in /carts
+                                        (the RGB30: a game goes to bm/); the console
+                                        answers once it arrived and writes it from its
+                                        menu (a game that is open: when it is closed)
+  bm_net.py IP --send x.bm --to /bm   (another folder)
+  bm_net.py IP --play game.bm           played at once, not saved
+  bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
+  bm_net.py IP --kernel build/kernel7.img   the same on a Pi Zero 2 W (kernel7.img)
+  bm_net.py IP --kernel build/rgb30/kernel8.img   the same on the RGB30 (kernel8.img)
+  bm_net.py IP --config                 the console's bm/config.txt (secrets hidden)
+  bm_net.py IP --config report_upload=0 game_intro=   a key set, one removed
+  bm_net.py IP --shot shot.png          a screenshot of the running game, saved as shot.png
+  bm_net.py IP --get bm/shots/pong0007.png out.png   a file of bm/shots on the console
+  bm_net.py IP --keys Xa                the keys X then a pressed one by one (0.2 s apart), the
+                                        console's answer shown for 3 s (what the bridge's `keys NAME` sends)
+  bm_net.py IP --line "b3d; send"       a monitor line run (from the menu or the
+                                        monitor), its output shown until it is done
+
+The password is the one shown on the Pi's screen after 'W' (net_password in
+bm/config.txt). In the console keys go to the Pi one by one, as on its
+keyboard, to what has them (the console says which: the menu takes them
+without echo, the monitor echoes; in the menu a line typed after ':' goes to
+the monitor); Ctrl-Q (or Ctrl-], or Enter ~ . as in ssh) quits. Plain text:
+use it on the home network only.
+Files on the SD card need 8.3 names (pong.bm, not chaos_kitchen.bm):
+--name sets another one.
+"""
+import argparse
+import getpass
+import os
+import re
+import select
+import socket
+import struct
+import sys
+import time
+import zlib
+
+PORT = 3333
+XFER_PORT = 3334
+ANSWERS = {b"OK": "ok", b"PW": "wrong password", b"SZ": "file too big (or no memory)",
+           b"BH": "bad request", b"CE": "damaged in transit (crc)",
+           b"BO": "the bridge is off: set Settings > System > Bridge to on or fast on the console",
+           b"BF": "refused: dev and bridge are the user's (Settings > System > Bridge)",
+           b"WE": "could not write on the SD card",
+           b"QD": "received: the console writes it from its menu (a game that is open is "
+                  "replaced when it is closed)",
+           b"BY": "busy: the console is still writing a file sent before (back to its menu, "
+                  "wait for it, then send again)",
+           b"PA": "path not allowed (only files of bm/shots)",
+           b"NF": "no such file",
+           b"NG": "no screenshot: no game drew a frame (start a game first)",
+           b"KV": "not key=value lines: nothing changed",
+           b"KA": "not a kernel for this console (the Pi Zero 2 W takes build/kernel7.img, "
+                  "the RGB30 build/rgb30/kernel8.img, the other boards build/kernel.img)"}
+QUIT_KEYS = (b"\x11", b"\x1d")  # Ctrl-Q, Ctrl-]
+
+
+def read_until(sock, markers, timeout=5.0):
+    """What arrives until one of the markers (or markers(data) is true),
+    the end or the timeout."""
+    done = markers if callable(markers) else lambda d: any(m in d for m in markers)
+    data = b""
+    sock.settimeout(timeout)
+    try:
+        while not done(data):
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+    except socket.timeout:
+        pass
+    sock.settimeout(None)
+    return data
+
+
+def recv_answer(sock, timeout):
+    sock.settimeout(timeout)
+    data = b""
+    try:
+        while len(data) < 2:
+            chunk = sock.recv(2 - len(data))
+            if not chunk:
+                break
+            data += chunk
+    except (socket.timeout, ConnectionResetError):
+        pass
+    return data
+
+
+def open_request(args, op, dest, data, password, patience=25.0):
+    """The request sent to the transfer port: the socket and the console's
+    first answer (OK: the data can go).
+    The console serves one request at a time and does not serve the network at all while it loads a game or writes
+    to the card (seconds): a connection that is refused, reset or left without an answer is tried again for
+    `patience` seconds with the same tag. Only a "bad request" (BH) sends the old tag (BM3X: a kernel from before the
+    rename), and only that answer is "too old": an empty answer is a busy console (before, it went to the old tag, got
+    BH from the new kernel and printed "kernel too old", 2026-11-09)."""
+    pw = password.encode()
+    rest = (op + bytes([len(pw)]) + pw + bytes([len(dest)]) + dest.encode()
+            + struct.pack("<II", len(data), zlib.crc32(data) & 0xFFFFFFFF))
+    end = time.time() + patience
+    a = b""
+    while True:
+        sock = None
+        try:
+            sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+            sock.sendall(b"BMXF" + rest)
+            a = recv_answer(sock, 10)
+        except (OSError, socket.timeout):
+            a = b""
+        if a:
+            break
+        if sock:
+            sock.close()
+        if time.time() >= end:
+            break
+        time.sleep(0.5)
+    if a == b"BH" or not a:
+        # a kernel from before the rename only knows the old request tag (it answers BH or drops the connection)
+        if sock:
+            sock.close()
+        time.sleep(0.3)
+        try:
+            sock = socket.create_connection((args.host, XFER_PORT), timeout=5)
+            sock.sendall(b"BM3X" + rest)
+            a2 = recv_answer(sock, 10)
+        except (OSError, socket.timeout):
+            a2 = b""
+        if a2 not in (b"BH", b""):
+            a = a2
+        elif not a:
+            sock.close()
+    return (sock if sock else socket.socket()), a
+
+
+def transfer(args, op, path, name, password):
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        print(f"{path}: {e.strerror} (the games are in build/bm/, e.g. build/bm/pong.bm)")
+        return 1
+    if op == b"S" and not re.fullmatch(r"[A-Za-z0-9_~$!#%&'()@^{}-]{1,8}(\.[A-Za-z0-9_~$!#%&'()@^{}-]{1,3})?", name):
+        print(f"'{name}' is not an 8.3 name (at most 8 letters, dot, 3): use --name")
+        return 1
+    dest = (args.to.strip("/") + "/" if args.to.strip("/") else "") + name if op == b"S" else name
+    before = console_version(args.host) if op == b"K" else None
+    sock, a = open_request(args, op, dest, data, password)
+    if a != b"OK":
+        print("refused:", ANSWERS.get(a, a or "no answer"))
+        return 1
+    t0 = time.time()
+    sock.settimeout(60)
+    step = 64 * 1024
+    for off in range(0, len(data), step):
+        sock.sendall(data[off:off + step])
+        print(f"\r{min(off + step, len(data)) * 100 // len(data):3d}%  {len(data)} bytes", end="", flush=True)
+    # the answer comes once the file is written: a console that writes its SD
+    # card slowly (the RGB30) needs more than a minute for a kernel. A file
+    # (S) is answered QD as soon as it is checked (kernels from 2026-10-10):
+    # the console writes it from its menu, an older one still answers OK later
+    a = recv_answer(sock, 60 + len(data) // 8192)
+    dt = time.time() - t0
+    print(f"\r{len(data)} bytes in {dt:.1f} s ({len(data) / 1024 / max(dt, 1e-3):.0f} KB/s): "
+          + ANSWERS.get(a, "no answer"))
+    sock.close()
+    if a == b"OK" and op == b"K":
+        return wait_reboot(args.host)
+    if not a and op == b"K":
+        # the answer can be lost while the kernel is written all the same
+        # (the RGB30 used to drop its WiFi after a long write): what it runs says
+        print("the answer was lost: the console may have written the kernel all the same")
+        return wait_reboot(args.host, before)
+    return 0 if a in (b"OK", b"QD") else 1
+
+
+def recv_exact(sock, n, timeout):
+    sock.settimeout(timeout)
+    data = b""
+    try:
+        while len(data) < n:
+            chunk = sock.recv(n - len(data))
+            if not chunk:
+                break
+            data += chunk
+    except (socket.timeout, ConnectionResetError):
+        pass
+    return data
+
+
+def refused(a):
+    """The message of a refusal; 2 if the kernel does not know T/G (too old)"""
+    if a == b"BH":
+        print("kernel too old (it does not know T/G)")
+        return 2
+    print("refused: " + ANSWERS.get(a, a or "no answer"))
+    return 1
+
+
+def fetch(args, path, password):
+    """Op G: (0, data) or (the exit code, None)"""
+    sock, a = open_request(args, b"G", path, b"", password)
+    if a != b"OK":
+        sock.close()
+        return refused(a), None
+    head = recv_exact(sock, 8, 10)
+    n, crc = struct.unpack("<II", head) if len(head) == 8 else (0, 0)
+    data = recv_exact(sock, n, 30) if len(head) == 8 else b""
+    sock.close()
+    if len(head) < 8 or len(data) != n:
+        print("incomplete answer from the console")
+        return 1, None
+    if zlib.crc32(data) & 0xFFFFFFFF != crc:
+        print("damaged in transit (crc)")
+        return 1, None
+    return 0, data
+
+
+def save(out, data):
+    try:
+        with open(out, "wb") as f:
+            f.write(data)
+    except OSError as e:
+        print(f"{out}: {e.strerror}")
+        return 1
+    print(f"{len(data)} bytes -> {out}")
+    return 0
+
+
+def get_file(args, path, out, password):
+    """--get: a file of bm/shots (or bm/bootprev.txt, bootlog.txt, lastrun.txt) on the console, written to out"""
+    rc, data = fetch(args, path, password)
+    return rc if data is None else save(out, data)
+
+
+def fetch_frame(host, password):
+    """Op F: the page on the screen now, (width, height, depth, is_rgb, pixels); RuntimeError when it fails"""
+    sock, a = open_request(argparse.Namespace(host=host), b"F", "", b"", password)
+    if a != b"OK":
+        sock.close()
+        raise RuntimeError("refused: " + ANSWERS.get(a, (a or b"no answer").decode(errors="replace")))
+    head = recv_exact(sock, 8, 10)
+    n, crc = struct.unpack("<II", head) if len(head) == 8 else (0, 0)
+    data = recv_exact(sock, n, 60) if len(head) == 8 else b""
+    sock.close()
+    if len(head) < 8 or len(data) != n or n < 8:
+        raise RuntimeError("incomplete answer from the console (a kernel from before op F answers BH)")
+    if zlib.crc32(data) & 0xFFFFFFFF != crc:
+        raise RuntimeError("damaged in transit (crc)")
+    w, h, depth, is_rgb = struct.unpack("<HHBB", data[:6])
+    if depth not in (16, 32) or len(data) != 8 + w * h * depth // 8:
+        raise RuntimeError("a frame this tool does not know (depth %d)" % depth)
+    return w, h, depth, is_rgb, data[8:]
+
+
+def frame_pixel(frame, x, y):
+    """(r, g, b) of the pixel (x, y) of a frame of fetch_frame"""
+    w, _h, depth, is_rgb, px = frame
+    if depth == 16:
+        v = px[(y * w + x) * 2] | px[(y * w + x) * 2 + 1] << 8
+        r, g, b = (v >> 11) & 31, (v >> 5) & 63, v & 31
+        return (r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2)
+    o = (y * w + x) * 4
+    return (px[o], px[o + 1], px[o + 2]) if is_rgb else (px[o + 2], px[o + 1], px[o])
+
+
+def save_ppm(frame, out):
+    """a frame as a PPM file (P6)"""
+    w, h = frame[0], frame[1]
+    with open(out, "wb") as f:
+        f.write(b"P6\n%d %d\n255\n" % (w, h))
+        for y in range(h):
+            f.write(bytes(c for x in range(w) for c in frame_pixel(frame, x, y)))
+    print(f"{w}x{h} -> {out}")
+
+
+def frame_file(args, out, password):
+    """--frame: the page on the screen now (F), written to out as a PPM"""
+    try:
+        save_ppm(fetch_frame(args.host, password), out)
+    except (RuntimeError, OSError) as e:
+        print(e)
+        return 1
+    return 0
+
+
+def view_test(args, password):
+    """--view: the stream (V) for args.view seconds, no drawing: how many frames and bytes the console sent"""
+    import bm_watch
+    w, h = (int(v) for v in (args.view_size or "120x68").split("x"))
+    t0, frames, changed, nbytes = time.time(), 0, 0, 0
+    try:
+        for _px, ch, n in bm_watch.stream_frames(args.host, password, w, h, 100):
+            frames += 1
+            changed += ch
+            nbytes += n
+            if time.time() - t0 >= args.view:
+                break
+    except (RuntimeError, OSError, ValueError) as e:
+        print(e)
+        return 1
+    dt = max(time.time() - t0, 0.001)
+    print(f"stream {w}x{h}: {frames} frames ({changed} with changes) and {nbytes} bytes in {dt:.1f} s: "
+          f"{frames / dt:.1f} frames/s, {nbytes / 1024 / dt:.1f} KB/s")
+    return 0
+
+
+def restart(args, password):
+    """--restart: the console restarts (R), with the same kernel"""
+    sock, a = open_request(args, b"R", "", b"", password)
+    sock.close()
+    if a != b"OK":
+        return refused(a)
+    return wait_reboot(args.host)
+
+
+def shot(args, out, password):
+    """--shot: a screenshot of the running game (T), then its file (G)"""
+    sock, a = open_request(args, b"T", "", b"", password)
+    # a game that was started a moment ago has not drawn its first frame (it loads, the console serves nothing meanwhile):
+    # with --wait the request goes again until it has, or the seconds are over
+    end = time.time() + (getattr(args, "wait", 0) or 0)
+    while a == b"NG" and time.time() < end:
+        sock.close()
+        time.sleep(1)
+        sock, a = open_request(args, b"T", "", b"", password)
+    if a != b"OK":
+        sock.close()
+        return refused(a)
+    head = recv_exact(sock, 4, 10)
+    name = recv_exact(sock, struct.unpack("<I", head)[0], 10) if len(head) == 4 else b""
+    sock.close()
+    if not name:
+        print("incomplete answer from the console")
+        return 1
+    time.sleep(0.35)  # wait for netxfer on device to transition from REPLIED (300ms) to IDLE
+    return get_file(args, "bm/shots/" + name.decode(errors="replace"), out, password)
+
+
+# a setting: the key letters, digits and _ (at most 23), the value one line
+# of at most 127 bytes ("key=" removes the key); as core/src/kernel/config.c
+KEY_VALUE = re.compile(r"([A-Za-z0-9_]{1,23})=([^\x00-\x1f\x7f]*)")
+SECRET = re.compile(r".*(_token|_psk|_password|_key)$")
+
+
+def config(args, password):
+    """--config: the changes sent (C), the settings after them shown"""
+    changes = []
+    for kv in args.config:
+        m = KEY_VALUE.fullmatch(kv.rstrip(" "))
+        if not m or len(m.group(2).encode()) > 127:
+            print(f"'{kv}' is not key=value (the key: letters, digits, _, at most 23; the value: "
+                  "one line, at most 127 characters)")
+            return 1
+        changes.append((m.group(1), m.group(2)))
+    data = "".join(f"{k}={v}\n" for k, v in changes).encode() if changes else b"#\n"
+    sock, a = open_request(args, b"C", "bm/config.txt", data, password)
+    if a == b"BH":
+        print("refused: this console's kernel does not take settings from the network yet: "
+              "send it a newer kernel first (--kernel)")
+        return 1
+    if a != b"OK":
+        print("refused:", ANSWERS.get(a, a or "no answer"))
+        return 1
+    sock.sendall(data)
+    a = recv_answer(sock, 20)
+    if a != b"OK":
+        sock.close()
+        print("refused:", ANSWERS.get(a, a or "no answer"))
+        return 1
+    head = recv_exact(sock, 4, 10)
+    text = recv_exact(sock, struct.unpack("<I", head)[0], 10).decode(errors="replace") if len(head) == 4 else ""
+    sock.close()
+    now = {}
+    for line in text.splitlines():
+        k, _, v = line.partition("=")
+        now[k] = v
+    print("bm/config.txt on the console:")
+    for k, v in now.items():
+        print(f"  {k}={v}")
+    if not now:
+        print("  (empty)")
+    wrong = []
+    for k, v in changes:
+        if not v and k in now:
+            wrong.append(f"{k} still there")
+        elif v and k not in now:
+            wrong.append(f"{k} missing (no room for more keys?)")
+        elif v and not SECRET.match(k) and now[k] != v:
+            wrong.append(f"{k}={now[k]}, not {v}")
+    if wrong:
+        print("not as asked: " + "; ".join(wrong))
+        return 1
+    if changes:
+        print(f"settings changed: {len(changes)} (some count from the console's next start: WiFi, "
+              "the network console's code, the GPU)")
+    return 0
+
+
+def console_version(host):
+    """The version in the console's greeting, or None if it does not answer."""
+    try:
+        with socket.create_connection((host, PORT), timeout=2) as s:
+            g = read_until(s, [b"password: "], timeout=3).decode(errors="replace")
+    except OSError:
+        return None
+    m = re.search(r"bm (\S+) network console", g)
+    return m.group(1) if m else None
+
+
+def wait_reboot(host, before=None, limit=120):
+    """After --kernel: the console goes away, then comes back; prints the
+    version. With before (the version before the kernel was sent), another
+    version is also a console that came back (it may have restarted while
+    nobody looked)."""
+    print("waiting for the console to restart...", end="", flush=True)
+    t0 = time.time()
+    went_down = False
+    while time.time() - t0 < limit:
+        v = console_version(host)
+        if v is None:
+            went_down = True
+        elif went_down or (before and v != before):
+            print(f"\rback after {time.time() - t0:.0f} s, running bm {v}      ")
+            return 0
+        time.sleep(2)
+    print("\rthe console " + ("did not come back" if went_down else "did not restart")
+          + f" within {limit} s: look at its screen")
+    return 1
+
+
+# the end of the login: the monitor's prompt, the password asked again, the
+# goodbye, or the line saying what takes the keys (a kernel of 2026-10-05 on)
+FOCUS = re.compile(rb"the keys go to ([^\r\n]*)\r\n")
+
+
+def logged_in(data):
+    return any(m in data for m in (b"> ", b"password: ", b"bye")) or FOCUS.search(data) is not None
+
+
+KEYS_PAUSE = 0.2        # between two keys of --keys
+KEYS_READ = 3.0         # how long the answer to --keys is shown
+
+
+def keys_blocked(answer):
+    """--line and --keys need the menu or the monitor to have the keys: 2 (and
+    why) when the console says otherwise, else None"""
+    m = FOCUS.search(answer)
+    where = m.group(1).decode(errors="replace") if m else ""
+    if where.startswith("the buttons"):
+        print("\n[bm_net] this console has no monitor (its keys are its buttons): no line to run")
+        return 2
+    if where.startswith("the application") or where.startswith("a page"):
+        print(f"\n[bm_net] the keys go to {where}: back to the menu first (Ctrl-Esc on the console)")
+        return 2
+    return None
+
+
+def run_game_exit(sock, answer):
+    """--game-exit: Ctrl-backslash (0x1C) to a game, which the runtime reads as Ctrl-Esc (back to the menu); only when
+    the console says its keys go to the application"""
+    m = FOCUS.search(answer)
+    where = m.group(1).decode(errors="replace") if m else ""
+    if not where.startswith("the application"):
+        print(f"[bm_net] the keys go to {where or 'an unknown place'}: --game-exit works in a game only")
+        return 2
+    sock.sendall(b"\x1c")
+    end = time.time() + KEYS_READ
+    while time.time() < end:
+        sock.settimeout(max(end - time.time(), 0.01))
+        try:
+            data = sock.recv(4096)
+        except (socket.timeout, OSError):
+            break
+        if not data:
+            break
+        sys.stdout.write(data.decode(errors="replace"))
+    sys.stdout.flush()
+    return 0
+
+
+def run_keys(sock, seq, answer):
+    """--keys: the keys of SEQ one at a time, then what the console prints for a few seconds"""
+    if keys_blocked(answer):
+        return 2
+    for ch in seq:
+        sock.sendall(ch.encode())
+        time.sleep(KEYS_PAUSE)
+    end = time.time() + KEYS_READ
+    while time.time() < end:
+        sock.settimeout(max(end - time.time(), 0.01))
+        try:
+            data = sock.recv(4096)
+        except socket.timeout:
+            break
+        except OSError:
+            data = b""
+        if not data:
+            print("\n[bm_net] the console closed the connection")
+            break
+        sys.stdout.write(data.decode(errors="replace"))
+        sys.stdout.flush()
+    print()
+    return 0
+
+
+def run_line(sock, line, answer):
+    """--line: ':' + the line sent; what the console prints shown until the
+    line is done (or the console goes away: reboot)"""
+    m = FOCUS.search(answer)
+    if keys_blocked(answer):
+        return 2
+    if not m:
+        print("\n[bm_net] this kernel does not say where the keys go: the line works from its "
+              "monitor ('q' in the menu first)")
+    sock.sendall(b":" + line.encode() + b"\r")
+    seen = b""
+    sock.settimeout(None)
+    while True:
+        data = sock.recv(4096)
+        if not data:
+            print("\n[bm_net] the console closed the connection")
+            return 0
+        sys.stdout.write(data.decode(errors="replace"))
+        sys.stdout.flush()
+        seen = (seen + data)[-64:]
+        if b"the line is done" in seen:
+            print()
+            return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    ap.add_argument("host")
+    ap.add_argument("-P", "--port", type=int, default=PORT)
+    ap.add_argument("-p", "--password", default=os.environ.get("BM_PASSWORD"))
+    ap.add_argument("--send", metavar="FILE", help="save FILE on the SD card (folder --to)")
+    ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
+    ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
+    ap.add_argument("--play", metavar="FILE", help="play a .bm at once")
+    ap.add_argument("--kernel", metavar="FILE",
+                    help="write the kernel (kernel.img; kernel7.img on a Pi Zero 2 W, kernel8.img on "
+                         "the RGB30) and restart the console")
+    ap.add_argument("--line", metavar="LINE",
+                    help="run a monitor line (commands separated by ';': b3d tests=... "
+                         "profiles=..., set key=value, send...) and show its output")
+    ap.add_argument("--game-exit", action="store_true", help="end the game running (the Ctrl-backslash byte, the menu is back)")
+    ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
+    ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
+                    help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
+                         "KEY= removes it")
+    ap.add_argument("--dev", choices=["on", "off", "1", "0"],
+                    help="no longer works: the bridge gate is set on the console (Settings > System > Bridge)")
+    ap.add_argument("--restart", action="store_true", help="restart the console (the same kernel)")
+    ap.add_argument("--shot", metavar="OUT",
+                    help="screenshot of the running game, written to OUT (a PNG)")
+    ap.add_argument("--wait", type=float, default=0, metavar="SECONDS",
+                    help="with --shot: ask again for this long while no game has drawn a frame yet")
+    ap.add_argument("--frame", metavar="OUT",
+                    help="the page on the screen now (the menu, the monitor or a game), written to OUT (a PPM); core/tools/bm_watch.py repeats it")
+    ap.add_argument("--view", type=float, metavar="SECONDS",
+                    help="the stream (V) for SECONDS, not drawn: the frames and the bytes counted (core/tools/bm_watch.py draws it)")
+    ap.add_argument("--view-size", metavar="WxH", help="with --view: the picture asked of the console (default 120x68)")
+    ap.add_argument("--get", nargs=2, metavar=("PATH", "OUT"),
+                    help="a file of bm/shots on the console (PATH, e.g. bm/shots/pong0007.png) written to OUT")
+    args = ap.parse_args()
+
+    if args.restart:
+        return restart(args, args.password or getpass.getpass("password: "))
+    if args.view is not None:
+        return view_test(args, args.password or getpass.getpass("password: "))
+    if args.frame is not None:
+        return frame_file(args, args.frame, args.password or getpass.getpass("password: "))
+    if args.shot is not None:
+        return shot(args, args.shot, args.password or getpass.getpass("password: "))
+    if args.get is not None:
+        return get_file(args, args.get[0], args.get[1], args.password or getpass.getpass("password: "))
+    if args.config is not None:
+        return config(args, args.password or getpass.getpass("password: "))
+
+    if args.dev is not None:
+        sys.exit("the bridge gate is the user's: set Settings > System > Bridge (off, on, fast) on the console, "
+                 "or put bm/bridge.txt with one of those words on its SD card")
+
+    jobs = [(b"S", args.send), (b"P", args.play), (b"K", args.kernel)]
+    jobs = [(op, f) for op, f in jobs if f]
+    if jobs:
+        op, path = jobs[0]
+        pw = args.password or getpass.getpass("password: ")
+        return transfer(args, op, path, args.name or os.path.basename(path), pw)
+
+    sock = socket.create_connection((args.host, args.port), timeout=5)
+    greeting = read_until(sock, [b"password: "])
+    sys.stdout.write(greeting.decode(errors="replace").replace("password: ", ""))
+    sys.stdout.flush()
+    pw = args.password or getpass.getpass("password: ")
+    sock.sendall(pw.encode() + b"\r\n")
+    answer = read_until(sock, logged_in)
+    sys.stdout.write(answer.decode(errors="replace"))
+    sys.stdout.flush()
+    if b"ok - " not in answer:
+        return 1
+    if args.game_exit:
+        try:
+            return run_game_exit(sock, answer)
+        finally:
+            sock.close()
+    if args.keys is not None:
+        if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
+            print("--keys: letters and digits only, at most 8")
+            return 1
+        try:
+            return run_keys(sock, args.keys, answer)
+        finally:
+            sock.close()
+    if args.line is not None:
+        try:
+            return run_line(sock, args.line, answer)
+        except KeyboardInterrupt:
+            print("\n[bm_net] stopped here (the console goes on with the line)")
+            return 130
+        finally:
+            sock.close()
+
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    print("(Ctrl-Q or Enter ~ . to leave; in the menu a monitor line starts with ':')\r")
+    last_enter, tilde = True, False
+    try:
+        while True:
+            r, _, _ = select.select([sock, fd], [], [])
+            if sock in r:
+                data = sock.recv(4096)
+                if not data:
+                    break
+                os.write(sys.stdout.fileno(), data)
+            if fd in r:
+                key = os.read(fd, 64)
+                if any(q in key for q in QUIT_KEYS):
+                    break
+                # Enter ~ . (as in ssh): the '~' after Enter is held back
+                if tilde:
+                    tilde = False
+                    if key.startswith(b"."):
+                        break
+                    key = b"~" + key
+                if key == b"~" and last_enter:
+                    tilde = True
+                    continue
+                last_enter = key[-1:] in (b"\r", b"\n")
+                sock.sendall(key)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        sock.close()
+    print("\n[bm_net] disconnected")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except OSError as e:        # the console is off, restarting or frozen
+        print(f"[bm_net] the console does not answer ({e}): off, restarting or frozen; try again in a minute")
+        sys.exit(3)

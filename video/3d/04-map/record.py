@@ -66,10 +66,10 @@ def build_editor():
     """Builds the editor cartridge using mkbm.py directly into out/bin/editor.bm."""
     os.makedirs(BIN, exist_ok=True)
     out_bm = os.path.join(BIN, "editor.bm")
-    cmd = [sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"),
+    cmd = [sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"),
            "-o", out_bm,
-           "--lua", os.path.join(ROOT, "carts", "editor", "main.lua"),
-           "--info", os.path.join(ROOT, "carts", "editor", "bm.info")]
+           "--lua", os.path.join(ROOT, "bm", "editor", "main.lua"),
+           "--info", os.path.join(ROOT, "bm", "editor", "bm.info")]
     print("+", " ".join(cmd))
     subprocess.run(cmd, cwd=ROOT, check=True)
     return out_bm

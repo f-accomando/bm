@@ -1,5 +1,5 @@
 /*
- * Rasterizer bench (M33): fixed 3D scenes drawn with src/bm/r3d.c.
+ * Rasterizer bench (M33): fixed 3D scenes drawn with core/src/bm/r3d.c.
  *
  *   bench3d                 every scene: checksum of the picture, pixels
  *                           written, triangles drawn
@@ -8,7 +8,7 @@
  *                           build under qemu-arm)
  *   bench3d -ppm DIR        also writes DIR/SCENE.ppm
  *
- * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c), a
+ * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, core/src/gpu/gpu3d.c), a
  * scene named SCENE+gpu is drawn by the GPU backend on the V3D emulator:
  * the ARM's share of the 3D with the GPU (M33); SCENE+vs with the vertex
  * shader placing every model (bm3d 3.0).

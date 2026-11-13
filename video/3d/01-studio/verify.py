@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks the project bm Studio saved in the recording (out/sd/carts/TROPIC.BME) against the answer of video 1.
-No pictures: the file is what the editor really wrote (scripts/bmres.py, scripts/bmmesh.py).
+No pictures: the file is what the editor really wrote (core/scripts/bmres.py, core/scripts/bmmesh.py).
 
   python3 video/3d/01-studio/verify.py [SD_DIR] [--reference] [--chain]
 
@@ -22,15 +22,15 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmmesh   # noqa: E402
 import bmres    # noqa: E402
 
 BUDGET = {"PICO": 300, "APPLE": 80, "CRATE": 40}
 ORDER = ["CRATE", "APPLE", "PICO"]
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
 CHAIN = os.path.join(HERE, "..", "chain")
-# T.PALETTE of bm Studio (src/script/bm3d.lua): the colours the video picks
+# T.PALETTE of bm Studio (core/src/script/bm3d.lua): the colours the video picks
 COL = {"brown": 0x8A5A30, "red": 0xE84A5A, "orange": 0xF09030, "mint": 0x60D0C0, "yellow": 0xF0D040, "cream": 0xFFF4C0}
 
 bad = []
@@ -167,9 +167,9 @@ def silhouette(path):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     sd = args[0] if args else os.path.join(HERE, "out", "sd")
-    path = os.path.join(sd, "carts", "TROPIC.BME")
+    path = os.path.join(sd, "bm", "TROPIC.BME")
     if not os.path.exists(path):
-        print("FAIL no", path, "- files:", os.listdir(os.path.join(sd, "carts")) if os.path.isdir(os.path.join(sd, "carts")) else "none")
+        print("FAIL no", path, "- files:", os.listdir(os.path.join(sd, "bm")) if os.path.isdir(os.path.join(sd, "bm")) else "none")
         return 1
     f, models = load_models(path)
     data = open(path, "rb").read()

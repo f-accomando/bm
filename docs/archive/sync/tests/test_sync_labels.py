@@ -1,4 +1,4 @@
-"""tools/sync_check.py reads the English labels and the Italian ones (SYNC-EN-1): `## Deliveries` / `## Consegne`,
+"""core/tools/sync_check.py reads the English labels and the Italian ones (SYNC-EN-1): `## Deliveries` / `## Consegne`,
 `verify:` / `verifica:`, `## Closing` / `## Chiusura`, `open:` / `aperti:`, `none` / `nessuno`."""
 import os
 import sys
@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import sync_check as sc  # noqa: E402
 
 ISO = "2026-10-20T10:00+02:00"

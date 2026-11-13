@@ -1,4 +1,4 @@
--- tests/agent: a fake model in place of the kernel's ai_ask, put before carts/agent/main.lua.
+-- tests/agent: a fake model in place of the kernel's ai_ask, put before bm/agent/main.lua.
 -- Each question is answered on the next poll. "file" asks for an answer with a file block.
 local asks, pending = 0, nil
 

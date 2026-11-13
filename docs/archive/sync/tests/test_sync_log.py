@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL = os.path.join(HERE, "..", "..", "tools", "sync_log.py")
+TOOL = os.path.join(HERE, "..", "..", "core", "tools", "sync_log.py")
 HEAD = "| Timestamp | Operatore | Branch / Commit | Azione | Messaggio |\r\n|---|---|---|---|---|\r\n"
 ROW = "| 2026-10-15T20:00+02:00 | SPV | `b` | `RULE` | x |\r\n"
 

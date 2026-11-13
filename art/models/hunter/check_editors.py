@@ -134,7 +134,7 @@ def main(argv):
         subprocess.check_call([sys.executable, os.path.join(HERE, "hunter_build.py"), models], env=env,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         cart = os.path.join(work, "check.bm")
-        subprocess.check_call([sys.executable, os.path.join(SKILL, "scripts", "bm_forge.py"), "export", "cart", models,
+        subprocess.check_call([sys.executable, os.path.join(SKILL, "core", "scripts", "bm_forge.py"), "export", "cart", models,
                                "--lua", lua_path, "-o", cart, "--title", "hunter check", "--cover-model", "hunter", "--budget", "20000"],
                               stdout=subprocess.DEVNULL)
         out = subprocess.run([host, cart, "--sd", sd, "--seconds", "3"], capture_output=True, text=True, timeout=180)

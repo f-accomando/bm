@@ -22,7 +22,7 @@ All values found in the code. "Keep" means: no known game needs more, the cost o
 
 | Limit | Current | Where | Proposed | Pi Zero W / RGB30 consequence |
 |---|---|---|---|---|
-| Cartridge file size | none in the kernel | `src/bm/format.c` | keep; Market 100 MB | RAM + CRC time |
+| Cartridge file size | none in the kernel | `core/src/bm/format.c` | keep; Market 100 MB | RAM + CRC time |
 | Sheet width and height | 4096 each | `bm.h:180`, `format.c:626,634` | keep 4096 | 4096x4096 is 64 MB as RGBA and 32 MB as RGB565 after decode. Larger would hurt the Pi. |
 | SHEET8 colours | 1..256 | `format.c:634`, `BM-FORMAT.md:55` | keep. Use the true-colour `SHEET` (RGBA, no palette) when a game needs more. | The output is RGB565 (65536 colours). No 32-bit colour for now (decision 2026-10-21). More palette entries gain nothing on screen. |
 | Palette resource `.bmc` | a SHEET8 of N x 1, N <= 256 | `BM-FORMAT.md` resource kinds | keep | same |
@@ -34,20 +34,20 @@ All values found in the code. "Keep" means: no known game needs more, the cost o
 | MESH | 256 models, 65535 vertices and faces per model, name 16 bytes | `bm.h:188`, `BM-FORMAT.md` | keep (the vertex and face counts are the u16 format limit) | the Pi draws far fewer; see the 3D bench |
 | ANIM | 64 bones, 255 clips, 1024 keys | `bm.h:190-192` | keep | |
 | INFO | 16 KB; an oversized one is silently dropped | `bm.h:170` | raise to 64 KB **only if** the compatibility data goes in INFO (see 5.3). With the binary block it stays. | text, parsed at load |
-| AUDIO samples (PCM) | 1,048,576 16-bit values per bank (2 MB): 22 s mono at 48 kHz | `src/audio/player.h:81` | raise to 8,388,608 values (16 MB decoded, about 3 min mono at 44.1 kHz) | The samples are converted to 16-bit when the bank is read, so RAM = 2 bytes per value. 16 MB is small against 512 MB. Load time grows with the size. |
+| AUDIO samples (PCM) | 1,048,576 16-bit values per bank (2 MB): 22 s mono at 48 kHz | `core/src/audio/player.h:81` | raise to 8,388,608 values (16 MB decoded, about 3 min mono at 44.1 kHz) | The samples are converted to 16-bit when the bank is read, so RAM = 2 bytes per value. 16 MB is small against 512 MB. Load time grows with the size. |
 | AUDIO sample slots | 64 | `player.h:82` (`AU_SAMPLES`) | keep | |
 | AUDIO sounds / sfx / patterns / songs | 32 / 64 / 64 / 8 | `player.h:86-89` | keep | |
 | Song length, pattern steps, sfx steps | 64 / 64 / 32 | `player.h:92-94` | keep | |
-| Voices | 8 | `src/audio/synth.h:34` | keep | the mixing cost on the ARM1176 scales with voices |
+| Voices | 8 | `core/src/audio/synth.h:34` | keep | the mixing cost on the ARM1176 scales with voices |
 | Long music (above the PCM cap) | no stream | | later stage: a stream read from the SD card in pieces | needs a reader fiber; not in stage 1 |
 | Sections per file | 255 (u8) | `BM-FORMAT.md:28` | keep | |
 | `bm_rewrite_with` / `cart_save` extra sections | 32 old + 8 new / 16 extra | `BM-FORMAT.md:86`, `runtime.c:5392` (`PROJ_EXTRA_MAX 16`) | raise when a new section type (section 15, see 5) needs it. Not before. | |
 | Title / author / name | 47 / 31 bytes; names 16 bytes | `BM-FORMAT.md:31-32` | keep | |
 | Header sizes | width x height from a list: 640x360, 480x270, 320x180, 256x256, 360x360, 720x720 | `bm.h:9-11` | add 960x540 and 1280x720 only if a cart needs a fixed size. `screen()` already offers them at run time. | |
-| Lua heap | 64 MB | `src/script/luavm.c:13` | keep (decision D6). | |
+| Lua heap | 64 MB | `core/src/script/luavm.c:13` | keep (decision D6). | |
 | Save | 32 KB (`SAVE_MAX`) | `runtime.c:3383` | keep. | |
 | Document read | 4 MB (`DOC_MAX`) | `runtime.c:3714` | keep | not a cartridge limit |
-| Tokens | none | `src/bm/tokens.h:9` | keep | |
+| Tokens | none | `core/src/bm/tokens.h:9` | keep | |
 | Market catalog | 256 games, 256 KB index, 100 MB per file | `catalog.h:15-19` | keep. Check the index size after compatibility lines are added (5.5). | RAM of the catalog on the Pi |
 
 Summary: the audio PCM cap is the only format limit worth raising now. The palette needs no change. **Proposed, not decided.**
@@ -67,11 +67,11 @@ Summary: the audio PCM cap is the only format limit worth raising now. The palet
 | `mouse(on)`, `mouse()`, `mousep()` | the pointer, only if the cartridge asks. A controller never shows it. `mouse(true)` returns `false` if the console has the mouse off. | `docs/api/input.md:18-35` |
 | `rawkeys`, `keydown`, `keys`, `pad`, `lastinput` | raw keys and bits; `lastinput()` for button prompts | `docs/api/input.md:90-96` |
 | `prompt("act1", x, y)` | draws the right symbol for the active device | `docs/api/input.md` (PR 86 text) |
-| `lib.input({scheme=...})` (PR 86, `claude/games-input-standard-pr`) | schemes `scroller`, `topdown`, `stick`; actions `act1..act8`; menus `confirm="ok"`, `cancel="back"`, `pause="start"` | `docs/design/games-input-standard.md` on that branch; `src/script/bmlib.lua:1093` on that branch |
+| `lib.input({scheme=...})` (PR 86, `claude/games-input-standard-pr`) | schemes `scroller`, `topdown`, `stick`; actions `act1..act8`; menus `confirm="ok"`, `cancel="back"`, `pause="start"` | `docs/design/games-input-standard.md` on that branch; `core/src/script/bmlib.lua:1093` on that branch |
 | `controls(scheme)` (PR 87, `claude/controls-remap-pr`) | the player's remap in Settings > Controls replaces the game's buttons for that scheme | `docs/api/input.md:12` on that branch |
 | `bmui` | a mouse layer for the editors: "the mouse does what the keys do" | `docs/api/input.md:37-57` |
 
-Device facts: the RGB30 has a pad only. The USB port is not driven. A Bluetooth pad, keyboard or mouse can pair (`src/rgb30/bm_port.c:185`, `src/rgb30/main.c:271`). The RGB30 pointer block is suspended (`docs/spec/divergences.toml:65-67`) and the on-screen keyboard is "in work" (`:41`). The Pi has a USB or Bluetooth keyboard, mouse and pad. Menu confirm is `pad_ok` on both (`docs/spec/ui-reference.md:22,41`).
+Device facts: the RGB30 has a pad only. The USB port is not driven. A Bluetooth pad, keyboard or mouse can pair (`core/src/rgb30/bm_port.c:185`, `core/src/rgb30/main.c:271`). The RGB30 pointer block is suspended (`docs/spec/divergences.toml:65-67`) and the on-screen keyboard is "in work" (`:41`). The Pi has a USB or Bluetooth keyboard, mouse and pad. Menu confirm is `pad_ok` on both (`docs/spec/ui-reference.md:22,41`).
 
 How games are optimised today: a game is written for the pad (button names, `prompt()`), and the keyboard is mapped onto the pad. The editors (Code, Pixel, Studio, Animator, Sound, SDK) are written for the keyboard and the mouse (`bmui`). They do not work well on a pad alone. Nothing in the cartridge tells the kernel which case it is.
 
@@ -112,13 +112,13 @@ Cost on the Pi Zero W: all adapters are small. The pad cursor and the on-screen 
 |---|---|
 | The Pi frame is 640x360 (16:9) for the menu and for games by default. | `docs/spec/ui-reference.md:29-30` |
 | The RGB30 panel is 720x720. The menu is 360x360 shown x2. Games: 360x360 x2 or 720x720. | `ui-reference.md:9-11` |
-| On the Pi a square cartridge (256x256, 360x360, 720x720) is shown in the middle of a 16:9 frame with **black bars** (`boxed`). On a square panel a page is never boxed. | `src/bm/runtime.c:7205-7215`, `:3076-3081` |
+| On the Pi a square cartridge (256x256, 360x360, 720x720) is shown in the middle of a 16:9 frame with **black bars** (`boxed`). On a square panel a page is never boxed. | `core/src/bm/runtime.c:7205-7215`, `:3076-3081` |
 | `screen(w, h)` accepts 7 sizes, all 16:9 (320x180 ... 1920x1080) on the Pi. On the RGB30 it accepts only 360x360 and 720x720. `SCREEN_W` and `SCREEN_H` follow. `screen()` returns the size now; `screen(i)` lists the modes. | `docs/api/draw.md:11`, `runtime.c:3076-3100` |
 | So a 16:9 cartridge cannot run at 16:9 on the RGB30. It would get a square screen. | same |
-| Carts read `SCREEN_W`/`SCREEN_H` (about 52 uses in 27 carts). Many fix a layout at load: `local W, H = SCREEN_W, SCREEN_H`, `VIEW_W = 624`. The suites differ: Pixel uses the width, `sdk_b16` uses a layout helper for 360x360. | `grep -rn SCREEN_W carts`, `carts/pixel/main.lua:13`, `carts/code/main.lua:1098`, `carts/sdk_b16/layout.lua:1-12` |
-| `bmlib` has a camera `Cam` with an optional view size and `Cam:screen()`. `lib.split` and `lib.party` take `SCREEN_W/H`. | `src/script/bmlib.lua:821, 897, 992, 1222` |
-| `carts/sdk_b16/layout.lua` is a small layout helper (rectangles, split with pixels, rows, shares). It is local to that cart. | `carts/sdk_b16/layout.lua:1-12` |
-| Overbit builds its own screen list from `screen(i)`. | `carts/overbit/src/85_quality.lua:17, 102` |
+| Carts read `SCREEN_W`/`SCREEN_H` (about 52 uses in 27 carts). Many fix a layout at load: `local W, H = SCREEN_W, SCREEN_H`, `VIEW_W = 624`. The suites differ: Pixel uses the width, `sdk_b16` uses a layout helper for 360x360. | `grep -rn SCREEN_W carts`, `bm/pixel/main.lua:13`, `bm/code/main.lua:1098`, `bm/sdk_b16/layout.lua:1-12` |
+| `bmlib` has a camera `Cam` with an optional view size and `Cam:screen()`. `lib.split` and `lib.party` take `SCREEN_W/H`. | `core/src/script/bmlib.lua:821, 897, 992, 1222` |
+| `bm/sdk_b16/layout.lua` is a small layout helper (rectangles, split with pixels, rows, shares). It is local to that cart. | `bm/sdk_b16/layout.lua:1-12` |
+| Overbit builds its own screen list from `screen(i)`. | `bm/overbit/src/85_quality.lua:17, 102` |
 
 Fill cost (pixels per frame, RGB565 = 2 bytes each): 640x360 = 230,400 px (461 KB); 360x360 = 129,600 px (259 KB); 720x720 = 518,400 px (1.04 MB). A game that draws 640x360 instead of 360x360 draws 78% more pixels. On the Pi Zero W this is the main cost. The 3D games use the GPU, so the cost there differs (`not verified`).
 
@@ -140,7 +140,7 @@ Recommendation for games: **G1 as the default for every existing game** (zero wo
 | A2 (recommended) **Elastic layout** | The app builds its layout from `SCREEN_W/H` with a layout helper (anchors: left, right, fill, fixed width). On a change of `screen()` the app calls the layout again. | one layout pass at start and on resize; no per-frame cost | The app fills the screen on both devices. Work: each suite moves its fixed numbers into the layout. |
 | A3 **Per-device layout** | Two layout files per app. | none | Highest quality. High maintenance. |
 
-Recommendation: **A2**. Promote `carts/sdk_b16/layout.lua` into `bmlib` (`lib.layout`). It is already host-tested (`tests/studio/sdk_b16_host.lua`).
+Recommendation: **A2**. Promote `bm/sdk_b16/layout.lua` into `bmlib` (`lib.layout`). It is already host-tested (`tests/studio/sdk_b16_host.lua`).
 
 ### 4.4 Proposed API (new, not in the code)
 
@@ -222,7 +222,7 @@ On the RGB30 an old `.bm` shows a faded cover (Pi only). Play asks "This edition
 
 ### 5.5 Market
 
-Today (facts): the catalog `index.txt` is signed once with ECDSA P-256 over SHA-256 (`src/net/catalog.c:55-67`). Each entry lists `file path size sha256` and a cover (`catalog.c:253-256`). Unknown lines are ignored ("newer catalogs", `catalog.c:~262`). The filter is in the client, by the file extension (`market.c:352-381`). The site is static GitHub Pages, so there is no server-side filter.
+Today (facts): the catalog `index.txt` is signed once with ECDSA P-256 over SHA-256 (`core/src/net/catalog.c:55-67`). Each entry lists `file path size sha256` and a cover (`catalog.c:253-256`). Unknown lines are ignored ("newer catalogs", `catalog.c:~262`). The filter is in the client, by the file extension (`market.c:352-381`). The site is static GitHub Pages, so there is no server-side filter.
 
 Proposal:
 

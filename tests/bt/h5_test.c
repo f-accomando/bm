@@ -1,6 +1,6 @@
 /*
  * H5 transport and Realtek set-up on the PC (make TARGET=rgb30 test-bt):
- * src/bt/h5.c and rtlbt.c talk to a simulated RTL8821CS through two byte
+ * core/src/bt/h5.c and rtlbt.c talk to a simulated RTL8821CS through two byte
  * queues standing in for the UART. The simulated controller answers SYNC
  * and CONFIG, acknowledges reliable packets (dropping some, to exercise
  * retransmission), answers HCI commands and collects the firmware pieces,

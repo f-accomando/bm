@@ -1,15 +1,15 @@
-"""Tests for scripts/wo_scope.py: scope parsing, matching and a real git branch."""
+"""Tests for core/scripts/wo_scope.py: scope parsing, matching and a real git branch."""
 import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "wo_scope.py")
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+SCRIPT = os.path.join(ROOT, "core", "scripts", "wo_scope.py")
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import wo_scope  # noqa: E402
 
 ORDER = """# WO-1
 Objective: fix `not/a/file` handling.
 ## Files to touch
-- `scripts/a.py`, `docs/progress/*.md`
+- `core/scripts/a.py`, `docs/progress/*.md`
 - `src/dir/`
 - `make` and `x` are not paths
 ## Verify
@@ -24,7 +24,7 @@ def run(*args):
 class ScopeParseTest(unittest.TestCase):
     def test_only_files_section_counts(self):
         self.assertEqual(wo_scope.order_scope(ORDER),
-                         ["scripts/a.py", "docs/progress/*.md", "src/dir/"])
+                         ["core/scripts/a.py", "docs/progress/*.md", "src/dir/"])
 
     def test_no_heading_uses_whole_text(self):
         self.assertEqual(wo_scope.order_scope("Change `a/b.c` and run `make`."), ["a/b.c"])
@@ -33,7 +33,7 @@ class ScopeParseTest(unittest.TestCase):
         self.assertTrue(wo_scope.matches("src/dir/", "src/dir/q.c"))
         self.assertFalse(wo_scope.matches("src/dir/", "src/dirx/q.c"))
         self.assertTrue(wo_scope.matches("docs/progress/*.md", "docs/progress/tools.md"))
-        self.assertFalse(wo_scope.matches("scripts/a.py", "scripts/b.py"))
+        self.assertFalse(wo_scope.matches("core/scripts/a.py", "core/scripts/b.py"))
 
 
 class ScopeCliTest(unittest.TestCase):
@@ -47,13 +47,13 @@ class ScopeCliTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_ok(self):
-        res = run("--order", self.order, "--changed", "scripts/a.py", "src/dir/q.c")
+        res = run("--order", self.order, "--changed", "core/scripts/a.py", "src/dir/q.c")
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertIn("scope ok", res.stdout)
         self.assertIn("unused: docs/progress/*.md", res.stdout)
 
     def test_violation(self):
-        res = run("--order", self.order, "--changed", "scripts/a.py", "src/other.c")
+        res = run("--order", self.order, "--changed", "core/scripts/a.py", "src/other.c")
         self.assertEqual(res.returncode, 1)
         self.assertIn("out of scope: src/other.c", res.stdout)
         self.assertIn("scope violated: 1", res.stdout)
@@ -75,14 +75,14 @@ class ScopeCliTest(unittest.TestCase):
 
     def test_real_branch(self):
         repo = os.path.join(self.tmp.name, "repo")
-        os.makedirs(os.path.join(repo, "scripts"))
+        os.makedirs(os.path.join(repo, "core", "scripts"))
         self.git(repo, "init", "-q", "-b", "main")
-        with open(os.path.join(repo, "scripts", "a.py"), "w") as fh:
+        with open(os.path.join(repo, "core", "scripts", "a.py"), "w") as fh:
             fh.write("1\n")
         self.git(repo, "add", "-A")
         self.git(repo, "commit", "-q", "-m", "base")
         self.git(repo, "checkout", "-q", "-b", "work")
-        with open(os.path.join(repo, "scripts", "a.py"), "w") as fh:
+        with open(os.path.join(repo, "core", "scripts", "a.py"), "w") as fh:
             fh.write("2\n")
         self.git(repo, "add", "-A")
         self.git(repo, "commit", "-q", "-m", "ok")

@@ -29,7 +29,7 @@ Una canzone per un gioco sono poche righe, non un file di note. La scrivi e la s
 
 ## Da sapere
 
-- RIFF è una libreria del kernel (`src/script/riff.lua`, come bmlib). La carichi con `require "riff"`. Funziona nei file `.bm`, sul Pi e sull'RGB30, e in bmhost sul PC.
+- RIFF è una libreria del kernel (`core/src/script/riff.lua`, come bmlib). La carichi con `require "riff"`. Funziona nei file `.bm`, sul Pi e sull'RGB30, e in bmhost sul PC.
 - Il tempo si conta in **cicli**. Un ciclo è una battuta di quattro movimenti: 2 secondi a 120 BPM (`setcps(0.5)`, il valore iniziale).
 - Un pattern dice quali eventi cadono in un intervallo di cicli. A ogni frame, `R.update()` mette in coda le note dei momenti successivi (circa 0,2 s avanti) con `play_at()`. L'interrupt del suono le avvia in tempo, qualunque sia la frequenza dei frame del gioco.
 - Le note aspettano in una coda di al massimo 160. RIFF non prende mai le voci di una canzone del bank né di un effetto sonoro.

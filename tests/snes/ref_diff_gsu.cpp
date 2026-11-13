@@ -1,4 +1,4 @@
-/* ref_diff_gsu.cpp: our Super FX (src/bm/snes_gsu.c) against the GSU module of the ares emulator (ISC licence), on random straight-line programs.
+/* ref_diff_gsu.cpp: our Super FX (core/src/bm/snes_gsu.c) against the GSU module of the ares emulator (ISC licence), on random straight-line programs.
  *
  * Build: make test-snes-ref ARES=/path/to/ares (see ref_diff.cpp). Nothing of ares is copied here: the processor module is #included from the ARES tree
  * at build time, and the cartridge side that the module needs (ROM and RAM buffers, pixel cache, code cache) is written again below from the public

@@ -218,7 +218,7 @@ def cmd_mesh(args):
         for model in models:
             for face in model.faces:
                 if (face.colour & meshmod.TEXTURED):
-                    print(f"error: textured .glb: use scripts/mkbm.py --models (bm-forge does not import sheets)",
+                    print(f"error: textured .glb: use core/scripts/mkbm.py --models (bm-forge does not import sheets)",
                           file=sys.stderr)
                     return 1
 

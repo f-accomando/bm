@@ -2,7 +2,7 @@
  * PC, with the console's own synthesizer and player (and the bank's
  * samples, listed as they are read):
  *   bmrender [--bits 16|24|32|f32] BANK.bmau OUT.wav [song|sfx N] [seconds]
- * `make wav BANK=carts/sound/demo.json SONG=0 [BITS=24]` does the conversion
+ * `make wav BANK=bm/sound/demo.json SONG=0 [BITS=24]` does the conversion
  * first. 16 bits (the default) is synth_render's, rounded with the dither;
  * 24 and 32 are synth_render32's (the console's sound_depth); f32 is the
  * mix itself (synth_mix), as IEEE floats. */

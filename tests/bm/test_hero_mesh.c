@@ -1,11 +1,11 @@
 /*
- * The heroes of carts/hero (assets/models.bm) on the V3D emulator: with the vertex shader at
+ * The heroes of bm/hero (assets/models.bm) on the V3D emulator: with the vertex shader at
  * 2 every hero (and every outline hull) must go through the mesh path (gpu3d_stats glmeshes /
  * gltris), with it off none does. A plain coloured hero with a face on two bones goes back to
  * the ARM, one triangle at a time: the models made before the one-bone-face rule do that, so
  * `test_hero_mesh MODELS.bm --expect-fallback` checks that the old file still shows the fault.
  *
- *   test_hero_mesh carts/hero/assets/models.bm [--expect-fallback] [MODEL ...]
+ *   test_hero_mesh bm/hero/assets/models.bm [--expect-fallback] [MODEL ...]
  *
  * With MODEL names (up to 8) it checks those models instead of the heroes: a game's skinned
  * models (Dark Night: hunter_c hunter_o villager huntsman dog) must take the mesh path too.

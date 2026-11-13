@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """Writes the status block at the top of sync/<ID>.md (--- ... ---) with `updated` taken from the clock (ISO 8601, time zone).
 
-  python3 tools/sync_hdr.py AGY --state WORKING --task "AGY-09 step 3" [--waiting-on user] [--progress 40] [--eta 18:00]
-  python3 tools/sync_hdr.py CLD --ack auto           # a heartbeat that also acknowledges the last row of SYNC.md read
-  python3 tools/sync_hdr.py CLD --wakeup no          # profile: this agent has no autonomous wake-up (yes | no)
-  python3 tools/sync_hdr.py CLD --close WO-3 --commit <sha> --tokens 12000 --min 25 [--read R] [--state FREE|WAITING --waiting-on Y]
+  python3 core/tools/sync_hdr.py AGY --state WORKING --task "AGY-09 step 3" [--waiting-on user] [--progress 40] [--eta 18:00]
+  python3 core/tools/sync_hdr.py CLD --ack auto           # a heartbeat that also acknowledges the last row of SYNC.md read
+  python3 core/tools/sync_hdr.py CLD --wakeup no          # profile: this agent has no autonomous wake-up (yes | no)
+  python3 core/tools/sync_hdr.py CLD --close WO-3 --commit <sha> --tokens 12000 --min 25 [--read R] [--state FREE|WAITING --waiting-on Y]
       # closes a work order: appends a JSON row to sync/<ID>.ledger.jsonl and prints the chat line
       # `done WO <X> [waiting on <Y> | FREE]: <files> files +<a> -<d>, <N> tokens, <M> min`; the status block is NOT touched.
       # files/add/del/lines come from `git show --numstat <commit>` unless given by hand (--files --add --del --lines code=..,docs=..,data=..).
 
-  python3 tools/sync_hdr.py CLD --deliver WO-3 --branch claude/x --commit <sha> --tokens 12000 --min 25 --verify "cmd -> result"
+  python3 core/tools/sync_hdr.py CLD --deliver WO-3 --branch claude/x --commit <sha> --tokens 12000 --min 25 --verify "cmd -> result"
       # --close plus the line `DELIVERED <WO> @ <branch>@<commit> · verify: <cmd -> result> · <ISO>` appended to `## Deliveries`
       # (else `## Consegne`; none: `## Deliveries` is created); the state becomes FREE, waiting_on is cleared, ack is automatic.
       # --verify is one line with `->` or the arrow; any missing option or bad --verify exits 2 and writes nothing.
 
-  python3 tools/sync_hdr.py CLD --closed none --branch claude/x [--commit <sha>]
+  python3 core/tools/sync_hdr.py CLD --closed none --branch claude/x [--commit <sha>]
       # writes `CLOSED @ <branch>@<commit> · tree clean · open: <none|WO ids> · <ISO>` in the `## Closing` section
       # (an existing `## Closing` or `## Chiusura` is reused; else `## Closing` is created before `## Progress`/`## Progressi`;
       # an existing CLOSED line is replaced), then applies --state DONE --ack auto.

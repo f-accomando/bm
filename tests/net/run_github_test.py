@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Publishing to the Market (M25, step 6): build/host/test_github runs
-src/net/github.c against a fake GitHub API served here, with the endpoints
+core/src/net/github.c against a fake GitHub API served here, with the endpoints
 it uses (user, forks made in the background, merge-upstream, refs,
 contents, pulls), then the repositories are checked: the owner gets a
 branch in the market, anyone else a fork; an update keeps the name of the
@@ -20,7 +20,7 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mkmarket  # noqa: E402
 
 TOKENS = {"tok-owner": "f-accomando", "tok-friend": "friend"}

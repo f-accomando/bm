@@ -31,7 +31,7 @@ net: asking for an address (DHCP)...
 cartridge menu: 8 games
 net: IP 192.168.1.233 (gateway 192.168.1.254, name bm)
 net: console on port 3333, password ******
-     from the PC: python3 tools/bm_net.py 192.168.1.233
+     from the PC: python3 core/tools/bm_net.py 192.168.1.233
 net: time 2026-10-25 13:17 UTC
 play: /bm/LOPO.B16 (171480 bytes)
 bm: loaded in 254 ms, the splash over at 1813 ms

@@ -422,7 +422,7 @@ Rename a bone to `sword` in F2, bake again and look at the preview: its box turn
 - A game (`.bm`) is never overwritten: the first save makes a `.BME` copy.
 - **F5** saves first and plays the project. Start + Select (or Ctrl+Esc) leaves the game and brings you back to the same page.
 - To make the finished game, use **bm SDK** (Build, `Ctrl+B`): it writes the `.bm`. The menu of bm Animator has no build entry.
-- When the animation is for a game kept in the repository, the models and skeletons are saved by the console and put in `carts/<game>/` as `models.bm`; `make` takes them into the cartridge.
+- When the animation is for a game kept in the repository, the models and skeletons are saved by the console and put in `bm/<game>/` as `models.bm`; `make` takes them into the cartridge.
 
 ## Try it, step by step
 
@@ -495,7 +495,7 @@ function _draw()
 end
 :::
 
-This is the pattern of the repository's `carts/overbit`. For the 2D sprites:
+This is the pattern of the repository's `bm/overbit`. For the 2D sprites:
 
 ::: copy
 zspr("hero_walk", 100, 80)

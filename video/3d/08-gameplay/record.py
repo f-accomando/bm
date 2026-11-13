@@ -39,8 +39,8 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     cart = find_cart()
     shutil.rmtree(SD, ignore_errors=True)
-    os.makedirs(os.path.join(SD, "carts"))
-    shutil.copy(cart, os.path.join(SD, "carts", "TROPIC.BM"))
+    os.makedirs(os.path.join(SD, "bm"))
+    shutil.copy(cart, os.path.join(SD, "bm", "TROPIC.BM"))
     replay = os.path.join(HERE, "replay.txt")
     if "--rebot" in args or not os.path.exists(replay):
         params = dict(bot.DEFAULTS)
@@ -59,7 +59,7 @@ def main():
     inp = os.path.join(OUT, "play-input.txt")
     with open(inp, "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
-    cmd = [exe, os.path.join(SD, "carts", "TROPIC.BM"), "--sd", SD, "--seconds", str(SECONDS), "--input", inp, "--shots", shots,
+    cmd = [exe, os.path.join(SD, "bm", "TROPIC.BM"), "--sd", SD, "--seconds", str(SECONDS), "--input", inp, "--shots", shots,
            "--wav", os.path.join(OUT, "play.wav"), "--quiet"]
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     print("play", (r.stderr or r.stdout)[-200:].strip())

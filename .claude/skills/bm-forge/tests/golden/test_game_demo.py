@@ -106,7 +106,7 @@ class TestGameDemoBuild(unittest.TestCase):
                                 f"{api} not found in bm/main.lua")
 
         # Optionally verify API is registered in runtime.c (if available)
-        runtime_path = os.path.join(C.REPO, "src", "bm", "runtime.c")
+        runtime_path = os.path.join(C.REPO, "core", "src", "bm", "runtime.c")
         if os.path.exists(runtime_path):
             with open(runtime_path, "r") as f:
                 runtime_source = f.read()
@@ -144,7 +144,7 @@ class TestGameDemoBuild(unittest.TestCase):
     def test_market_mkmarket_check(self):
         """Market folder passes mkmarket.py --check."""
         # Skip if mkmarket.py doesn't exist
-        mkmarket_path = os.path.join(C.REPO, "scripts", "mkmarket.py")
+        mkmarket_path = os.path.join(C.REPO, "core", "scripts", "mkmarket.py")
         if not os.path.exists(mkmarket_path):
             self.skipTest("mkmarket.py not available")
 

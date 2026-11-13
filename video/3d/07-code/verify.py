@@ -13,7 +13,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 ok_all = True
@@ -29,7 +29,7 @@ def check(cond, msg):
 def main():
     out = os.path.join(HERE, "out")
     sd = sys.argv[1] if len(sys.argv) > 1 else os.path.join(out, "sd")
-    f = bmres.read(os.path.join(sd, "carts", "TROPIC.BME"))
+    f = bmres.read(os.path.join(sd, "bm", "TROPIC.BME"))
     start = bmres.read(os.path.join(out, "start.bme"))
     print("parts kept")
     for sec, name in ((bmres.SEC_MESH, "MESH"), (bmres.SEC_ANIM, "ANIM"), (bmres.SEC_LAYERS, "LAYERS"), (bmres.SEC_AUDIO, "AUDIO")):

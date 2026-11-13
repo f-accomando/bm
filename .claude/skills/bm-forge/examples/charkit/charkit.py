@@ -3,9 +3,9 @@
 A character is a JSON "spec": a palette, a column of rings (pelvis -> neck -> head), feature tables
 (eyes, ears, hair, hat, arms, legs, tail, decals) and a skeleton. One shared vertex table, so limbs, ears,
 eyes, tail and fingers GROW OUT of vertices they share with the part they hang on: nothing is detached.
-Skinning is the format's own: one bone per vertex (src/bm/format.c:266-269); a ring shared by two segments
+Skinning is the format's own: one bone per vertex (core/src/bm/format.c:266-269); a ring shared by two segments
 belongs to the distal bone. The model is built facing +z and mirrored at the end to face -z, .L on +x,
-as bm Studio's recipes (src/ai/mesh_chars.c). Schema and the shared parts: references/CHARACTERS.md.
+as bm Studio's recipes (core/src/ai/mesh_chars.c). Schema and the shared parts: references/CHARACTERS.md.
 
   python charkit.py presets/rango.json OUT.bm      (absolute OUT path; then bm_forge.py check / preview / anim)
 """

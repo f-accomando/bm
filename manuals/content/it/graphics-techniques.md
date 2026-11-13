@@ -26,7 +26,7 @@ Le cifre di carico sono "a 60 fps": quante unità della cosa entrano in un frame
 
 # 3D sulla CPU (rasterizzatore ARM)
 
-L'ARM trasforma, illumina, ritaglia e disegna i triangoli da solo. È l'unico percorso 3D della RGB30 prima del Mali e il ripiego di entrambe le GPU. Fonte: `src/bm/r3d.c`.
+L'ARM trasforma, illumina, ritaglia e disegna i triangoli da solo. È l'unico percorso 3D della RGB30 prima del Mali e il ripiego di entrambe le GPU. Fonte: `core/src/bm/r3d.c`.
 
 | Tecnica | Stato | Cosa fa | Misurato | Equivalente |
 |---|---|---|---|---|
@@ -63,7 +63,7 @@ L'ARM trasforma, illumina, ritaglia e disegna i triangoli da solo. È l'unico pe
 
 # 3D sul V3D (Pi Zero W)
 
-Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza la libreria 3D del firmware. Fonte: `src/gpu/gpu3d.c`, `v3d.c`, shader scritti in `tools/qpuasm.py`. Storia delle versioni: `docs/DRIVERS.md`.
+Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza la libreria 3D del firmware. Fonte: `core/src/gpu/gpu3d.c`, `v3d.c`, shader scritti in `core/tools/qpuasm.py`. Storia delle versioni: `docs/DRIVERS.md`.
 
 | Tecnica | Stato | Cosa fa | Misurato | Equivalente |
 |---|---|---|---|---|
@@ -80,7 +80,7 @@ Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza
 | Fusione dei draw (`gpu3d_merge`) | Fatta | Molti pezzi piccoli diventano una mesh in assi mondo. Solo da 32 pezzi. | 100 pezzi: da +24 a +33 per cento; 10 pezzi grandi: -26 per cento | Instancing / batching dei draw |
 | Texture RGBA8888 (formato T) | Fatta | Fino a 8 texture in un job. | `quad_tex`: 131,1 quarti di schermo | `glTexImage2D` |
 | Texture RGB565 e RGBA5551 | Fatta, spenta | Metà memoria e metà letture di texture (`gpu3d_tex16`). Nessun guadagno sul Pi (21 ott). | - | Formati compressi o impacchettati |
-| Texture ETC1 | Fatta, spenta | `gpu3d_etc1`, encoder in `src/gpu/etc1.c`. Nessun guadagno sul Pi. | - | ETC1 (estensione GL ES 2) |
+| Texture ETC1 | Fatta, spenta | `gpu3d_etc1`, encoder in `core/src/gpu/etc1.c`. Nessun guadagno sul Pi. | - | ETC1 (estensione GL ES 2) |
 | Filtro bilineare | Fatta | `gpu3d_filter=1`. L'aspetto differisce dall'ARM. Il 2D resta al texel più vicino. | Riempimento: 2,3 ns a pixel contro 1,65 del più vicino | `GL_LINEAR` |
 | Attributi compatti dei vertici | Fatta, spenta | `gpu3d_attr=1`. `herotris` 54056 normale, 54013 compatto: nessun guadagno, il frame è limitato dall'ARM. | 72,2 eroi contro 66,2 solo in `heroes` | Formati di vertice impacchettati |
 | Ordinamento hardware (`gpu3d_sort`) | Scartata | Spenta: i numeri non mostrano guadagno. | `heroes`: 14,2 ms contro 15,9 ms ma il campo pixel era 0 | Ordinamento della geometria trasparente |
@@ -95,7 +95,7 @@ Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza
 
 # 3D sul Mali-G52 (RGB30)
 
-Il Mali è un renderer a tile della famiglia Bifrost. bm costruisce i descrittori dei job da Mesa (`v7.xml`, MIT) e gli shader con il compilatore Bifrost di Mesa (`tools/mali/mkshader.c`). Fonte: `src/rgb30/mali.c`, `mali_desc.c`. Tabella di parità con il V3D: `docs/progress/mali-parity.md`.
+Il Mali è un renderer a tile della famiglia Bifrost. bm costruisce i descrittori dei job da Mesa (`v7.xml`, MIT) e gli shader con il compilatore Bifrost di Mesa (`core/tools/mali/mkshader.c`). Fonte: `core/src/rgb30/mali.c`, `mali_desc.c`. Tabella di parità con il V3D: `docs/progress/mali-parity.md`.
 
 | Tecnica | Stato | Cosa fa | Misurato | Equivalente |
 |---|---|---|---|---|
@@ -117,7 +117,7 @@ Il Mali è un renderer a tile della famiglia Bifrost. bm costruisce i descrittor
 
 # 2D sulla CPU
 
-Il codice 2D (`src/bm/gfx16.c`) è lo stesso su Pi e RGB30. I pixel sono RGB565.
+Il codice 2D (`core/src/bm/gfx16.c`) è lo stesso su Pi e RGB30. I pixel sono RGB565.
 
 | Tecnica | Stato | Cosa fa | Misurato | Equivalente |
 |---|---|---|---|---|
@@ -181,7 +181,7 @@ Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codic
 
 | API | Funzione | bm |
 |---|---|---|
-| OpenGL ES 2 / Mesa vc4 | Shader programmabili sul VideoCore IV | Fatta, con assemblatore QPU proprio (`tools/qpuasm.py`), senza OpenGL |
+| OpenGL ES 2 / Mesa vc4 | Shader programmabili sul VideoCore IV | Fatta, con assemblatore QPU proprio (`core/tools/qpuasm.py`), senza OpenGL |
 | Vulkan | Command buffer, sincronizzazione esplicita, più code | Parziale: una coda di job con due set, nessuna API generale di comandi |
 | Direct3D | Feature level, shader model | Non applicabile |
 | OpenCL | Calcolo generale | Parziale: programmi QPU per il fade e le particelle. Niente OpenCL |
@@ -192,7 +192,7 @@ Ordine di lavoro per il 2D, concordato con l'utente: prima le migliorie al codic
 
 # Misurato dal cart hero
 
-Il cart `hero` (`hero.bm`) misura le tecniche del 3D Bench nella sua scena, la piazza con gli eroi: una tecnica si applica alla mappa e agli eroi e il carico è il numero di eroi. I test: l'eroe in cinque materiali (colori piatti, texturato, texel con buchi, retino, luce baked), nessuna luce, luce piatta, piazza senza texture, nessun test di profondità, nessun dither, nebbia, luce del cielo con bordo e lucido, lampade, ombre, cel, contorno, impostor, bilineare, MSAA, vertex shader, coda, e il 2D disegnato sopra il 3D (sprite, testo, strati di mappa, dissolvenza, luce). Ogni test è una scansione del carico, su ARM e su GPU, e la tabella dà il carico che sta in 16,7 ms e in 33,3 ms. Li avvia il ponte: `pi.py config hero_test=all hero_prof=arm.gpu`, poi un riavvio e `pi.py play`; il rapporto va sul branch `reports` e `scripts/herotable.py` scrive da lì questa tabella.
+Il cart `hero` (`hero.bm`) misura le tecniche del 3D Bench nella sua scena, la piazza con gli eroi: una tecnica si applica alla mappa e agli eroi e il carico è il numero di eroi. I test: l'eroe in cinque materiali (colori piatti, texturato, texel con buchi, retino, luce baked), nessuna luce, luce piatta, piazza senza texture, nessun test di profondità, nessun dither, nebbia, luce del cielo con bordo e lucido, lampade, ombre, cel, contorno, impostor, bilineare, MSAA, vertex shader, coda, e il 2D disegnato sopra il 3D (sprite, testo, strati di mappa, dissolvenza, luce). Ogni test è una scansione del carico, su ARM e su GPU, e la tabella dà il carico che sta in 16,7 ms e in 33,3 ms. Li avvia il ponte: `pi.py config hero_test=all hero_prof=arm.gpu`, poi un riavvio e `pi.py play`; il rapporto va sul branch `reports` e `core/scripts/herotable.py` scrive da lì questa tabella.
 
 <!-- hero-table:start -->
 <!-- hero-table:end -->

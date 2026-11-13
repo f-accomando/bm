@@ -4,7 +4,7 @@
 
 ## How it worked
 
-`SYNC.md` (written only by SPV) holds the contracts, the work orders, a status table (§1b) and a log (§5) of one row per message. Each other operator writes only its own file (`sync/CLD.md`, `sync/AGY.md`) and pushes to `bm-core`; the code stays on work branches. SPV polls every 15 minutes (a cron prompt), a small subagent reads the two files and tells what changed. Since the afternoon: `sync/operators.toml`, a status block at the top of each file written by `tools/sync_hdr.py`, a `READY video N` row to release a dependent operator.
+`SYNC.md` (written only by SPV) holds the contracts, the work orders, a status table (§1b) and a log (§5) of one row per message. Each other operator writes only its own file (`sync/CLD.md`, `sync/AGY.md`) and pushes to `bm-core`; the code stays on work branches. SPV polls every 15 minutes (a cron prompt), a small subagent reads the two files and tells what changed. Since the afternoon: `sync/operators.toml`, a status block at the top of each file written by `core/tools/sync_hdr.py`, a `READY video N` row to release a dependent operator.
 
 ## What worked
 
@@ -31,7 +31,7 @@
 
 | # | Change | Why | Status |
 |---|---|---|---|
-| 1 | A status block with ISO 8601 times *with zone* at the top of each `sync/<ID>.md`, written by `tools/sync_hdr.py`, and §1b **generated** from the blocks | one source of truth, no manual clock | done 2026-10-14 (`sync/operators.toml`, `tools/sync_hdr.py`); AGY already uses it, CLD not yet |
+| 1 | A status block with ISO 8601 times *with zone* at the top of each `sync/<ID>.md`, written by `core/tools/sync_hdr.py`, and §1b **generated** from the blocks | one source of truth, no manual clock | done 2026-10-14 (`sync/operators.toml`, `core/tools/sync_hdr.py`); AGY already uses it, CLD not yet |
 | 2 | Before any operation longer than 15 minutes, write the expected end time in the block (`eta:`); silence before it is not IDLE | the 60-minute rule alone cannot tell a long recording from a stuck one | asked of CLD and AGY (row 10:55) |
 | 3 | A **read receipt**: `ack: <row time>` in the block (the last row of `SYNC.md` read) | SPV can see that a stop or a start was *read*, not only published; would have saved the 70 minutes of the obsolete recording | done 2026-10-15 (`ack` in the block; `--ack auto` = delivery received, not understood; the agent writes `letto <time>` in its Log; `SYNC.md` §1) |
 | 4 | **Short probe before every long run**, mandatory in the work order (a 20–50 s run that exercises the risky key or call and a verification) | the only cheap way to find errors that show up at the end of a 70-minute recording | in use at SPV; CLD asked to add it to `rec_qemu` |
@@ -79,7 +79,7 @@ None of the three documents measures **cost in tokens**: that needs the crab led
 | 1 | **Short probe before every long recording, plus the kernel's serial log in the recorder** | two 70-minute recordings (140 min) that failed after the end | an hour of CLD's tooling | probe by hand done; serial log done by CLD (14:22); automatic probe asked |
 | 2 | **Two recordings in parallel** (R1 and R3 of one video, or two videos), CLD as coordinator with subagents; a third subagent measures `-icount` options and snapshots | the chain 4 → 6 → 7 → 8 is serial: about 4 h of QEMU; two slots bring it to about 2.5 h | the second slot needs a container; unknown if CLD can start subagents | asked 14:55 |
 | 3 | **Read receipt** (`ack:` = the last row of `SYNC.md` read) and `eta:` before long runs | the obsolete recording (70 min) and the 64-minute silence were both "published but not read" | one line in `sync_hdr.py` | to do |
-| 4 | **Rule: rebuild the kernel after editing `carts/editor`** (the editor is inside it) | the second 70-minute recording | one line in `tools.md` | done (Rules) |
+| 4 | **Rule: rebuild the kernel after editing `bm/editor`** (the editor is inside it) | the second 70-minute recording | one line in `tools.md` | done (Rules) |
 | 5 | **Chain independent steps** in one row, review at the end | 5–10 minutes per step, plus the polling wait | none | in use |
 | 6 | **A reviewer agent and `review.py`** ([`../design/agent-workflow.md`](../design/agent-workflow.md)) | rework such as the 360×360 hole; quality more than time | 2–3 hours | draft Work Orders |
 | 7 | **§1b generated from the blocks** by the helper subagent | the stale table and the predicted states | one script | partly (SPV rewrites rows by hand) |

@@ -6,7 +6,7 @@
    (luahost tests/nano8/xlat.lua);
 3. the API test cart (tests/nano8/carts/api.p8) passes all its checks,
    played by the real nano8 cartridge (n8host);
-4. every cart given (the ones shipped in carts/nano8/roms) plays for 20
+4. every cart given (the ones shipped in bm/nano8/roms) plays for 20
    seconds with buttons pressed, without an error.
 """
 import argparse
@@ -30,7 +30,7 @@ def main():
     a = ap.parse_args()
     host = os.path.join(a.build, "host")
     main_lua = os.path.join(a.build, "nano8", "main.lua")
-    api = os.path.join(HERE, "carts", "api.p8")
+    api = os.path.join(HERE, "bm", "api.p8")
     carts = [api] + a.carts
     fails = 0
 
@@ -54,11 +54,11 @@ def main():
             print("FAILED: translation")
             fails += 1
 
-        # an SD card with the carts in carts/nano8
+        # an SD card with the carts in bm/nano8
         sd = os.path.join(tmp, "sd")
-        os.makedirs(os.path.join(sd, "carts", "nano8"))
+        os.makedirs(os.path.join(sd, "bm", "nano8"))
         for c in carts:
-            shutil.copy(c, os.path.join(sd, "carts", "nano8"))
+            shutil.copy(c, os.path.join(sd, "bm", "nano8"))
         names = sorted(os.path.basename(c) for c in carts)
 
         print("nano8: API test cart")

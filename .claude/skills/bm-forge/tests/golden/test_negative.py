@@ -156,7 +156,7 @@ class Container(unittest.TestCase):
             container.build(cart)
 
     def test_new_cart_layout(self):
-        """a fresh cart is laid out like scripts/mkbm.py:pack (same bytes)"""
+        """a fresh cart is laid out like core/scripts/mkbm.py:pack (same bytes)"""
         mkbm = C.import_script("mkbm")
         lua = b"function _draw() cls(0) end"
         mesh_body = container.parse(self.data).get(S.MESH)
@@ -435,7 +435,7 @@ class AnimNegative(unittest.TestCase):
             anim.validate_links(a, None)
 
     def test_zero_rigs(self):
-        """an ANIM of 0 rigs is valid on read (src/bm/format.c:306-320); the writer omits it"""
+        """an ANIM of 0 rigs is valid on read (core/src/bm/format.c:306-320); the writer omits it"""
         self.assertEqual(anim.decode(struct.pack("<HHI", 0, 0, 0)).rigs, [])
         self.cart.set_anim(Anim([]))
         self.assertIsNone(self.cart.get(S.ANIM))

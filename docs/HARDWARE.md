@@ -111,7 +111,7 @@ that matter for bm *(D)*:
 | CPU | **4 × Cortex-A53** (ARMv8) at 1 GHz, started by the firmware in HYP mode | 1 × ARM1176 (ARMv6) at 1 GHz | 32 bit (ARMv7: integer division in hardware, VFPv4 with 32 registers, NEON); switches from HYP to SVC; **1 core**, the other 3 stay parked in the firmware stub |
 | Cache | L1 32 KB + 32 KB per core, **L2 512 KB**, 64-byte lines | L1 16 + 16 KB, 32-byte lines | ARMv7 operations (by address up to the point of coherency; "whole cache" by set/way, L1 and L2) |
 | Peripherals | at **0x3F000000** (+ the ARM ones at 0x40000000) | at 0x20000000 | same drivers (UART, GPIO, timer, DMA, SDHOST, USB DWC2, HDMI, mailbox) |
-| Addresses for GPU and DMA | uncached alias 0xC0000000 | L2 alias 0x40000000 | `ARM_TO_BUS` in `src/drivers/mmio.h` |
+| Addresses for GPU and DMA | uncached alias 0xC0000000 | L2 alias 0x40000000 | `ARM_TO_BUS` in `core/src/drivers/mmio.h` |
 | RAM | 512 MB LPDDR2 | 512 MB | same |
 | ACT LED | **GPIO 29** active low | GPIO 47 active low | on the Zero 2 W GPIO 47 is the power supply's I2C: never touched by `kernel7.img` |
 | Wi-Fi | **CYW43436** (reports chip 43430; rev 2+ = 43436, rev 1 = 43436s) on the same pins (SDIO GPIO 34–39, WL_ON GPIO 41) | BCM43438 | firmware `brcmfmac43436-sdio.*` or `brcmfmac43436s-sdio.*` in `bm/` |

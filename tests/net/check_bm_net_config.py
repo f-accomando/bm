@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-tools/bm_net.py --config against a console on this PC that speaks the
-transfer port as src/net/netxfer.c does (C: "key=value" lines, the answer
+core/tools/bm_net.py --config against a console on this PC that speaks the
+transfer port as core/src/net/netxfer.c does (C: "key=value" lines, the answer
 OK, the length, the settings after them; KV for a wrong line; BH from a
 kernel that does not know C). The kernel's side of the same bytes is in
 tests/net/test_netcon.c, its merge in tests/kernel/test_config.c.
-Also --line against the network console's port (src/net/netcon.c): the
+Also --line against the network console's port (core/src/net/netcon.c): the
 login's line saying what takes the keys, ':' + the line, its output shown
 until "the line is done".
 """
@@ -259,7 +259,7 @@ def main():
 
     new = Console(queues=True)
     rc, out = run(new, job=("--send", __file__, "--name", "CHECK.PY", "--to", "/carts"))
-    check(rc == 0 and "writes it from its menu" in out and new.got[-1][:2] == (b"S", "carts/CHECK.PY"),
+    check(rc == 0 and "writes it from its menu" in out and new.got[-1][:2] == (b"S", "bm/CHECK.PY"),
           "--send to a newer kernel: QD, received, written from its menu")
     busy = Console(busy=True)
     rc, out = run(busy, job=("--send", __file__, "--name", "CHECK.PY"))

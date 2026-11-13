@@ -65,7 +65,7 @@ Una cartuccia `.bm` è un unico file che contiene:
 | zone con nome dello sheet (sprite e animazioni) | `--sprites` | no |
 | copertina per il menu (PNG) | `--cover` | no |
 
-La crea `scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
+La crea `core/scripts/mkbm.py` (solo libreria standard di Python, nessuna dipendenza).
 Risoluzione: **640×360** (predefinita), **480×270** con `--res 480x270` (il compromesso
 per il 3D con texture), **320×180** con `--res 320x180` (pixel più grossi, stile 16
 bit, e più tempo per fotogramma) **256×256** quadrata con `--res 256x256` (al centro
@@ -76,7 +76,7 @@ centro di uno schermo 640×360 sul Pi). Colori: `0xRRGGBB`, lo schermo è a
 
 ## 2. Il gioco più piccolo
 
-`carts/palla/main.lua`:
+`bm/palla/main.lua`:
 
 ```lua
 local x, y, c = 320, 180, 0xFFD050
@@ -160,14 +160,14 @@ end
 
 ```sh
 cd ~/bm
-python3 scripts/mkbm.py -o palla.bm --lua carts/palla/main.lua --title "Palla" --author "io"
+python3 core/scripts/mkbm.py -o palla.bm --lua bm/palla/main.lua --title "Palla" --author "io"
 ```
 
 Opzioni: `--sheet sprite.png`, `--map mappa.csv` (di nuovo `--map davanti=sopra.csv` per
 un altro livello), `--flags flag.csv`, `--sprites zone.txt`, `--cover copertina.png`,
 `--res 480x270` o `--res 320x180`.
 
-**Sul Pi:** copia il file nella cartella `carts/` della SD.
+**Sul Pi:** copia il file nella cartella `bm/` della SD.
 
 ```sh
 sudo mount -t drvfs D: /mnt/d
@@ -179,9 +179,9 @@ La cartuccia compare nel menu (se il Pi è già acceso, **R** nel menu rilegge l
 Uscendo, la riga in fondo al menu mostra fps e millisecondi di `_update` + `_draw`: il
 budget è **16,7 ms** per fotogramma.
 
-**Nella build del repository:** metti il gioco in `carts/<nome>/main.lua`, aggiungi
+**Nella build del repository:** metti il gioco in `bm/<nome>/main.lua`, aggiungi
 `<nome>` a `GAMES` nel `Makefile` e una riga `title_<nome> := Titolo` (più
-`res_<nome> := 320x180` se serve). `make` la crea in `build/carts/<nome>.bm` e
+`res_<nome> := 320x180` se serve). `make` la crea in `build/bm/<nome>.bm` e
 `make sdcard` la copia in `dist/bm/`. Nella stessa cartella vengono presi da soli
 `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt` e `cover.png`, se ci sono; gli altri
 livelli della mappa sono `map_<nome>.csv`, nell'ordine di `layers_<gioco> := nome ...`.
@@ -208,7 +208,7 @@ sspr(sx, sy, w, h, x, y)       -- un rettangolo qualsiasi del foglio, in pixel
 
 Con `sset(x, y, colore)` / `sget(x, y)` si legge e scrive il foglio dal codice: si
 possono disegnare gli sprite senza PNG (Star Shooter li scrive come stringhe in
-`carts/shooter/main.lua`) o modificarli durante il gioco.
+`bm/shooter/main.lua`) o modificarli durante il gioco.
 
 Animazione: si cambia cella ogni tot fotogrammi, per esempio
 `spr(base + (frame // 8) % 2 * 2, x, y, 2, 2)`.
@@ -233,7 +233,7 @@ zspr("eroe_fermo", x, y, 1)                -- un fotogramma preciso
 ```
 
 `zone(nome)` dà dove sta e quanto è grande (per le collisioni), `zones()` tutti i nomi.
-Le zone si fanno anche con il bake di bm Animator sulla console (sprite e box da un'animazione) e con `scripts/bmres.py`; bm Pixel le mostra (con i loro box) ma non le crea.
+Le zone si fanno anche con il bake di bm Animator sulla console (sprite e box da un'animazione) e con `core/scripts/bmres.py`; bm Pixel le mostra (con i loro box) ma non le crea.
 
 **Hitbox e hurtbox per fotogramma.** Sotto una zona si scrivono i suoi riquadri: `hurt`
 dove il personaggio può essere colpito, `hit` dove il suo colpo fa male, `body` il suo
@@ -267,7 +267,7 @@ mset(cx, cy, 5)                                       -- cambiare una cella (por
 
 Senza `--map` la mappa è 256×256 vuota e si riempie con `mset` (`msize(w, h)` le dà
 un'altra misura). Una mappa grande (Yharnam: 256×256 celle, 2048×2048 pixel)
-conviene generarla con uno script: vedi `carts/yharnam/build/mkmap.py`.
+conviene generarla con uno script: vedi `bm/yharnam/build/mkmap.py`.
 
 **I flag: che cosa è ogni tile.** Ogni tile dello sheet ha 8 flag (0–7), accesi o spenti.
 Le collisioni guardano i flag, non i numeri delle tile: si possono aggiungere tile nuove
@@ -478,7 +478,7 @@ reverb(0.9, 0.6, 1)                  -- una navata enorme
 
 **Campioni ed effetti.** La console ha un kit di otto tamburi campionati (`bd` `sd` `hh`
 `oh` `cp` `rim` `tom` `cb`, fatti dal sintetizzatore: `play(nil, "sd")`, `"kit:2"`); un tuo
-WAV entra nel banco con `scripts/bmaudio.py` (vedi l'API, *Il banco*). Le chiavi di `tone()`
+WAV entra nel banco con `core/scripts/bmaudio.py` (vedi l'API, *Il banco*). Le chiavi di `tone()`
 aggiungono gli effetti di Strudel: `crush` (i bit), `coarse` (una frequenza più bassa),
 `vowel` (`"a"` … `"u"`), `curve` (la forma della saturazione), `color` (rumore rosa,
 marrone), `trem`, `duck` (una cassa che abbassa il resto), `chorus` (con `chorus()` per
@@ -531,7 +531,7 @@ print("vita", 4, 4, 0xFFFFFF)                 -- l'HUD dopo: resta a piena luce
 ```
 
 Una fiamma che tremola: raggio moltiplicato per `0.95 + math.random() * 0.1`. L'altro tipo di luce
-(`dark_begin`, `glow`) è in `carts/yharnam/main.lua`.
+(`dark_begin`, `glow`) è in `bm/yharnam/main.lua`.
 
 ## 9. Salvataggi
 
@@ -566,7 +566,7 @@ suoi documenti.
 `--cover copertina.png`: un PNG di qualsiasi misura, stampato sulla "scheda" del gioco nel
 menu, un quadrato di 88×88: un'immagine quadrata viene ridotta, le altre (16:10) restano
 intere sopra una copia sfocata di sé. Le copertine dei giochi demo sono
-disegnate da `scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
+disegnate da `core/scripts/mkcovers.py`. Senza copertina il menu stampa il titolo.
 
 ## 11. La libreria comune: bmlib
 
@@ -766,7 +766,7 @@ centro dei giocatori.
 ## 14. Giochi in rete
 
 `bmnet` (`local net = require "bmnet"`) fa giocare più console: sulla rete di casa si
-trovano da sole, su internet passano da un relay (`tools/overbit_relay.py` su un PC o un
+trovano da sole, su internet passano da un relay (`core/tools/overbit_relay.py` su un PC o un
 piccolo server, con l'opzione `relay` di `net.open`). Una console **ospita** la partita, le
 altre la vedono in `net.hosts()` ed **entrano**; chi ospita la **comincia**. Il modello
 *Online 2D* dell'SDK è il punto di partenza.
@@ -936,14 +936,14 @@ bm offre primitive raster e vettoriali 2D moderne che si integrano in modo trasp
 
 | Gioco | Cosa mostra |
 |---|---|
-| `carts/pong` | il più semplice: forme, input, suoni, salvataggio |
-| `carts/snake` | griglia, tempo di gioco, record |
-| `carts/shooter` | sprite scritti nel codice con `sset`, ondate, particelle |
-| `carts/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
-| `carts/hero` | sprite sheet PNG e mappe CSV veri e propri (pavimento, altezze, muri), una piazza 3D con eroi che camminano |
-| `carts/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
-| `carts/overbit` | modelli 3D fatti con bm Studio e animati con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, `bone_turn()`, notte con `lamp3d` e nebbia |
-| `carts/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |
+| `bm/pong` | il più semplice: forme, input, suoni, salvataggio |
+| `bm/snake` | griglia, tempo di gioco, record |
+| `bm/shooter` | sprite scritti nel codice con `sset`, ondate, particelle |
+| `bm/astrowing` | 3D: modelli, nebbia, camera che si inclina, orizzonte |
+| `bm/hero` | sprite sheet PNG e mappe CSV veri e propri (pavimento, altezze, muri), una piazza 3D con eroi che camminano |
+| `bm/kitchen` | gioco grande: sorgenti in più file uniti da `build.py`, 3D con mesh costruite in codice, 1–4 giocatori (`btn(i, p)`, `players()`), salvataggi, e un simulatore host (`tests/kitchen/sim.lua`) che gioca da solo per trovare errori e misurare il costo di ogni frame |
+| `bm/overbit` | modelli 3D fatti con bm Studio e animati con bm Animator (`models.bm`): `model()`, `animate()` con due animazioni mescolate, `bone3d()`, `bone_turn()`, notte con `lamp3d` e nebbia |
+| `bm/titan` | sprite grandi pre-renderizzati (un modello 3D fatto in Python diventa pixel art a strati: un frame, tante combinazioni di equipaggiamento), sheet grande con palette (`--sheet8`), parallasse, stati di un picchiaduro con hitbox per frame, CPU avversaria |
 | modelli dell'SDK (Ctrl+N) | *Platform 2D*, *Top-down 2D* e *Shooter 2D* con bmlib e i flag delle tile; *Versus 2D*: due giocatori sulla stessa console, pugni con hitbox e hurtbox; *Online 2D*: lobby e lockstep con bmnet |
 | `tests/gameapi/cart.lua` | ogni funzione dei livelli della mappa, dei flag delle tile, delle zone con nome e dei loro riquadri, di bmlib (anche colpi, schermata dei giocatori e schermo diviso), con i suoi casi |
 | `tests/bmnet/cart.lua` | bmnet fra due console: lobby, messaggi sicuri con pacchetti persi, una partita in lockstep, un giocatore che esce |

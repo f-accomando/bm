@@ -1,7 +1,7 @@
 # bm NES
 
-An emulator of the Famicom and the NES. The machine is written in C and is part of the kernel (`src/bm/nes.c`, one
-global machine). The cartridge `carts/nes/` is its user interface in Lua: it lists the ROMs, passes the pads and draws the
+An emulator of the Famicom and the NES. The machine is written in C and is part of the kernel (`core/src/bm/nes.c`, one
+global machine). The cartridge `bm/nes/` is its user interface in Lua: it lists the ROMs, passes the pads and draws the
 picture. It is built like [bm SNES](snes.md). Both kernels have it (Pi and RGB30). Status (2026-11-11): the core passes
 its tests (`make test-nes`) and the CPU matches the log of the public test ROM nestest instruction by instruction, with
 the cycles. The speed on the Pi Zero W and the RGB30 is not measured. No commercial game has been tried yet.
@@ -25,10 +25,10 @@ the cycles. The speed on the Pi Zero W and the RGB30 is not measured. No commerc
 
 | File | Content |
 |---|---|
-| `src/bm/nes.h` | the public calls of the core and the pad bits |
-| `src/bm/nes.c` | the whole machine: the cartridge and the mappers, the picture unit, the sound and the 6502 (see below) |
-| `src/bm/api_nes.c` | the Lua calls (`nes_load`, `nes_frame`, `nes_draw`, ...): [api/nes.md](../api/nes.md) |
-| `carts/nes/src/main.lua` | the user interface; `carts/nes/build/build.py` packs it (`make build/carts/nes.bm`); `carts/nes/nes.bme` is the project |
+| `core/src/bm/nes.h` | the public calls of the core and the pad bits |
+| `core/src/bm/nes.c` | the whole machine: the cartridge and the mappers, the picture unit, the sound and the 6502 (see below) |
+| `core/src/bm/api_nes.c` | the Lua calls (`nes_load`, `nes_frame`, `nes_draw`, ...): [api/nes.md](../api/nes.md) |
+| `bm/nes/src/main.lua` | the user interface; `bm/nes/build/build.py` packs it (`make build/bm/nes.bm`); `bm/nes/nes.bme` is the project |
 | `tests/nes/core_test.c` | the CPU on small programs, the picture, the NMI, the sprite 0 hit, the sound, MMC1, MMC3 and its IRQ, bad files; with `build/nestest.nes` and `build/nestest.log` it runs nestest |
 | `tests/nes/make_testrom.py`, `render_test.py` | the cartridge in bmhost with a test ROM made by the script: the picture, a moving sprite, the pad, the menu |
 

@@ -1,6 +1,6 @@
 # bm SNES: DSP-1, DSP-2, DSP-3 and DSP-4 (uPD77C25)
 
-Area sheet for the DSP co-processors of the bm SNES core. Code: `src/bm/snes_dsp77.c`, `src/bm/snes_dsp77.h`, the wiring in `src/bm/snes_bus.c`, the firmware call in `src/bm/api_snes.c` and `carts/snes/src/main.lua`.
+Area sheet for the DSP co-processors of the bm SNES core. Code: `core/src/bm/snes_dsp77.c`, `core/src/bm/snes_dsp77.h`, the wiring in `core/src/bm/snes_bus.c`, the firmware call in `core/src/bm/api_snes.c` and `bm/snes/src/main.lua`.
 Tests: `make test-snes-dsp77` (`tests/snes/dsp77_test.c`).
 Back to [snes.md](snes.md). The other cartridge chip: [snes-superfx.md](snes-superfx.md).
 

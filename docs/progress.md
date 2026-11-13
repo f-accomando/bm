@@ -16,54 +16,54 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 
 | File | Scope | Main code |
 |---|---|---|
-| [system](progress/system.md) (+ [net](progress/system-net.md), [beta1-c4-diag](progress/beta1-c4-diag.md), [menu and services](progress/system-menu.md), [ideas and file layout](progress/system-ideas.md)) | boot, MMU, IRQ, fibers, crash reports, USB, SD/FAT, Bluetooth, WiFi, network, menu and kernel services | `src/boot/`, `src/arch/`, `src/kernel/`, `src/drivers/`, `src/usb/`, `src/fs/`, `src/bt/`, `src/wifi/`, `src/net/` |
-| [multitasking](progress/multitasking.md) | cooperative fibers of the menu, shares, background jobs, measurements; later multicore | `src/kernel/fiber.c`, `src/arch/fiber.S` |
-| [multicore](progress/multicore.md) | RGB30 quad core schedule: secondary cores (M), Mali bm3D end (G), use of four cores (V) | `src/rgb30/start.S`, `src/rgb30/mmu.c` |
-| [multitasking-stages](progress/multitasking-stages.md) | stages 1-5: measurement, hash steps, SD writer lock, keep-alive, Range resume | `src/fs/sdlock.c`, `src/bm/webfile.c`, `src/net/http.c` |
-| [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `src/drivers/fb.c`, `src/bm/gfx16.c`, `src/bm/r3d.c`, `src/gpu/` |
-| [graphics-2d](progress/graphics-2d.md) | 2D on the Pi Zero W: GPU light, packed tile pool, 2D call costs, sprite stacking, 2D benchmarks, speed checks, 2D API gaps against the LOVE API | `src/bm/gfx16.c`, `src/gpu/` |
-| [hero](progress/hero.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `carts/hero/`, `tests/hero/` |
-| [darknight](progress/darknight.md) | Dark Night: the playable Hunter in the Clinic (map kit, models, keys, combat, menu) | `carts/darknight/`, `tests/darknight/`, `art/maps/clinic/`, `art/models/hunter/` |
-| [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `src/rgb30/mali.c`, `src/rgb30/mali_desc.c`, `tools/mali/` |
-| [graphics-mali-bringup](progress/graphics-mali-bringup.md) | Mali-G52 bringup (the first triangle, 25 Oct 2026 root causes) and the variant probe of `mali.c` | `src/rgb30/mali.c`, `tools/mali/` |
-| [graphics-vector](progress/graphics-vector.md) | OpenVG/VGU capabilities: what bm has, how to build the rest on the Pi and the RGB30 | `src/bm/gfx16.c`, `src/bm/r3d.c` |
-| [mali-parity](progress/mali-parity.md) | Mali-G52 against Pi V3D, stage by stage (parity table) | `src/rgb30/mali.c` |
-| [mali-frames](progress/mali-frames.md) | Mali frames: the queue, the frame pipeline (7.29), the cls before the 3D (7.30) | `src/rgb30/mali.c`, `src/rgb30/bm_port.c` |
-| [v3d](progress/v3d.md) (+ [notes](progress/v3d-notes.md), [graphics keys](progress/v3d-flags.md), [formats](progress/v3d-formats.md), [Pi measurements](progress/v3d-pi-measurements.md)) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `src/gpu/v3d.c`, `src/gpu/gpu3d.c`, `src/bm/runtime.c` |
-| [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `third_party/lua/`, `src/bm/runtime.c`, `src/bm/require.c`, `src/script/`, `src/bm/profile.c` |
-| [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md), [WAV and import](progress/audio-samples-wav.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `src/audio/`, `src/script/riff.lua`, `src/ai/music.c`, `src/rgb30/rk_audio.c` |
-| [typed](progress/typed.md) | typed subset of Lua (`bmt.py` to C, `tools/bml/bml.py` compiler, stack VM, `bmvm`, and ARMv6 `native_load`/`native_run`), measures of the call from Lua | `scripts/bmt.py`, `tools/bml/bml.py`, `src/bm/bmnative.c`, `tests/typed/`, `tests/bml/` |
-| [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `src/rgb30/`, `rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
-| [single-bm](progress/single-bm.md) | one cartridge type, the targets of the header, the faded cover, Market entries | `src/bm/format.c`, `docs/spec/compat-policy.toml`, `src/kernel/library.c` |
-| [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `carts/overbit/`, `carts/yharnam/` |
-| [psx](progress/psx.md) | bm PSX: a PlayStation 1 emulator whose machine is C in the kernel (R3000A, GTE, software GPU, CD-ROM, SPU; clean-room core) and a Lua interface; plays PS-EXE files and disc images from `/psx` with the user's BIOS; not run on hardware yet | `carts/psx/`, `tests/psx/` |
-| [snes](progress/snes.md) | bm SNES: a Super Nintendo emulator whose machine is C in the kernel (65C816, SPC700 and DSP with sound, DMA/HDMA, PPU with SIMD and ARM assembly for the Pi) and a Lua interface; plays `.sfc` ROMs from `/snes` | `carts/snes/`, `tests/snes/` |
-| [snes-sdk](progress/snes-sdk.md) | bm SNES SDK: make SNES games inside bm; the 65C816 assembler and the ROM builder in Lua (`require "snes_asm"`), later the editor tabs, the debug API, sprites, music | `src/script/snes_asm.lua`, `tests/snes/asm_test.lua` |
-| [nes](progress/nes.md) | bm NES: a Famicom / NES emulator whose machine is C in the kernel (6502, picture unit, five sound channels, 11 mappers) and a Lua interface; plays `.nes` ROMs from `/nes` | `carts/nes/`, `tests/nes/` |
-| [snes16](progress/snes16.md) | bm SNES-16: native ARM SNES-16 PPU + S-DSP engine (`snes_ppu.c` + `snes_dsp.c` without 65C816/SPC700), `BMN_HOST_S16_*` native `.b` fast-path, slim Lua library and standalone `.bm` demo | `carts/snes16/`, `tests/snes16/` |
-| [snes-cpu](progress/snes-cpu.md) | bm SNES: notes on speed (faster 65C816 core, work items C0 to C7, other emulators, assembly or C); C1 and C2 are code, the rest estimates | `src/bm/snes_cpu.c`, `src/bm/snes_ppu.c` |
-| [snes-icache](progress/snes-icache.md) | bm SNES: instruction-cache work for the Pi Zero W (hot code block, searched order, SPC700 at -Os, the PC measure, what to read in the Pi log) | `src/bm/snes_hot.ld`, `scripts/icache_sim.py`, `tests/snes/icache_layout.c` |
-| [snes-cpu-c3](progress/snes-cpu-c3.md) | bm SNES item C3: the hot path of the 65C816 in ARM assembly (design, sizes, tests, what to read on the console) | `src/bm/snes_cpu_arm.S`, `tests/snes/cpu_diff.c` |
-| [snes-cpu-c2](progress/snes-cpu-c2.md) | bm SNES item C2: the interpreter keeps the registers in ARM registers (profile, change, numbers) | `src/bm/snes_cpu.c`, `tests/snes/cpu_bench.c` |
-| [snes-gpu](progress/snes-gpu.md) | bm SNES: the PPU on the V3D GPU (work items G1 to G11); G2 Mode 7 on the QPUs in the kernel behind `snes_gpu_m7=1` and a V3D micro-benchmark, PC-tested, not run on the Pi | `src/bm/snes_ppu.c`, `src/gpu/qpu_snes.c`, `tests/gpu/test_snes_gpu.c` |
-| [snes-gpu-pi](progress/snes-gpu-pi.md) | bm SNES GPU stage 1: what runs in the kernel, the numbers to read on the Pi, the plan for G3 to G6 | `src/gpu/qpu_snes.c`, `src/kernel/snes_gpu.c` |
-| [snes-convert](progress/snes-convert.md) | bm SNES: notes on converting a ROM to ARM code (static recompiler and JIT, instruction mapping), estimates only, no code | `src/bm/snes_cpu.c` |
-| [snes-measure](progress/snes-measure.md) | bm SNES: the time of a frame in its parts (CPU with the bus, DMA, HDMA, PPU, sound), the sampled timer and the first Pi Zero W table (C1) | `src/bm/snes_bus.c`, `tests/snes/core_test.c` |
-| [snes-superfx](progress/snes-superfx.md) | bm SNES: the Super FX co-processor (GSU-1 and GSU-2): registers, instruction set, cache, pixel plot, memory map, timing, with the source of each fact | `src/bm/snes_gsu.c`, `tests/snes/gsu_test.c` |
-| [snes-dsp](progress/snes-dsp.md) | bm SNES: the DSP-1/2/3/4 co-processors (uPD77C25): instruction set, SNES ports per cart type, firmware file layouts, lazy run, what is not verified | `src/bm/snes_dsp77.c`, `tests/snes/dsp77_test.c` |
-| [snes-doom](progress/snes-doom.md) | bm SNES: Doom (Super FX 2): notes from the DOOM-FX source (memory map, WRAM code copy, split CPU and GSU), leads for the crash at 7E:5980 | `src/bm/snes_gsu.c` |
-| [snes-superfx-isa](progress/snes-superfx-isa.md) | bm SNES: the Super FX instruction set (opcode table with flags), the delay slot, the pixel cache and bitmap modes, the instruction cache and the timing | `src/bm/snes_gsu.c` |
-| [snes-superfx-speed](progress/snes-superfx-speed.md) | bm SNES: Super FX speed, ARM instructions per GSU instruction (QEMU count, before and after), the opcode mix of Star Fox and Yoshi's Island | `src/bm/snes_gsu_arm.S`, `tests/snes/gsu_arm.c` |
-| [snes-sa1](progress/snes-sa1.md) | bm SNES: the SA-1 co-processor (second 65C816, I-RAM, BW-RAM, DMA, math, bit processor, messages): map, time, status, rules | `src/bm/snes_sa1.c`, `src/bm/snes_sa1_cpu.c`, `tests/snes/sa1_test.c` |
-| [snes-superfx-ares](progress/snes-superfx-ares.md) | bm SNES: the Super FX against the ares GSU on random programs (method, the open differences, who decides) | `tests/snes/ref_diff_gsu.cpp`, `src/bm/snes_gsu.c` |
-| [snes-cpu-ref](progress/snes-cpu-ref.md) | bm SNES: the 65C816 against the ares module (method, the rules that came out: direct page wrap, new stack opcodes, decimal V) | `tests/snes/ref_diff.cpp`, `src/bm/snes_cpu.c` |
+| [system](progress/system.md) (+ [net](progress/system-net.md), [beta1-c4-diag](progress/beta1-c4-diag.md), [menu and services](progress/system-menu.md), [ideas and file layout](progress/system-ideas.md)) | boot, MMU, IRQ, fibers, crash reports, USB, SD/FAT, Bluetooth, WiFi, network, menu and kernel services | `core/src/boot/`, `core/src/arch/`, `core/src/kernel/`, `core/src/drivers/`, `core/src/usb/`, `core/src/fs/`, `core/src/bt/`, `core/src/wifi/`, `core/src/net/` |
+| [multitasking](progress/multitasking.md) | cooperative fibers of the menu, shares, background jobs, measurements; later multicore | `core/src/kernel/fiber.c`, `core/src/arch/fiber.S` |
+| [multicore](progress/multicore.md) | RGB30 quad core schedule: secondary cores (M), Mali bm3D end (G), use of four cores (V) | `core/src/rgb30/start.S`, `core/src/rgb30/mmu.c` |
+| [multitasking-stages](progress/multitasking-stages.md) | stages 1-5: measurement, hash steps, SD writer lock, keep-alive, Range resume | `core/src/fs/sdlock.c`, `core/src/bm/webfile.c`, `core/src/net/http.c` |
+| [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `core/src/drivers/fb.c`, `core/src/bm/gfx16.c`, `core/src/bm/r3d.c`, `core/src/gpu/` |
+| [graphics-2d](progress/graphics-2d.md) | 2D on the Pi Zero W: GPU light, packed tile pool, 2D call costs, sprite stacking, 2D benchmarks, speed checks, 2D API gaps against the LOVE API | `core/src/bm/gfx16.c`, `core/src/gpu/` |
+| [hero](progress/hero.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `bm/hero/`, `tests/hero/` |
+| [darknight](progress/darknight.md) | Dark Night: the playable Hunter in the Clinic (map kit, models, keys, combat, menu) | `bm/darknight/`, `tests/darknight/`, `art/maps/clinic/`, `art/models/hunter/` |
+| [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `core/src/rgb30/mali.c`, `core/src/rgb30/mali_desc.c`, `core/tools/mali/` |
+| [graphics-mali-bringup](progress/graphics-mali-bringup.md) | Mali-G52 bringup (the first triangle, 25 Oct 2026 root causes) and the variant probe of `mali.c` | `core/src/rgb30/mali.c`, `core/tools/mali/` |
+| [graphics-vector](progress/graphics-vector.md) | OpenVG/VGU capabilities: what bm has, how to build the rest on the Pi and the RGB30 | `core/src/bm/gfx16.c`, `core/src/bm/r3d.c` |
+| [mali-parity](progress/mali-parity.md) | Mali-G52 against Pi V3D, stage by stage (parity table) | `core/src/rgb30/mali.c` |
+| [mali-frames](progress/mali-frames.md) | Mali frames: the queue, the frame pipeline (7.29), the cls before the 3D (7.30) | `core/src/rgb30/mali.c`, `core/src/rgb30/bm_port.c` |
+| [v3d](progress/v3d.md) (+ [notes](progress/v3d-notes.md), [graphics keys](progress/v3d-flags.md), [formats](progress/v3d-formats.md), [Pi measurements](progress/v3d-pi-measurements.md)) | V3D driver on the Pi Zero W: async jobs, cache, binner memory, open work and Pi measurements | `core/src/gpu/v3d.c`, `core/src/gpu/gpu3d.c`, `core/src/bm/runtime.c` |
+| [lua](progress/lua.md) | Lua VM, cartridge runtime, built-in libraries, dev kit, profiler, session report | `core/third_party/lua/`, `core/src/bm/runtime.c`, `core/src/bm/require.c`, `core/src/script/`, `core/src/bm/profile.c` |
+| [audio](progress/audio.md) (+ [output](progress/audio-output.md), [samples](progress/audio-samples.md), [WAV and import](progress/audio-samples-wav.md)) | synthesizer, sound bank and player, presets, outputs, riff, music assistant | `core/src/audio/`, `core/src/script/riff.lua`, `core/src/ai/music.c`, `core/src/rgb30/rk_audio.c` |
+| [typed](progress/typed.md) | typed subset of Lua (`bmt.py` to C, `core/tools/bml/bml.py` compiler, stack VM, `bmvm`, and ARMv6 `native_load`/`native_run`), measures of the call from Lua | `core/scripts/bmt.py`, `core/tools/bml/bml.py`, `core/src/bm/bmnative.c`, `tests/typed/`, `tests/bml/` |
+| [platforms](progress/platforms.md) | Pi Zero W / Pi 1, Pi Zero 2 W (off), RGB30, `bmhost`, QEMU | `core/src/rgb30/`, `core/rgb30.mk`, `tests/host/`, `tests/qemu_test.py` |
+| [single-bm](progress/single-bm.md) | one cartridge type, the targets of the header, the faded cover, Market entries | `core/src/bm/format.c`, `docs/spec/compat-policy.toml`, `core/src/kernel/library.c` |
+| [overbit](progress/overbit.md), [yharnam](progress/yharnam.md) | the games: screens and quality, bench flags, assets, verification | `bm/overbit/`, `bm/yharnam/` |
+| [psx](progress/psx.md) | bm PSX: a PlayStation 1 emulator whose machine is C in the kernel (R3000A, GTE, software GPU, CD-ROM, SPU; clean-room core) and a Lua interface; plays PS-EXE files and disc images from `/psx` with the user's BIOS; not run on hardware yet | `bm/psx/`, `tests/psx/` |
+| [snes](progress/snes.md) | bm SNES: a Super Nintendo emulator whose machine is C in the kernel (65C816, SPC700 and DSP with sound, DMA/HDMA, PPU with SIMD and ARM assembly for the Pi) and a Lua interface; plays `.sfc` ROMs from `/snes` | `bm/snes/`, `tests/snes/` |
+| [snes-sdk](progress/snes-sdk.md) | bm SNES SDK: make SNES games inside bm; the 65C816 assembler and the ROM builder in Lua (`require "snes_asm"`), later the editor tabs, the debug API, sprites, music | `core/src/script/snes_asm.lua`, `tests/snes/asm_test.lua` |
+| [nes](progress/nes.md) | bm NES: a Famicom / NES emulator whose machine is C in the kernel (6502, picture unit, five sound channels, 11 mappers) and a Lua interface; plays `.nes` ROMs from `/nes` | `bm/nes/`, `tests/nes/` |
+| [snes16](progress/snes16.md) | bm SNES-16: native ARM SNES-16 PPU + S-DSP engine (`snes_ppu.c` + `snes_dsp.c` without 65C816/SPC700), `BMN_HOST_S16_*` native `.b` fast-path, slim Lua library and standalone `.bm` demo | `bm/snes16/`, `tests/snes16/` |
+| [snes-cpu](progress/snes-cpu.md) | bm SNES: notes on speed (faster 65C816 core, work items C0 to C7, other emulators, assembly or C); C1 and C2 are code, the rest estimates | `core/src/bm/snes_cpu.c`, `core/src/bm/snes_ppu.c` |
+| [snes-icache](progress/snes-icache.md) | bm SNES: instruction-cache work for the Pi Zero W (hot code block, searched order, SPC700 at -Os, the PC measure, what to read in the Pi log) | `core/src/bm/snes_hot.ld`, `core/scripts/icache_sim.py`, `tests/snes/icache_layout.c` |
+| [snes-cpu-c3](progress/snes-cpu-c3.md) | bm SNES item C3: the hot path of the 65C816 in ARM assembly (design, sizes, tests, what to read on the console) | `core/src/bm/snes_cpu_arm.S`, `tests/snes/cpu_diff.c` |
+| [snes-cpu-c2](progress/snes-cpu-c2.md) | bm SNES item C2: the interpreter keeps the registers in ARM registers (profile, change, numbers) | `core/src/bm/snes_cpu.c`, `tests/snes/cpu_bench.c` |
+| [snes-gpu](progress/snes-gpu.md) | bm SNES: the PPU on the V3D GPU (work items G1 to G11); G2 Mode 7 on the QPUs in the kernel behind `snes_gpu_m7=1` and a V3D micro-benchmark, PC-tested, not run on the Pi | `core/src/bm/snes_ppu.c`, `core/src/gpu/qpu_snes.c`, `tests/gpu/test_snes_gpu.c` |
+| [snes-gpu-pi](progress/snes-gpu-pi.md) | bm SNES GPU stage 1: what runs in the kernel, the numbers to read on the Pi, the plan for G3 to G6 | `core/src/gpu/qpu_snes.c`, `core/src/kernel/snes_gpu.c` |
+| [snes-convert](progress/snes-convert.md) | bm SNES: notes on converting a ROM to ARM code (static recompiler and JIT, instruction mapping), estimates only, no code | `core/src/bm/snes_cpu.c` |
+| [snes-measure](progress/snes-measure.md) | bm SNES: the time of a frame in its parts (CPU with the bus, DMA, HDMA, PPU, sound), the sampled timer and the first Pi Zero W table (C1) | `core/src/bm/snes_bus.c`, `tests/snes/core_test.c` |
+| [snes-superfx](progress/snes-superfx.md) | bm SNES: the Super FX co-processor (GSU-1 and GSU-2): registers, instruction set, cache, pixel plot, memory map, timing, with the source of each fact | `core/src/bm/snes_gsu.c`, `tests/snes/gsu_test.c` |
+| [snes-dsp](progress/snes-dsp.md) | bm SNES: the DSP-1/2/3/4 co-processors (uPD77C25): instruction set, SNES ports per cart type, firmware file layouts, lazy run, what is not verified | `core/src/bm/snes_dsp77.c`, `tests/snes/dsp77_test.c` |
+| [snes-doom](progress/snes-doom.md) | bm SNES: Doom (Super FX 2): notes from the DOOM-FX source (memory map, WRAM code copy, split CPU and GSU), leads for the crash at 7E:5980 | `core/src/bm/snes_gsu.c` |
+| [snes-superfx-isa](progress/snes-superfx-isa.md) | bm SNES: the Super FX instruction set (opcode table with flags), the delay slot, the pixel cache and bitmap modes, the instruction cache and the timing | `core/src/bm/snes_gsu.c` |
+| [snes-superfx-speed](progress/snes-superfx-speed.md) | bm SNES: Super FX speed, ARM instructions per GSU instruction (QEMU count, before and after), the opcode mix of Star Fox and Yoshi's Island | `core/src/bm/snes_gsu_arm.S`, `tests/snes/gsu_arm.c` |
+| [snes-sa1](progress/snes-sa1.md) | bm SNES: the SA-1 co-processor (second 65C816, I-RAM, BW-RAM, DMA, math, bit processor, messages): map, time, status, rules | `core/src/bm/snes_sa1.c`, `core/src/bm/snes_sa1_cpu.c`, `tests/snes/sa1_test.c` |
+| [snes-superfx-ares](progress/snes-superfx-ares.md) | bm SNES: the Super FX against the ares GSU on random programs (method, the open differences, who decides) | `tests/snes/ref_diff_gsu.cpp`, `core/src/bm/snes_gsu.c` |
+| [snes-cpu-ref](progress/snes-cpu-ref.md) | bm SNES: the 65C816 against the ares module (method, the rules that came out: direct page wrap, new stack opcodes, decimal V) | `tests/snes/ref_diff.cpp`, `core/src/bm/snes_cpu.c` |
 | [snes-resources](progress/snes-resources.md) | bm SNES: resources to learn 65C816 assembly and make SNES games (PVSnesLib, a SNES assembly course, an SMW disassembler, an IDE), and how they help the emulator | `tests/snes/` |
-| [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `scripts/smw_extract.py`, `scripts/smw_capture.py` |
-| [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `carts/smw/guide/build.py` |
-| [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md), [suite](progress/tools-suite.md), [code templates](progress/tools-code-templates.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `carts/`, `src/ai/`, `scripts/`, `tools/` |
+| [smw](progress/smw.md) | native port of Super Mario World for the RGB30 (personal use): ROM extractor, emulator capture, physics reference | `core/scripts/smw_extract.py`, `core/scripts/smw_capture.py` |
+| [smw-guide](progress/smw-guide.md) | PDF guide of the SMW port and its redrawn guide edition | `manuals/content/en/smw-guide.md`, `bm/smw/guide/build.py` |
+| [tools](progress/tools.md) (+ [assistant](progress/tools-assistant.md), [suite](progress/tools-suite.md), [code templates](progress/tools-code-templates.md)) | the suite, editors, PC scripts, Market, CI (design: [suite specs](design/)) | `bm/`, `core/src/ai/`, `core/scripts/`, `core/tools/` |
 | [tropic-trail-final-report](progress/tropic-trail-final-report.md) | final report of the 3D video series: deliveries, grades of the operators, estimated vs actual times, lessons | `video/3d/` |
-| [video](progress/video.md) | clips for cartridges (container, MJPEG, RLE); study and spikes; the removed screen recorder is in the archive | `src/bm/jpeg.c`, `docs/bench/video-feasibility-2026-10.md` |
-| [devkit-weight](progress/devkit-weight.md) | dev kit: weight report of a `.bm`/`.bme`, performance plan from the docs, compat policy table | `scripts/bm_weight.py`, `docs/spec/compat-policy.toml` |
+| [video](progress/video.md) | clips for cartridges (container, MJPEG, RLE); study and spikes; the removed screen recorder is in the archive | `core/src/bm/jpeg.c`, `docs/bench/video-feasibility-2026-10.md` |
+| [devkit-weight](progress/devkit-weight.md) | dev kit: weight report of a `.bm`/`.bme`, performance plan from the docs, compat policy table | `core/scripts/bm_weight.py`, `docs/spec/compat-policy.toml` |
 
 ## Which section to open
 
@@ -88,13 +88,13 @@ file ends with *Open work* and *Rules (do not break)*.
 ## Navigation (how to read, where things are)
 
 - [reading](progress/reading.md): the search command per big file, then `Read` offset/limit.
-- [runtime](progress/runtime.md): sections of `src/bm/runtime.c` by banner, to grep.
+- [runtime](progress/runtime.md): sections of `core/src/bm/runtime.c` by banner, to grep.
 
 ## Reference docs (not progress)
 
 Performance: [`docs/PERF-BUDGET.md`](PERF-BUDGET.md) (what a frame holds), [`docs/PERFORMANCE.md`](PERFORMANCE.md), [`docs/GPU-BENCHMARK-REPORT.md`](GPU-BENCHMARK-REPORT.md) · GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · OS limits and comparison with Linux/Windows: [`docs/OS-CAPABILITIES.md`](OS-CAPABILITIES.md) ·
 resources `BMRES`: `docs/RISORSE.md` · project layout: `docs/PROJECT-LAYOUT.md` · formats: `docs/BM-FORMAT.md`, `docs/FORMATS-AUDIT.md` · program structure: `docs/APP-ARCHITECTURE.md` · consistency and the 1.0.0 gate: `docs/spec/CONSISTENCY.md` · UI reference: [`docs/spec/ui-reference.md`](spec/ui-reference.md) · open decisions: `docs/open-decisions.md` · riff: `docs/RIFF.md` · Predict and pad: `docs/PREDICT.md`,
-`docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
+`docs/PADTYPE.md` · assistant: `core/src/ai/kb/README.md`, `AI.md` · Market: `market/README.md` ·
 game guide: `docs/GAME-GUIDE.md` · SDK and tools: `sdk/README.md` · design RFCs: `docs/design/`. All are large: `Grep -n '^#'` first.
 
 ## Plan and priorities

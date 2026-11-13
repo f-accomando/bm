@@ -444,20 +444,20 @@ local function new_env(arg_path)
     if moved then return true, path end
     return true
   end
-  -- the assistant's panel (src/ai/assist.lua) with a stand-in for the
+  -- the assistant's panel (core/src/ai/assist.lua) with a stand-in for the
   local bmui, bmlib
   E.require = function(name)
   if name == "bmlib" then                -- the layout (lib.layout): once
-    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    bmlib = bmlib or assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
-    if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
+    if name == "assist" then return assert(loadfile(ROOT .. "/core/src/ai/assist.lua", "t", E))() end
     if name == "bmui" then                 -- the mouse: once (it takes keyp over)
-      bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+      bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
       return bmui
     end
     assert(name == "bm3d", "require: only bm3d, bmui, bmlib and assist here")
-    return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+    return assert(loadfile(ROOT .. "/core/src/script/bm3d.lua", "t", E))()
   end
 end
 
@@ -519,7 +519,7 @@ end
 
 ----------------------------------------------------------------- the project and bm Mesh
 
-local MESH, ANIMATOR = "/carts/mesh/main.lua", "/carts/animator/main.lua"
+local MESH, ANIMATOR = "/bm/mesh/main.lua", "/bm/animator/main.lua"
 local PROJECT = "/bme/humanoid.bme"
 local PFILE = host(PROJECT)
 local NAME = "humanoid"

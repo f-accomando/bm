@@ -78,16 +78,16 @@ Hardware target: **Raspberry Pi Zero W** (ARM1176 @ 1.0 GHz, VideoCore IV V3D GP
 The same `herotris` scene on the ARM rasterizer holds 2,385 triangles (40.8 ms).
 
 ### 🚀 3D Engine & Architecture (bm3d & V3D Driver)
-bm integrates **bm3d** (version 7.7 in [`src/gpu/version3d.h`](src/gpu/version3d.h)), a dual-path 3D engine:
-- **GPU Path (V3D Hardware - Default)** (`gpu3d`): the V3D fills pixels with custom QPU assembly shaders (`tools/qpuasm.py`) at **811 Mpixel/s** (full-screen render only). The vertex shader (`gpu3d_vs`, default 2) places the corners on the GPU. 4× MSAA is available (`gpu3d_aa`, off by default). The 2D draws in the same GPU job (`gpu3d_2d`, on by default).
+bm integrates **bm3d** (version 7.7 in [`core/src/gpu/version3d.h`](core/src/gpu/version3d.h)), a dual-path 3D engine:
+- **GPU Path (V3D Hardware - Default)** (`gpu3d`): the V3D fills pixels with custom QPU assembly shaders (`core/tools/qpuasm.py`) at **811 Mpixel/s** (full-screen render only). The vertex shader (`gpu3d_vs`, default 2) places the corners on the GPU. 4× MSAA is available (`gpu3d_aa`, off by default). The 2D draws in the same GPU job (`gpu3d_2d`, on by default).
 - **ARM Fallback Rasterizer** (`r3d`): software rasterizer with per-face LOD, screen-door transparency, and planar shadows, used when the GPU is absent or in emulators.
 - **Settings > Screen** shows two graphics rows: *3D of the games* (`gpu3d`) and *3D on the ARM* (`r3d_fast`). Every other graphics key is set in `config.txt` ([`docs/progress/v3d-flags.md`](docs/progress/v3d-flags.md)).
 
 ### 🎯 Measure it yourself
 - **3D Bench** (C, in the kernel: *Settings > System > Utilities* on the Pi, the Dev tab on the RGB30, or the `j` key of the monitor) runs every 3D test with every driver and saves a report on the SD card ([`docs/BENCH3D.md`](docs/BENCH3D.md)).
-- **3D Bench for the Market** (`carts/bench3d`): a Lua edition. It has its own numbers, not comparable with the C bench.
-- **Hero Stress** (`carts/hero`): a plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
-- **bm Web** (`carts/bmweb`): 723 frames at 59.6 fps on the Pi Zero W, no late frame (report of 24 Oct, [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md)).
+- **3D Bench for the Market** (`bm/bench3d`): a Lua edition. It has its own numbers, not comparable with the C bench.
+- **Hero Stress** (`bm/hero`): a plaza with walking heroes. Change the hero count, the polygon level and the 3D options in real time, and read the cost.
+- **bm Web** (`bm/bmweb`): 723 frames at 59.6 fps on the Pi Zero W, no late frame (report of 24 Oct, [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md)).
 
 > Older measurements (Sep-Oct 2026) stay as history in [`docs/GPU-BENCHMARK-REPORT.md`](docs/GPU-BENCHMARK-REPORT.md), [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) and [`docs/STRESS.md`](docs/STRESS.md). The tools they used (stress test, Texture Room, Stack bench, GPU test) were removed from the kernel on 24 Oct 2026.
 
@@ -139,7 +139,7 @@ Everything in a cartridge can be created with the bm editors. They are built int
 - **Titan Clash**: a fighting game of giant robots, 1 or 2 players.
 - **Chaos Kitchen**: a cooperative cooking game for 1 to 4 players on one screen.
 - **Yharnam**: an endless gothic town at night, seen from above, at 360×360.
-- **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `scripts/mkartcovers.py`.
+- **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `core/scripts/mkartcovers.py`.
 - **bm Market**: an online catalog with a Games page and an Apps page (the editors, bm Write, Pad Typing, the 3D Bench). It downloads free cartridges to the SD card and checks each file with its SHA-256 ([`market/README.md`](market/README.md)).
 
 ---
@@ -167,7 +167,7 @@ make test
 make qemu
 ```
 
-`make` builds the kernel and the game cartridges. Run only the tests a change affects, for example `python3 tests/qemu_test.py --build build -k <name>` or `make test-b3d`. A cartridge is built by one rule in the Makefile: add a `carts/<id>/` folder and its name to `GAMES` ([`docs/PROJECT-LAYOUT.md`](docs/PROJECT-LAYOUT.md)). Change a game or app in its `.bme` project, then build the `.bm` from it.
+`make` builds the kernel and the game cartridges. Run only the tests a change affects, for example `python3 tests/qemu_test.py --build build -k <name>` or `make test-b3d`. A cartridge is built by one rule in the Makefile: add a `bm/<id>/` folder and its name to `GAMES` ([`docs/PROJECT-LAYOUT.md`](docs/PROJECT-LAYOUT.md)). Change a game or app in its `.bme` project, then build the `.bm` from it.
 
 ### Flashing to Hardware
 1. Flash `dist/bm.img` to a microSD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (*"Use Custom"*), balenaEtcher, or `dd`. From WSL, `./easy_install.sh` also updates the kernel on a card or over the network.

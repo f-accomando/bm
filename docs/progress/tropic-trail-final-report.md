@@ -15,7 +15,7 @@ Times are the ones in the logs (Rome time), rounded; where a number was not meas
 - the monitor line `err` in the network console (AGY-10, R-NET1): the last error of the cartridge;
 - the assistant: English words (`third`, `person`, `behind`, `follow`, `first`) so a short English question is answered in English; the guides are found in the guide mode (Tab x4).
 
-**Tools**: `tools/pi_bridge.py`, `pi.py`, `pi_test.py` (test the Pi Zero W from the PC; requests R-NET2/R-NET3 written, not built); `rec_qemu.py --take r1|r3` and `--tool`, serial log of the kernel in every recording; `montage.py` (6), `montage7.py`, `montage8.py` (tested, a ffmpeg hang fixed); `bot.py` (a bot that plays the game and writes the button script); `video/3d/check_series.py`.
+**Tools**: `core/tools/pi_bridge.py`, `pi.py`, `pi_test.py` (test the Pi Zero W from the PC; requests R-NET2/R-NET3 written, not built); `rec_qemu.py --take r1|r3` and `--tool`, serial log of the kernel in every recording; `montage.py` (6), `montage7.py`, `montage8.py` (tested, a ffmpeg hang fixed); `bot.py` (a bot that plays the game and writes the button script); `video/3d/check_series.py`.
 
 **Sync protocol** (template on the branch `sync-handshake`, live copy on `bm-core`): status block (`sync_hdr.py`), `sync_check.py` (an objective check), inboxes, `DELIVERED` and `SIGNOFF` rows, short heartbeats, `sync_watch.py` (a heartbeat with no model tokens), the handshake in `CLAUDE.md` section 6.
 

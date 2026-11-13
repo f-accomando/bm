@@ -14,10 +14,10 @@ again before you change this design: their free tiers and terms change often.
 - `ai_ask`, `ai_reply`, `ai_info` (spec 6, [docs/api/system.md](../api/system.md), "A chat model"). The kernel sends
   `POST <url>/chat/completions` in the OpenAI-compatible format. It adds the key itself. Lua never reads the key.
 - `bm/ai.txt`: the AI settings (`url=`, `model=`, `key=`), apart from `bm/config.txt`, which stays for the system.
-  The file is protected (`src/net/aiconf.c`): no Lua access, the network transfer refuses it, the kernel writes it only
+  The file is protected (`core/src/net/aiconf.c`): no Lua access, the network transfer refuses it, the kernel writes it only
   after its own question (`ai_setup`, `ai_pair_finish`).
-- `tools/bm_agent_relay.py`: the same API on the user's PC, answered by the official agent program.
-- `carts/agent` (bm Agent): the chat app. It saves a file that the model proposes only after the user says yes.
+- `core/tools/bm_agent_relay.py`: the same API on the user's PC, answered by the official agent program.
+- `bm/agent` (bm Agent): the chat app. It saves a file that the model proposes only after the user says yes.
 
 ## Two ways to a model
 
@@ -53,8 +53,8 @@ A Claude, ChatGPT or Google subscription has no API key. Its quota works only in
 Run that program on your own PC or server, signed in with your own account. `bm_agent_relay.py` gives each
 request from the console to one run of the program.
 
-1. On the PC: `python3 tools/bm_agent_relay.py cert --ip <the PC's LAN address>`.
-2. On the PC: `python3 tools/bm_agent_relay.py serve --ip <the same address> --backend claude` (or `codex`, `gemini`, `cmd`).
+1. On the PC: `python3 core/tools/bm_agent_relay.py cert --ip <the PC's LAN address>`.
+2. On the PC: `python3 core/tools/bm_agent_relay.py serve --ip <the same address> --backend claude` (or `codex`, `gemini`, `cmd`).
    It prints the pairing code, 20 characters.
 3. In bm Agent: `/setup`, `5` (Relay), the PC's address, the code. The kernel fetches the relay's CA on the LAN, checks it
    against the code, asks you, and saves the CA in `bm/ca-user.pem` and the settings in `bm/ai.txt`.

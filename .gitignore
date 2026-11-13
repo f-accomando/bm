@@ -15,7 +15,7 @@ video/3d/chain/
 video/3d/out/
 docs/video/*/cover.png
 
-# the Pi tests (tools/pi_test.py, pi_bridge.py logs): logs and pictures of a run
+# the Pi tests (core/tools/pi_test.py, pi_bridge.py logs): logs and pictures of a run
 /out/
 .claude/state/
 build-*/
@@ -24,5 +24,5 @@ build-*/
 # Super Mario World port: the user's own ROM and everything extracted from it stay local
 *.sfc
 *.smc
-carts/smw/rom/
-carts/smw/extracted/
+bm/smw/rom/
+bm/smw/extracted/

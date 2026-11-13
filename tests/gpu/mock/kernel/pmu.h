@@ -1,7 +1,7 @@
 #ifndef KERNEL_PMU_H
 #define KERNEL_PMU_H
 
-/* test_v3d: the ARM's performance monitor is not there (src/kernel/pmu.h) */
+/* test_v3d: the ARM's performance monitor is not there (core/src/kernel/pmu.h) */
 #include <stdint.h>
 
 typedef struct { uint32_t cycles, instr, dmiss; } pmu_t;

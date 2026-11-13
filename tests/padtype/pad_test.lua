@@ -1,4 +1,4 @@
--- Host tests of typing with the pad (src/ai/padtype.lua): the rules of
+-- Host tests of typing with the pad (core/src/ai/padtype.lua): the rules of
 -- compose (the wait for the double, the layers, the syllables turned by
 -- square and triangle, erase, the words of R2, L1 / R1, Share), the
 -- on-screen keyboard, and every practice text written to the end by a
@@ -7,7 +7,7 @@
 
 local build = arg[1] or "build"
 local verbose = arg[2] == "-v"
-package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
+package.path = build .. "/?.lua;core/src/ai/?.lua;" .. package.path
 local pt = require "padtype"
 local B = pt.BITS
 

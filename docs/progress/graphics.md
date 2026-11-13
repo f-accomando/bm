@@ -9,7 +9,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 
 ## How it is today
 
-### Framebuffer and screens (`src/drivers/fb.c`, `src/bm/runtime.c`)
+### Framebuffer and screens (`core/src/drivers/fb.c`, `core/src/bm/runtime.c`)
 - Mailbox framebuffer, RGB565; virtual height = height × buffers (1..3), page flip with
   `SET_VIRT_OFFSET`. The HDMI scaler enlarges to the TV mode at no CPU cost.
 - Cartridge resolutions (header): 640×360 (default), 480×270, 320×180, and the square
@@ -18,12 +18,12 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   whole pixels on 1080p); a square cartridge keeps its screen.
 - Menu: 720p drawn by the V3D by default (28 Oct 2026; 6.3 ms a frame). `menu_scale` 1 (360p on the ARM, the HDMI scaler enlarges it), 4 (360p on the GPU), 2 (720p) or 3 (1080p) (Settings > Screen > Menu size) makes the V3D draw the menu at that size (quads, blit, 24x48 text at 1080p, enlarge 0 us; 1080p verified on the Pi Zero W, 720p not yet). The ARM never enlarges the menu: if the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; the `menu_gpu` key is removed).
 
-### 2D (`src/bm/gfx16.c`, `gfx16.h`)
+### 2D (`core/src/bm/gfx16.c`, `gfx16.h`)
 - All 2D in C: primitives, UI (`rrect`, `ellipse`, `rectgrad`, `radgrad`), affine blits (`sspr_affine`, `spr_rot`), 8-bit alpha, vector paths (`path_*`, `poly`, `polyfill`), filters (`blur`, `conv3`), `spr`/`sspr`, `map()` with 8 layers, tile flags, named zones.
 - Sheets up to `BM_SHEET_MAX` 4096 px; SHEET8 (≤ 256 colours) stored smaller.
 - Darkness and glows: `g16_fade_*` tables (Lua `light_begin`/`dark_begin`/`glow`…), used by Yharnam.
 
-### Software 3D (`src/bm/r3d.c`, `r3d.h`)
+### Software 3D (`core/src/bm/r3d.c`, `r3d.h`)
 - The ARM transforms, lights, culls and clips (VFP floats) and rasterizes in fixed point
   into a 16-bit z-buffer: flat/Gouraud (dithered), perspective-correct textures from the
   sheet, near-plane clip, sun + sky/ground light, specular, rim, point lamps, fog, per-face
@@ -37,8 +37,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   draw textured faces in their average texel (`flat_prepare` in `r3d.c`); on the GPU backend
   such a mesh goes triangle by triangle.
 
-### V3D driver (`src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
-- Version in `src/gpu/version3d.h` (`BM3D_VERSION` "7.36"); the table there lists
+### V3D driver (`core/src/gpu/gpu3d.c`, `v3d.c`, `v3d_cl.c`, `shaders.h`)
+- Version in `core/src/gpu/version3d.h` (`BM3D_VERSION` "7.36"); the table there lists
   every step and which settings reproduce older ones.
 - Default where a V3D answers; software when `gpu3d=0`, in QEMU, or when the boot probe
   fails. What is not documented is learnt by the probe at boot and switched off by itself
@@ -46,7 +46,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   primitives).
 - One job per frame where possible: binning list + NV/GL records, tiles loaded from the page
   (2D under the 3D stays), 24-bit depth, MSAA 4× option.
-- QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`: fragment
+- QPU shaders written in `core/tools/qpuasm.py` and generated into `core/src/gpu/shaders.h`: fragment
   `fs_*` (two-thread variants `fs_*_t`), vertex `vs_baked`, `vs_tex_rgb`, `vs_lit`,
   `vs_lit_tex`, `vs_lit_tex2`, `vs_lit2` (7.33: plain skins on two bones), `vs_baked8`, `vs_lit8`, `vs_shadow*`, `cs_*`, `fs_zclear`.
 - Options (each a `bm/config.txt` key, a Settings row and, for the main ones, an argument of
@@ -56,7 +56,7 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
   `gpu3d_merge` (draw merging, bm3d 7.6, on, `0` off; no Settings row).
 - Textures: RGBA8888 in T-tiles; with `gpu3d_tex16` opaque sheets as RGB565 and cut-out
   sheets (1-bit alpha) as RGBA5551 (bm3d 7.2); with `gpu3d_etc1` opaque sheets as ETC1
-  (bm3d 7.3, `src/gpu/etc1.c`); each type kept only if its boot probe passed
+  (bm3d 7.3, `core/src/gpu/etc1.c`); each type kept only if its boot probe passed
   (`docs/progress/v3d.md`).
 - Mesh cache: one slot per (mesh, sheet, unlit, smooth), made again when `gpu3d_attr` changes
   (`mesh_get`); indexed groups are
@@ -68,8 +68,8 @@ Lua API: [`docs/api/draw.md`](../api/draw.md), [`docs/api/light3d.md`](../api/li
 Bring-up, draw descriptors, shaders and the triangle probe: [graphics-mali](graphics-mali.md).
 
 ### Rendering tests (Settings > Screen)
-The 3D Bench (`src/bm/b3d.c`, `src/kernel/b3dpi.c`) stops on Start+Select, Ctrl+Esc or PS
-after the frame on screen (`syskeys_test_*` in `src/kernel/syskeys.c`,
+The 3D Bench (`core/src/bm/b3d.c`, `core/src/kernel/b3dpi.c`) stops on Start+Select, Ctrl+Esc or PS
+after the frame on screen (`syskeys_test_*` in `core/src/kernel/syskeys.c`,
 `b3d_platform_t.stop`, `bm_stats_t.left`); a stopped test leaves no report
 (`reports_drop`). Tests: `make test-b3d` (`--stop`), QEMU `test_bench_stop`.
 
@@ -93,10 +93,10 @@ Each line says where it was found and where it is written.
 - Menu 1080p GPU drawing on the Pi Zero W: done with `menu_scale=3` (24 Oct, then `menu_gpu=1`: 1920x1080 1:1 drawn by V3D, font 24x48, enlarge 0 us, tested and verified on Pi Zero W hardware).
 - 2D vector graphics (OpenVG/VGU capabilities: paths, stroke, gradients, alpha, blend, filters, vector fonts; what exists and how to build the rest on the Pi and the RGB30): [graphics-vector](graphics-vector.md).
 - Mali-G52 driver: [graphics-mali](graphics-mali.md) (the variant probe has no entry point since the GPU test page was removed on 24 Oct 2026; then the 3D Bench with `mali3d=1` on the device).
-- 3D Bench, Lua edition for the Market (`carts/bench3d`, [BENCH3D](../BENCH3D.md) *Lua edition*; the C bench stays): B3D-1 `gpu3d_opt()`, B3D-2 `gpu3d_stats()`, B3D-3 (the ramp, the report) and B3D-4a/b/c (the tests) are done and tested on the V3D emulator (`make test-gpu3d-opt test-bench3d test-bench3d-all`). Scope of 25 Oct (second decision): bm3D 7.7 only and light. Profiles: ARM and GPU+VS+Q by default, GPU+VS+Q2 (frame later) on request. 22 tests: spheres, heroes (plain, skin, shadow), tiny, draws, quad_flat/tex/alpha, cel (lit, 4 bands, outline), the 2D scenes (map8, sprites, stack, fade, light), herotris, the htmap pair for merging (ht_p100, ht_p100m, ht_p10m) and stress. Models with bones and baked light come from `carts/bench3d/build/mkassets.py` at build time. The default run is about 400 steps of 4 frames (estimate 40 to 60 s on the Pi). Left: B3D-8 Market and docs; a Pi run to check the estimate and the logic loop (`WORK_STEPS`); an RGB30 run. Not run on the Pi or the RGB30.
+- 3D Bench, Lua edition for the Market (`bm/bench3d`, [BENCH3D](../BENCH3D.md) *Lua edition*; the C bench stays): B3D-1 `gpu3d_opt()`, B3D-2 `gpu3d_stats()`, B3D-3 (the ramp, the report) and B3D-4a/b/c (the tests) are done and tested on the V3D emulator (`make test-gpu3d-opt test-bench3d test-bench3d-all`). Scope of 25 Oct (second decision): bm3D 7.7 only and light. Profiles: ARM and GPU+VS+Q by default, GPU+VS+Q2 (frame later) on request. 22 tests: spheres, heroes (plain, skin, shadow), tiny, draws, quad_flat/tex/alpha, cel (lit, 4 bands, outline), the 2D scenes (map8, sprites, stack, fade, light), herotris, the htmap pair for merging (ht_p100, ht_p100m, ht_p10m) and stress. Models with bones and baked light come from `bm/bench3d/build/mkassets.py` at build time. The default run is about 400 steps of 4 frames (estimate 40 to 60 s on the Pi). Left: B3D-8 Market and docs; a Pi run to check the estimate and the logic loop (`WORK_STEPS`); an RGB30 run. Not run on the Pi or the RGB30.
 - Sprite stacking, 2D benchmarks, the Pi speed checks (`g16_map_mask`, `-O3`) and the 2D API gaps against LÖVE (API-7 to API-11): [graphics-2d](graphics-2d.md).
 - 3D particles: `particles*` and `lib.particles3d` are done (ARM step and draw in `r3d_pfx_*`, no cost without a pool; host test `test_pfx`, `make test-gameapi`). Not measured on the Pi Zero W. Not done: the QPU step (the idea is dropped for now).
-- QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`src/gpu/qpu.c`, [v3d](v3d.md) item 5). The QPU programs PASS on the Pi Zero W (the GPU test, removed on 24 Oct 2026, with `gpu3d_qpu=1`, 22 Oct: 1024 particles ARM 158 us, QPU 47 us; 1024 fade pixels ARM 79 us, QPU 36 us). Only `dark_end()` calls them in the runtime (with `gpu3d_qpu=1`); its gain on a full-screen fade is not measured yet.
+- QPU programs outside 3D: the driver, the queue, a particle step and the fade by levels are done on the emulator (`core/src/gpu/qpu.c`, [v3d](v3d.md) item 5). The QPU programs PASS on the Pi Zero W (the GPU test, removed on 24 Oct 2026, with `gpu3d_qpu=1`, 22 Oct: 1024 particles ARM 158 us, QPU 47 us; 1024 fade pixels ARM 79 us, QPU 36 us). Only `dark_end()` calls them in the runtime (with `gpu3d_qpu=1`); its gain on a full-screen fade is not measured yet.
 - Hero stress cart (plaza, LOD, option toggles) and cel shader API: design in [hero-stress-cart-and-cel-shader](../design/hero-stress-cart-and-cel-shader.md) (five stages). Stages 1 (the cart), 2 (cel light and `dither3d` on the ARM raster, bm3D 7.4), 3 (cel in the V3D vertex programs) and 4 (outline by the inverted hull, flag 512; both bm3D 7.5) are done: [hero](hero.md). Stage 5 (RGB30 edition) is not started. Stages 3 and 4 are tested on the emulator only; the Pi numbers are open.
 - Hero benchmark ([BENCH3D](../BENCH3D.md), *herotris* and *The cel shader*): `b3d tests=herotris,cel` gives the hero triangles at 60 fps (ARM, GPU, GPU+VS, GPU+VS+Q2 with the frame-later model; the report says if the mesh path was ACCEPTED or fell back) and the ms of the lit hero against the cel hero (dither on and off). Built and tested on the host. Not run on the Pi yet. After the run, copy the report to `docs/bench/`.
 
@@ -105,7 +105,7 @@ Each line says where it was found and where it is written.
 - A game with a `map3d` world draws the whole map once before the play (`map3d_draw(world, 0, 0)` from a camera above the map, then a full-screen cover). The V3D builds a chunk's mesh at its first draw (about 280 ms on the Pi Zero W); without this the first view of each part freezes the game. See `docs/PERFORMANCE.md` 4.1 and `docs/GAME-GUIDE.md`, Tips.
 - Visible face: the side where the vertices are clockwise (`r3d.c`). Toward glTF z flips
   sign and the order reverses.
-- `animate()` in `runtime.c` and the pose in `carts/animator/main.lua` do the same maths:
+- `animate()` in `runtime.c` and the pose in `bm/animator/main.lua` do the same maths:
   change them together.
 - 2D drawn while a GPU job is in flight goes through `draw2d()` / `sync3d()` /
   `flush3d(1)` in `runtime.c`.
@@ -116,7 +116,7 @@ Each line says where it was found and where it is written.
   row, `gpu3d()` argument); the default is what the Pi verified.
 - Early z is off after a `zclear()` quad in the job and in jobs that load the page (Mesa,
   HW-2905) — see the comments in `gpu3d.c` before touching depth.
-- Shaders: edit `tools/qpuasm.py`, regenerate `shaders.h`, run `make test-qpu`.
+- Shaders: edit `core/tools/qpuasm.py`, regenerate `shaders.h`, run `make test-qpu`.
 - Linux GPU drivers are read, never copied (GPL); GPU structures from Mesa XML (MIT).
 - In development only `make test-b3d` for the GPU; also
   `make test-gpu3d`, `test-queue2d`, `test-v3d` when the driver changes.

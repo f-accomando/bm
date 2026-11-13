@@ -15,8 +15,8 @@ letter and disappears on its own.
   panel, with no suggestion, it switches mode (code, sprite, any).
 - **Menu** of bm Code (Esc): **Word completion** on/off, **Words in comments** it/en (the
   words of comments and strings). Both choices last for the session.
-- **Module**: `require "predict"` (`src/ai/predict.lua`), any cartridge can use it; the
-  dictionaries are `require "words"`, built by `scripts/mkwords.py`.
+- **Module**: `require "predict"` (`core/src/ai/predict.lua`), any cartridge can use it; the
+  dictionaries are `require "words"`, built by `core/scripts/mkwords.py`.
 
 On an Italian text of 100 characters (100 keys, a capital letter with Shift counts as one)
 completion saves **17**, on Lua code **19%**, on questions to the assistant **26%** (full
@@ -39,7 +39,7 @@ The dictionary changes by itself with the place where the cursor is:
 
 In comments and strings the context starts at the mark (`--`, `"`): the first word does not
 depend on the code before it. **Questions to the assistant** have their own dictionary: the
-`ask:` lines, titles and keywords of the knowledge base (`src/ai/kb`, not `tests.txt`), mixed
+`ask:` lines, titles and keywords of the knowledge base (`core/src/ai/kb`, not `tests.txt`), mixed
 with Italian at a 2 to 1 weight.
 
 Rules for the typed word:
@@ -56,14 +56,14 @@ Rules for the typed word:
 ## 2. The model
 
 An **n-gram**: how many times each word is written and which words follow it, counted by
-`scripts/mkwords.py` (`make` redoes it when the texts change) on:
+`core/scripts/mkwords.py` (`make` redoes it when the texts change) on:
 
-- **it**: the texts in `src/ai/words` written for bm (stories, messages, games, technical,
+- **it**: the texts in `core/src/ai/words` written for bm (stories, messages, games, technical,
   letters, informative: 23 000 words) and the lexicon `it_lessico.txt` (6 500 forms missing
   from the texts): 8 450 words;
-- **en**: the English texts in `src/ai/words` (4 500 words): 1 140 words;
+- **en**: the English texts in `core/src/ai/words` (4 500 words): 1 140 words;
 - **lua**: the Lua of bm's games (without comments and strings), the knowledge base code and
-  all the names of its APIs with their signature (the API names come from `src/ai/api.tsv`, `scripts/mkapi.py`, from `docs/api/`): 3 350 words;
+  all the names of its APIs with their signature (the API names come from `core/src/ai/api.tsv`, `core/scripts/mkapi.py`, from `docs/api/`): 3 350 words;
 - **ask**: the knowledge base questions: 1 770 words.
 
 The score of a word that starts like the typed one is `0.4 × frequency + how many times it
@@ -84,7 +84,7 @@ The format of `build/words.lua` (text in code page 437, like the console):
 - `uni`: `word count[ f]` per line, sorted by key (lowercase, without accents); ` f` = a
   function;
 - `big`: `prev total next n next n ...` per line, the 24 most frequent words after `prev`;
-- `api` (lua only): `name	signature	area	text` per line, from `src/ai/api.tsv` (text cut at 480 characters); `allow` (lua only): the names that `scripts/api_lint_allow.txt` lets pass, one per line.
+- `api` (lua only): `name	signature	area	text` per line, from `core/src/ai/api.tsv` (text cut at 480 characters); `allow` (lua only): the names that `core/scripts/api_lint_allow.txt` lets pass, one per line.
 
 ### From Lua
 
@@ -116,10 +116,10 @@ In code Enter keeps the indentation.
 | english | 100 | 100 | 88 | 7 | 12% |
 | lua | 100 | 94 | 76 | 7 | 19% |
 
-- The **155 never-seen questions to the assistant** (`src/ai/kb/tests.txt`, 5 332
+- The **155 never-seen questions to the assistant** (`core/src/ai/kb/tests.txt`, 5 332
   characters): 1 key per character without completion, **0.885** with the Italian
   dictionary, **0.738** with Italian + questions (26% fewer).
-- The **texts in `src/ai/words` the dictionary has not seen** (each group removed in turn
+- The **texts in `core/src/ai/words` the dictionary has not seen** (each group removed in turn
   from the dictionary, 136 245 characters): **0.868** keys per character, 13% fewer. On seen
   texts the saving is higher, but it does not count.
 
@@ -142,7 +142,7 @@ The space after each word is one key.
 
 ## 4. Italian syllables
 
-`make syllables` (`scripts/syllables.py`) counts them, accents excluded, on the same texts
+`make syllables` (`core/scripts/syllables.py`) counts them, accents excluded, on the same texts
 (23 118 words) and on the lexicon (8 523 distinct words), split with the spelling rules
 (ca-sa, piz-za, can-to, pa-dre, pa-e-se, pia-no):
 
@@ -180,12 +180,12 @@ syllable starts and ends).
 
 ## 5. Files and tests
 
-- `src/ai/predict.lua` (`require "predict"`): words, dictionaries, suggestions.
-- `src/ai/words/`: the Italian and English texts written for bm and the Italian lexicon
-  (`README.md`); `scripts/mkwords.py` → `build/words.lua` (`require "words"`, in the complete kernel and in the Assistant app (DATA section); not in the clean kernel,
+- `core/src/ai/predict.lua` (`require "predict"`): words, dictionaries, suggestions.
+- `core/src/ai/words/`: the Italian and English texts written for bm and the Italian lexicon
+  (`README.md`); `core/scripts/mkwords.py` → `build/words.lua` (`require "words"`, in the complete kernel and in the Assistant app (DATA section); not in the clean kernel,
   ~360 KB of text).
-- `carts/code/main.lua`: completion in bm Code (`place_at` picks code, comment, string or
-  `#entry:`); `src/ai/assist.lua`: the question's one.
+- `bm/code/main.lua`: completion in bm Code (`place_at` picks code, comment, string or
+  `#entry:`); `core/src/ai/assist.lua`: the question's one.
 - `tests/predict/predict_test.lua` (`make test-predict`, inside `make test`): words before
   the cursor, dictionaries, accents and capitals, the tab's names, the three texts retyped
   with Tab (`tests/predict/typist.lua`) with fewer keys.
@@ -198,7 +198,7 @@ syllable starts and ends).
 ## 6. Limits and next steps
 
 - The dictionary comes from ~28 000 words: good for messages, comments and games, less so
-  for long technical texts. It grows by adding texts to `src/ai/words` (then `make`).
+  for long technical texts. It grows by adding texts to `core/src/ai/words` (then `make`).
 - A word that differs only by its final accent (`e` → è) is not completed: it has the same
   length, there is no rest to show.
 - Next: new words typed by the user in the dictionary (saved), completion in the Sound

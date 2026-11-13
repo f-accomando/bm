@@ -2,16 +2,16 @@
 
 The first triangle on the Mali-G52 (root causes, 25 Oct 2026) and the variant probe of `mali.c`. Part of [graphics-mali](graphics-mali.md).
 
-## Mali-G52 bringup (`src/rgb30/mali.c`, `mali_variants.h`)
+## Mali-G52 bringup (`core/src/rgb30/mali.c`, `mali_variants.h`)
 - Hardware bringup breakthrough (25 Oct 2026, report `80d62d1e`):
   - Root cause of DATA_INVALID_FAULT (0x58): Tiler Job offset 64 holds Primitive Size (Constant float 32-bit).
     Mesa sets Constant = line_width = 1.0f (0x3f800000) for all non-point primitives. md_tiler_job had left it 0.0f,
-    causing immediate tiler hardware failure. Set Constant to 1.0f in `src/rgb30/mali_desc.c`.
+    causing immediate tiler hardware failure. Set Constant to 1.0f in `core/src/rgb30/mali_desc.c`.
   - Bifrost hierarchy mask: RK3566 GPU_TILER_FEATURES register (0x00c) returns `0x00000209` (`max_levels = 2`, `bin_size = 9`).
     The hardware enforces bitcount(hierarchy_mask) <= max_levels. Fixed HIERARCHY_MASK to 0x28 (levels 3 and 5), matching Mesa
     pan_cs.c and v7pack.py.
   - Device verification: `mali: a triangle (vertex, tiler and fragment jobs): drawn by the GPU` (inside ff8019, outside 102050).
-- Variant probe (`src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs (set 0, draw 0 of
+- Variant probe (`core/src/rgb30/mali_variants.h`, `triangle()` in `mali.c`): the base jobs (set 0, draw 0 of
   `frame_build`) run first. If they fail, the probe resets the GPU and runs 8 variants of the jobs, each built
   again with one patch (`mv_table`: block, first bit, bit count, value). One run of the probe gives all the results (no entry point since the GPU test page was removed on 24 Oct 2026).
   Read the log lines `mali: variant N <name>: ok` or `mali: variant N <name>: JS_STATUS 0x..`:

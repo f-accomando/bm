@@ -1,5 +1,5 @@
 /*
- * bm/config.txt on the PC (src/kernel/config.c): the file read, a GitHub
+ * bm/config.txt on the PC (core/src/kernel/config.c): the file read, a GitHub
  * fine-grained token (93 characters) kept, and the settings from the
  * network (config_merge, netxfer's C, easy_install.sh): keys set and
  * removed, the ones the console uses at once applied, nothing changed by
@@ -82,7 +82,7 @@ int fat_write_file(const char *dir, const char *name, const void *data, size_t l
     return 0;
 }
 const char *fat_error(void) { return "test"; }
-/* src/fs/sdlock.c is linked in (config_save writes through it); it asks if a fiber runs */
+/* core/src/fs/sdlock.c is linked in (config_save writes through it); it asks if a fiber runs */
 fiber_t *fiber_current(void) { return NULL; }
 
 static void put_file(const char *text)

@@ -1,6 +1,6 @@
 """bm_core.skelgen / animgen / shapes (phase 2): skeletons and clips from
 descriptions, checked through the same playback maths as the runtime
-(bm_core.skin, port of src/bm/runtime.c pose_at / skin).
+(bm_core.skin, port of core/src/bm/runtime.c pose_at / skin).
 
 Nothing here runs the kernel or bm Animator: the generated cartridge is only
 checked by bm_core (parse / validate / check_path).

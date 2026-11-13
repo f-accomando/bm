@@ -21,8 +21,8 @@ The Pi Zero W is the template: a feature is born there. Some of its work was los
 | Number | What it says | Where | Changes when |
 |---|---|---|---|
 | **Kernel version** | which build is on the card | `git describe` (`bm_version`); after 1.0.0 a `vX.Y.Z` tag | every release |
-| **Specification revision** (`BM_SPEC_REV`, now 5) | what a cartridge or a tool may rely on: formats, API, system keys, config keys, platform behaviour | `src/bm/bm.h`, `bmSPEC=N` in `kernel.img`, Settings > System, `docs/spec/specs.toml` | something a cartridge can depend on is added |
-| **Container version** (header offset 8, now 1) | the layout of the file | `src/bm/bm.h` | only when an old kernel must refuse the file: a break |
+| **Specification revision** (`BM_SPEC_REV`, now 5) | what a cartridge or a tool may rely on: formats, API, system keys, config keys, platform behaviour | `core/src/bm/bm.h`, `bmSPEC=N` in `kernel.img`, Settings > System, `docs/spec/specs.toml` | something a cartridge can depend on is added |
+| **Container version** (header offset 8, now 1) | the layout of the file | `core/src/bm/bm.h` | only when an old kernel must refuse the file: a break |
 
 A cartridge that uses something newer than revision 1 writes `spec: N` in its `bm.info`; a kernel with a lower revision
 refuses it with *"this game needs revision N of the bm specification: update the kernel"* instead of failing half way
@@ -36,14 +36,14 @@ today the kernel version is a commit hash; revision 1 is the baseline of that da
 | `docs/spec/specs.toml` | the revisions and the items of the specification, each with its revision, status (`implemented`, `partial`, `planned`), files and platforms |
 | `docs/spec/config-keys.toml` | every key of `bm/config.txt` the kernel reads (60 keys and 3 patterns): scope, values, default, the Settings row |
 | `docs/spec/platforms.toml` | the two platforms and the **capabilities** in which they really differ |
-| `docs/spec/compat-policy.toml` | per kernel, whether a cartridge shows, greys or hides (editable rows); read by `scripts/bm_weight.py` and, as the C table `src/bm/compat_table.h` (`scripts/mkcompat.py --check`), by both kernels; see [devkit-weight](../progress/devkit-weight.md) |
+| `docs/spec/compat-policy.toml` | per kernel, whether a cartridge shows, greys or hides (editable rows); read by `core/scripts/bm_weight.py` and, as the C table `core/src/bm/compat_table.h` (`core/scripts/mkcompat.py --check`), by both kernels; see [devkit-weight](../progress/devkit-weight.md) |
 | `docs/spec/divergences.toml` | every known difference between the kernels, with its cause: `hardware`, `history`, `todo` or `unknown` |
 | `docs/spec/known.toml` | the differences found by the automatic rules that are accepted for now, with a reason |
-| `scripts/consistency.py` | the rules, run by `make test-consistency` |
+| `core/scripts/consistency.py` | the rules, run by `make test-consistency` |
 
 ## What the script checks
 
-`python3 scripts/consistency.py check` (fails on a drift): the cartridge resolutions in the kernel, `mkbm.py`, the header
+`python3 core/scripts/consistency.py check` (fails on a drift): the cartridge resolutions in the kernel, `mkbm.py`, the header
 comment, the docs and `runtime.c`; the section numbers in C and in the three Python tools; the header flags; the functions
 the runtime registers against `docs/api/*.md`; the names of the apps and tools in the seven places that list them (and
 that a game cannot create a file with a tool's name); the menu tabs, `screen()` modes and embedded tools of the two
@@ -69,7 +69,7 @@ the right scope; that every divergence names a capability and real evidence file
 
 ## The gate for 1.0.0
 
-`python3 scripts/consistency.py gate` must print **0 blockers**: no open divergence of cause `history`, `todo` or `unknown`
+`python3 core/scripts/consistency.py gate` must print **0 blockers**: no open divergence of cause `history`, `todo` or `unknown`
 (only `hardware` may stay; a divergence with status `accepted` and a `known.toml` entry of kind `intended` are accepted in
 writing, with their reason), no item of the specification that is not `implemented`, no accepted drift except hardware and
 documentation noise. From 1.0.0 on: container version 1 stays readable by every 1.x kernel; a new revision only **adds**;
@@ -133,7 +133,7 @@ removing or changing a promise is a 2.0.0.
 | D26 | untested | todo | SDK layout 720x720 | Pi: -. RGB30: not done (R39) | R39 |
 | D27 | accepted | todo | screenshot of the menu's own screens | Pi: not done. RGB30: not done | extend the screenshot to the menu |
 | D28 | open | todo | a game built in /carts and the Games tab | Pi: a game built in /carts is not in Games (R41). RGB30: - | R41 |
-| D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
+| D44 | resolved | todo | Dev tab lists .bme projects | Projects (.bme) are not listed in the menu tabs on either kernel (user decision 21 Oct 2026). Pi Dev tab fixed in PR 58 (core/src/kernel/carts.c tab_items; test_projects walks the Dev tab). | none |
 
 The differences that are hardware, with the capability that explains each:
 

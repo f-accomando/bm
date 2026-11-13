@@ -349,7 +349,7 @@ Non ancora costruiti (SYS-9b): un benchmark all'avvio di un gioco che sceglie i 
 
 # Mondi di collisione
 
-Box solidi, raggi e corpi che si muovono scivolando sui muri, in C: molto più veloci che in Lua. Esempio completo: `carts/overbit`. Per la mappa 2D ci sono i flag dei tile (`mflags`) e `lib.move` / `lib.step` di bmlib.
+Box solidi, raggi e corpi che si muovono scivolando sui muri, in C: molto più veloci che in Lua. Esempio completo: `bm/overbit`. Per la mappa 2D ci sono i flag dei tile (`mflags`) e `lib.move` / `lib.step` di bmlib.
 
 | Funzione | Descrizione |
 |---|---|
@@ -433,11 +433,11 @@ dark_end()
 spr(FLAME, fx, fy)                           -- le fiamme non vengono oscurate
 ```
 
-Esempio completo: `carts/yharnam`. Uno piccolo: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256x256).
+Esempio completo: `bm/yharnam`. Uno piccolo: `SQUARE_CART` in `tests/qemu_test.py` (una lampada su una cartuccia 256x256).
 
 ## La libreria n8
 
-Ogni cartuccia vede anche la tabella `n8`: la macchina **nano8**, con le funzioni delle cartucce `.p8` (`n8.spr`, `n8.map`, `n8.print`, `n8.peek` e le altre, con argomenti e numeri come le vogliono) e quelle per caricarle, avviarle e mostrarle (`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). È fatta per `carts/nano8`; un gioco `.bm` non ne ha bisogno.
+Ogni cartuccia vede anche la tabella `n8`: la macchina **nano8**, con le funzioni delle cartucce `.p8` (`n8.spr`, `n8.map`, `n8.print`, `n8.peek` e le altre, con argomenti e numeri come le vogliono) e quelle per caricarle, avviarle e mostrarle (`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). È fatta per `bm/nano8`; un gioco `.bm` non ne ha bisogno.
 
 # Consigli sulle prestazioni
 

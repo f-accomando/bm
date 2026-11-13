@@ -1,6 +1,6 @@
 /*
  * G2 (docs/progress/snes-gpu.md): the Mode 7 layer of the SNES PPU on the QPUs of the V3D, on the V3D emulator
- * (tests/gpu/v3d_emu.c). The program qp_snes_mode7 (tools/qpusnes.py) makes the 256 x 224 picture of a frame with
+ * (tests/gpu/v3d_emu.c). The program qp_snes_mode7 (core/tools/qpusnes.py) makes the 256 x 224 picture of a frame with
  * only BG1 on; every pixel must equal the one that ppu_line of the reference PPU (tests/snes/ppu_ref.c) makes.
  * The ARM does the set-up of each line (X and Y at the start of the line, as draw_mode7 does it); the QPUs do the
  * work for each pixel. Original code.
@@ -17,7 +17,7 @@
 #include "snes_int.h"
 #include "v3d_emu.h"
 
-#include "gpu/qpuprog_snes.h"                           /* made by tools/qpusnes.py */
+#include "gpu/qpuprog_snes.h"                           /* made by core/tools/qpusnes.py */
 
 void ppu_reset_ref(void);
 void ppu_line_ref(int y);

@@ -300,7 +300,7 @@ The builder always reads the layer named `objects` for the placeholders. Do not 
 - For a game that lives in the repository, the build takes files: `mkbm.py --sheet sheet.png --map map.csv`, and one more layer for each `--map name=file.csv` (up to 8, in the order given).
 
 ::: copy
-python3 scripts/mkbm.py --sheet sheet.png --map map.csv --map front=map_front.csv --flags flags.csv --sprites zones.txt
+python3 core/scripts/mkbm.py --sheet sheet.png --map map.csv --map front=map_front.csv --flags flags.csv --sprites zones.txt
 :::
 
 ## The files in the folder of a game

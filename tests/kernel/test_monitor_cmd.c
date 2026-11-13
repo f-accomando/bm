@@ -1,10 +1,10 @@
 /*
- * The Monitor's command core (src/kernel/monitor_cmd.c) on the PC: the tokenizer, the
+ * The Monitor's command core (core/src/kernel/monitor_cmd.c) on the PC: the tokenizer, the
  * dispatcher, the help made from the table, the Tab completion, the line editor and its
  * history, with fake handlers. A small terminal follows what the editor prints (\r, \b,
  * ESC [ K), so a check can compare the line on the screen with the line in the editor.
  */
-#include "../../src/kernel/monitor_cmd.h"
+#include "../../core/src/kernel/monitor_cmd.h"
 
 #include <stdio.h>
 #include <string.h>

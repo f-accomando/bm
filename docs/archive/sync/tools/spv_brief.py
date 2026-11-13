@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Short SPV view of the sync: at most 25 lines.
 
-  python3 tools/spv_brief.py [--root DIR]
+  python3 core/tools/spv_brief.py [--root DIR]
 
 For every active operator of sync/operators.toml it prints: state, age of `updated`,
 the number of unread Log rows addressed to it, and the DELIVERED lines of its
@@ -9,7 +9,7 @@ the number of unread Log rows addressed to it, and the DELIVERED lines of its
 A DELIVERED line is covered by a REVIEW row of SYNC.md when its WO-ID or its commit (first 8
 characters) appears in that row. A covered line is never new. An uncovered line is new unless its
 timestamp is not after the latest REVIEW covering that operator. Then the last 3 REVIEW rows of the
-Log, cut at 100 characters. Parsing is shared with tools/sync_check.py (toml_ops, header, iso, rows,
+Log, cut at 100 characters. Parsing is shared with core/tools/sync_check.py (toml_ops, header, iso, rows,
 consegne, delivered_parts, addressed_rows). Read-only: it writes nothing."""
 import argparse
 import datetime
@@ -110,7 +110,7 @@ def main(argv=None):
 
     room = MAX_LINES - len(head) - len(rev)
     if len(ops) > room:
-        ops = ops[:max(room - 1, 0)] + ["... more operators: python tools/sync_check.py"]
+        ops = ops[:max(room - 1, 0)] + ["... more operators: python core/tools/sync_check.py"]
     for ln in head + ops + rev:
         print(ln)
     return 0

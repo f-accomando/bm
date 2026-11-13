@@ -34,7 +34,7 @@ function _update()
 end
 ```
 
-**bmui, the mouse of bm's tools** (`require "bmui"`, `src/script/bmui.lua`, 2026-10-06): the
+**bmui, the mouse of bm's tools** (`require "bmui"`, `core/src/script/bmui.lua`, 2026-10-06): the
 editors (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, the assistant's
 panel) use it, and a game or a tool of your own can too. Its rule: the mouse does what the
 keys do. Things are made clickable as they are drawn, and a click presses the key behind
@@ -61,7 +61,7 @@ with `T`, one at a time: each takes the first free place and its light the playe
 first player without a pad (without Bluetooth pads: player 1); the Bluetooth keyboard (M28)
 is a player of its own, the next one without a pad (the first, if there is nothing on USB).
 One-player games use `btn(i)` without `p` and work with any controller; a game for more
-players asks `btn(i, p)` for each (example: `carts/pong`, two-player mode). bmlib has the
+players asks `btn(i, p)` for each (example: `bm/pong`, two-player mode). bmlib has the
 screen where the players join (`lib.party`), the split screen (`lib.split`) and the
 colours (`lib.PLAYER_COLORS`): [Players on one console](bmlib.md#players-on-one-console); the SDK's
 *Versus 2D* template uses them.
@@ -103,4 +103,4 @@ reads the keyboard key by key and the controllers button by button:
 - **Pad buttons.** `keymap(t)` gives the actions; the game calls it again with the new buttons and keeps them with `save()`. Then `btn("jump")` and `prompt("jump", x, y)` follow the change.
 - **Keyboard keys.** The game reads the keys with `rawkeys(true)` and `keydown(u)` and holds a table action → usages. To change a key it waits until `keys()` is empty (the key that opened the row must go up), then takes the first usage that `keys()` returns and that the game allows. `prompt(name)` draws the key (`"w"`, `"space"`, `"shift"`). It saves only the actions that differ from the default (`save({ keys = { fire = { 0x0D } } })` in slot 1), so a later default change reaches the player. A key that another action has goes to a swap, so no action is left without a key. A reset to default asks first.
 
-Example: Overbit, the COMMANDS page of its title and pause menus (`carts/overbit/src/87_keys.lua`, the keys in `10_input.lua`; `docs/progress/overbit.md`). `controls()` (first table) is the system's own remap of the pad buttons, set by hand in `bm/config.txt`: a game that has its own page does not need it.
+Example: Overbit, the COMMANDS page of its title and pause menus (`bm/overbit/src/87_keys.lua`, the keys in `10_input.lua`; `docs/progress/overbit.md`). `controls()` (first table) is the system's own remap of the pad buttons, set by hand in `bm/config.txt`: a game that has its own page does not need it.

@@ -18,7 +18,7 @@ import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres    # noqa: E402
 import bmaudio  # noqa: E402
 
@@ -33,7 +33,7 @@ def load(name, path):
 art = load("a6", os.path.join(HERE, "art.py"))
 replay = load("rp", os.path.join(ROOT, "video", "07-play", "replay.py"))
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out")
-cart = os.path.join(out, "sd", "carts", "SKYVALE.BM")
+cart = os.path.join(out, "sd", "bm", "SKYVALE.BM")
 bad = 0
 
 

@@ -1,8 +1,8 @@
 -- Host test of the bmweb cart against the test catalog web/models (mock content): the index page and a
 -- model page are parsed and laid out, each .bmm goes through the cart's download path, and a fake kernel
--- checks file_write the way the real one does (src/bm/runtime.c file_write_model): the name rule, the
+-- checks file_write the way the real one does (core/src/bm/runtime.c file_write_model): the name rule, the
 -- BMRES magic, kind 1 and the CRC-32 of the file. Run from the repository root through tests/web/run.sh.
-package.path = "carts/bmweb/src/?.lua;" .. package.path
+package.path = "bm/bmweb/src/?.lua;" .. package.path
 
 local browser = require("browser")
 local files = require("files")

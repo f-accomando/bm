@@ -1,5 +1,5 @@
-# A battle mech: the recipe "mech" of src/ai/mesh_chars.c in the part
-# language (the example tools/img2mesh.py shows the model, and the test
+# A battle mech: the recipe "mech" of core/src/ai/mesh_chars.c in the part
+# language (the example core/tools/img2mesh.py shows the model, and the test
 # of the interpreter). Faces -z, stands on y = 0, one unit = one block.
 mat 1 F080B0          # the armour
 mat 2 B05A80          # the darker plates

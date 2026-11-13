@@ -2,11 +2,11 @@
 
 Status: 27 Oct 2026. Change R1 is on branch `claude/sharp-brown-qn7l6i`. It builds and passes the QEMU SD tests. It is not yet run on the Pi. QEMU never times out, so only the Pi can show the effect.
 
-Scope: the 500 ms (now 25 ms) stall at site `rdend` on the Pi Zero W ([sd-stall-plan](sd-stall-plan.md) section 0). This file compares the end of a read in `src/drivers/sdhost.c` with six other drivers for the same controller. It gives one change to test and the next changes in order.
+Scope: the 500 ms (now 25 ms) stall at site `rdend` on the Pi Zero W ([sd-stall-plan](sd-stall-plan.md) section 0). This file compares the end of a read in `core/src/drivers/sdhost.c` with six other drivers for the same controller. It gives one change to test and the next changes in order.
 
 ## 1. The difference
 
-`read_blocks` in `src/drivers/sdhost.c` did these steps after the last data word:
+`read_blocks` in `core/src/drivers/sdhost.c` did these steps after the last data word:
 1. `wait_transfer_complete(0)`: wait until the state machine in `SDEDM` is IDENT or DATA. Force DATA from READWAIT.
 2. Only then `CMD12` (`stop()`) for a read of more than one block.
 
@@ -53,7 +53,7 @@ R2. Force READDATA, as U-Boot does. In `wait_transfer_complete`, a read also for
 
 R3. `CMD23` before `CMD18`, as Linux mainline does for reads. The card then ends the read by itself and no `CMD12` is sent. Read the SCR at init (`ACMD51`, 8 bytes, one data read) and use `CMD23` only if bit 33 (`CMD_SUPPORT`, SET_BLOCK_COUNT) is set. Keep `CMD12` after an error. About 40 lines. Linux mainline uses `CMD23` for reads only. Do the same.
 
-R4. A timeout at `rdend` is not a failed read. When all words are in and `SDHSTS` has no `CRC16` or `FIFO_ERR`, the data are good. Send `CMD12`, count the site, and return the data. Then a stall at the end can never reach `fall_back` in `src/drivers/sd.c`.
+R4. A timeout at `rdend` is not a failed read. When all words are in and `SDHSTS` has no `CRC16` or `FIFO_ERR`, the data are good. Send `CMD12`, count the site, and return the data. Then a stall at the end can never reach `fall_back` in `core/src/drivers/sd.c`.
 
 ## 5. The structural answer of the other systems: DMA
 
@@ -65,7 +65,7 @@ Cost and risk: a DMA channel that the WiFi, the audio and the screen do not use;
 
 ## 6. Relation to branch `claude/sd-reinit-before-arasan`
 
-That branch changes `src/drivers/sd.c`: SDHOST starts again (`sdhost_init`) before the card moves to the Arasan controller. It also adds `docs/design/sd-read-timeout.md`. R1 changes only `read_blocks` in `src/drivers/sdhost.c`. The two changes do not touch the same lines. Test them one at a time on the Pi. The restart is a safety net. R1 aims at the cause.
+That branch changes `core/src/drivers/sd.c`: SDHOST starts again (`sdhost_init`) before the card moves to the Arasan controller. It also adds `docs/design/sd-read-timeout.md`. R1 changes only `read_blocks` in `core/src/drivers/sdhost.c`. The two changes do not touch the same lines. Test them one at a time on the Pi. The restart is a safety net. R1 aims at the cause.
 
 ## 7. Sources
 

@@ -2,7 +2,7 @@
 
 The kernel had a screen recorder for games. It was off by default. It was removed on 2026-11-09 at the request of the user. This file describes it in full, so it can be built again. The last kernel that has it is the commit `eba4dcdb` of `bm-core`. Read any file of the recorder with `git show eba4dcdb:<path>`.
 
-What stays in the kernel: the reader and the player of `.bmv` clips (`src/bm/vid.c`, `src/bm/api_video.c`, [api/video.md](../api/video.md)), the format ([BM-VIDEO.md](../BM-VIDEO.md)) and the tool `scripts/mkvid.py`. The player reads the raw and RLE565 codecs that the recorder wrote. The row encoder `bmv_rle565_row` stays in `src/bm/vid.c` (the tests of the codec use it).
+What stays in the kernel: the reader and the player of `.bmv` clips (`core/src/bm/vid.c`, `core/src/bm/api_video.c`, [api/video.md](../api/video.md)), the format ([BM-VIDEO.md](../BM-VIDEO.md)) and the tool `core/scripts/mkvid.py`. The player reads the raw and RLE565 codecs that the recorder wrote. The row encoder `bmv_rle565_row` stays in `core/src/bm/vid.c` (the tests of the codec use it).
 
 ## What it did
 
@@ -27,7 +27,7 @@ At the present point of a game, the recorder took the frame, scaled it, and put 
 
 ### How it worked
 
-* **Capture** (`rec_frame`, called at the present point of the game, in `src/bm/runtime.c` where the screenshot is taken). A frame was due every `1000000 / fps` microseconds. If the game was late, the next due time was `now + period` (no burst to catch up). The frame was scaled by nearest pixel to `rec_size` (a table of source columns, made again when the size changed). The recorder copied the frame into the chunk being filled.
+* **Capture** (`rec_frame`, called at the present point of the game, in `core/src/bm/runtime.c` where the screenshot is taken). A frame was due every `1000000 / fps` microseconds. If the game was late, the next due time was `now + period` (no burst to catch up). The frame was scaled by nearest pixel to `rec_size` (a table of source columns, made again when the size changed). The recorder copied the frame into the chunk being filled.
 * **Formats.** `rgb565`: 2 bytes a pixel, little endian. `rgb332`: 1 byte a pixel (`RRRGGGBB`). `rle565`: each row was encoded as it was scaled, with `bmv_rle565_row` (run-length, repeat, and copy of the row above; the tokens are in BM-VIDEO.md), so the frames of a chunk had different sizes and the index was written after the last frame.
 * **Chunks.** A chunk held frames up to about 256 KB (`CHUNK_BYTES`). With RLE565 a chunk ended at 256 frames or when it held 256 KB of frame bytes. A chunk was one clip file with its own header and index. The ring had `ring_bytes / slot_bytes` slots (the ring was made smaller if memory was short; at least 2 slots and 1 MB).
 * **Write.** `rec_pump(until)` ran in the frame loop of the runtime (`runtime.c`), after the draw, with the time that the frame had left (at least 1 ms when there was work). It ran a fiber job (`fiber_job_start`, stack 16 KB) that called `fat_write_file("/bm/rec", name, chunk, len)` for the oldest finished chunk. One write was a run of clusters (up to 32 KB): the fiber could not stop inside it, so the game could wait for one piece (about 16 ms at 2 MB/s).
@@ -45,14 +45,14 @@ At the present point of a game, the recorder took the frame, scaled it, and put 
 
 | Place | What |
 |---|---|
-| `src/bm/rec.c` (434 lines), `src/bm/rec.h` | the whole recorder: `rec_config` (reads the keys), `rec_start`, `rec_stop`, `rec_active`, `rec_due`, `rec_frame`, `rec_pump`, `rec_note_game_io`, `rec_overlay_text`; the types `rec_cfg_t` (w, h, fps, format, ring_bytes) and `rec_stats_t` (captured, dropped_full, chunks, chunk_fail, bytes, write_us, write_worst_us, pump_worst_us, slots, slots_high, frame_bytes, frame_max, enc_us, enc_worst_us, run) |
-| `src/bm/runtime.c` | `rec_config` and `rec_start` at the start of a run (`rec=on`), `rec_due` and `rec_frame` at the present point, `rec_pump(*deadline)` after the draw, `rec_note_game_io` after a screenshot, `rec_overlay_text` for the red text, `rec_stop` when the run ends |
-| `src/bm/api_save.c` | `rec_note_game_io()` in `save()` |
-| `src/bm/api_*.c` | each one included `rec.h` (a list that the files share) |
-| `src/bm/api_video.c` | `REC_CLIP_DIR "/bm/rec/"`: `video_open("rec/...")` |
-| `src/kernel/config.c`, `config.h` | `rec_mode()` and `rec_set_mode()` (the key `rec`) |
-| `src/kernel/settings.c` | the row `R_REC` "Screen recorder" (a choice row, "On" or "Off") on the Settings page and on the System page, and its handler (`recorder: on (/bm/rec, RLE565 15 fps)`) |
-| `src/kernel/monitor.c` | the keys `rec=`, `rec_fps=`, `rec_format=` in the list that `set` accepts |
+| `core/src/bm/rec.c` (434 lines), `core/src/bm/rec.h` | the whole recorder: `rec_config` (reads the keys), `rec_start`, `rec_stop`, `rec_active`, `rec_due`, `rec_frame`, `rec_pump`, `rec_note_game_io`, `rec_overlay_text`; the types `rec_cfg_t` (w, h, fps, format, ring_bytes) and `rec_stats_t` (captured, dropped_full, chunks, chunk_fail, bytes, write_us, write_worst_us, pump_worst_us, slots, slots_high, frame_bytes, frame_max, enc_us, enc_worst_us, run) |
+| `core/src/bm/runtime.c` | `rec_config` and `rec_start` at the start of a run (`rec=on`), `rec_due` and `rec_frame` at the present point, `rec_pump(*deadline)` after the draw, `rec_note_game_io` after a screenshot, `rec_overlay_text` for the red text, `rec_stop` when the run ends |
+| `core/src/bm/api_save.c` | `rec_note_game_io()` in `save()` |
+| `core/src/bm/api_*.c` | each one included `rec.h` (a list that the files share) |
+| `core/src/bm/api_video.c` | `REC_CLIP_DIR "/bm/rec/"`: `video_open("rec/...")` |
+| `core/src/kernel/config.c`, `config.h` | `rec_mode()` and `rec_set_mode()` (the key `rec`) |
+| `core/src/kernel/settings.c` | the row `R_REC` "Screen recorder" (a choice row, "On" or "Off") on the Settings page and on the System page, and its handler (`recorder: on (/bm/rec, RLE565 15 fps)`) |
+| `core/src/kernel/monitor.c` | the keys `rec=`, `rec_fps=`, `rec_format=` in the list that `set` accepts |
 | `docs/spec/config-keys.toml` | the keys `rec`, `rec_fps`, `rec_size`, `rec_format`, `rec_ring_mb` |
 | `manuals/content/*/install-sd.md` | the rows `rec` and `rec_format` of the table of keys |
 | `tests/host/stubs.c` | the stubs of the recorder for `bmhost` (it was off there) |
@@ -74,10 +74,10 @@ At the present point of a game, the recorder took the frame, scaled it, and put 
 
 ### Ideas that were open
 
-A palette format (8 bit, a palette for each frame or clip, a quantizer); the audio of the game in the recording; a delta against the previous frame if intra frames stay too big; a switch in the Dev tab; recording started by a call of the cartridge. The demo `carts/kratos` was made as a recording target.
+A palette format (8 bit, a palette for each frame or clip, a quantizer); the audio of the game in the recording; a delta against the previous frame if intra frames stay too big; a switch in the Dev tab; recording started by a call of the cartridge. The demo `bm/kratos` was made as a recording target.
 
 ## How to build it again
 
-1. `git show eba4dcdb:src/bm/rec.c > src/bm/rec.c` and the same for `rec.h`.
+1. `git show eba4dcdb:core/src/bm/rec.c > core/src/bm/rec.c` and the same for `rec.h`.
 2. Put back the calls in `runtime.c` and `api_save.c`, `rec_mode()` in `config.c`, the keys in `monitor.c` and `config-keys.toml`, the rows in `settings.c`, and the tests: take the lines of the commit `eba4dcdb`, and use `git log -S"rec_pump"` to find the change that took them away.
 3. Keep the limit of files (`MAX_FILES`). Run `make test-vid` and the three `test_video_rec*` tests of `tests/qemu_test.py`.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 The files the console's tools wrote in their host tests, read back by the
-Python of the build (scripts/bmres.py, scripts/bmmesh.py):
+Python of the build (core/scripts/bmres.py, core/scripts/bmmesh.py):
 
 - bm Studio and bm Animator (tests/studio/tools3d_host.lua):
   BLOCKS.BM, a new project: a block, a floor tile painted red beside it, a

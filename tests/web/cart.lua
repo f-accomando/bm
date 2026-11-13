@@ -2,7 +2,7 @@
 -- the downloads and the view, all against a mock of the kernel API (no network).
 -- Run from the repository root through tests/web/run.sh.
 --   BMWEB_MAIN=path/to/main.lua   also loads the joined cart (build/build.py output) with stubs
-package.path = "carts/bmweb/src/?.lua;" .. package.path
+package.path = "bm/bmweb/src/?.lua;" .. package.path
 
 local browser = require("browser")
 local view = require("view")

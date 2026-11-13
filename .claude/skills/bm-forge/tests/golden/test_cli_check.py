@@ -1,4 +1,4 @@
-"""CLI check subcommand: validation, limits, budget, drift and similarity (scripts/bm_forge.py check)."""
+"""CLI check subcommand: validation, limits, budget, drift and similarity (core/scripts/bm_forge.py check)."""
 import json
 import os
 import tempfile

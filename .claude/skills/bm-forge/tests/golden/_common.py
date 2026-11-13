@@ -44,15 +44,15 @@ def section_entry(data, typ):
 
 
 def import_script(name):
-    """a repo script (scripts/<name>.py) imported by path, for cross-checks only;
+    """a repo script (core/scripts/<name>.py) imported by path, for cross-checks only;
     bm_core itself never imports them"""
-    spec = importlib.util.spec_from_file_location("ref_" + name, os.path.join(REPO, "scripts", name + ".py"))
+    spec = importlib.util.spec_from_file_location("ref_" + name, os.path.join(REPO, "core", "scripts", name + ".py"))
     mod = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, os.path.join(REPO, "scripts"))
+    sys.path.insert(0, os.path.join(REPO, "core", "scripts"))
     try:
         spec.loader.exec_module(mod)
     finally:
-        sys.path.remove(os.path.join(REPO, "scripts"))
+        sys.path.remove(os.path.join(REPO, "core", "scripts"))
     return mod
 
 
@@ -77,7 +77,7 @@ def forge_assets():
 
 
 # CLI testing utilities
-CLI = os.path.join(SKILL, "scripts", "bm_forge.py")
+CLI = os.path.join(SKILL, "core", "scripts", "bm_forge.py")
 _cli_module = None
 
 

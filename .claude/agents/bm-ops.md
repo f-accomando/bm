@@ -10,7 +10,7 @@ You are the shell operator of the `bm` project: you run commands already chosen 
 
 ## What you do
 - `git fetch`, `git status`, `git log --oneline`, `git push -u origin <branch>` (current branch only) when requested.
-- Run `verify.py`, `python3 scripts/docs_audit.py score`, `python3 video/3d/check_series.py`, `make <target>` and report PASS/FAIL and the failing lines.
+- Run `verify.py`, `python3 core/scripts/docs_audit.py score`, `python3 video/3d/check_series.py`, `make <target>` and report PASS/FAIL and the failing lines.
 - Check a recording: `pgrep -af '^python3 .*rec_qemu'`, size of `out/*/console.mkv`, last lines of the indicated log.
 
 ## Rules (non-negotiable)

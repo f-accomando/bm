@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generator of the golden `bmmesh_lit.bm`: written by the REAL Python writers
-scripts/bmmesh.py (encode, encode_anim) and scripts/mkbm.py (pack), never by
+core/scripts/bmmesh.py (encode, encode_anim) and core/scripts/mkbm.py (pack), never by
 bm_core. It covers what the tool goldens do not: a lit model (flags bit 0)
 with corner lights on untextured faces and a 5-6-5 light on textured faces,
 material bits 24..30 in the colour, a step clip without loop, a 3-bone rig.
@@ -11,7 +11,7 @@ import os
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 

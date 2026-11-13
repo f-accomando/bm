@@ -359,12 +359,12 @@ Una risorsa è una cosa estratta da una cartuccia in un file suo. Per le immagin
 ## Cosa puoi fare oggi
 
 - Il menu non ha una scheda per i file di risorse. Apri un file di risorse dagli editor.
-- Su PC, `scripts/bmres.py` estrae una zona di sprite in un `.bmi` (con i suoi box), aggiunge una risorsa a un `.bm` e converte da e verso `.png`, `.hex` e `.gpl`.
+- Su PC, `core/scripts/bmres.py` estrae una zona di sprite in un `.bmi` (con i suoi box), aggiunge una risorsa a un `.bm` e converte da e verso `.png`, `.hex` e `.gpl`.
 
 ::: copy
-python3 scripts/bmres.py list GAME.bm
-python3 scripts/bmres.py extract GAME.bm --sprite coin -o COIN.bmi
-python3 scripts/bmres.py add GAME.bm COIN.bmi
+python3 core/scripts/bmres.py list GAME.bm
+python3 core/scripts/bmres.py extract GAME.bm --sprite coin -o COIN.bmi
+python3 core/scripts/bmres.py add GAME.bm COIN.bmi
 :::
 
 ## Attenzione

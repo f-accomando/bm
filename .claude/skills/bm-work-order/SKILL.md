@@ -27,7 +27,7 @@ Before assigning a task to execution, answer these 5 questions:
 ```markdown
 ### WORK ORDER: [ID-BREVE]
 - **Obiettivo**: [1 frase chiara]
-- **File/Funzioni da toccare**: [Es: src/bm/runtime.c:bm_init_cart()]
+- **File/Funzioni da toccare**: [Es: core/src/bm/runtime.c:bm_init_cart()]
 - **Modifica richiesta**: [Dettaglio del diff atteso, parametri, logica senza ambiguità]
 - **Comando di verifica**: [Es: python tests/qemu_test.py -k titan]
 - **Esito atteso**: [Exit code 0 / output specifico]

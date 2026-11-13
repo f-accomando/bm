@@ -21,7 +21,7 @@ function _update()
 end
 ```
 
-It is a kernel library (`src/script/riff.lua`, like bmlib): it runs in `.bm` files, on the Pi
+It is a kernel library (`core/src/script/riff.lua`, like bmlib): it runs in `.bm` files, on the Pi
 and on the RGB30, and in bmhost on the PC. It uses bm's synthesizer and instruments (`play()`,
 `instruments()`) and the sounds of the cartridge's **bank** by name; you write it and hear it
 live in **bm Code** (Ctrl+Enter), and in **bm Sound** (F7, *Riff...*) it becomes a song of the
@@ -253,5 +253,5 @@ changed with everything above.
 - `make test-riff`: mini-notation, functions, controls, the scheduler on the sound clock,
   live code, `bake` and `piece` in bmhost (`tests/riff/cart.lua`; the sound in
   `build/riff/riff.wav`).
-- `make test-audio`: the queue of timed notes (`player_at` in `src/audio/player.c`).
+- `make test-audio`: the queue of timed notes (`player_at` in `core/src/audio/player.c`).
 - QEMU: `test_riff_code` (bm Code), `test_sound_riff` (bm Sound), `test_audio` (`play_at`).

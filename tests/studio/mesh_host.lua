@@ -1,4 +1,4 @@
--- bm Mesh (carts/mesh) on the PC: stand-ins for the bm API (a folder is
+-- bm Mesh (bm/mesh) on the PC: stand-ins for the bm API (a folder is
 -- the SD card, nothing is drawn but the text is kept; cart_meshes() runs
 -- the game's code with Lua's load as the kernel does with meshcap.c;
 -- cart_write() rewrites the sections as bm_rewrite_with), keys typed into
@@ -162,15 +162,15 @@ E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui, bmlib
 E.require = function(name)
   if name == "bmlib" then                -- the layout (lib.layout): once
-    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    bmlib = bmlib or assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
   if name == "bmui" then                 -- the mouse: once (it takes keyp over)
-    bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+    bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
     return bmui
   end
   assert(name == "bm3d", "require: only bm3d, bmui and bmlib here")      -- (no assistant: F6 says so)
-  return assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+  return assert(loadfile(ROOT .. "/core/src/script/bm3d.lua", "t", E))()
 end
 local keyhelp_list, keyhelp_title
 E.keyhelp = function(list, title) keyhelp_list, keyhelp_title = list, title; return 0 end
@@ -300,10 +300,10 @@ E.cart_write = function(path, t)
 end
 
 -- cart_meshes(): the game's code run apart, mesh() keeps what it gets;
--- the names from the variables (the same walk as src/bm/meshcap.c)
+-- the names from the variables (the same walk as core/src/bm/meshcap.c)
 local API = {}
 do
-  local src = read_file(ROOT .. "/src/bm/runtime.c")
+  local src = read_file(ROOT .. "/core/src/bm/runtime.c")
   local tab = src:match("static const luaL_Reg api%[%] = {(.-)%{ NULL, NULL }")
   for n in tab:gmatch('{ "([%w_]+)"') do API[#API + 1] = n end
 end
@@ -399,7 +399,7 @@ end
 
 ----------------------------------------------------------------- driving it
 
-local chunk = assert(loadfile(ROOT .. "/carts/mesh/main.lua", "t", E))
+local chunk = assert(loadfile(ROOT .. "/bm/mesh/main.lua", "t", E))
 chunk()
 
 local function screen()
@@ -460,7 +460,7 @@ local function goto_item(label)
   check(false, "the list has " .. label)
 end
 
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 local function models_of(name) return mesh_models(section(file(name), 8)) end
 local function model_of(name, m)
   for _, x in ipairs(models_of(name)) do if x.name == m then return x end end
@@ -489,7 +489,7 @@ local lua0 = section(astro0, 1)
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
+check(sees("open a cartridge") and sees("/bm/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
 -- no file: New file makes a cube (a model alone); n adds another; Ctrl+S names it in /bmm
 key("\n")
 check(sees("VERTICES") and status():find("new file", 1, true) ~= nil, "New file: the cube in the edit page: " .. status())

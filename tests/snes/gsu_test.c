@@ -1,4 +1,4 @@
-/* The tests of the Super FX co-processor (src/bm/snes_gsu.c) and of the cartridge map around it. The programs are original and tiny; they run from a
+/* The tests of the Super FX co-processor (core/src/bm/snes_gsu.c) and of the cartridge map around it. The programs are original and tiny; they run from a
  * made-up ROM (no commercial ROM). Run: make test-snes-gsu. `gsu_test bench` times the interpreter (make bench-snes-gsu). */
 #include "snes_int.h"
 

@@ -1,4 +1,4 @@
-/* Host tests for src/usb/hid.c: keyboards in boot and report protocol. */
+/* Host tests for core/src/usb/hid.c: keyboards in boot and report protocol. */
 #include "usb/hid.h"
 #include "usb/usb.h"
 
@@ -63,7 +63,7 @@ int main(void)
     const uint8_t media[9] = { 3, 0xE9, 0 };            /* other report ID: ignored */
     hid_report(USB_KEYBOARD, media, 9);
     CHECK(hid_getc() == -1);
-    /* the system's keys (src/kernel/syskeys.h): Esc alone is back (a
+    /* the system's keys (core/src/kernel/syskeys.h): Esc alone is back (a
      * game's Start), Ctrl+Esc is PS, Ctrl+Shift+Esc the monitor */
     const uint8_t esc[10] = { 1, 0, 0, 0x29 };          /* longer report, Esc */
     hid_report(USB_KEYBOARD, esc, 10);

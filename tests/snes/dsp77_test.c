@@ -1,4 +1,4 @@
-/* The tests of the uPD77C25 core (src/bm/snes_dsp77.c) that runs DSP-1/2/3/4, and of the cartridge ports in the map (snes_bus.c). There is no real firmware in
+/* The tests of the uPD77C25 core (core/src/bm/snes_dsp77.c) that runs DSP-1/2/3/4, and of the cartridge ports in the map (snes_bus.c). There is no real firmware in
  * the repository: every program here is a small original one, written with the macros below. Run: make test-snes-dsp77. */
 #include "snes_int.h"
 

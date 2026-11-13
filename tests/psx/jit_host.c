@@ -39,7 +39,7 @@ int h_dump(uint32_t pc, uint32_t *out, int max) { return psx_jit_dump(pc, out, m
 void h_step(void) { psx_jit_on = 0; psx_cpu_run(1); }
 
 void psx_jit_make_trial(int t, uint32_t *prog, int *len_out, uint32_t *regs0, uint32_t *hi0, uint32_t *lo0, uint8_t *data0, uint8_t *scr0, gte_t *gte);
-/* a trial of the self test (the generator of src/bm/psx_jit.c): the program (len + 140 words), the registers, HI, LO, the data and scratchpad bytes, the GTE registers */
+/* a trial of the self test (the generator of core/src/bm/psx_jit.c): the program (len + 140 words), the registers, HI, LO, the data and scratchpad bytes, the GTE registers */
 void h_gen(int t, uint32_t *prog, int *len, uint32_t *regs0, uint32_t *hi, uint32_t *lo, uint8_t *data, uint8_t *scr, int32_t *gte)
 {
     gte_t g;

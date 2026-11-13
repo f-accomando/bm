@@ -1,4 +1,4 @@
--- bmui (src/script/bmui.lua, the mouse in bm's tools) on the PC: a mouse
+-- bmui (core/src/script/bmui.lua, the mouse in bm's tools) on the PC: a mouse
 -- and a keyboard stand in for the console's, frame by frame. Clicks on
 -- zones (the last drawn wins), the double click, the drag and the click
 -- without one, the wheel, the keys it presses for keyp(), the context menu
@@ -38,7 +38,7 @@ end
 E.lastinput = function() return li end
 E.showkeys = function() shown_keys = shown_keys + 1; return true end
 
-local U = assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+local U = assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
 
 -- one frame: the mouse as given, then the zones drawn
 local function frame(x, y, b, w, zones)
@@ -170,13 +170,13 @@ frame(10, 330, 0, 0)
 -- projects live in /bme (docs/PROJECT-LAYOUT.md): the one helper for their paths and lists
 check(U.PROJECTS == "/bme", "projects: the folder is /bme")
 check(U.project_path("pong") == "/bme/pong.bme", "project_path: a bare name")
-check(U.project_path("/carts/Il mio gioco.bm") == "/bme/ilmiogio.bme", "project_path: a game's path, 8.3")
+check(U.project_path("/bm/Il mio gioco.bm") == "/bme/ilmiogio.bme", "project_path: a game's path, 8.3")
 check(U.project_path("/bme/my-game.bme") == "/bme/my-game.bme" and U.project_path("") == "/bme/game.bme", "project_path: a dash stays; no name: GAME")
-check(U.is_project("/bme/a.bme") and not U.is_project("/carts/a.bm") and not U.is_project(nil), "is_project: by the extension")
-check(not U.is_old_place("/bme/a.bme") and U.is_old_place("/carts/A.BME") and U.is_old_place("/A.bme") and not U.is_old_place("/carts/a.bm"),
+check(U.is_project("/bme/a.bme") and not U.is_project("/bm/a.bm") and not U.is_project(nil), "is_project: by the extension")
+check(not U.is_old_place("/bme/a.bme") and U.is_old_place("/bm/A.BME") and U.is_old_place("/A.bme") and not U.is_old_place("/bm/a.bm"),
       "is_old_place: a project outside /bme")
 check(U.saved_text("/bme/a.bme") == "saved /bme/a.bme", "saved_text: a project in /bme")
-check(U.saved_text("/carts/A.BME"):find("saved /carts/A.BME", 1, true) and U.saved_text("/carts/A.BME"):find("old place", 1, true),
+check(U.saved_text("/bm/A.BME"):find("saved /carts/A.BME", 1, true) and U.saved_text("/bm/A.BME"):find("old place", 1, true),
       "saved_text: an old project says where it is")
 do
   local card = {
@@ -189,7 +189,7 @@ do
   local list, sizes = U.project_files({ bm = true, bme = true })
   check(table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM" or table.concat(list, " ") == "/bme/B.BME /carts/old.bme /carts/g.bm /R.BM",
         "project_files: /bme first, then the old places, only .bme in /bme: " .. table.concat(list, " "))
-  check(sizes["/bme/B.BME"] == 5 and sizes["/carts/g.bm"] == 9, "project_files: the sizes")
+  check(sizes["/bme/B.BME"] == 5 and sizes["/bm/g.bm"] == 9, "project_files: the sizes")
   list = U.project_files({ bm = true, bme = true, b16 = true }, { "/extra" })
   check(#list == 6 and list[2] == "/bm/g.b16", "project_files: .b16, the games folder /bm before the old places: " .. table.concat(list, " "))
   card["/extra"] = { { name = "e.bm", size = 1 } }

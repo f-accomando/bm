@@ -21,7 +21,7 @@
 1. `SYNC.md` lo scrive **solo SPV**: contratti, work order, decisioni, tabella di stato (§1b), avvisi a tutti.
 2. Ogni altro operatore scrive **solo il proprio** `sync/<ID>.md`: stato, task, progressi, problemi, richieste. Tutti leggono tutto.
 3. Gli operatori sono elencati in [`sync/operators.toml`](sync/operators.toml) (lo scrive SPV; nuovo operatore = nuovo blocco).
-4. **File di sync e righe di Log si pushano solo sul branch di sync** `sync/{nome}` (`git pull --rebase origin sync/{nome}`, mai commit di merge): `SYNC.md`, `sync/*` e `tools/sync_hdr.py` non si toccano su `bm-core` durante il progetto. Il **codice** resta sui branch di lavoro (da `bm-core`) e arriva su `bm-core` solo dopo la review di SPV (§3c) e con il consenso dell'utente. A fine progetto SPV archivia `SYNC.md` in `docs/archive/` su `bm-core` e il branch di sync si chiude.
+4. **File di sync e righe di Log si pushano solo sul branch di sync** `sync/{nome}` (`git pull --rebase origin sync/{nome}`, mai commit di merge): `SYNC.md`, `sync/*` e `core/tools/sync_hdr.py` non si toccano su `bm-core` durante il progetto. Il **codice** resta sui branch di lavoro (da `bm-core`) e arriva su `bm-core` solo dopo la review di SPV (§3c) e con il consenso dell'utente. A fine progetto SPV archivia `SYNC.md` in `docs/archive/` su `bm-core` e il branch di sync si chiude.
 5. SPV scrive le righe da un **worktree separato** del branch di sync, per non cambiare branch di lavoro.
 6. Le richieste fra operatori passano da SPV; le urgenze si scrivono nel proprio file e SPV le smista. Se un operatore è bloccato e muto, l'unico canale è un messaggio dell'utente nella sua sessione.
 
@@ -37,7 +37,7 @@
 
 ### Blocco di stato (in cima a ogni `sync/<ID>.md`)
 
-Scritto da [`tools/sync_hdr.py`](tools/sync_hdr.py), mai a mano. Campi: `schema`, `id`, `state`, `task`, `waiting_on`, `progress`, `eta`, `updated`, `ack`.
+Scritto da [`core/tools/sync_hdr.py`](core/tools/sync_hdr.py), mai a mano. Campi: `schema`, `id`, `state`, `task`, `waiting_on`, `progress`, `eta`, `updated`, `ack`.
 
 - Orari **ISO 8601 con fuso** (`2026-10-14T12:00+02:00`); chi legge confronta in UTC.
 - `eta`: obbligatoria in ogni `WORKING` e `WAITING`; dice quando l'operatore sarà di nuovo raggiungibile. In un task è "consegna pronta tra N min"; nell'handshake o in attesa di un prompt è "risposta attesa tra N min" (minimo 3, al massimo 3 controlli brevi, poi `eta` normale). Se il lavoro si allunga, l'operatore la sposta con una riga di progress prima che scada.
@@ -138,7 +138,7 @@ Un blocco per work order, formato di [`CLAUDE.md`](CLAUDE.md) §3 e Gate di Pron
 **Handshake** = la procedura con cui un operatore entra nel sync e si rende disponibile. Quando si dice "fai l'handshake" si intende, in ordine:
 1. **Allinearsi** al **branch di sync** (il nome che l'utente dice dopo "fai handshake", es. `sync/{nome}`): `git fetch origin`, checkout (meglio in un worktree o clone separato) e `git pull --rebase`. Il branch di sviluppo del codice resta `bm-core` o quello indicato dal work order.
 2. **Leggere `SYNC.md`** (ruoli, contratti §2, work order §3, regole) e la propria cartella `sync/`.
-3. **Produrre il proprio file** `sync/<ID>.md`, con blocco di stato (`tools/sync_hdr.py`) e `## Profilo`.
+3. **Produrre il proprio file** `sync/<ID>.md`, con blocco di stato (`core/tools/sync_hdr.py`) e `## Profilo`.
 4. **Rendersi disponibile**: compilato il file, si segna `FREE` (o `WORKING` se ha già una task). Fino ad allora SPV non gli assegna lavoro.
 
 **Review di una consegna** (SPV, prima di `REVIEW: APPROVED`): SPV non si fida del report dell'operatore e fa rivedere la consegna a un subagent **indipendente** (non quello dell'operatore), che lavora in un worktree temporaneo del commit consegnato, senza toccare quello dell'operatore. Lista di controllo, in ordine:
@@ -159,10 +159,10 @@ SPV scrive nel Log una riga `REVIEW: APPROVED | CHANGES REQUESTED` (≤600 carat
 **Sign-off (congedo)**: SPV può **liberare** un operatore dal sync in qualsiasi momento, con una riga di Log `SIGNOFF {ID}: {motivo}`. Motivi: non c'è più lavoro adatto, i **requisiti** (§2) non sono soddisfatti, l'operatore è sostituito o troppo lento/instabile, o il progetto è finito. L'operatore, letta la riga: 1) non inizia nuovo lavoro; 2) chiude o consegna ciò che ha in corso (commit e push; se c'è un processo lungo lo dice nel proprio file e SPV decide se aspettare); 3) scrive una riga di chiusura nel proprio file e si segna `DONE` con `sync_hdr.py`; 4) smette i battiti. SPV mette l'operatore `DONE` in §1b e in `sync/operators.toml` (`active = false`, `signoff = "{motivo}"`); l'operatore rientra solo con un nuovo handshake chiesto da SPV. Un sign-off non è una colpa: non cancella i commit e il lavoro già consegnato resta valido e va in review come gli altri. Se l'operatore non risponde alla riga entro 60 min, SPV lo segna `IDLE` e lo segnala all'utente.
 
 **Caselle, controllo e risveglio** (le regole che evitano i passaggi mancati):
-- **Caselle**: ogni compito nuovo e ogni urgenza SPV la scrive in `sync/inbox/<ID>.md` (max 5 righe, un compito; vedi `sync/inbox/README.md`). Il battito controlla il `git diff` della propria casella, non tutto il Log. Conferma di lettura: `python tools/sync_hdr.py <ID> --ack auto`.
-- **Controllo oggettivo**: `python tools/sync_check.py` (età, `eta`, `ack`, righe non lette, consegne fuori formato, caselle >5 righe, righe di Log >600 caratteri). SPV lo lancia a ogni controllo: lo stato riferito all'utente è quello che stampa, col suo orario.
+- **Caselle**: ogni compito nuovo e ogni urgenza SPV la scrive in `sync/inbox/<ID>.md` (max 5 righe, un compito; vedi `sync/inbox/README.md`). Il battito controlla il `git diff` della propria casella, non tutto il Log. Conferma di lettura: `python core/tools/sync_hdr.py <ID> --ack auto`.
+- **Controllo oggettivo**: `python core/tools/sync_check.py` (età, `eta`, `ack`, righe non lette, consegne fuori formato, caselle >5 righe, righe di Log >600 caratteri). SPV lo lancia a ogni controllo: lo stato riferito all'utente è quello che stampa, col suo orario.
 - **Righe di Log ≤600 caratteri**; il resto va nel work order o nella casella.
-- **Costo dei battiti**: `python tools/sync_watch.py --id <ID> --branch sync/{nome}` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
+- **Costo dei battiti**: `python core/tools/sync_watch.py --id <ID> --branch sync/{nome}` fa il battito senza modello e sveglia l'agente solo se cambia la sua casella; vedi `docs/progress/sync.md` ("Cost of the heartbeats").
 - **Modifiche alle regole**: riga `RULE` con ack richiesto; vale per un operatore solo dopo il suo `ack`.
 - **Profilo**: campo `wakeup yes|no` (`--wakeup`): l'agente si risveglia da solo (timer, scheduler)? Se `no`, SPV assegna lavori con `eta` esplicita e dice quando richiamarlo; l'utente lo sveglia con la frase di avvio (`docs/progress/sync.md`).
 

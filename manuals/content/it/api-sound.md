@@ -137,7 +137,7 @@ Cambia la velocità della batteria: `R.setcpm(30)` diventa `R.setcpm(40)`. Poi a
 :::
 
 ::: note
-Il progetto demo dell'editor Sound `carts/sound/demo.json` ha effetti sonori e tre brani da ascoltare e copiare.
+Il progetto demo dell'editor Sound `bm/sound/demo.json` ha effetti sonori e tre brani da ascoltare e copiare.
 :::
 
 ::: warn
@@ -208,7 +208,7 @@ Queste funzioni suonano una nota su una voce. La forma d'onda e il volume restan
 | `envelope(v, a, d, s, r)` | l'inviluppo della voce: attacco, decadimento e rilascio sono tempi 0-255 (0 = istantaneo, 255 = 2 s), il sostegno è un livello 0-255. Predefinito `1, 0, 255, 10` |
 | `duty(v, d)` | la larghezza dell'onda quadra, 0-255 (128 = 50%; 32-64 suona più "nasale") |
 | `playing(v)` | `true` finché la voce suona (rilascio compreso) o un effetto / la musica la tiene |
-| `apu(v, reg, [value])` | legge o scrive un registro grezzo della voce (32 byte per voce, 0-31: `src/audio/synth.h`; il registro 10 è 1/256 di Hz, dall'11 il timbro: filtro, posizione, stanza, eco, LFO) |
+| `apu(v, reg, [value])` | legge o scrive un registro grezzo della voce (32 byte per voce, 0-31: `core/src/audio/synth.h`; il registro 10 è 1/256 di Hz, dall'11 il timbro: filtro, posizione, stanza, eco, LFO) |
 
 ## Attenzione
 
@@ -228,7 +228,7 @@ note(3, "C4", 600, SQUARE, 90)         -- un accordo maggiore arpeggiato
 arp(3, "major", 40)
 ```
 
-Pong, Snake e Star Shooter in `carts/` usano le note (una funzione `jingle` di 10 righe per le melodie; ora c'è `lib.jingle` in bmlib).
+Pong, Snake e Star Shooter in `bm/` usano le note (una funzione `jingle` di 10 righe per le melodie; ora c'è `lib.jingle` in bmlib).
 
 ::: try
 Suona una nota tenuta e rilasciala: `note(0, "A4")` la fa partire e la tiene accesa, `vibrato(0, 0.3)` la fa oscillare, `noteoff(0)` la rilascia.
@@ -313,7 +313,7 @@ retro(true)                                         -- il suono a 8 bit di prima
 
 ## Strumenti pronti
 
-Sono 50 (`src/audio/presets.c`):
+Sono 50 (`core/src/audio/presets.c`):
 
 | Tipo | Strumenti |
 |---|---|
@@ -351,7 +351,7 @@ Chiama `tone(0, "epiano")` e `note(0, "E4", 400)`. Poi `reverb(0.8, 0.5, 1)` e s
 
 ## Cosa fa
 
-Il banco è la sezione **AUDIO** del `.bm` (formato in `src/audio/player.h`, versione 2, o 3 con i campioni; la versione 1 si legge ancora).
+Il banco è la sezione **AUDIO** del `.bm` (formato in `core/src/audio/player.h`, versione 2, o 3 con i campioni; la versione 1 si legge ancora).
 
 ## Limiti
 
@@ -369,7 +369,7 @@ Il banco si fa con l'**editor Sound** (scheda Dev), che apre un gioco e salva i 
 
 | Comando | Cosa fa |
 |---|---|
-| `scripts/bmaudio.py unpack game.bm -o sounds.json` | estrae il banco come JSON leggibile (i campioni come file WAV accanto) |
+| `core/scripts/bmaudio.py unpack game.bm -o sounds.json` | estrae il banco come JSON leggibile (i campioni come file WAV accanto) |
 | `mkbm.py --audio sounds.json` | rimette il JSON in una cartuccia |
 | `make wav BANK=sounds.json SONG=0` | suona il banco in un WAV (`BITS=24`, `32` o `f32` per un file più profondo; 16 per default) |
 | `bmhost --wav-bits 24` | registra il suono di un gioco a 24 bit |

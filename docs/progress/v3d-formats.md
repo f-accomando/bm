@@ -5,7 +5,7 @@ Split from [v3d](v3d.md); open work and rules stay there.
 - `gpu3d_attr=1` (bm3d 7.1; off by default; hidden key, 3D Bench GPU+VS+A8): compact
   attributes for `GV_BAKED` (5 words a corner, was 9: `vs_baked8`) and `GV_LIT` (10, was 14:
   `vs_lit8`). ARM side `put_mesh_corner` / `pack_abc`; shader side the regfile A unpack
-  (`UNPACK_A` in `tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
+  (`UNPACK_A` in `core/tools/qpuasm.py`, emulated in `tests/gpu/v3d_emu.c`); `probe_attr` keeps it
   only if the pixels match the floats (a step of RGB565 allowed). `make test-gpu3d`: same
   pixels, 28% fewer attribute words. Pi (probe `compact attributes yes`, 3D Bench GPU+VS+A8
   against GPU+VS+FS2 at 60 fps): spheres 837 vs 808 (+3.5%), heroes 72.3 vs 67.3 (+7%, GPU
@@ -32,7 +32,7 @@ Split from [v3d](v3d.md); open work and rules stay there.
   Next report: status `alpha textures RGBA5551 RGBA4444` expected.
 - `gpu3d_etc1=1` (bm3d 7.3, off; hidden key; 3D Bench GPU+ETC1): opaque sheets with sides multiples of the ETC1 tile (64x128, or 128x64
   for 4x2 utiles) as ETC1 (type 8), encoded in `tex_get` (`etc1_sheet`, encoder
-  `src/gpu/etc1.c`, unit test `make test-etc1`); else the 16-bit / 32-bit chain as before.
+  `core/src/gpu/etc1.c`, unit test `make test-etc1`); else the 16-bit / 32-bit chain as before.
   Layout: `etc1_block` (tiles and utile slots from RGB565's `t16_inner`: `etc1_slots`),
   `etc1_put` (byte order). `probe_etc1` draws a 128x256 texture of varied blocks for 8
   candidates (utiles 2x4 then 4x2; bytes BE, words LE, LE, halves swapped) and keeps the first

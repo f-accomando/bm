@@ -1,9 +1,9 @@
 /*
- * Host test of the .bmv reader (src/bm/vid.c) and of jpeg_decode565.
+ * Host test of the .bmv reader (core/src/bm/vid.c) and of jpeg_decode565.
  *   test_vid dump DIR     writes DIR/f0..f2.jpg (the 320x180 test frame) and DIR/a.raw
  *   test_vid rle          the RLE565 codec of the recorder: round trips, hostile streams
  *   test_vid raw          the raw codecs of the recorder, built in memory
- *   test_vid check FILE CHANNELS BITS   reads a clip made by scripts/mkvid.py from those files
+ *   test_vid check FILE CHANNELS BITS   reads a clip made by core/scripts/mkvid.py from those files
  * run_vid_test.py runs both with mkvid.py in between.
  */
 #include "bm/vid.h"

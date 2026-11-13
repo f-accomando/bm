@@ -1,6 +1,6 @@
 # Video 1 (bm Studio): corrections for docs/video/01-studio/shot-list.md (found by running the editor)
 
-Run: `powershell -NoProfile -File scripts/wsl-run.ps1 "python3 video/3d/01-studio/record.py && python3 video/3d/01-studio/verify.py --chain"`
+Run: `powershell -NoProfile -File core/scripts/wsl-run.ps1 "python3 video/3d/01-studio/record.py && python3 video/3d/01-studio/verify.py --chain"`
 Script length 12601 frames = 210.0 s (target 3:30). Dev helpers: `--log` (instrumented cartridge, out/run.log), `navsearch.py`
 (finds the arrows of the select/vertex pointer with the real editor: the camera eases, so a transition table is not enough).
 
@@ -18,7 +18,7 @@ Script length 12601 frames = 210.0 s (target 3:30). Dev helpers: `--log` (instru
 9. Select-move step is remembered from the vertex move (1/4): the tail tip rises 0.25 with one `PgUp`. PICO = 58 faces, 116 tri, 64 vertices.
 10. F12 held works through the input line `keys 0x45` (key `?` is not a held key in bmhost). Verified shot r10_help.
 11. `build/studio.bm` in this checkout is broken ("main.lua:1: unexpected symbol near '#'", 39 KB): record.py makes its own out/studio.bm with
-    scripts/mkbm.py from carts/studio (same command as the Makefile).
+    core/scripts/mkbm.py from bm/studio (same command as the Makefile).
 12. Still open: 0:00 hook and 0:08 Dev tab are post/QEMU cards (the run shows the menu 0:00-0:11); silhouette IoU vs reference is 0.0 (different scale:
     informational only, not a pass criterion).
 13. Chain: `chain/01-studio.bme` = the saved project; `chain/01-studio.bm` = `bm_forge.py export models` (3 models, 208 triangles).

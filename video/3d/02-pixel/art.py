@@ -1,7 +1,7 @@
 """The art of episode 2 (Tropic Trail): eight 16x16 tiles of the sprite sheet, drawn with bm Pixel.
 
 Simple and deterministic, like video/01-pixel/art.py. A tile is a short program of the tools of bm Pixel; render() runs
-it on a Python copy of the tools (same algorithms as carts/pixel/main.lua: 4-neighbour flood, Bresenham line,
+it on a Python copy of the tools (same algorithms as bm/pixel/main.lua: 4-neighbour flood, Bresenham line,
 filled oval) and gives the 16x16 grid of the colour numbers of *bm Studio's palette* (the numbers of bm Pixel
 after F3, "2": 1-9 and 0 (=10) are keys, the others "." steps). record.py plays the same programs as keys,
 verify.py compares the saved sheet against render().
@@ -13,7 +13,7 @@ in the free row below them (y = 48), at x = 16 * n.
 ROW_Y = 48                       # sheet row of the eight tiles
 NAMES = ["grass", "path", "rock", "wood", "skin", "face", "apple", "apple_icon"]
 
-# bm Studio's palette (carts/pixel/main.lua PAL_STUDIO), number -> RGB (1-based as bm Pixel counts)
+# bm Studio's palette (bm/pixel/main.lua PAL_STUDIO), number -> RGB (1-based as bm Pixel counts)
 PAL = [
     0x000000, 0x1C2030, 0x404450, 0x808490, 0xC0C4D0, 0xFFFFFF, 0x5A2A22, 0xA84632, 0xE84A5A, 0xE890B0,
     0xF09030, 0xF0D040, 0xFFF4C0, 0x8A5A30, 0xC49A5E, 0xE0C888, 0x285A28, 0x3E8A3A, 0x5CB048, 0xA8E070,
@@ -73,7 +73,7 @@ WHITE_RGB, DARK_RGB = 0xFFFFFF, 0x1C2030
 
 
 def _oval(x0, y0, x1, y1):
-    """oval_pts(fill=true) of carts/pixel/main.lua"""
+    """oval_pts(fill=true) of bm/pixel/main.lua"""
     x0, x1, y0, y1 = min(x0, x1), max(x0, x1), min(y0, y1), max(y0, y1)
     w, h = x1 - x0 + 1, y1 - y0 + 1
     if w <= 2 or h <= 2:
@@ -89,7 +89,7 @@ def _oval(x0, y0, x1, y1):
 
 
 def _line(x0, y0, x1, y1):
-    """line_pts of carts/pixel/main.lua (Bresenham)"""
+    """line_pts of bm/pixel/main.lua (Bresenham)"""
     pts = []
     dx, dy = abs(x1 - x0), -abs(y1 - y0)
     sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)

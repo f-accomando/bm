@@ -3,7 +3,7 @@
 import os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres
 OUT = os.path.join(HERE, "out"); os.makedirs(OUT, exist_ok=True)
 f = bmres.read(os.path.join(ROOT, "video", "3d", "06-sdk", "out", "start.bm"))
@@ -19,7 +19,7 @@ for fr in (550, 1100, 1700):
 L += ["%d shot g%04d" % (fr, fr) for fr in range(90, 2400, 200)]
 L.sort(key=lambda l: (int(l.split()[0])))
 open(os.path.join(OUT, "pad.txt"), "w", newline="\n").write("\n".join(L) + "\n")
-sd = os.path.join(OUT, "sd"); os.makedirs(os.path.join(sd, "carts"), exist_ok=True)
+sd = os.path.join(OUT, "sd"); os.makedirs(os.path.join(sd, "bm"), exist_ok=True)
 cmd = [os.path.join(ROOT, "build", "host", "bmhost-bin"), os.path.join(OUT, "game.bm"), "--sd", sd, "--seconds", sys.argv[1] if len(sys.argv) > 1 else "40",
        "--input", os.path.join(OUT, "pad.txt"), "--shots", os.path.join(OUT, "shots")]
 os.makedirs(os.path.join(OUT, "shots"), exist_ok=True)

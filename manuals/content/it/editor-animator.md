@@ -422,7 +422,7 @@ Rinomina un osso in `sword` in F2, rifai il bake e guarda l'anteprima: il suo bo
 - Un gioco (`.bm`) non viene mai sovrascritto: il primo salvataggio crea una copia `.BME`.
 - **F5** salva prima e avvia il progetto. Start + Select (o Ctrl+Esc) esce dal gioco e ti riporta alla stessa pagina.
 - Per creare il gioco finito usa **bm SDK** (Build, `Ctrl+B`): scrive il `.bm`. Il menu di bm Animator non ha una voce di build.
-- Quando l'animazione è per un gioco tenuto nel repository, modelli e scheletri vengono salvati dalla console e messi in `carts/<game>/` come `models.bm`; `make` li porta nella cartuccia.
+- Quando l'animazione è per un gioco tenuto nel repository, modelli e scheletri vengono salvati dalla console e messi in `bm/<game>/` come `models.bm`; `make` li porta nella cartuccia.
 
 ## Provalo, passo per passo
 
@@ -495,7 +495,7 @@ function _draw()
 end
 :::
 
-È lo schema di `carts/overbit` del repository. Per gli sprite 2D:
+È lo schema di `bm/overbit` del repository. Per gli sprite 2D:
 
 ::: copy
 zspr("hero_walk", 100, 80)

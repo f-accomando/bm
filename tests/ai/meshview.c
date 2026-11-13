@@ -8,7 +8,7 @@
  *   meshview sheet OUT.ppm                    every recipe, seeds 1-3
  *   meshview one RECIPE OUT.ppm [seed] [words] four views and the clips
  *   meshview script IN.txt OUT.ppm            a model in the part language, the same
- *   meshview json IN.txt OUT.json             the model of a script as JSON (tools/img2mesh.py)
+ *   meshview json IN.txt OUT.json             the model of a script as JSON (core/tools/img2mesh.py)
  *   meshview json RECIPE OUT.json             the same for a recipe
  */
 #include <math.h>

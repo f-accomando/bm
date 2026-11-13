@@ -1,7 +1,7 @@
--- asm_cli.lua: assemble a 65C816 source file into a SNES ROM with src/script/snes_asm.lua.
+-- asm_cli.lua: assemble a 65C816 source file into a SNES ROM with core/src/script/snes_asm.lua.
 --   build/host/luahost tests/snes/asm_cli.lua in.s out.sfc [--title T] [--map lorom|hirom] [--dev N] [--fast] [--sym out.sym]
 -- Run it from the repository root. Prints the errors as file:line: message and exits 1 on an error.
-package.path = "src/script/?.lua;" .. package.path
+package.path = "core/src/script/?.lua;" .. package.path
 local A = require("snes_asm")
 local inp, out = arg[1], arg[2]
 if not inp or not out then io.stderr:write("usage: asm_cli.lua in.s out.sfc [--title T] [--map M] [--dev N] [--fast] [--sym f]\n"); os.exit(2) end

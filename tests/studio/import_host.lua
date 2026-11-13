@@ -1,4 +1,4 @@
--- The model files of the editors (src/script/bm3d.lua: T.model_files, T.import_model, T.write_bmm,
+-- The model files of the editors (core/src/script/bm3d.lua: T.model_files, T.import_model, T.write_bmm,
 -- T.import_glb_to_bmm; APP-9) on the PC: stand-ins for ls, glb3d, res_read and res_write (a table is the
 -- SD card; the checks of the console's res_write are made again here, the C ones are in
 -- tests/qemu_test.py test_res_write), and checks on what the functions ask and give.
@@ -98,7 +98,7 @@ E.res_read = function(path)
   return { kind = f.kind, name = f.name, author = f.author, sections = s }
 end
 
-local T = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+local T = assert(loadfile(ROOT .. "/core/src/script/bm3d.lua", "t", E))()
 local G = T.G
 E.__G = G
 

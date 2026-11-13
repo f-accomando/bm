@@ -15,7 +15,7 @@ Split from [v3d](v3d.md); the to-do list stays there.
 
 ## scaling_kernel
 
-`boot/config.txt` line 21 (`scaling_kernel=8`) picks the firmware HVS filter that enlarges the
+`core/boot/config.txt` line 21 (`scaling_kernel=8`) picks the firmware HVS filter that enlarges the
 mailbox framebuffer to the HDMI mode. One global kernel for the whole display (no
 per-layer kernel). No official config.txt page lists it (checked raspberrypi.com
 `config_txt` and `legacy_config_txt`): the values come from popcornmix (Raspberry Pi
@@ -44,7 +44,7 @@ https://github.com/raspberrypi/firmware/issues/104 (closed "This is now supporte
 ### Try on the SD
 
 Optional, still untried: 3, 5, 7. Pi off, change `scaling_kernel` in `config.txt` at the root
-of the SD (not `boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, compare with 6
+of the SD (not `core/boot/config.txt`), run Overbit on the GPU at 640x360 on 1080p, compare with 6
 (sharpness, ringing, black screen); photo per value. Put back `scaling_kernel=8` afterwards.
 
 ## To measure on the Pi

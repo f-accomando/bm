@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests of src/bm/webp.c through build/host/test_webp.
+"""Tests of core/src/bm/webp.c through build/host/test_webp.
 
   run_webp_test.py BINARY [--regen]
 

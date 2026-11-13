@@ -30,8 +30,8 @@
     - Result is within the 3% tolerance. The cut is safe.
 
 ## Test 2: 3D Bench in Lua (Cartridge for the Market)
-- Cartridge build: `make build/carts/bench3d.bm` (441 KB, 451932 bytes).
-- SD card copy: Transferred to `bm/` directory with `python3 tools/bm_net.py 192.168.1.108 -p 712207 --send build/carts/bench3d.bm --to /bm`.
+- Cartridge build: `make build/bm/bench3d.bm` (441 KB, 451932 bytes).
+- SD card copy: Transferred to `bm/` directory with `python3 core/tools/bm_net.py 192.168.1.108 -p 712207 --send build/bm/bench3d.bm --to /bm`.
 - Execution: Started benchmark on physical hardware with default profiles (ARM and GPU+VS+Q).
 - Total duration: 37 s benchmark run time (~52 s wall-clock time, ~2120 frames).
 - Report lines: 92 lines.

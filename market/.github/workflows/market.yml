@@ -1,7 +1,7 @@
 # The bm Market: checks the games and apps of a pull request; on main, builds the
 # catalog, signs it and publishes it with GitHub Pages
 # (https://f-accomando.github.io/bm-market/). The tools are bm's
-# (scripts/mkmarket.py), the public key too (keys/market-pub.pem): the
+# (core/scripts/mkmarket.py), the public key too (core/keys/market-pub.pem): the
 # signature is checked against it before anything is published.
 name: market
 
@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # the branch of bm with scripts/mkmarket.py (its main branch): the
+  # the branch of bm with core/scripts/mkmarket.py (its main branch): the
   # repository variable BM_REF, if set
   BM_REF: ${{ vars.BM_REF || 'bm-core' }}
 
@@ -71,7 +71,7 @@ jobs:
             echo "::warning::no secret BM_MARKET_KEY yet: the catalog is not published (README.md, Setting it up)"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           elif ! grep -q "BEGIN PUBLIC KEY" bm/keys/market-pub.pem; then
-            echo "::warning::bm ($BM_REF) has no keys/market-pub.pem yet: the catalog is not published"
+            echo "::warning::bm ($BM_REF) has no core/keys/market-pub.pem yet: the catalog is not published"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"

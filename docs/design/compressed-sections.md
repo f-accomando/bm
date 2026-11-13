@@ -10,7 +10,7 @@ State of 5 Nov 2026. Nothing is built. The user's preference (5 Nov 2026) is the
 
 ## Measurements
 
-Pi Zero W, `png_inflate` (`src/bm/png.c`), 24167 KB of real cartridge data. Full table: [deflate-pi-2026-11](../bench/deflate-pi-2026-11.md). The bench tool is in commit `bd3214bd` of `bm-core`.
+Pi Zero W, `png_inflate` (`core/src/bm/png.c`), 24167 KB of real cartridge data. Full table: [deflate-pi-2026-11](../bench/deflate-pi-2026-11.md). The bench tool is in commit `bd3214bd` of `bm-core`.
 
 | Item | Value |
 |---|---|
@@ -28,9 +28,9 @@ Reading the raw bytes is faster than reading and inflating for LUA, SHEET, SHEET
 
 ## Built (5 Nov 2026)
 
-The container and the extraction are done: format in [BM-FORMAT](../BM-FORMAT.md) (section `.bmz`), reader `src/bm/bmz.c`,
-extraction `src/kernel/bmz_install.c` (Pi: `carts_init`, RGB30: after the SD mount; monitor command `bmz`), tool
-`scripts/bmz.py`, tests `make test-bmz` (the C reader on good and broken files; the extraction on a FAT image checked with
+The container and the extraction are done: format in [BM-FORMAT](../BM-FORMAT.md) (section `.bmz`), reader `core/src/bm/bmz.c`,
+extraction `core/src/kernel/bmz_install.c` (Pi: `carts_init`, RGB30: after the SD mount; monitor command `bmz`), tool
+`core/scripts/bmz.py`, tests `make test-bmz` (the C reader on good and broken files; the extraction on a FAT image checked with
 `fsck.vfat` and `mtools`). The compressed files wait in `/bmz` and are extracted into `/bm`, `/bme`, `/bmm`, `/bmk` and the
 folders of the other resources. **Not done:** the download in the Market and `bm_net.py --send` do not make or use `.bmz` by
 themselves; the console does not compress; no hardware run yet (only the host test and the builds of both kernels).
@@ -58,7 +58,7 @@ Do not compress the sections inside the `.bm`. Make a separate extension for com
 
 ## Work to do (in order)
 
-1. Spec: add the type, the version and the flag to `docs/BM-FORMAT.md` and `docs/spec/` (`specs.toml`, `divergences.toml`). Run `python scripts/consistency.py check`.
+1. Spec: add the type, the version and the flag to `docs/BM-FORMAT.md` and `docs/spec/` (`specs.toml`, `divergences.toml`). Run `python core/scripts/consistency.py check`.
 2. Kernel: read BM_SEC_Z in `format.c` (`bm_parse`) with a size limit and a CRC check. One more writer rule: `bm_rewrite_with`, `cart_save` and `project.c` must keep or expand the section.
 3. Tools: `mkbm.py --compress`, `bmres.py`, `bmmesh.py`, `bm-forge` (validate and show the sections).
 4. Tests: a host test with a compressed cartridge, a broken stream, a wrong size, a wrong CRC. A test that an older kernel refuses version 2.

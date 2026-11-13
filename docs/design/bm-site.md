@@ -20,18 +20,18 @@ See also: [bm-web-player.md](bm-web-player.md) (the browser player), [web-browse
 |---|---|---|
 | (a) A visitor with a PC browser | Play a `.bm` with no install | The WebAssembly player: section 5 |
 | (b) A visitor with a PC browser | Download `.bm` games and apps, and assets for the editors | Plain links: sections 2 and 4 |
-| (c) A bm device (Pi Zero W, RGB30) | Reach the same resources and save them on the SD card | bm Web (`carts/bmweb`) and the Market |
+| (c) A bm device (Pi Zero W, RGB30) | Reach the same resources and save them on the SD card | bm Web (`bm/bmweb`) and the Market |
 
 Two ways reach a device. They differ:
 
-- **The Market** (`src/kernel/market.c`) lists games and apps only. It installs a `.bm` and a PNG cover. It reads
+- **The Market** (`core/src/kernel/market.c`) lists games and apps only. It installs a `.bm` and a PNG cover. It reads
   the catalog `index.txt` and `index.sig` under the base address (`market.c:23`, key `market_url` in
   `docs/spec/config-keys.toml`; today a GitHub Pages address). The catalog is signed with ECDSA P-256 over SHA-256. The
-  public key is built into the kernel (`keys/market-pub.pem`, `src/net/catalog.c:1-4`); `bm/market.pem` on the SD card adds
+  public key is built into the kernel (`core/keys/market-pub.pem`, `core/src/net/catalog.c:1-4`); `bm/market.pem` on the SD card adds
   a second key (`catalog_add_key`, `catalog.c:41`). A record has `id`, `title`, `author`, `version`, `license`, `about`, `kind`,
   `targets`, `file` (path, size, SHA-256) and `cover`. The kernel checks the size and SHA-256 of each file (`catalog.h`:
   `catalog_check_file`). Limits: 256 games, 256 KB of `index.txt`, 100 MB per file (`catalog.h:19-25`). The Market
-  does not list `.bmm` or other resource files. Source: `src/net/catalog.c`, `src/net/catalog.h`.
+  does not list `.bmm` or other resource files. Source: `core/src/net/catalog.c`, `core/src/net/catalog.h`.
 - **bm Web** opens any `https://` page and saves a file in `bm/web` after the user presses A (section 3). It checks nothing
   beyond the rules of the kernel.
 
@@ -41,8 +41,8 @@ The Market has one entry per game id (`catalog.c`: `finish()`). The entry is a `
 ## 2. Asset types and where they go
 
 Sources: `docs/BM-FORMAT.md` (resource files, `BMRES`), `docs/RISORSE.md` section 3,
-`docs/PROJECT-LAYOUT.md` ("Where projects live on the SD card"), `src/kernel/sdmap_core.c:138-155`,
-`src/bm/runtime.c:3486-3540` (`res_write`), `src/bm/webpolicy.c:86-98`, `scripts/bmres.py`.
+`docs/PROJECT-LAYOUT.md` ("Where projects live on the SD card"), `core/src/kernel/sdmap_core.c:138-155`,
+`core/src/bm/runtime.c:3486-3540` (`res_write`), `core/src/bm/webpolicy.c:86-98`, `core/scripts/bmres.py`.
 
 | Type | Ext | Card folder | Who validates | Editors | Size limit |
 |---|---|---|---|---|---|
@@ -66,7 +66,7 @@ Rules for all of them:
   no kernel code scans the card for resource files. The editors list their own files.
 - `res_write` is for bm's tools only (`tool_mode`). It writes `.bmm` in `/bmm` and nothing else (`runtime.c:3513-3531`).
 
-What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `carts/bmweb/src/files.lua`):
+What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `bm/bmweb/src/files.lua`):
 
 - Only into `bm/web`, by `file_write`, as an 8.3 name. The cart builds the name: up to 6 characters of the file name, 2
   characters of a hash and a 3-letter extension (`files.lua:name`). A `.bmm` keeps the extension `bmm`.
@@ -80,30 +80,30 @@ What bm Web can save today (`webpolicy.c:86-98`, `system.md` `file_write`, `cart
 
 ## 3. Limits of bm Web and the kernel
 
-All limits below are read from the code of this branch. "Cart" means `carts/bmweb/src`.
+All limits below are read from the code of this branch. "Cart" means `bm/bmweb/src`.
 
-**Kernel `web_get`** (`docs/api/system.md`, section "The web"; `src/net/http.c`):
+**Kernel `web_get`** (`docs/api/system.md`, section "The web"; `core/src/net/http.c`):
 
 | Rule | Value |
 |---|---|
 | Scheme | `https://` only; address up to 1024 characters; no user name, no `#fragment` |
-| Certificate | Chain to a root in `boot/ca.pem` (`tls.c:94`; the file is read from the config folder) |
+| Certificate | Chain to a root in `core/boot/ca.pem` (`tls.c:94`; the file is read from the config folder) |
 | TLS | 1.2 only (`bm_mbedtls.h:65-68`, `OS-CAPABILITIES.md:25`). IPv4 only (`OS-CAPABILITIES.md:25`) |
 | Redirects | At most 3; a redirect to `http://` is refused |
 | Pause | 1 s between two requests to one host |
 | User agent | Fixed: `bm/<version>`. No other header (`http.c:225-226`: `Accept: */*`, `Connection`) |
 | Body cap | 4 MB by default; `web_max_kib` up to 32768; a body over the cap is an error |
 | Concurrency | One request at a time; keep-alive to the same host |
-| Protocol | HTTP/1.1; chunked bodies are read (`http.c:284`). No `Accept-Encoding` is sent and no `Content-Encoding` is decoded: the server must send the body as is. Cookies: none (`grep` finds no cookie code in `src/net`, `carts/bmweb/src`) |
-| Resume | `Range` with `resume = "NAME.EXT"`; needs `Accept-Ranges: bytes` and a size. bm Web does not use `resume` (`grep` finds none in `carts/bmweb`) |
+| Protocol | HTTP/1.1; chunked bodies are read (`http.c:284`). No `Accept-Encoding` is sent and no `Content-Encoding` is decoded: the server must send the body as is. Cookies: none (`grep` finds no cookie code in `core/src/net`, `bm/bmweb/src`) |
+| Resume | `Range` with `resume = "NAME.EXT"`; needs `Accept-Ranges: bytes` and a size. bm Web does not use `resume` (`grep` finds none in `bm/bmweb`) |
 | Pictures | `image_load` reads baseline JPEG, PNG and WebP; not progressive JPEG; at most 4 megapixels. GIF is not a picture in bm Web: it is a download |
 
-**The roots in `boot/ca.pem`** (21 on this branch; `grep '^# ' boot/ca.pem`): USERTrust (2), Sectigo (2), DigiCert (3),
+**The roots in `core/boot/ca.pem`** (21 on this branch; `grep '^# ' core/boot/ca.pem`): USERTrust (2), Sectigo (2), DigiCert (3),
 ISRG X1 and X2, GTS R1 to R4, GlobalSign (2), Amazon (4), SSL.com (2). To check a host, run
 `openssl s_client -connect HOST:443 -showcerts` and compare the last issuer with these names. A missing root gives
 "certificate not trusted: no root in bm/ca.pem for ..." (`tls.c:221`).
 
-**The cart** (`carts/bmweb/src`):
+**The cart** (`bm/bmweb/src`):
 
 | Rule | Value | Source |
 |---|---|---|
@@ -118,10 +118,10 @@ ISRG X1 and X2, GTS R1 to R4, GlobalSign (2), Amazon (4), SSL.com (2). To check 
 | Pace | `GAP` 3 s between two requests to one host, or the `Crawl-delay` if longer (up to 30 s); `robots.txt` is read once per host and obeyed (group `bm`, else `*`) | `loader.lua:15,102`, `robots.lua:9` |
 
 A gap between this note and the rest: `docs/progress/tools.md` says the sheets and scripts of a page wait 1 s. The loader
-does not read `opts.gap` on this branch (`grep 'opts.gap' carts/bmweb/src/loader.lua` finds nothing). The `Crawl-delay`
+does not read `opts.gap` on this branch (`grep 'opts.gap' bm/bmweb/src/loader.lua` finds nothing). The `Crawl-delay`
 and the 3 s gap apply to every request, sub-resources too. `docs/NEXT.md` (bm Web and poly.pizza) lists the fix (a).
 
-No site name may be in the code. `docs/progress/tools.md`, Rules: "bm Web (`carts/bmweb`): no site name in the code, the
+No site name may be in the code. `docs/progress/tools.md`, Rules: "bm Web (`bm/bmweb`): no site name in the code, the
 texts or the Market text." This note says "a third-party site" where a name would be needed.
 
 Not verified on hardware: `web_get` against a real server on the Pi and the RGB30 (D50), the load time of a page, the
@@ -143,7 +143,7 @@ Numbers come from section 3.
 6. Give an index page for each type: games, apps, models, images, sounds, maps, palettes, kits, projects.
 7. Give one stable URL per asset. Do not redirect more than 3 times. Never redirect to `http://`.
 8. Use a short `robots.txt` with no `Crawl-delay`, or a small one (1 to 3). The loader waits the delay before each request.
-9. Use a certificate that chains to a root in `boot/ca.pem` (section 3). Serve TLS 1.2. Serve an IPv4 address.
+9. Use a certificate that chains to a root in `core/boot/ca.pem` (section 3). Serve TLS 1.2. Serve an IPv4 address.
 10. Serve files as they are: no `Content-Encoding`. Send `Content-Length` and `Accept-Ranges: bytes` for each large file.
 11. Keep an asset to 1 MB for bm Web; larger assets (a `.bm` of several MB) go by the Market (100 MB).
 12. Publish a SHA-256 for each file in its page. For the Market, use the signed catalog: the kernel checks the signature
@@ -191,13 +191,13 @@ Sources: `docs/design/bm-web-player.md` (stages, section 8), `web/README.md`, `d
 For the user. Nothing here is decided.
 
 1. **Hosting.** GitHub Pages (the Market already uses it: `market.c:23`; the player is "ready for GitHub Pages") or another host. The
-   host must give a root from `boot/ca.pem`, Range requests, and control of `robots.txt` and `Content-Type`.
+   host must give a root from `core/boot/ca.pem`, Range requests, and control of `robots.txt` and `Content-Type`.
 2. **Licence policy.** Which licences the site accepts, and who checks them (`FORMATS-AUDIT.md:106-111`: "Who owns the table?").
 3. **Accounts and uploads.** None for now. The site is static.
 4. **Signing of assets.** Only SHA-256 on the page, or a signed manifest like the Market (key, tool, who holds it).
 5. **Catalog format.** The Market lines (`catalog.c`) with new kinds (`model`, `image`...), or a separate JSON file.
 6. **Name and domain.** Which site name may be in the code. The rule says: none in bm Web, the texts or the Market text.
-   Keep "a third-party site" in docs. Decide the site's own name apart from `carts/bmweb`.
+   Keep "a third-party site" in docs. Decide the site's own name apart from `bm/bmweb`.
 7. **One catalog or two.** The Market and the site share one signed catalog, or the site keeps its own.
 8. **The 1 MB cap of bm Web.** Raise `MAX_HTML` for a link to a file, or keep assets under 1 MB.
 9. **Where bm Web saves.** `bm/web` today; `/bmm` for a `.bmm` is done (host tests); other types: not decided.
@@ -206,8 +206,8 @@ For the user. Nothing here is decided.
 
 | Stage | Work | Done when |
 |---|---|---|
-| 1. Static site with test assets | Static pages with the test `.bmm` and PNG previews (`web/models/`), served over HTTPS with a root from `boot/ca.pem`, no `Crawl-delay`, section 4 rules 1-10 | A Pi opens the index in bm Web, loads at least 4 previews and saves a `.bmm` in `bm/web`. Not started; needs the Pi (D50) |
-| 2. Real assets with licences | Decisions 1, 2, 4 and 6 taken; assets with SPDX licence and SHA-256; index per type; short names | Every asset has a licence, a stable URL and a hash; `python3 scripts/bmres.py list FILE` reads each resource file without error |
+| 1. Static site with test assets | Static pages with the test `.bmm` and PNG previews (`web/models/`), served over HTTPS with a root from `core/boot/ca.pem`, no `Crawl-delay`, section 4 rules 1-10 | A Pi opens the index in bm Web, loads at least 4 previews and saves a `.bmm` in `bm/web`. Not started; needs the Pi (D50) |
+| 2. Real assets with licences | Decisions 1, 2, 4 and 6 taken; assets with SPDX licence and SHA-256; index per type; short names | Every asset has a licence, a stable URL and a hash; `python3 core/scripts/bmres.py list FILE` reads each resource file without error |
 | 3. Player page with the full catalog | The player page lists the catalog and starts any `.bm` of it; downloads for `.bm` link to the Market flow | A listed `.bm` plays in a browser from a click, and the same `.bm` installs from the Market |
 
 The poly.pizza findings (`docs/NEXT.md`, "bm Web and poly.pizza") apply to stage 1: a slow `Crawl-delay`, a missing root,

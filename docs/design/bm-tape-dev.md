@@ -1,14 +1,14 @@
 # bm Tape: development state
 
-This file is the development document of the app **bm Tape** (cartridge `carts/tape`). The design is in [`bm-tape.md`](bm-tape.md). The order for the Felucca samples is in [`bm-tape-wo-felucca.md`](bm-tape-wo-felucca.md). The audio rules are in [`../progress/audio.md`](../progress/audio.md).
+This file is the development document of the app **bm Tape** (cartridge `bm/tape`). The design is in [`bm-tape.md`](bm-tape.md). The order for the Felucca samples is in [`bm-tape-wo-felucca.md`](bm-tape-wo-felucca.md). The audio rules are in [`../progress/audio.md`](../progress/audio.md).
 
 ## 1. Purpose and state
 
 bm Tape is a portable studio in vector art. It has a synth, a 12-pad drum kit, a step sequencer, a 4-track song tape, a mixer, effects and punch-in effects. The cartridge is a Lua app with one typed `.b` file (`engine.b`) that the console compiles to native code.
 
-- Target: Raspberry Pi Zero W only (`targets: pi` in `carts/tape/bm.info`). The RGB30 is not supported.
+- Target: Raspberry Pi Zero W only (`targets: pi` in `bm/tape/bm.info`). The RGB30 is not supported.
 - Version: 0.3 (`bm.info`). Type: `app`. Input: `keyboard`. Resolution: 1280x720 asked with `screen()` (the header says 640x360; a console that cannot draw 720p keeps 640x360 and the layout halves).
-- Cartridge: `carts/tape` builds to `tape.bme` and `tape.bm`. The app is not in `GAMES` yet (`Makefile`).
+- Cartridge: `bm/tape` builds to `tape.bme` and `tape.bm`. The app is not in `GAMES` yet (`Makefile`).
 
 | Phase | Content | State |
 |---|---|---|
@@ -22,7 +22,7 @@ bm Tape is a portable studio in vector art. It has a synth, a 12-pad drum kit, a
 
 ## 2. Source map
 
-`build.py` joins `carts/tape/src/*.lua` in the order of the file names. The files share local names, so the order matters.
+`build.py` joins `bm/tape/src/*.lua` in the order of the file names. The files share local names, so the order matters.
 
 | File | Content |
 |---|---|
@@ -61,22 +61,22 @@ Commands:
 
 ```
 make test-tape                           # all tests below
-python3 carts/tape/build/build.py [dir]  # default build/tape
-python3 scripts/felpack.py [dir]         # render the 24 samples, write bank.json
+python3 bm/tape/build/build.py [dir]  # default build/tape
+python3 core/scripts/felpack.py [dir]         # render the 24 samples, write bank.json
 ```
 
 `build.py` does these steps:
 
-1. It joins `src/*.lua` in sorted order.
+1. It joins `core/src/*.lua` in sorted order.
 2. It replaces the line `--@ENGINE_B@` with the text of `src/engine.b`. It stops if `engine.b` holds `]=====]`, or if the line is not there exactly once.
 3. It replaces the line `--@TEST_HOOK@` with `test/hook.lua` when the variable `TAPE_TEST=N` is set. Otherwise it drops the line.
 4. It writes a blank 16x16 sheet and an 88x88 cover.
-5. It calls `scripts/felpack.py` to make `bank.json` and the WAV files.
-6. It calls `scripts/mkbm.py` twice, for `tape.bme` and `tape.bm`.
+5. It calls `core/scripts/felpack.py` to make `bank.json` and the WAV files.
+6. It calls `core/scripts/mkbm.py` twice, for `tape.bme` and `tape.bm`.
 
-The project file is `carts/tape/tape.bme`. The build writes `build/tape/tape.bme`. I found no make rule that copies it to `carts/tape/`. Copy it by hand after a change.
+The project file is `bm/tape/tape.bme`. The build writes `build/tape/tape.bme`. I found no make rule that copies it to `bm/tape/`. Copy it by hand after a change.
 
-`felpack.py` makes the engine tables (`--fs 32000`), compiles `tools/felrender/felrender.c` with `third_party/felucca-engines/`, renders one note per sound, and writes the bank input. It stops if the total is over 2.5 MB. The kernel does not link Felucca-Engines.
+`felpack.py` makes the engine tables (`--fs 32000`), compiles `core/tools/felrender/felrender.c` with `core/third_party/felucca-engines/`, renders one note per sound, and writes the bank input. It stops if the total is over 2.5 MB. The kernel does not link Felucca-Engines.
 
 `TAPE_TEST=N` builds a test cartridge. The sequencer updates every N-th frame. The hook logs each queued note as `TAPE_AT time track note velocity tick level pan room echo chorus`. F9 builds a test song. F10 logs the song state. The Makefile builds N = 1, 3 and 8.
 
@@ -150,7 +150,7 @@ From design section 10 and section 7:
 - Riff lane: a track holds a riff line. `R.play`, `R.voices`, `R.setcpm(bpm / 4)` and `R.bake()`.
 - Live code: a SEQ page takes `R.code(text)` from the USB keyboard.
 - Exit test: a song made in bm Tape plays in a game with `music()`.
-- Open decision: a song file of its own (section layout in `docs/BM-FORMAT.md`, then `python scripts/consistency.py check`).
+- Open decision: a song file of its own (section layout in `docs/BM-FORMAT.md`, then `python core/scripts/consistency.py check`).
 
 ### 6.2 Kernel gaps
 

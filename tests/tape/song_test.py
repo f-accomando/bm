@@ -4,7 +4,7 @@ song_test.py - the exit test of phase 3: a 4-track song saves, loads, and plays 
 
   python3 tests/tape/song_test.py build/host/bmhost-bin TEST_BM_60FPS
 
-TEST_BM_60FPS is a test build (TAPE_TEST=1, carts/tape/build/build.py, carts/tape/test/hook.lua). The hook has three keys:
+TEST_BM_60FPS is a test build (TAPE_TEST=1, bm/tape/build/build.py, bm/tape/test/hook.lua). The hook has three keys:
 F9 builds a song (4 tracks, 8 slots, loop over 1..6, patterns A to D, levels, pans, sends, an edited sound on track 2, effects);
 F10 logs the state of the song (a canonical text of the table that the save holds); and it logs every queued note
 ("TAPE_AT time track note velocity tick level pan room echo chorus").

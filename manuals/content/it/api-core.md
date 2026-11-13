@@ -15,7 +15,7 @@ footer: manuali bm - API giochi 1
 
 # Come funziona una cartuccia
 
-Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C (640×360, colore RGB565 a 16 bit, 60 fotogrammi al secondo); Lua si occupa solo della logica. Esempi completi sono in `carts/`: `pong/`, `snake/`, `shooter/` (solo codice) e `hero/` (con uno sprite sheet PNG e mappe CSV).
+Una cartuccia `.bm` è un gioco per bm scritto in **Lua 5.4**. Il kernel disegna in C (640×360, colore RGB565 a 16 bit, 60 fotogrammi al secondo); Lua si occupa solo della logica. Esempi completi sono in `bm/`: `pong/`, `snake/`, `shooter/` (solo codice) e `hero/` (con uno sprite sheet PNG e mappe CSV).
 
 ## Le funzioni che il tuo gioco definisce
 
@@ -74,7 +74,7 @@ Farai una palla gialla che muovi con le frecce, su uno schermo blu scuro. Usa so
 
 ## Provalo, passo per passo
 
-1. Sul tuo computer, nel repository di bm, crea il file `carts/hello/main.lua` con questo codice:
+1. Sul tuo computer, nel repository di bm, crea il file `bm/hello/main.lua` con questo codice:
 
    ```lua
    local x, y = 300, 160
@@ -99,10 +99,10 @@ Farai una palla gialla che muovi con le frecce, su uno schermo blu scuro. Usa so
 2. Impacchettalo in una cartuccia. Dovresti ottenere un file `hello.bm` nella cartella corrente.
 
    ```sh
-   python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+   python3 core/scripts/mkbm.py -o hello.bm --lua bm/hello/main.lua --title "Hello" --author "me"
    ```
 
-3. Mettilo sulla console. Copia `hello.bm` nella cartella `carts/` della scheda SD e accendi. Se la console è già accesa, premi `R` nel menu: la scheda viene riletta.
+3. Mettilo sulla console. Copia `hello.bm` nella cartella `bm/` della scheda SD e accendi. Se la console è già accesa, premi `R` nel menu: la scheda viene riletta.
 4. Nel menu trova **Hello** di "me" e avvialo. Dovresti vedere uno schermo blu scuro, una palla gialla e il testo bianco `hello from bm!` in alto a sinistra.
 5. Premi le frecce (o WASD): la palla si sposta di 3 pixel a ogni fotogramma.
 6. Premi Ctrl+Esc (tastiera) o Start+Select (gamepad) per tornare al menu. Il gioco resta sospeso; A sulla sua copertina lo riprende.
@@ -119,23 +119,23 @@ Fai cambiare colore alla palla quando premi A. In `_update` aggiungi `if btnp(4)
 
 La build del repository può aggiungere il tuo gioco da sola, e puoi provarlo anche senza un Pi.
 
-- Nella build: metti il gioco in `carts/<name>/main.lua`, aggiungi `<name>` a `GAMES` nel `Makefile` e una riga `title_<name> := Title`. `make` crea `build/carts/<name>.bm`.
+- Nella build: metti il gioco in `bm/<name>/main.lua`, aggiungi `<name>` a `GAMES` nel `Makefile` e una riga `title_<name> := Title`. `make` crea `build/bm/<name>.bm`.
 - In QEMU, senza un Pi:
 
 ::: copy
 qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
-python3 tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
+python3 core/tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
 :::
 
 - Dalla linea seriale (un Pi con un adattatore USB-seriale):
 
 ::: copy
-python3 tools/bm_load.py /dev/ttyUSB0 --cart hello.bm
+python3 core/tools/bm_load.py /dev/ttyUSB0 --cart hello.bm
 :::
 
 ## Copertina
 
-`--cover cover.png` è facoltativo: un PNG di qualsiasi dimensione che il menu stampa sulla scheda del gioco, un quadrato di 88×88. Un'immagine quadrata viene rimpicciolita; le altre restano intere, larghe quanto il quadrato, sopra una copia sfocata e più scura di se stesse che riempie il resto. Nella build basta un file `carts/hello/cover.png`. Senza copertina il menu stampa il titolo.
+`--cover cover.png` è facoltativo: un PNG di qualsiasi dimensione che il menu stampa sulla scheda del gioco, un quadrato di 88×88. Un'immagine quadrata viene rimpicciolita; le altre restano intere, larghe quanto il quadrato, sopra una copia sfocata e più scura di se stesse che riempie il resto. Nella build basta un file `bm/hello/cover.png`. Senza copertina il menu stampa il titolo.
 
 # Grafica
 
@@ -213,7 +213,7 @@ La lista è 16:9: 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1
 
 ### Gettoni di pulsanti e tasti: `prompt`
 
-`prompt` disegna un tasto come un gettone colorato (il set delle app, `src/kernel/prompts.c`). È alto 16 pixel accanto al testo 8×16, 12 con `small` (da solo quando il font è `"6x12"`), `scale` volte più grande (1–8, come `print`).
+`prompt` disegna un tasto come un gettone colorato (il set delle app, `core/src/kernel/prompts.c`). È alto 16 pixel accanto al testo 8×16, 12 con `small` (da solo quando il font è `"6x12"`), `scale` volte più grande (1–8, come `print`).
 
 | `name` | Cosa viene disegnato |
 |---|---|
@@ -239,7 +239,7 @@ prompt("RGB30_X", 16, 220)                 -- la X rossa dell'RGB30, su qualsias
 
 Lo **sprite sheet** è un'immagine divisa in celle 8×8: la cella `n` sta alla colonna `n % (width/8)` e alla riga `n // (width/8)`.
 
-- Viene da `--sheet sheet.png` (PNG RGB o RGBA; alpha sotto 128 = trasparente). Senza PNG è uno sheet trasparente 256×256 da disegnare con `sset` (32 celle per riga: vedi `carts/shooter`).
+- Viene da `--sheet sheet.png` (PNG RGB o RGBA; alpha sotto 128 = trasparente). Senza PNG è uno sheet trasparente 256×256 da disegnare con `sset` (32 celle per riga: vedi `bm/shooter`).
 - Lo sheet può arrivare a 4096×4096 pixel.
 - Uno sheet grande con al massimo 256 colori entra nella cartuccia con `--sheet sheet.png --sheet8`: una tavolozza e sequenze ripetute (RLE) invece di 4 byte per pixel, decodificate al caricamento (Titan Clash: 2048×3376 pixel in 1,7 MB).
 
@@ -386,9 +386,9 @@ Sulla console:
 
 - Nella pagina della mappa dell'SDK `l` passa al livello successivo, Shift+L ne aggiunge uno (anche dal menu, *New map layer*), `o` mostra solo quello, `c` i flag dei tile.
 - Nella pagina degli sprite i tasti `0`–`7` accendono e spengono (alternano) i flag della cella.
-- bm Pixel e `scripts/bmres.py` fanno le zone (`bmres.py` porta le caselle con le loro zone).
+- bm Pixel e `core/scripts/bmres.py` fanno le zone (`bmres.py` porta le caselle con le loro zone).
 - `cart_save` e `cart_load` portano livelli, flag, zone e caselle con la cartuccia.
-- Il formato è nelle sezioni LAYERS (12), FLAGS (13), SPRITES (11) e BOXES (14) di `src/bm/bm.h`. Un kernel precedente disegna il primo livello e ignora il resto.
+- Il formato è nelle sezioni LAYERS (12), FLAGS (13), SPRITES (11) e BOXES (14) di `core/src/bm/bm.h`. Un kernel precedente disegna il primo livello e ignora il resto.
 
 # Input
 
@@ -492,7 +492,7 @@ end
 
 ### bmui, il mouse degli strumenti di bm
 
-`require "bmui"` (`src/script/bmui.lua`). Lo usano gli editor (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, il pannello dell'assistente), e lo può usare anche un tuo gioco o strumento. La sua regola: il mouse fa ciò che fanno i tasti. Le cose diventano cliccabili mentre vengono disegnate, e un click preme il tasto dietro di esse o sceglie ciò che mostrano; il pulsante destro apre un menu contestuale le cui voci sono tasti.
+`require "bmui"` (`core/src/script/bmui.lua`). Lo usano gli editor (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, il pannello dell'assistente), e lo può usare anche un tuo gioco o strumento. La sua regola: il mouse fa ciò che fanno i tasti. Le cose diventano cliccabili mentre vengono disegnate, e un click preme il tasto dietro di esse o sceglie ciò che mostrano; il pulsante destro apre un menu contestuale le cui voci sono tasti.
 
 | Funzione | Cosa fa |
 |---|---|
@@ -519,7 +519,7 @@ Il controller Bluetooth *n* è il giocatore *n*: accoppialo dal monitor con `T`,
 
 - La tastiera o il gamepad USB e la linea seriale sono il primo giocatore senza un pad (senza pad Bluetooth: giocatore 1).
 - La tastiera Bluetooth è un giocatore a sé, il successivo senza un pad (il primo, se non c'è nulla su USB).
-- I giochi a un giocatore usano `btn(i)` senza `p` e funzionano con qualsiasi controller. Un gioco per più giocatori chiede `btn(i, p)` per ciascuno (esempio: `carts/pong`, modo a due giocatori).
+- I giochi a un giocatore usano `btn(i)` senza `p` e funzionano con qualsiasi controller. Un gioco per più giocatori chiede `btn(i, p)` per ciascuno (esempio: `bm/pong`, modo a due giocatori).
 - bmlib ha la schermata dove i giocatori entrano (`lib.party`), lo schermo diviso (`lib.split`) e i colori (`lib.PLAYER_COLORS`); li usa il modello *Versus 2D* dell'SDK.
 
 ```lua
@@ -541,9 +541,9 @@ local x, y = stick(1)                     -- lo stick del giocatore 1, da -1 a 1
 | `devinfo(line, ...)` | fino a 4 righe del gioco nel report di sessione del dev kit ("the game says:", a fine esecuzione: la sua qualità, i suoi attori…), 18 caratteri ciascuna; `devinfo()` nessuna. Richiamala quando cambiano |
 | `battery()` | la batteria della console: la carica `0`–`100` e `true` se è sul caricabatterie (`local pct, plugged = battery()`); `nil` senza batteria (il Pi). Sull'RGB30 la carica viene dalla tensione (un'indicazione: cala sotto sforzo e sale sul caricabatterie); il caricabatterie si vede entro un quarto di secondo |
 | `battery_low()` | `true` finché la batteria è scarica: 20% o meno fuori dal caricabatterie (fino al 23%). Allora il sistema disegna da solo una piccola batteria rossa in alto a destra sopra il fotogramma (a sinistra dell'overlay del dev kit quando è in alto), in ogni gioco e strumento; *Settings > Screen > Low battery icon* (`battery_icon=0` in `bm/config.txt`) spegne quell'icona, non `battery_low()`. Solo informazione: ogni console ha la sua batteria, quindi nel lockstep (`bmnet`) non cambia mai ciò che il gioco simula; usala per mostrare qualcosa o per salvare |
-| `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token |
+| `code_tokens(text)` | i **token** di un pezzo di codice Lua, contati come fanno `stat(11)` e il dev kit dell'SDK (`core/src/bm/tokens.c`): ogni nome, parola chiave, numero, stringa e operatore è uno; commenti, spazi, `,` `.` `:` `;` `::`, parentesi di chiusura (`)` `]` `}`), `end` e `local` non contano, né il segno meno davanti a un numero (`-1` è un token). Informazione, non un limite: bm non mette un tetto ai token |
 | `log(...)` | scrive nel log del kernel (linea seriale e console), non sullo schermo del gioco |
-| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
+| `report(kind, text)` | un report per chi sviluppa bm: salvato in `bm/reports` sulla scheda SD con kernel, branch, scheda e data (e una prima riga `options`: le opzioni 3D in vigore), poi inviato al repository dei report se ci sono `github_token` e la rete (`core/src/kernel/reports.h`); al massimo 8 per esecuzione, 256 KB ciascuno; `true` se salvato. `kind` è una stringa obbligatoria, un'etichetta di categoria a testo libero: viene messa in minuscolo con `-` tra gli altri caratteri e finisce nell'intestazione del report e nel nome del file inviato; con `kind == "session"` l'invio sostituisce il file precedente (Overbit usa `"overbit-bench"`). La prima volta che un gioco lo chiama si chiede al giocatore (la risposta resta in `bm/config.txt`, `allow_...`): dopo un no, `false` |
 | `shot([prefix])` | salva il fotogramma in disegno come PNG (vedi il capitolo Schermate) |
 | `quit()` | chiude la cartuccia a fine fotogramma |
 | `timeslice(co, [k])` | la coroutine `co` si ferma da sola dopo circa `k` migliaia di istruzioni Lua in un fotogramma (400 se manca) e `coroutine.resume` restituisce `true` senza valori: un calcolo lungo prosegue nei fotogrammi successivi invece di fermare la cartuccia al limite di istruzioni. `timeslice(nil)` lo toglie (nano8 lo usa per le sue cartucce) |

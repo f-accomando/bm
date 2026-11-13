@@ -1,5 +1,5 @@
 /*
- * The RGB30's Mali probe (src/rgb30/mali.c) on a simulated GPU: the
+ * The RGB30's Mali probe (core/src/rgb30/mali.c) on a simulated GPU: the
  * RK3566's CRU and PMU (the GPU's clocks and power domain), the Mali's
  * registers (identity, reset, power of the cores, address space 0, job
  * slot 1) and its job manager running WRITE_VALUE jobs through the Mali
@@ -446,7 +446,7 @@ static int probe(mali_info_t *in)
     return mali_probe(&G, in);
 }
 
-/* --- the triangle's variants (src/rgb30/mali_variants.h) --- */
+/* --- the triangle's variants (core/src/rgb30/mali_variants.h) --- */
 
 /* a pointer field: 0 (if zero_ok) or inside the GPU's memory, aligned */
 static int ptr_ok(uint64_t v, unsigned align, int zero_ok)

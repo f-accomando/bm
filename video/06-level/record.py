@@ -93,7 +93,7 @@ end'''
 
 
 def start_code():
-    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
     import bmres
     return bmres.read(os.path.join(HERE, "start.bm")).get(bmres.SEC_LUA).decode()
 
@@ -373,8 +373,8 @@ def join_wavs(paths, out):
 def run_editors(s, video=False):
     """The three editors on a clean SD, one after the other; returns the raw video and wav lists."""
     shutil.rmtree(SD, ignore_errors=True)
-    os.makedirs(os.path.join(SD, "carts"))
-    shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "carts", "SKYVALE.BM"))
+    os.makedirs(os.path.join(SD, "bm"))
+    shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "bm", "SKYVALE.BM"))
     raws, wavs = [], []
     cuts = [0, s.t_cut1, s.t_cut2, s.t_cut3]
     for i, name in enumerate(("pixel", "sdk", "code")):
@@ -417,10 +417,10 @@ def main():
     if "--no-record" not in sys.argv:
         raws, wavs = run_editors(s, video=True)
         shutil.rmtree(SD_GAME, ignore_errors=True)
-        os.makedirs(os.path.join(SD_GAME, "carts"))
-        shutil.copy(os.path.join(SD, "carts", "SKYVALE.BM"), os.path.join(SD_GAME, "carts", "SKYVALE.BM"))
+        os.makedirs(os.path.join(SD_GAME, "bm"))
+        shutil.copy(os.path.join(SD, "bm", "SKYVALE.BM"), os.path.join(SD_GAME, "bm", "SKYVALE.BM"))
         raw, wv = os.path.join(OUT, "raw-game.rgb"), os.path.join(OUT, "game.wav")
-        call([BMHOST, os.path.join(SD_GAME, "carts", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
+        call([BMHOST, os.path.join(SD_GAME, "bm", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
               "--input", os.path.join(HERE, "game.txt"), "--video", raw, "--wav", wv, "--quiet"])
         raws.append(raw)
         wavs.append(wv)

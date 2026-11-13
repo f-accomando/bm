@@ -1,6 +1,6 @@
 /*
- * Host test of the picture-to-model flow (src/net/img3d.c and the .glb
- * reader src/bm/glb.c) against the fake service of run_img3d_test.py:
+ * Host test of the picture-to-model flow (core/src/net/img3d.c and the .glb
+ * reader core/src/bm/glb.c) against the fake service of run_img3d_test.py:
  * the job is started with the picture as data, polled until done, the
  * .glb downloaded and turned into a model; a bad key, a failed job and a
  * URL picture are tried too.

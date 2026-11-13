@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-engine_test.py - carts/tape/src/engine.b on the stack VM of tools/bml/bml.py and as Lua (--lua output, run by the host Lua).
+engine_test.py - bm/tape/src/engine.b on the stack VM of core/tools/bml/bml.py and as Lua (--lua output, run by the host Lua).
 
   python3 tests/tape/engine_test.py LUAHOST BUILD_DIR
 
@@ -17,12 +17,12 @@ import os, random, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "tools", "bml"))
+sys.path.insert(0, os.path.join(ROOT, "core", "tools", "bml"))
 import bml  # noqa: E402
 
 LUAHOST, BUILD = sys.argv[1], sys.argv[2]
 os.makedirs(BUILD, exist_ok=True)
-SRC = open(os.path.join(ROOT, "carts", "tape", "src", "engine.b")).read()
+SRC = open(os.path.join(ROOT, "bm", "tape", "core", "src", "engine.b")).read()
 N = 300
 fails = []
 

@@ -1,5 +1,5 @@
 /* doom_input.c: host harness for the input path and the speed of a SNES ROM (Doom). Built with -DSNES_TRACE.
- *   gcc -O2 -DSNES_TRACE -Isrc/bm -o doom_input tests/snes/doom_input.c src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp,sa1,sa1_cpu}.c
+ *   gcc -O2 -DSNES_TRACE -Icore/src/bm -o doom_input tests/snes/doom_input.c core/src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp,sa1,sa1_cpu}.c
  *   doom_input rom frames [start_frame hold_frames padhex]
  * It prints: the host time of each 300 frames (ms a frame), the frame and line of every CPU read of $4218/$4219 (poll log, first 40 after the pad change),
  * and the first frame at which the ROM reads the new pad value (the latency of a key in frames). Reads no ROM data into the repository. */

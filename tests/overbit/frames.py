@@ -38,7 +38,7 @@ NS = 2.2                     # ns an instruction on the Pi (r3d's loops; see cou
 FPS = 60
 SETTLE = 0.5                 # seconds of the measure not counted (84_bench)
 
-# rough ARM1176 cycles by mnemonic (as tools/armprof.py)
+# rough ARM1176 cycles by mnemonic (as core/tools/armprof.py)
 COST = [
     ("vdiv", 19), ("vsqrt", 19), ("vcvt", 2), ("vmla", 2), ("vmls", 2), ("vpush", 2), ("vpop", 2),
     ("vldm", 2), ("vstm", 2), ("vmrs", 2), ("mul", 2), ("mla", 2), ("smull", 3), ("umull", 3),
@@ -67,7 +67,7 @@ def build_host(root, gpu, out):
     mk = open(os.path.join(root, "Makefile")).read()
     m = re.search(r"^BMHOST_RT :=(.*?)^BMHOST_LUA", mk, re.S | re.M)
     rt = re.findall(r"src/[a-z0-9_/]*\.c", m.group(1))
-    lua = sorted(f"third_party/lua/{f}" for f in os.listdir(os.path.join(root, "third_party/lua"))
+    lua = sorted(f"core/third_party/lua/{f}" for f in os.listdir(os.path.join(root, "core/third_party/lua"))
                  if f.endswith(".c") and f not in ("lua.c", "luac.c"))
     jobs, objs = [], []
     for f in rt + lua:
@@ -75,8 +75,8 @@ def build_host(root, gpu, out):
         objs.append(o)
         if os.path.exists(o) and os.path.getmtime(o) > os.path.getmtime(os.path.join(root, f)):
             continue
-        jobs.append(subprocess.Popen([CC] + CF + ["-std=c11", "-w", "-Itests/host/shim", "-Isrc", "-Isrc/bm",
-                                                  "-Ithird_party/lua", "-c", "-o", o, f], cwd=root))
+        jobs.append(subprocess.Popen([CC] + CF + ["-std=c11", "-w", "-Itests/host/shim", "-Icore/src", "-Icore/src/bm",
+                                                  "-Icore/third_party/lua", "-c", "-o", o, f], cwd=root))
         if len(jobs) >= os.cpu_count():
             jobs.pop(0).wait()
     for j in jobs:
@@ -84,9 +84,9 @@ def build_host(root, gpu, out):
     extra, defs = [], []
     if gpu:
         g = os.path.join(objs_dir, "gpu3d.o")
-        sh([CC] + CF + ["-std=c11", "-w", "-Isrc", "-Itests/gpu", "-Daligned_alloc=test_aligned_alloc",
-                        "-Dfree=test_free", "-c", "src/gpu/gpu3d.c", "-o", g], cwd=root)
-        extra = [g, "src/gpu/v3d_cl.c", "tests/gpu/v3d_emu.c"]
+        sh([CC] + CF + ["-std=c11", "-w", "-Icore/src", "-Itests/gpu", "-Daligned_alloc=test_aligned_alloc",
+                        "-Dfree=test_free", "-c", "core/src/gpu/gpu3d.c", "-o", g], cwd=root)
+        extra = [g, "core/src/gpu/v3d_cl.c", "tests/gpu/v3d_emu.c"]
         defs = ["-DBMHOST_GPU", "-Itests/gpu"]
     # libs.S's GNU-stack note is written for the PC's assembler; what it
     # embeds from the build (words.lua) is made in that checkout first
@@ -97,7 +97,7 @@ def build_host(root, gpu, out):
     open(libs, "w").write(s)
     inc = os.path.join(root, "build")
     sh([CC] + CF + ["-Wa,-I" + inc, "-c", "-o", libs[:-2] + ".o", libs], cwd=root)
-    sh([CC] + CF + ["-D_DEFAULT_SOURCE", "-w", "-Itests/host/shim", "-Isrc", "-Isrc/bm", "-Ithird_party/lua", "-I" + inc]
+    sh([CC] + CF + ["-D_DEFAULT_SOURCE", "-w", "-Itests/host/shim", "-Icore/src", "-Icore/src/bm", "-Icore/third_party/lua", "-I" + inc]
        + defs + ["-o", out, "tests/host/bmhost.c", "tests/host/stubs.c", "tests/host/hostnet.c", libs[:-2] + ".o"]
        + objs + extra + ["-lm"], cwd=root, stderr=subprocess.DEVNULL)
 
@@ -154,18 +154,18 @@ def cart(cfg, shim, headless, secs, res=None):
         d += ["--define", f'OVERBIT_RES="{res}"']
     if headless:
         d += ["--define", "OVERBIT_HEADLESS=true"]
-    sh([sys.executable, os.path.join(TOP, "carts/overbit/build/build.py"), lua, "--start", "bench",
+    sh([sys.executable, os.path.join(TOP, "bm/overbit/build/build.py"), lua, "--start", "bench",
         "--extra", os.path.join(TOP, "build/overbit/21_map.lua")] + d, cwd=TOP)
-    sh([sys.executable, os.path.join(TOP, "scripts/mkbm.py"), "-o", bm, "--lua", lua, "--title", "Overbit bench",
+    sh([sys.executable, os.path.join(TOP, "core/scripts/mkbm.py"), "-o", bm, "--lua", lua, "--title", "Overbit bench",
         "--author", "bm", "--res", "480x270", "--models", os.path.join(TOP, "build/overbit/models.bm"),
         "--audio", os.path.join(TOP, "build/overbit/sounds.json")], cwd=TOP, stdout=subprocess.DEVNULL)
     return bm
 
 
 # the parts of a frame, by the source file of a function
-PARTS = [("src/bm/r3d.c", "3D (r3d)"), ("src/gpu/", "GPU driver"), ("third_party/lua/", "Lua"),
-         ("src/bm/gfx16.c", "2D"), ("src/bm/world3d.c", "collisions"), ("src/audio/", "audio"),
-         ("src/bm/", "runtime"), ("src/", "runtime"), ("tests/", "bmhost")]
+PARTS = [("core/src/bm/r3d.c", "3D (r3d)"), ("core/src/gpu/", "GPU driver"), ("core/third_party/lua/", "Lua"),
+         ("core/src/bm/gfx16.c", "2D"), ("core/src/bm/world3d.c", "collisions"), ("core/src/audio/", "audio"),
+         ("core/src/bm/", "runtime"), ("src/", "runtime"), ("tests/", "bmhost")]
 
 
 def files_of(binary):
@@ -177,7 +177,7 @@ def files_of(binary):
         p = line.split()
         if len(p) >= 4 and p[1] in "tTwW" and ":" in p[3]:
             f = p[3].rsplit(":", 1)[0]
-            for top in ("/third_party/", "/src/", "/tests/"):      # from the top of the checkout
+            for top in ("/core/third_party/", "/src/", "/tests/"):      # from the top of the checkout
                 if top in f:
                     f = f[f.rindex(top) + 1:]
                     break

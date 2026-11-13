@@ -1,6 +1,6 @@
 /*
  * nano8 on the PC: the nano8 cartridge (its main.lua) with the same
- * machine (src/bm/n8*.c), sound (src/audio/n8snd.c) and Lua as the
+ * machine (core/src/bm/n8*.c), sound (core/src/audio/n8snd.c) and Lua as the
  * console, under a small stand-in for bm's runtime: drawing with gfx16
  * into a 640x360 frame, the SD card as a folder, input from a script.
  *

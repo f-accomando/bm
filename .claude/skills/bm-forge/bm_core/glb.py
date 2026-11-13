@@ -1,9 +1,9 @@
 """glTF binary (.glb) -> MESH models. A straight port of the glTF half of
-scripts/bmmesh.py (read_glb, _accessor, _node_matrix, _mat_mul, glb_image,
+core/scripts/bmmesh.py (read_glb, _accessor, _node_matrix, _mat_mul, glb_image,
 glb_models, _mesh_model, linear_to_srgb), returning bm_core Model / Face.
 
 Same conventions as the original: glTF is right handed, so z flips sign and
-each triangle's winding turns (scripts/bmmesh.py:347,369-370; CLAUDE.md
+each triangle's winding turns (core/scripts/bmmesh.py:347,369-370; CLAUDE.md
 invariant), vertices merged by position rounded to 1e-5, degenerate
 triangles dropped, textured faces only from bm Studio .glb files (texture =
 the cartridge sheet). Only triangle lists (mode 4). No skins/animations: a
@@ -19,19 +19,19 @@ NAME_MAX = 15
 
 
 def linear_to_srgb(v):
-    """port of scripts/bmmesh.py:linear_to_srgb"""
+    """port of core/scripts/bmmesh.py:linear_to_srgb"""
     v = max(0.0, min(1.0, v))
     s = v * 12.92 if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
     return max(0, min(255, round(s * 255)))
 
 
 def _mat_mul(a, b):
-    """port of scripts/bmmesh.py:_mat_mul (column major 4x4)"""
+    """port of core/scripts/bmmesh.py:_mat_mul (column major 4x4)"""
     return [sum(a[r + k * 4] * b[k + c * 4] for k in range(4)) for c in range(4) for r in range(4)]
 
 
 def _node_matrix(n):
-    """port of scripts/bmmesh.py:_node_matrix"""
+    """port of core/scripts/bmmesh.py:_node_matrix"""
     if "matrix" in n:
         return list(n["matrix"])
     tx, ty, tz = n.get("translation", (0, 0, 0))
@@ -51,7 +51,7 @@ def _png_size(data):
 
 
 def read_glb(data):
-    """-> (json, bin chunk); port of scripts/bmmesh.py:read_glb, errors as ValidationError"""
+    """-> (json, bin chunk); port of core/scripts/bmmesh.py:read_glb, errors as ValidationError"""
     try:
         magic, version, length = struct.unpack_from("<4sII", data, 0)
         if magic != b"glTF" or version != 2:
@@ -75,7 +75,7 @@ def read_glb(data):
 
 
 def _accessor(js, bin_, i):
-    """port of scripts/bmmesh.py:_accessor"""
+    """port of core/scripts/bmmesh.py:_accessor"""
     a = js["accessors"][i]
     comps = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[a["type"]]
     fmt, size = {5126: ("f", 4), 5125: ("I", 4), 5123: ("H", 2), 5121: ("B", 1),
@@ -94,7 +94,7 @@ def _accessor(js, bin_, i):
 
 
 def glb_image(data):
-    """the PNG of the first image of a .glb, or None (port of scripts/bmmesh.py:glb_image)"""
+    """the PNG of the first image of a .glb, or None (port of core/scripts/bmmesh.py:glb_image)"""
     js, bin_ = read_glb(data)
     for img in js.get("images", []):
         if "bufferView" in img:
@@ -106,7 +106,7 @@ def glb_image(data):
 
 
 def _mesh_model(js, bin_, mesh, mat, name, sheet):
-    """port of scripts/bmmesh.py:_mesh_model -> Model"""
+    """port of core/scripts/bmmesh.py:_mesh_model -> Model"""
     verts, index, faces = [], {}, []
     det = (mat[0] * (mat[5] * mat[10] - mat[9] * mat[6]) - mat[4] * (mat[1] * mat[10] - mat[9] * mat[2]) +
            mat[8] * (mat[1] * mat[6] - mat[5] * mat[2]))
@@ -157,9 +157,9 @@ def _mesh_model(js, bin_, mesh, mat, name, sheet):
 
 
 def glb_models(data):
-    """a .glb -> (Mesh, sheet size or None). Port of scripts/bmmesh.py:glb_models;
+    """a .glb -> (Mesh, sheet size or None). Port of core/scripts/bmmesh.py:glb_models;
     the inset comes from asset.extras.bm.uv_inset (sheet px) when bm Studio wrote
-    it, else 64 (0.25 px, scripts/bmmesh.py:30). Names cut to 15 characters and
+    it, else 64 (0.25 px, core/scripts/bmmesh.py:30). Names cut to 15 characters and
     made unique like the original (NON VERIFICATO for multi-byte names: the
     original cuts characters, the MESH field counts bytes; a name over 15 bytes
     is refused later by mesh.validate)."""

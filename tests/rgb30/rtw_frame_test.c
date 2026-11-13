@@ -1,5 +1,5 @@
 /*
- * The RGB30's WiFi without hardware (src/rgb30/rtw_frame.c): an RX buffer
+ * The RGB30's WiFi without hardware (core/src/rgb30/rtw_frame.c): an RX buffer
  * with aggregated packets as the RTL8821C fills it (24-byte descriptors,
  * PHY status, FCS, 8-byte alignment, a C2H message, a bad CRC), beacons
  * and probe responses of every kind of network, a probe request.

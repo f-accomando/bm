@@ -4,7 +4,7 @@ lib.step of bmlib, variable jump, the sounds of episode 3 and its music.
 
   python3 video/04-code/record.py [--build-only] [--no-record]
 
-Run 1: bm Code (carts/code/main.lua) with bmhost --tool, on a clean SD that holds
+Run 1: bm Code (bm/code/main.lua) with bmhost --tool, on a clean SD that holds
 start.bm (the cartridge episode 3 saved); the code is typed. Run 2: the saved
 cartridge played by a script of buttons (game.txt), with its sound; F5 leaves
 the tool for the game, so it is a second recording whose frames and sound follow
@@ -187,14 +187,14 @@ def main():
     if "--no-record" not in sys.argv:
         for d in (SD, SD_GAME):
             shutil.rmtree(d, ignore_errors=True)
-            os.makedirs(os.path.join(d, "carts"))
-        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "carts", "SKYVALE.BM"))
+            os.makedirs(os.path.join(d, "bm"))
+        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "bm", "SKYVALE.BM"))
         raw1, raw2 = os.path.join(OUT, "raw1.rgb"), os.path.join(OUT, "raw2.rgb")
         wav1, wav2 = os.path.join(OUT, "ed.wav"), os.path.join(OUT, "game.wav")
         call([BMHOST_AI, CODE_TOOL, "--tool", "--sd", SD, "--seconds", str(s.t_editor_end / FPS + 1), "--input",
               os.path.join(OUT, "input.txt"), "--video", raw1, "--wav", wav1, "--quiet"], cwd=ROOT)
-        shutil.copy(os.path.join(SD, "carts", "SKYVALE.BM"), os.path.join(SD_GAME, "carts", "SKYVALE.BM"))
-        call([BMHOST, os.path.join(SD_GAME, "carts", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
+        shutil.copy(os.path.join(SD, "bm", "SKYVALE.BM"), os.path.join(SD_GAME, "bm", "SKYVALE.BM"))
+        call([BMHOST, os.path.join(SD_GAME, "bm", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
               "--input", os.path.join(OUT, "game.txt"), "--video", raw2, "--wav", wav2, "--quiet"])
         raw = os.path.join(OUT, "raw.rgb")
         with open(raw, "wb") as out:

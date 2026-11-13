@@ -1,4 +1,4 @@
-"""Tests for scripts/api_lint.py."""
+"""Tests for core/scripts/api_lint.py."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "api_lint.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "api_lint.py")
 
 
 class ApiLintTest(unittest.TestCase):

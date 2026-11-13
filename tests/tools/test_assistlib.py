@@ -1,10 +1,10 @@
-"""Tests for scripts/assistlib.py: fnv1a, tokens, content_words, to_cp437, features."""
+"""Tests for core/scripts/assistlib.py: fnv1a, tokens, content_words, to_cp437, features."""
 import os
 import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 from assistlib import content_words, features, fnv1a, to_cp437, tokens
 
 

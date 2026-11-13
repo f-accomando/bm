@@ -1,4 +1,4 @@
-/* The tests of the C core of bm SNES (src/bm/snes_*.c): the 65C816 on small programs, the bus, and the SPC700
+/* The tests of the C core of bm SNES (core/src/bm/snes_*.c): the 65C816 on small programs, the bus, and the SPC700
  * with its boot protocol. Run: make test-snes. */
 #include "snes_int.h"
 

@@ -153,7 +153,7 @@ local function test_values()
   check(sx.crush == 4 and sx.coarse == 8 and sx.vowel == "a" and sx.chorus == 0.5 and sx.trem == 0.3 and
         sx.duck == 1 and sx.begin == 0.25, "crush, coarse, vowel, chorus, trem, duck, begin")
   if play and apu then
-    -- into a voice's registers (src/audio/synth.h): the sample, the effects
+    -- into a voice's registers (core/src/audio/synth.h): the sample, the effects
     play(7, "kit:2", 60, 50, 0.1)
     check(apu(7, 2) == SAMPLE and apu(7, 17) == 130, "kit:2 on a voice: the kit's hi-hat")
     play(7, "bd", 60, 50, 0.1)
@@ -243,7 +243,7 @@ bass  = note "<a1 f1>*4" :s "bitbass" :coarse(4)
     'chord "<Am F C G>" :s "pad" :room(.6)', 's "kick(3,8), hat(7,16), ~ clap"',
     'note "c4 e4 g4 c5" :s "chip" :every(4, rev) :fast(2)',
   }
-  for i, src in ipairs(bank) do                -- bm Sound's examples (carts/sound/main.lua)
+  for i, src in ipairs(bank) do                -- bm Sound's examples (bm/sound/main.lua)
     local ok, err = R.code("riff = " .. src, "ex")
     check(ok and #R.get("riff"):events(0, 4) > 0, "bm Sound's example " .. i .. ": " .. tostring(err))
   end

@@ -1,9 +1,9 @@
-"""Tests for scripts/bmkit.py: the island kit (.bmk) builds the same every time, reads back, and holds what the
+"""Tests for core/scripts/bmkit.py: the island kit (.bmk) builds the same every time, reads back, and holds what the
 bm SDK 3D map needs (layers floor, height, walls, objects), models with a map class, a shared sheet and 2D sprites."""
 import os, struct, sys, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmkit  # noqa: E402
 import bmres  # noqa: E402
 

@@ -5,7 +5,7 @@
 
 One BMRES kit (kind 6, like island.bmk): MESH (static models, each in a textured and a flat look), SHEET8 (one sheet),
 MAP and LAYERS (floor, height, walls, objects, as map3d_build reads them), FLAGS, INFO (the object table), COVER.
-Built from scripts/bmkit.py (Sheet, Solid, box, cylinder). The layout is a rotated, simplified reading of the reference
+Built from core/scripts/bmkit.py (Sheet, Solid, box, cylinder). The layout is a rotated, simplified reading of the reference
 map: the Clinic on the west, a long hall with a stair down to a grand atrium, a courtyard, and a stair up to the
 Courtyard Gate on the east. 1 tile = 1 unit; a person is about 1.9 units tall.
 
@@ -23,7 +23,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmkit as K  # noqa: E402
 import bmmesh  # noqa: E402
 import bmres  # noqa: E402

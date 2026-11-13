@@ -28,7 +28,7 @@ rows = ["%d type %s" % x for x in L] + ["%d shot %s" % x for x in shots]
 rows.sort(key=lambda r: int(r.split()[0]))
 with open(os.path.join(OUT, "in.txt"), "w", newline="\n") as g:
     g.write("\n".join(rows) + "\n")
-sd = os.path.join(OUT, "sd2", "carts")
+sd = os.path.join(OUT, "sd2", "bm")
 os.makedirs(sd, exist_ok=True)
 shutil.copy(os.path.join(OUT, "start.bme"), os.path.join(sd, "TROPIC.BME"))
 os.makedirs(os.path.join(OUT, "shots"), exist_ok=True)

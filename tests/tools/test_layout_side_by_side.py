@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit test for carts/sdk_b16/layout.lua helper L.side_by_side.
+Unit test for bm/sdk_b16/layout.lua helper L.side_by_side.
 Verifies behavior on narrow screens (360x360, < 480 px) vs wide screens (720x720, >= 480 px).
 Uses lupa to execute the Lua module directly.
 """
@@ -9,7 +9,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-LAYOUT_PATH = os.path.join(ROOT, "carts", "sdk_b16", "layout.lua")
+LAYOUT_PATH = os.path.join(ROOT, "bm", "sdk_b16", "layout.lua")
 
 def run_tests():
     try:

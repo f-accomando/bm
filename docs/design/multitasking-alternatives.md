@@ -10,18 +10,18 @@ benchmark. The RGB30 (RK3566, AArch64) has four cores. `CPU_ON` works, and `core
 
 ## 1. Facts from the code
 
-- Fibers are cooperative. `fiber_switch` saves r4-r12, lr, d8-d15, FPSCR (`src/arch/fiber.S`).
+- Fibers are cooperative. `fiber_switch` saves r4-r12, lr, d8-d15, FPSCR (`core/src/arch/fiber.S`).
   A fiber runs only inside `fiber_resume`. Nothing calls it from an IRQ.
 - `fiber_slice()` yields when `timer_ticks()` passed `f->until`. The SD reads (`fat_load_tick`) and
   the FAT writes (`fat_write_tick`) call it. `net_wait_step()` always yields.
 - Stacks have 16 guard words at the low end (`fiber_prepare`). `fiber_resume` checks them only
   after the fiber yields. An overflow that corrupts memory first is found late, or never.
-- The Pi MMU is on, with a flat map of 1 MB sections (`src/arch/mmu.c`: `SECTION`, one `ttb[4096]`,
+- The Pi MMU is on, with a flat map of 1 MB sections (`core/src/arch/mmu.c`: `SECTION`, one `ttb[4096]`,
   no second-level tables). It gives cache attributes only. It gives no protection between tasks.
-  The RGB30 uses 2 MB blocks (`src/rgb30/mmu.c`: `l1`, `l2[4]`), also flat.
+  The RGB30 uses 2 MB blocks (`core/src/rgb30/mmu.c`: `l1`, `l2[4]`), also flat.
 - Correction to R49 Beta R2: the ARM1176 and the Cortex-A55 of the RK3566 have an MMU, not an MPU.
   A stack guard uses a 4 KB page that is "no access". See alternative H.
-- A data abort handler exists (`src/kernel/exceptions.c`: prints DFAR and DFSR). A guard page would
+- A data abort handler exists (`core/src/kernel/exceptions.c`: prints DFAR and DFSR). A guard page would
   give a clean report with no new handler.
 - A 1 kHz timer IRQ exists (`irq_init`, `irq_register`). The IRQ runs on the stack that is current.
 - Jobs: seven `fiber_job_start` users (the Lib job is removed). Stack sizes: covers 16 KB, sdmap 16 KB, reports
@@ -29,7 +29,7 @@ benchmark. The RGB30 (RK3566, AArch64) has four cores. `CPU_ON` works, and `core
   real use of these stacks.
 - TLS is mbedTLS 1.2 only (`MBEDTLS_SSL_PROTO_TLS1_2`). Session tickets and restartable ECC are not
   enabled. `tls.c` loops on `mbedtls_ssl_handshake` and the BIO callbacks wait with `net_wait_step`.
-- `release_verify` hashes the whole manifest, then calls `mbedtls_pk_verify` once (`src/net/release.c`).
+- `release_verify` hashes the whole manifest, then calls `mbedtls_pk_verify` once (`core/src/net/release.c`).
   The file check hashes the whole buffer in one call (`release.c`, `mbedtls_sha256(data, len, ...)`).
 - `http.c` and `http_kernel.c` have no `Range` support (grep finds none).
 - `netxfer_write_pause()` exists. `config_save()` does not call it.
@@ -264,7 +264,7 @@ Each stage is one PR and has a QEMU test. Stop after any stage if the numbers ar
 8. Optional: MMU guard pages (H2) and C-lite, after the stack numbers and the stall numbers.
 
 Update `docs/progress/multitasking.md` ("Open work") at the end of each stage. Run
-`python scripts/consistency.py check` when stage 7 adds an API.
+`python core/scripts/consistency.py check` when stage 7 adds an API.
 
 ## 6. Numbers to collect on the Pi Zero W
 

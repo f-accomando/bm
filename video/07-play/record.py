@@ -161,9 +161,9 @@ def main():
     if "--no-record" not in sys.argv:
         for d in (SD_GAME, SD_SDK):
             shutil.rmtree(d, ignore_errors=True)
-            os.makedirs(os.path.join(d, "carts"))
-            shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(d, "carts", "SKYVALE.BM"))
-        call([BMHOST, os.path.join(SD_GAME, "carts", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
+            os.makedirs(os.path.join(d, "bm"))
+            shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(d, "bm", "SKYVALE.BM"))
+        call([BMHOST, os.path.join(SD_GAME, "bm", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
               "--input", os.path.join(HERE, "game.txt"), "--video", os.path.join(OUT, "raw-play.rgb"),
               "--wav", os.path.join(OUT, "play.wav"), "--quiet"])
         call(encode(os.path.join(OUT, "raw-play.rgb"), os.path.join(OUT, "overlay-play.ass"), os.path.join(OUT, "play.mp4"),

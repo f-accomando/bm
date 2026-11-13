@@ -5,7 +5,7 @@
 
 Run from .claude/skills/bm-forge. A change in one of these files may change
 the format bm_core reads and writes: read the diff, port it, run the golden
-tests, then `update`. Also records BM3D_VERSION (src/gpu/version3d.h:26) for
+tests, then `update`. Also records BM3D_VERSION (core/src/gpu/version3d.h:26) for
 information: the MESH/ANIM format has no version field of its own.
 """
 import hashlib
@@ -17,7 +17,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 SYNC = os.path.join(HERE, "SYNC.json")
-WATCH = ["src/bm/bm.h", "src/bm/format.c", "scripts/bmmesh.py", "src/script/bm3d.lua", "src/gpu/version3d.h", "src/bm/runtime.c", "src/bm/r3d.c", "carts/animator/main.lua"]
+WATCH = ["core/src/bm/bm.h", "core/src/bm/format.c", "core/scripts/bmmesh.py", "core/src/script/bm3d.lua", "core/src/gpu/version3d.h", "core/src/bm/runtime.c", "core/src/bm/r3d.c", "bm/animator/main.lua"]
 
 
 def digest(rel):
@@ -31,7 +31,7 @@ def digest(rel):
 
 
 def bm3d_version():
-    p = os.path.join(REPO, "src", "gpu", "version3d.h")
+    p = os.path.join(REPO, "core", "src", "gpu", "version3d.h")
     try:
         with open(p, encoding="utf-8", errors="replace") as f:
             m = re.search(r'#define\s+BM3D_VERSION\s+"([^"]+)"', f.read())

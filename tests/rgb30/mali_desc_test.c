@@ -1,8 +1,8 @@
 /*
- * The Mali-G52's draw descriptors (src/rgb30/mali_desc.c) against the bytes
+ * The Mali-G52's draw descriptors (core/src/rgb30/mali_desc.c) against the bytes
  * v7pack.py makes from Mesa's v7.xml (mali_desc_golden.h): same values,
  * byte for byte. Also the Tiler and Vertex jobs' layouts, and the shaders'
- * header (src/rgb30/mali_shaders.h).
+ * header (core/src/rgb30/mali_shaders.h).
  */
 #include <stdio.h>
 #include <string.h>
@@ -157,7 +157,7 @@ int main(void)
         printf("FAIL vertex job parameters %08x\n", par);
     }
 
-    /* the shaders made by tools/mali/mkshader.c: whole 8-byte clauses, the fragment shader pushes its colour */
+    /* the shaders made by core/tools/mali/mkshader.c: whole 8-byte clauses, the fragment shader pushes its colour */
     checks++;
     if (sizeof BM_VS_bin % 8 || sizeof BM_FS_bin % 8 || BM_FS_PUSH_COUNT != 8 || BM_VS_PUSH_COUNT != 0 ||
         BM_FS_push[4][0] != 0 || BM_FS_push[4][1] != 0 || BM_FS_push[7][1] != 12) {

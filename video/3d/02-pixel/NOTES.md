@@ -1,6 +1,6 @@
 # Episode 2: corrections for docs/video/02-pixel/ (found by running the editors)
 
-Rerun: `powershell -NoProfile -File scripts/wsl-run.ps1 "python3 video/3d/02-pixel/record.py" -Tail 20` then `... "python3 video/3d/02-pixel/verify.py"`.
+Rerun: `powershell -NoProfile -File core/scripts/wsl-run.ps1 "python3 video/3d/02-pixel/record.py" -Tail 20` then `... "python3 video/3d/02-pixel/verify.py"`.
 First run replays the editor ~85 times to plan the face pointer (about 3 minutes); out/plan_cache.json makes later runs ~20 s.
 
 ## Shot list / input.md corrections

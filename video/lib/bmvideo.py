@@ -22,7 +22,7 @@ import sys
 FPS = 60
 GAME_W, GAME_H = 640, 360
 
-# keyp() codes the serial/typed queue understands (src/usb/hid.h, runtime.c)
+# keyp() codes the serial/typed queue understands (core/src/usb/hid.h, runtime.c)
 KEYS = {
     "up": "\\xf0", "down": "\\xf1", "left": "\\xf2", "right": "\\xf3",
     "home": "\\xf4", "end": "\\xf5", "pgup": "\\xf6", "pgdn": "\\xf7", "del": "\\xf8",

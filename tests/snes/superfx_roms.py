@@ -2,7 +2,7 @@
 """
 superfx_roms.py - local smoke test of the Super FX games in bmhost. It needs ROMs that are NOT in the repository.
 
-  BM_SNES_ROMS=/path/to/folder python3 tests/snes/superfx_roms.py build/host/bmhost-bin build/carts/snes.bm [--seconds 30]
+  BM_SNES_ROMS=/path/to/folder python3 tests/snes/superfx_roms.py build/host/bmhost-bin build/bm/snes.bm [--seconds 30]
 
 The folder holds .sfc or .smc files (a copier header is fine). The script reads the chipset byte of each file ($FFD6 of the LoROM
 header, $13 to $1A for a Super FX cartridge) and plays each Super FX ROM for some hundreds of frames with scripted pad input:

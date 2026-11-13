@@ -74,7 +74,7 @@ cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change
 menu: 1280x720, the layout enlarged by the ARM
 net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
 net: console on port 3333, password ******
-     from the PC: python3 tools/bm_net.py 192.168.1.108
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
 net: time 2026-10-25 10:55 UTC
 menu idle: 0/300 frames, 0 of 0 ms taken, 0.0 ms past a frame; no job; min slack -28177 us, paced 0
 menu idle: sd first word <1ms 110 <3ms 9 (max 1.4 ms)

@@ -5,7 +5,7 @@ from lib3d import ROOT
 from bmvideo import Script
 OUT=os.path.join(HERE,"out"); SD=os.path.join(OUT,"sd")
 BIN=os.path.join(OUT,"bin"); os.makedirs(BIN,exist_ok=True)
-subprocess.check_call([sys.executable,os.path.join(ROOT,"scripts","mkbm.py"),"-o",os.path.join(BIN,"editor.bm"),"--lua","carts/editor/main.lua","--cover","carts/editor/icon.png","--info","carts/editor/bm.info"],cwd=ROOT)
+subprocess.check_call([sys.executable,os.path.join(ROOT,"core", "scripts","mkbm.py"),"-o",os.path.join(BIN,"editor.bm"),"--lua","bm/editor/main.lua","--cover","bm/editor/icon.png","--info","bm/editor/bm.info"],cwd=ROOT)
 lib3d.fresh_sd(SD,[(os.path.join(OUT,"start.bme"),"TROPIC.BME")])
 s=Script()
 s.wait(120)

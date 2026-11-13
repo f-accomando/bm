@@ -9,7 +9,7 @@ is closed, see chapter 7): the editors open the resource files. Lua code as a re
 not included: for now it stays out.
 
 **Status (2026-10-25)**
-- Steps 1–2 of chapter 10 done: the specification in `src/bm/bm.h`; `scripts/bmres.py`
+- Steps 1–2 of chapter 10 done: the specification in `core/src/bm/bm.h`; `core/scripts/bmres.py`
   (`make test-res`: 112 checks in Python, 28 in C with the kernel's parser). The kernel
   reads `BMRES` files (`bm_parse_any`, `bm_zone`, `bm_info_get` in `format.c`).
 - The Lib tab is removed (25 Oct 2026, user decision). The resource files are opened from
@@ -22,7 +22,7 @@ not included: for now it stays out.
 
 ## 1. Starting point
 
-- A game's resources live only in the sections of its `.bm` (`src/bm/bm.h`): SHEET or
+- A game's resources live only in the sections of its `.bm` (`core/src/bm/bm.h`): SHEET or
   SHEET8 (sprites, textures, palette), MAP, COVER, AUDIO (sounds, effects, patterns, songs),
   MESH (models), ANIM (skeletons and animations).
 - The sources live on the PC: `.png`, `.glb`, `.json` and `.csv` that `mkbm.py` turns into
@@ -30,8 +30,8 @@ not included: for now it stays out.
 - On the SD, besides the games: bm Sound's sound packs in `/bm/sounds` (`.bm` with
   only AUDIO and a small program that plays them), the `.png`/`.jpg` images in `/pics`
   from which bm Studio makes a model ("Model from picture"), the nano8 cartridges in
-  `carts/nano8`.
-- The kernel reads PNG, JPEG and binary glTF (`src/bm/png.c`, `jpeg.c`, `glb.c`), today for
+  `bm/nano8`.
+- The kernel reads PNG, JPEG and binary glTF (`core/src/bm/png.c`, `jpeg.c`, `glb.c`), today for
   the images in `/pics` and for the models from image-to-3D services.
 - Today only the whole cartridge is exchanged. The only exception is bm Sound, which with
   "Import from…" takes a sound, an effect, a pattern or a song from another `.bm`.
@@ -90,7 +90,7 @@ Every file also has INFO.
 - An image can also become the cover of a `.bm` or bm Studio's tiles.
 
 ### `.bms`: sounds
-- The AUDIO section as it is (the `BMAU` bank, `src/audio/player.h`).
+- The AUDIO section as it is (the `BMAU` bank, `core/src/audio/player.h`).
 - The entries are the songs, the effects and the sounds (instruments); patterns travel with the
   songs that use them.
 - The packs in `/bm/sounds` (`.bm`) can still be read.
@@ -109,7 +109,7 @@ Every file also has INFO.
   character with model, animations, sprites and sounds.
 - The editors list a kit and its parts.
 - A map kit (3D map, models, sprites, object table in INFO): [design/map-kit](design/map-kit.md),
-  tool `scripts/bmkit.py`. SD folder: `/bmk` (not scanned by the console yet).
+  tool `core/scripts/bmkit.py`. SD folder: `/bmk` (not scanned by the console yet).
 
 ## 4. The `BMRES` container
 
@@ -145,7 +145,7 @@ place, so the readers share the code.
 - A resource file may hold a **COVER** (the still picture, RGBA, up to 512x512; the kernel reads it) and, a
   model file or a kit, a **PREVIEW** (a turntable: 1 to 64 frames, 8-bit palette; section 16, in
   [BM-FORMAT](BM-FORMAT.md)). The plan: a list or a chooser shows the cover, and the chosen file turns.
-- `python scripts/bmpreview.py add FILE [--model NAME]` writes both; `show FILE OUT.png|OUT.gif` saves them; `drop`
+- `python core/scripts/bmpreview.py add FILE [--model NAME]` writes both; `show FILE OUT.png|OUT.gif` saves them; `drop`
   takes them away. A change of the model makes the picture old: run `add` again. `bmres.py extract` does not copy
   the cover of a game into a kit (it is the game's card).
 - Not built yet: the console does not draw the PREVIEW in its lists and choosers.
@@ -261,21 +261,21 @@ which in the project receives the entries' blocks with `origin`).
   and palettes, bm Sound for sounds. Each editor lists its own files.
 - The kernel still reads the resource files of a game (`format.c`, `BMRES`). It no longer
   scans the card for them.
-- The previous design is in the git history (`src/kernel/lib.c`, `libview.c`, QEMU test
+- The previous design is in the git history (`core/src/kernel/lib.c`, `libview.c`, QEMU test
   `test_lib_tab`).
 
 ## 8. PC tools
 
-- `scripts/bmres.py`, with only Python's standard library like `mkbm.py`:
+- `core/scripts/bmres.py`, with only Python's standard library like `mkbm.py`:
   - `list FILE`: what a `.bm` or a resource file contains;
   - `extract GAME.bm --model villager -o VILLAGER.bmm` (and `--sprite`, `--sfx`, `--song`,
     `--map`, `--palette`, `--all`);
   - `add GAME.bm FILE...`: integrates, with the rules of chapter 6;
   - `convert`: from and to `.glb`, `.png`, `.json`, `.csv`, `.hex`, `.gpl`;
   - `info FILE --tags …`: writes INFO.
-- Previews on the PC: `tools/bmrender.py` for models (PNG), `make wav` for sounds.
+- Previews on the PC: `core/tools/bmrender.py` for models (PNG), `make wav` for sounds.
 - `mkbm.py --res FILE` (also several times) integrates resources at build time: a game
-  in the repository can keep its files in `carts/<game>/res/`.
+  in the repository can keep its files in `bm/<game>/res/`.
 - The console's bm Studio and bm Animator will open and save `.bmm`, `.bmi` and `.bmk`
   (step 7).
 
@@ -296,8 +296,8 @@ which in the project receives the entries' blocks with `origin`).
 
 ## 10. Steps
 
-1. Specification in `src/bm/bm.h` (`BMRES`, INFO, SPRITES) and this document.
-2. `scripts/bmres.py` with the tests on the PC: extraction, integration, conversions.
+1. Specification in `core/src/bm/bm.h` (`BMRES`, INFO, SPRITES) and this document.
+2. `core/scripts/bmres.py` with the tests on the PC: extraction, integration, conversions.
 3. Kernel: reading `BMRES` (done). The Lib tab (list, previews, QEMU test) was built, then removed
    on 25 Oct 2026.
 4. The apps open the resource files.

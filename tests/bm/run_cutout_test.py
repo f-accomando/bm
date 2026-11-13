@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The outline maker of the console (src/bm/cutout.c, through
+The outline maker of the console (core/src/bm/cutout.c, through
 build/host/test_cutout): a figure on a transparent background and the
 same on a plain one become a closed cutout with the picture on the front
 (bmrender's front view shows its colours) and a closed lathe; the small
@@ -16,8 +16,8 @@ import sys
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import bmmesh  # noqa: E402
 import bmrender  # noqa: E402
 import img2mesh  # noqa: E402

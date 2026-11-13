@@ -1,4 +1,4 @@
-/* Host test of src/bt/smp_crypto.c against the sample data of the Bluetooth
+/* Host test of core/src/bt/smp_crypto.c against the sample data of the Bluetooth
  * Core spec (Vol 3 Part H, Appendix D) and RFC 4493. Values are written as
  * in the spec (most significant byte first) and reversed for the calls. */
 #include "bt/smp_crypto.h"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Island Bench (carts/islandbench) in bmhost, no hardware:
+Island Bench (bm/islandbench) in bmhost, no hardware:
 
   1. the kit is in the cartridge: 24 models, the objects layer holds the island's objects;
   2. a manual run prints its line with the island (objects > 0, the 3D draws some);

@@ -10,7 +10,7 @@ is marked **NON VERIFICATO**. Source of truth: `docs/API.md` (index) and `docs/a
   (`docs/API.md:9-10`).
 - One file holding: Lua code (required), sprite sheet PNG, tile map CSV (one per layer),
   tile flags, named sheet zones, cover PNG (`docs/GAME-GUIDE.md:56-68`); plus sound bank
-  `--audio`, 3D models `--models` (`scripts/mkbm.py:437-439`).
+  `--audio`, 3D models `--models` (`core/scripts/mkbm.py:437-439`).
 - Callbacks: `_init()` once, `_update()` 60 Hz before `_draw()`, `_draw()`, optional
   `_exit()` (return `true` closes now) and `_leave()` for network matches (`docs/API.md:80-86`).
 - Globals `SCREEN_W`, `SCREEN_H`; the screen is not cleared by itself, `_draw` usually
@@ -26,39 +26,39 @@ is marked **NON VERIFICATO**. Source of truth: `docs/API.md` (index) and `docs/a
 Single-file game (generic Makefile rule, `Makefile:213-236`):
 
 ```
-carts/<game>/main.lua        required
-carts/<game>/cover.png       optional, menu card (88x88 square, docs/API.md:47-52)
-carts/<game>/sheet.png       optional sprite sheet  (sheet8_<game> := 1 -> --sheet8)
-carts/<game>/map.csv         optional, layer 1; map_<name>.csv for layers_<game> := ...
-carts/<game>/flags.csv       optional tile flags
-carts/<game>/sprites.txt     optional named zones
-carts/<game>/models.bm       optional 3D models + skeletons + animations (or models.glb)
+bm/<game>/main.lua        required
+bm/<game>/cover.png       optional, menu card (88x88 square, docs/API.md:47-52)
+bm/<game>/sheet.png       optional sprite sheet  (sheet8_<game> := 1 -> --sheet8)
+bm/<game>/map.csv         optional, layer 1; map_<name>.csv for layers_<game> := ...
+bm/<game>/flags.csv       optional tile flags
+bm/<game>/sprites.txt     optional named zones
+bm/<game>/models.bm       optional 3D models + skeletons + animations (or models.glb)
 ```
 
 - Registration: add the name to `GAMES` (`Makefile:191`), a `title_<game> := Title`
   line (`Makefile:193-206`), optional `res_<game> := 320x180` etc. (`Makefile:198,203,207`).
-  Output: `build/carts/<game>.bm` (`Makefile:223`; `docs/GAME-GUIDE.md:181-186`).
+  Output: `build/bm/<game>.bm` (`Makefile:223`; `docs/GAME-GUIDE.md:181-186`).
 - `models.bm` wins over `models.glb` if both exist (`Makefile:236`).
-- Multi-file games: `carts/<game>/src/*.lua` joined in name order by `carts/<game>/build.py`
+- Multi-file games: `bm/<game>/src/*.lua` joined in name order by `bm/<game>/build.py`
   into `build/<game>/main.lua`; the first file (`00_*.lua`) stays top level, every other is
   wrapped in `do ... end` to dodge Lua's 200-locals limit; a `.map` file maps output lines
-  back to sources (`carts/titan_ex/build/build.py:3-12,22-41`). Such games get an explicit rule
+  back to sources (`bm/titan_ex/build/build.py:3-12,22-41`). Such games get an explicit rule
   (`Makefile:248-257` titan, `Makefile:238-246` kitchen).
 - **One `.bm` for both consoles.** The header says which kernels it is for (`targets`: pi, rgb30).
-  `carts/titan/src/*.lua` → `titan.bm` (`Makefile:250-257`); `carts/titan_ex/src/*.lua` →
-  `titanex.bm` at `--res 360x360`, sharing `carts/titan/assets/sheet.png` and cover
+  `bm/titan/src/*.lua` → `titan.bm` (`Makefile:250-257`); `bm/titan_ex/src/*.lua` →
+  `titanex.bm` at `--res 360x360`, sharing `bm/titan/assets/sheet.png` and cover
   (`Makefile:253-261`).
 - Generated-asset games: Overbit builds `build/overbit/models.bm` from Python
-  (`carts/overbit/art/models.py`, `Makefile:311-314`).
+  (`bm/overbit/art/models.py`, `Makefile:311-314`).
 - bm-forge writes this layout (`main.lua`, `models.bm`, optional `cover.png`, `make.txt` as a
   note only) with `bm_core/export.py` `export_folder` (`export.py:232-308`).
 
-## 3. Packing: scripts/mkbm.py
+## 3. Packing: core/scripts/mkbm.py
 
 ```sh
-python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+python3 core/scripts/mkbm.py -o hello.bm --lua bm/hello/main.lua --title "Hello" --author "me"
 ```
-(`docs/API.md:41`). Options (`scripts/mkbm.py:428-443`):
+(`docs/API.md:41`). Options (`core/scripts/mkbm.py:428-443`):
 
 | Option | Meaning |
 |---|---|
@@ -66,7 +66,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 | `--sheet PNG`, `--sheet8` | sprite sheet; `--sheet8` = palette + RLE (≤256 colours) |
 | `--map [name=]CSV` | a map layer (repeatable) |
 | `--flags`, `--sprites` | tile flags; named zones `name x y w h [frames [fps]]` |
-| `--audio` | `.json` (`scripts/bmaudio.py`) or `.bmau` bank |
+| `--audio` | `.json` (`core/scripts/bmaudio.py`) or `.bmau` bank |
 | `--cover PNG` | menu picture |
 | `--models` | `.glb` or a `.bm` with models |
 | `--uv-inset` | texture margin in sheet px (default 0.25) |
@@ -74,20 +74,20 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 | `--res` | `640x360` `480x270` `320x180` `256x256` `360x360` |
 
 - `--models X.bm`: copies its MESH section (8), its ANIM section (9) if present, and its
-  sheet (SHEET8 or SHEET) when no `--sheet` is given (`scripts/mkbm.py:453-467`).
+  sheet (SHEET8 or SHEET) when no `--sheet` is given (`core/scripts/mkbm.py:453-467`).
 - `--models X.glb`: the glb's image becomes the sheet if none is given, and SHEET8 if ≤256
-  colours (`scripts/mkbm.py:469-475`); models via `bmmesh.models_from_file`
-  (`scripts/mkbm.py:476-478`). No ANIM is added on the glb path in these lines: whether a
+  colours (`core/scripts/mkbm.py:469-475`); models via `bmmesh.models_from_file`
+  (`core/scripts/mkbm.py:476-478`). No ANIM is added on the glb path in these lines: whether a
   glb skeleton/animation is imported is **NON VERIFICATO** (looks like no).
 - Python API: `mkbm.pack(lua, sheet=None, map_=None, title, author, res=(640,360), cover,
   sheet_packed, audio, mesh, extra=(), layers, flags, sprites, boxes)`
-  (`scripts/mkbm.py:364-368`); `extra` takes `(section_id, bytes)` pairs, used for ANIM by
-  Overbit (`carts/overbit/art/models.py:83-84`).
+  (`core/scripts/mkbm.py:364-368`); `extra` takes `(section_id, bytes)` pairs, used for ANIM by
+  Overbit (`bm/overbit/art/models.py:83-84`).
 - Section ids: LUA 1, SHEET 2, MAP 3, COVER 4, SHEET8 5, AUDIO 6, MESH 8, ANIM 9, SPRITES 11,
-  LAYERS 12, FLAGS 13, BOXES 14 (`scripts/mkbm.py:50-52`).
+  LAYERS 12, FLAGS 13, BOXES 14 (`core/scripts/mkbm.py:50-52`).
 - Contradiction: `docs/RISORSE.md:351` says `mkbm.py --res FILE` integrates resources, but
-  `--res` is the resolution with fixed choices (`scripts/mkbm.py:443`). Resource integration
-  at build time is **NON VERIFICATO**; use `scripts/bmres.py add` (`docs/RISORSE.md:343-349`).
+  `--res` is the resolution with fixed choices (`core/scripts/mkbm.py:443`). Resource integration
+  at build time is **NON VERIFICATO**; use `core/scripts/bmres.py add` (`docs/RISORSE.md:343-349`).
 
 ## 4. Screen and shapes (docs/api/draw.md)
 
@@ -168,21 +168,21 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   light plus lamps and fog (`docs/api/light3d.md:71`).
 - `models()` names in order; `bounds3d(m)` → `x0,y0,z0,x1,y1,z1` (`docs/api/light3d.md:72-73`).
 - Typical loop: `for _, name in ipairs(models()) do m[name] = model(name) end`
-  (`carts/overbit/src/40_actor.lua:38` loads a model the same way).
+  (`bm/overbit/src/40_actor.lua:38` loads a model the same way).
 - Textured faces read the cart's sheet: `sset` changes the models too (`sdk/README.md:44-45`).
   If the game has no `sheet.png`, the sheet comes from `models.bm`/`.glb`
   (`sdk/README.md:49-52`).
 - Limits: 65535 corners/triangles per model; one bone per corner (no weights); 64 bones,
   255 animations, 1024 keyframes per animation, each key a whole pose; no repeating uv
-  (`sdk/README.md:58-64`); up to 256 models (`scripts/bmmesh.py:27`), names ≤15 bytes,
-  unique (`scripts/bmmesh.py:26,37-39`).
+  (`sdk/README.md:58-64`); up to 256 models (`core/scripts/bmmesh.py:27`), names ≤15 bytes,
+  unique (`core/scripts/bmmesh.py:26,37-39`).
 - `cart_data(8|9)` gives the running cart's MESH / ANIM bytes, or `nil`; `cart_data(8|9, bytes)`
   replaces them in memory after the kernel checks them (`bm_mesh_check` / `bm_anim_check`,
   more than 0x1000000 bytes refused), returning `true`, or `false` and a message; `model()` and
-  `animate()` see the new ones at once (`docs/api/tools.md:46`; `src/bm/runtime.c:6793-6797,
-  6872-6927`). Kinds 11 and 14 are SPRITES and BOXES (`src/bm/runtime.c:6801-6803`). It is
+  `animate()` see the new ones at once (`docs/api/tools.md:46`; `core/src/bm/runtime.c:6793-6797,
+  6872-6927`). Kinds 11 and 14 are SPRITES and BOXES (`core/src/bm/runtime.c:6801-6803`). It is
   registered in the one function table for every cart, and `l_cart_data` has no tool gate
-  (`src/bm/runtime.c:4670,6798-6928`). Not needed for packed assets; bm-forge export never uses
+  (`core/src/bm/runtime.c:4670,6798-6928`). Not needed for packed assets; bm-forge export never uses
   it. Whether Market sandbox rules restrict it is **NON VERIFICATO** (open question below).
 
 ## 11. 3D: skeleton and animation playback
@@ -200,7 +200,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   `animate` costs only the bones (`docs/api/light3d.md:74`).
 - Blend example `animate(v, "walk", t, "wave", t, k)`; attaching a light to `bone3d(v,"arm.L")`
   with the model's yaw applied by hand (`docs/GAME-GUIDE.md`, the animated model section).
-- Invariant: `animate()` in `runtime.c` and the pose in `carts/animator/main.lua` do the same
+- Invariant: `animate()` in `runtime.c` and the pose in `bm/animator/main.lua` do the same
   maths (`docs/progress/graphics.md:88-89`).
 
 ## 12. 3D: drawing, camera, light, GPU options
@@ -229,7 +229,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   (`docs/api/light3d.md:148-150`). A frame starting with `cls()` is cheaper
   (`docs/api/light3d.md:147-148`). State changes in `_update`, HUD after 3D, for *a frame
   later* (`docs/api/light3d.md:168-170`).
-- Driver version: `BM3D_VERSION "7.3"` (`src/gpu/version3d.h:26`);
+- Driver version: `BM3D_VERSION "7.3"` (`core/src/gpu/version3d.h:26`);
   `docs/progress/graphics.md:42` still says "7.2" (stale). Console-only options (config
   keys, no Lua argument): `gpu3d_wc`, `gpu3d_2d`, `gpu3d_filter`, `gpu3d_tex16`, `gpu3d_fs2`,
   `gpu3d_sort`, `gpu3d_attr`, `gpu3d_etc1` (`docs/progress/graphics.md:53-56`).
@@ -241,27 +241,27 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 - On the console: bm Studio (tile models), bm Animator (skeletons, clips, pre-rendered
   sprites), bm Mesh, bm Pixel, working on a `.bme` project (`sdk/README.md:5-13`).
-- PC tools: `scripts/mkbm.py --models`, `scripts/bmmesh.py`, `scripts/bmres.py`,
-  `tools/bmreduce.py`, `tools/cutout2mesh.py`, `tools/meshy2mesh.py`, `tools/local2mesh.py`,
-  `tools/img2mesh.py` (`sdk/README.md:15-18`). Preview PNG: `tools/bmrender.py`
+- PC tools: `core/scripts/mkbm.py --models`, `core/scripts/bmmesh.py`, `core/scripts/bmres.py`,
+  `core/tools/bmreduce.py`, `core/tools/cutout2mesh.py`, `core/tools/meshy2mesh.py`, `core/tools/local2mesh.py`,
+  `core/tools/img2mesh.py` (`sdk/README.md:15-18`). Preview PNG: `core/tools/bmrender.py`
   (`docs/RISORSE.md:350`).
-- `scripts/bmmesh.py` model dict: `{"name", "verts": [(x,y,z)], "faces": [(a,b,c,colour,
+- `core/scripts/bmmesh.py` model dict: `{"name", "verts": [(x,y,z)], "faces": [(a,b,c,colour,
   (u0,v0,u1,v1,u2,v2))]}`, **0-based**, clockwise, y up; colour `0xRRGGBB` or `TEXTURED`
-  (`0x80000000`) with uv in sheet pixels (`scripts/bmmesh.py:7-13,25`).
-  `encode(models, inset=0.25)` → MESH body (`scripts/bmmesh.py:30`); optional `"lit"` with
-  baked corner light (`scripts/bmmesh.py:46-50`).
+  (`0x80000000`) with uv in sheet pixels (`core/scripts/bmmesh.py:7-13,25`).
+  `encode(models, inset=0.25)` → MESH body (`core/scripts/bmmesh.py:30`); optional `"lit"` with
+  baked corner light (`core/scripts/bmmesh.py:46-50`).
 - `encode_faces(name, faces, bones)` turns Studio-style faces `{p, c, b}` (tris or quads)
-  into the dict plus per-vertex bone list (`scripts/bmmesh.py:75-97`).
+  into the dict plus per-vertex bone list (`core/scripts/bmmesh.py:75-97`).
 - `encode_anim([(name, bones, vb, clips)])` → ANIM body: bones `{name, parent (0-based, -1
   root), head, tail}`, `vb` bone per vertex, clips `{name, loop, length, keys: [{t, pose:
   [{q=(x,y,z,w), t=(x,y,z)}]}]}`; a missing bone pose is identity
-  (`scripts/bmmesh.py:100-121`). Rig name binds to the model by name (`docs/RISORSE.md:81`).
+  (`core/scripts/bmmesh.py:100-121`). Rig name binds to the model by name (`docs/RISORSE.md:81`).
 - Write a models-only cart: `mkbm.pack(lua, sheet, mesh=..., extra=[(9, anim)])`, as Overbit
-  does (`carts/overbit/art/models.py:77-87`; it uses its own `rig.encode`).
+  does (`bm/overbit/art/models.py:77-87`; it uses its own `rig.encode`).
 - Resource files `.bmm` (MESH + ANIM + used sheet cells), `.bmi`, `.bms`, `.bmt`, `.bmc`,
   `.bmk` (`docs/RISORSE.md:68-110`); `bmres.py list|extract|add|convert|info`
   (`docs/RISORSE.md:343-349`), e.g. `extract GAME.bm --model villager -o VILLAGER.bmm`.
-- Blender: a `.glb` in `carts/<game>/models.glb` is enough for mesh+texture
+- Blender: a `.glb` in `bm/<game>/models.glb` is enough for mesh+texture
   (`docs/GAME-GUIDE.md:422-424`); glTF z flips sign and winding reverses
   (`docs/progress/graphics.md:86-87`).
 
@@ -277,14 +277,14 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
   the code builds), `mesh_reduce` (`docs/api/tools.md:26-34`). These are for bm's tools;
   other carts write only `.bm`/`.bme` they made in the same run (`docs/api/tools.md:17-18`).
 - `cart_data(kind, [bytes])`: MESH 8, ANIM 9, SPRITES 11, BOXES 14, read or replace in memory
-  (`docs/api/tools.md:46`; `src/bm/runtime.c:6798-6803`); see section 10.
+  (`docs/api/tools.md:46`; `core/src/bm/runtime.c:6798-6803`); see section 10.
 
 ## 15. Compatibility block
 
 - A `.bm` says in its header which kernels it is for. Flag bit 4 says the block is present.
   Bytes 120..127 hold `targets` (bit 0 Pi, bit 1 RGB30), `input`, `aspect`, `needs`, `min_ram`,
   `min_spec` and `min_width` (`docs/BM-FORMAT.md`, "Compatibility block").
-- Write it with `scripts/mkbm.py --targets pi,rgb30` (or the INFO key `targets` of `bm.info`).
+- Write it with `core/scripts/mkbm.py --targets pi,rgb30` (or the INFO key `targets` of `bm.info`).
   bm-forge writes it with `export cart --targets` and `export.export_cart(..., targets=...)`.
 - The menus grey a cartridge that does not list the kernel, with a reason and a question before the
   start (`docs/BM-FORMAT.md`).
@@ -300,7 +300,7 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 - Market repo layout: `games/<id>/<id>.bm`, `info.txt` (`version:`,
   `license:`, `about:`); id `a-z0-9-`, ≤23 chars, never changes (`market/README.md:15-36`).
 - `manifest-rgb30` is the **kernel release manifest** (kernel8.img, `bm/ca.pem`), not a
-  game manifest (`Makefile:760-769`; `src/kernel/update.c:32`; `scripts/mkrelease.py:15`).
+  game manifest (`Makefile:760-769`; `core/src/kernel/update.c:32`; `core/scripts/mkrelease.py:15`).
   A game needs no manifest entry (**NON VERIFICATO** beyond these reads).
 - bm-forge writes the Market folder (`<id>.bm`, `info.txt`) with
   `bm_core/export.py` `export_market` (`export.py:311-402`) and the `about.txt` line with
@@ -308,28 +308,28 @@ python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" -
 
 ## 17. Minimal examples (path lists)
 
-- Smallest 2D game: `carts/pong/main.lua` (+ `carts/pong/cover.png`)
+- Smallest 2D game: `bm/pong/main.lua` (+ `bm/pong/cover.png`)
   (`docs/GAME-GUIDE.md:886`); inline example `docs/GAME-GUIDE.md:78-102`.
-- 3D in code only: `carts/astrowing/main.lua` (`docs/GAME-GUIDE.md:889`).
-- **Mesh load + animation**: `carts/overbit/src/40_actor.lua` (`model()` at `:38`, `animate()` at
+- 3D in code only: `bm/astrowing/main.lua` (`docs/GAME-GUIDE.md:889`).
+- **Mesh load + animation**: `bm/overbit/src/40_actor.lua` (`model()` at `:38`, `animate()` at
   `:340-341`). The test cart `tests/fixtures/mktestkit.py` makes (the Makefile builds it as
-  `build/carts/testkit.bm`) is a small cart with 8 models and one skeleton (`walker`).
+  `build/bm/testkit.bm`) is a small cart with 8 models and one skeleton (`walker`).
 - Inline snippets: `sdk/README.md:25-37` (model), `docs/GAME-GUIDE.md:405-415` (animate).
-- Two builds of one game family: `carts/titan/src/*.lua` + `carts/titan/build/build.py` and
-  `carts/titan_ex/src/*.lua` + `carts/titan_ex/build/build.py` (`Makefile:248-261`).
+- Two builds of one game family: `bm/titan/src/*.lua` + `bm/titan/build/build.py` and
+  `bm/titan_ex/src/*.lua` + `bm/titan_ex/build/build.py` (`Makefile:248-261`).
 - API test cart: `tests/gameapi/cart.lua` (`docs/GAME-GUIDE.md:896`; `make test-gameapi`,
   `docs/api/bmlib.md:303-304`).
 
 ## Domande aperte
 
 1. Does `mkbm.py --models X.glb` import skeleton and animations, or only mesh + texture?
-   (Only the mesh path is visible at `scripts/mkbm.py:468-478`.)
+   (Only the mesh path is visible at `core/scripts/mkbm.py:468-478`.)
 2. Which `targets` should a generated game declare when it draws 3D? How the RGB30 draws 3D
    today (ARM software only?) and at what triangle budget is **NON VERIFICATO**.
-3. Is `carts/titan_ex/main.lua` a stale output or a source a generator must keep?
+3. Is `bm/titan_ex/main.lua` a stale output or a source a generator must keep?
 4. `docs/RISORSE.md:351` (`mkbm.py --res FILE`) conflicts with `--res` as resolution: is
    build-time resource integration planned, and under which flag?
 5. Should bm-forge-generated games use `"ok"`/`"back"` and `--sheet8` by default, so a
    `targets: pi,rgb30` cartridge is easy?
 6. May a non-tool game (one in the Market) call `cart_data`? `l_cart_data` has no tool gate
-   (`src/bm/runtime.c:6798-6928`); any Market sandbox rule is NON VERIFICATO.
+   (`core/src/bm/runtime.c:6798-6928`); any Market sandbox rule is NON VERIFICATO.

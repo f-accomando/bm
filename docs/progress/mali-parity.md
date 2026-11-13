@@ -22,7 +22,7 @@ Mapping of Mali-G52 developments against reference Pi V3D driver:
 
 ## The `gpu3d_*` options on the Mali (Q5, 28 Oct 2026)
 
-Checked in `src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
+Checked in `core/src/rgb30/bm_port.c`. The Pi flags are in [v3d-flags](v3d-flags.md).
 
 | Option | On the Mali | Why |
 |---|---|---|
@@ -61,7 +61,7 @@ Yharnam: not applicable on the RGB30 today. Its sheet is over the pool, so only 
 
 ## The meshes: the Pi and the Mali (28 Oct 2026)
 
-| | Pi Zero W (V3D, `mesh_get` in `src/gpu/gpu3d.c`, bm3d 3.0) | RGB30 (Mali, face cache, bm3d 7.26) |
+| | Pi Zero W (V3D, `mesh_get` in `core/src/gpu/gpu3d.c`, bm3d 3.0) | RGB30 (Mali, face cache, bm3d 7.26) |
 |---|---|---|
 | What is kept | the corners of the mesh, in the GPU memory, indexed (a vertex once) | the vertices of every face (3 a face), in the kernel RAM |
 | A frame sends | the matrices | the matrices, the light and the numbers of the visible faces; the ARM copies their blocks to the GPU memory |

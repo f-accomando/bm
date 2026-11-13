@@ -36,12 +36,12 @@ name it will have, or `nil` and a message if the numbers are over. No question t
 From the PC, with the console's network link ([design/pi-test.md](design/pi-test.md)):
 
 ```
-python tools/bm_net.py IP --shot out.png                    # the running game, saved as out.png
-python tools/bm_net.py IP --get bm/shots/pong0007.png out.png   # a file already in bm/shots
-python3 tools/pi_test.py --cart build/carts/pong.bm --shot out.png
-python tools/bm_net.py IP --frame out.ppm                   # the page on the screen now (menu, monitor or game), a PPM
-python tools/bm_watch.py IP                                 # the screen in the terminal, live (up to 10 frames a second)
-python tools/bm_watch.py IP --mode sixel                    # real pixels, 640x360: the text of the menu is legible
+python core/tools/bm_net.py IP --shot out.png                    # the running game, saved as out.png
+python core/tools/bm_net.py IP --get bm/shots/pong0007.png out.png   # a file already in bm/shots
+python3 core/tools/pi_test.py --cart build/bm/pong.bm --shot out.png
+python core/tools/bm_net.py IP --frame out.ppm                   # the page on the screen now (menu, monitor or game), a PPM
+python core/tools/bm_watch.py IP                                 # the screen in the terminal, live (up to 10 frames a second)
+python core/tools/bm_watch.py IP --mode sixel                    # real pixels, 640x360: the text of the menu is legible
 ./easy_install.sh watch [profile] [sixel|blocks]      # the same from the installer: key w in its menu, a saved profile and code
 ```
 
@@ -55,7 +55,7 @@ bridge has `pi.py frame OUT.ppm` and `pi.py view SECONDS` (counts the frames and
 The console saves the PNG in `bm/shots/` as with the key, then sends it. A game must be
 drawing frames: with none, the request fails after 3 s (`NG`). Only files of `bm/shots/` (one
 level) can be fetched. The RGB30 works (28 Oct).
-The 3D Bench has no game loop. After each frame it shows, it calls `bm_shot_page` (`src/bm/api_shot.c`): a request from the PC saves the page as `bm/shots/B3Dnnnn.png`. Send the requests while a scene runs (for example with `bench3d_boot=heroes_tex`). A request between two scenes waits for the next frame.
+The 3D Bench has no game loop. After each frame it shows, it calls `bm_shot_page` (`core/src/bm/api_shot.c`): a request from the PC saves the page as `bm/shots/B3Dnnnn.png`. Send the requests while a scene runs (for example with `bench3d_boot=heroes_tex`). A request between two scenes waits for the next frame.
 
 ## Names and format
 
@@ -67,7 +67,7 @@ The 3D Bench has no game loop. After each frame it shows, it calls `bm_shot_page
 - **Format**: PNG, 8 bits RGB, the size of the game's screen (640×360, 360×360...). Nothing is
   lost: the console's colours are 16 bits (RGB565) and are widened to 8 bits as `g16_to_rgb24`
   does. No JPG: it spoils pixel art.
-- **Encoder** (`src/bm/shot.c`, no library): one deflate block with the fixed codes, whose
+- **Encoder** (`core/src/bm/shot.c`, no library): one deflate block with the fixed codes, whose
   matches are "the pixel to the left" and "the pixel above". A flat screen takes a few KB; noise
   can take as much as the raw picture (about 0.7 MB at 640×360).
 
@@ -76,14 +76,14 @@ The 3D Bench has no game loop. After each frame it shows, it calls `bm_shot_page
 Pictures for a manual are taken on the console, copied from `bm/shots/` to the repository
 and given a name that says what they show; the manual cites that name, never the file in
 `bm/`. The folder and the naming rule are set with the manuals (open decision). On the PC,
-`bmhost --shots` and `scripts/qemu-screenshot.sh` make pictures without a console.
+`bmhost --shots` and `core/scripts/qemu-screenshot.sh` make pictures without a console.
 
 ## Test and code
 
 - `make test-shot`: a cart in `bmhost` asks for three pictures (two numbered, one with a
   prefix, two requests in one frame); `tests/shot/check.py` reads the PNGs (CRC, zlib, size,
   pixels).
-- `src/bm/shot.c` (encoder and names), `shot_grab` / `l_shot` in `src/bm/runtime.c`.
+- `core/src/bm/shot.c` (encoder and names), `shot_grab` / `l_shot` in `core/src/bm/runtime.c`.
 - Not tried on a Pi or an RGB30 (no hardware in the session): the 3D "later" mode, where
   the frame is shown a frame after, takes the held frame in `later_show`; check it with a 3D
   game on the GPU.

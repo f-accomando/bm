@@ -1,8 +1,8 @@
-"""Tests for the map layers of scripts/mkbm.py: read_map and read_layers."""
+"""Tests for the map layers of core/scripts/mkbm.py: read_map and read_layers."""
 import os, struct, sys, tempfile, unittest, warnings
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import mkbm  # noqa: E402
 
 # read_map opens its file without closing it; that is the script's, not what is tested here

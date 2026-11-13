@@ -15,7 +15,7 @@ footer: bm manuals - game API 1
 
 # How a cartridge works
 
-A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C (640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete examples are in `carts/`: `pong/`, `snake/`, `shooter/` (code only) and `hero/` (with a PNG sprite sheet and CSV maps).
+A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C (640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete examples are in `bm/`: `pong/`, `snake/`, `shooter/` (code only) and `hero/` (with a PNG sprite sheet and CSV maps).
 
 ## The functions your game defines
 
@@ -74,7 +74,7 @@ You will make a yellow ball you move with the arrows, on a dark blue screen. It 
 
 ## Try it, step by step
 
-1. On your computer, in the bm repository, create the file `carts/hello/main.lua` with this code:
+1. On your computer, in the bm repository, create the file `bm/hello/main.lua` with this code:
 
    ```lua
    local x, y = 300, 160
@@ -99,10 +99,10 @@ You will make a yellow ball you move with the arrows, on a dark blue screen. It 
 2. Pack it into a cartridge. You should get a file `hello.bm` in the current folder.
 
    ```sh
-   python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+   python3 core/scripts/mkbm.py -o hello.bm --lua bm/hello/main.lua --title "Hello" --author "me"
    ```
 
-3. Put it on the console. Copy `hello.bm` into the `carts/` folder of the SD card and power on. If the console is already on, press `R` in the menu: the card is read again.
+3. Put it on the console. Copy `hello.bm` into the `bm/` folder of the SD card and power on. If the console is already on, press `R` in the menu: the card is read again.
 4. In the menu, find **Hello** by "me" and start it. You should see a dark blue screen, a yellow ball and the white text `hello from bm!` at the top left.
 5. Press the arrows (or WASD): the ball moves 3 pixels each frame.
 6. Press Ctrl+Esc (keyboard) or Start+Select (gamepad) to go back to the menu. The game stays suspended; A on its cover resumes it.
@@ -119,23 +119,23 @@ Make the ball change colour when you press A. In `_update`, add `if btnp(4) then
 
 The repository's build can add your game by itself, and you can also try it without a Pi.
 
-- In the build: put the game in `carts/<name>/main.lua`, add `<name>` to `GAMES` in the `Makefile` and a line `title_<name> := Title`. `make` creates `build/carts/<name>.bm`.
+- In the build: put the game in `bm/<name>/main.lua`, add `<name>` to `GAMES` in the `Makefile` and a line `title_<name> := Title`. `make` creates `build/bm/<name>.bm`.
 - In QEMU, without a Pi:
 
 ::: copy
 qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
-python3 tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
+python3 core/tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
 :::
 
 - From the serial line (a Pi with a USB-serial adapter):
 
 ::: copy
-python3 tools/bm_load.py /dev/ttyUSB0 --cart hello.bm
+python3 core/tools/bm_load.py /dev/ttyUSB0 --cart hello.bm
 :::
 
 ## Cover
 
-`--cover cover.png` is optional: a PNG of any size that the menu prints on the game's card, an 88×88 square. A square picture is scaled down; others stay whole, as wide as the square, over a blurred and darker copy of themselves that fills the rest. In the build a file `carts/hello/cover.png` is enough. Without a cover the menu prints the title.
+`--cover cover.png` is optional: a PNG of any size that the menu prints on the game's card, an 88×88 square. A square picture is scaled down; others stay whole, as wide as the square, over a blurred and darker copy of themselves that fills the rest. In the build a file `bm/hello/cover.png` is enough. Without a cover the menu prints the title.
 
 # Drawing
 
@@ -213,7 +213,7 @@ The list is 16:9: 320×180, 384×216, 480×270, 640×360, 960×540, 1280×720, 1
 
 ### Button and key chips: `prompt`
 
-`prompt` draws a key like a coloured chip (the apps' set, `src/kernel/prompts.c`). It is 16 pixels high beside the 8×16 text, 12 with `small` (by itself when the font is `"6x12"`), `scale` times bigger (1–8, as `print`).
+`prompt` draws a key like a coloured chip (the apps' set, `core/src/kernel/prompts.c`). It is 16 pixels high beside the 8×16 text, 12 with `small` (by itself when the font is `"6x12"`), `scale` times bigger (1–8, as `print`).
 
 | `name` | What is drawn |
 |---|---|
@@ -239,7 +239,7 @@ prompt("RGB30_X", 16, 220)                 -- the RGB30's red X, on any console
 
 The **sprite sheet** is a picture divided into 8×8 cells: cell `n` is at column `n % (width/8)` and row `n // (width/8)`.
 
-- It comes from `--sheet sheet.png` (RGB or RGBA PNG; alpha under 128 = transparent). Without a PNG it is a transparent 256×256 sheet to draw with `sset` (32 cells per row: see `carts/shooter`).
+- It comes from `--sheet sheet.png` (RGB or RGBA PNG; alpha under 128 = transparent). Without a PNG it is a transparent 256×256 sheet to draw with `sset` (32 cells per row: see `bm/shooter`).
 - The sheet can be up to 4096×4096 pixels.
 - A big sheet with at most 256 colours goes into the cartridge with `--sheet sheet.png --sheet8`: a palette and repeated runs (RLE) instead of 4 bytes per pixel, decoded at loading (Titan Clash: 2048×3376 pixels in 1.7 MB).
 
@@ -386,9 +386,9 @@ On the console:
 
 - On the SDK's map page `l` goes to the next layer, Shift+L adds one (also from the menu, *New map layer*), `o` shows that one alone, `c` the flags of the tiles.
 - On the sprite page keys `0`–`7` toggle the cell's flags on and off.
-- bm Pixel and `scripts/bmres.py` make zones (`bmres.py` carries the boxes with their zones).
+- bm Pixel and `core/scripts/bmres.py` make zones (`bmres.py` carries the boxes with their zones).
 - `cart_save` and `cart_load` carry layers, flags, zones and boxes with the cartridge.
-- The format is in the LAYERS (12), FLAGS (13), SPRITES (11) and BOXES (14) sections of `src/bm/bm.h`. A kernel of before draws the first layer and ignores the rest.
+- The format is in the LAYERS (12), FLAGS (13), SPRITES (11) and BOXES (14) sections of `core/src/bm/bm.h`. A kernel of before draws the first layer and ignores the rest.
 
 # Input
 
@@ -492,7 +492,7 @@ end
 
 ### bmui, the mouse of bm's tools
 
-`require "bmui"` (`src/script/bmui.lua`). The editors (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, the assistant's panel) use it, and a game or a tool of your own can too. Its rule: the mouse does what the keys do. Things are made clickable as they are drawn, and a click presses the key behind them or chooses what they show; the right button opens a context menu whose entries are keys.
+`require "bmui"` (`core/src/script/bmui.lua`). The editors (SDK, bm Code, bm Studio, bm Animator, bm Mesh, bm Pixel, Sound, the assistant's panel) use it, and a game or a tool of your own can too. Its rule: the mouse does what the keys do. Things are made clickable as they are drawn, and a click presses the key behind them or chooses what they show; the right button opens a context menu whose entries are keys.
 
 | Function | What it does |
 |---|---|
@@ -519,7 +519,7 @@ Bluetooth controller *n* is player *n*: pair it from the monitor with `T`, one a
 
 - The USB keyboard or gamepad and the serial line are the first player without a pad (without Bluetooth pads: player 1).
 - The Bluetooth keyboard is a player of its own, the next one without a pad (the first, if there is nothing on USB).
-- One-player games use `btn(i)` without `p` and work with any controller. A game for more players asks `btn(i, p)` for each (example: `carts/pong`, two-player mode).
+- One-player games use `btn(i)` without `p` and work with any controller. A game for more players asks `btn(i, p)` for each (example: `bm/pong`, two-player mode).
 - bmlib has the screen where the players join (`lib.party`), the split screen (`lib.split`) and the colours (`lib.PLAYER_COLORS`); the SDK's *Versus 2D* template uses them.
 
 ```lua
@@ -541,9 +541,9 @@ local x, y = stick(1)                     -- player 1's stick, from -1 to 1
 | `devinfo(line, ...)` | up to 4 lines of the game in the dev kit's session report ("the game says:", as the run ended: its quality, its actors…), 18 characters each; `devinfo()` none. Call it again when they change |
 | `battery()` | the console's battery: its charge `0`–`100` and `true` on the charger (`local pct, plugged = battery()`); `nil` without a battery (the Pi). On the RGB30 the charge comes from the voltage (an indication: it sags under load and rises on the charger); the charger is seen within a quarter of a second |
 | `battery_low()` | `true` while the battery is low: 20% or less off the charger (until 23%). Then the system draws by itself a small red battery top right over the frame (left of the dev kit's overlay when it is at the top), in every game and tool; *Settings > Screen > Low battery icon* (`battery_icon=0` in `bm/config.txt`) turns that icon off, not `battery_low()`. Information only: each console has its own battery, so in lockstep (`bmnet`) it never changes what the game simulates; use it to show something or to save |
-| `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)` and the SDK's dev kit do (`src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens |
+| `code_tokens(text)` | the **tokens** of a piece of Lua code, counted as `stat(11)` and the SDK's dev kit do (`core/src/bm/tokens.c`): each name, keyword, number, string and operator is one; comments, spaces, `,` `.` `:` `;` `::`, closing brackets (`)` `]` `}`), `end` and `local` do not count, nor the minus sign in front of a number (`-1` is one token). Information, not a limit: bm puts no ceiling on tokens |
 | `log(...)` | writes in the kernel's log (serial line and console), not on the game's screen |
-| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`src/kernel/reports.h`); at most 8 per run, 256 KB each; `true` if saved. `kind` is a required string, a free-text category label: it is turned into lower case with `-` between other characters and goes into the report header and the uploaded file name; with `kind == "session"` the upload replaces the previous file (Overbit uses `"overbit-bench"`). The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
+| `report(kind, text)` | a report for the people who develop bm: saved in `bm/reports` on the SD card with kernel, branch, board and date (and a first `options` line: the 3D options in force), then sent to the reports' repository if there are `github_token` and the network (`core/src/kernel/reports.h`); at most 8 per run, 256 KB each; `true` if saved. `kind` is a required string, a free-text category label: it is turned into lower case with `-` between other characters and goes into the report header and the uploaded file name; with `kind == "session"` the upload replaces the previous file (Overbit uses `"overbit-bench"`). The first time a game calls it, the player is asked (the answer stays in `bm/config.txt`, `allow_...`): after a no, `false` |
 | `shot([prefix])` | saves the frame being drawn as a PNG (see the Screenshots chapter) |
 | `quit()` | closes the cartridge at the end of the frame |
 | `timeslice(co, [k])` | coroutine `co` stops by itself after about `k` thousand Lua instructions in a frame (400 if missing) and `coroutine.resume` returns `true` without values: a long computation goes on in the next frames instead of stopping the cartridge at the instruction limit. `timeslice(nil)` takes it away (nano8 uses it for its cartridges) |

@@ -1,4 +1,4 @@
-/* The C reader of .bmz (src/bm/bmz.c) on files made by scripts/bmz.py.
+/* The C reader of .bmz (core/src/bm/bmz.c) on files made by core/scripts/bmz.py.
  *   test_bmz GOOD.bmz RAW        the file must extract to RAW, byte for byte
  *   test_bmz BAD.bmz CODE        the file must fail with the named error (parse or extract)
  */

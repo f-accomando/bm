@@ -1,16 +1,16 @@
 # The manuals: one entry each. `sources` are the files of the repository the content comes from;
-# `scripts/manuals.py status` says when one of them changed after the manual was last stamped.
+# `core/scripts/manuals.py status` says when one of them changed after the manual was last stamped.
 # Content: manuals/content/<lang>/<id>.md, lang en and it, same structure (docs/MANUALS.md).
 
 [[manual]]
 id = "install-sd"
 order = 1
-sources = ["easy_install.sh", "scripts/mksd.py", "scripts/copy-sd-rgb30.sh", "docs/RGB30.md", "docs/progress/platforms.md"]
+sources = ["easy_install.sh", "core/scripts/mksd.py", "core/scripts/copy-sd-rgb30.sh", "docs/RGB30.md", "docs/progress/platforms.md"]
 
 [[manual]]
 id = "boot-os"
 order = 2
-sources = ["docs/progress/system.md", "boot", "chainloader", "src/kernel/syskeys.c", "docs/HARDWARE.md"]
+sources = ["docs/progress/system.md", "boot", "chainloader", "core/src/kernel/syskeys.c", "docs/HARDWARE.md"]
 
 [[manual]]
 id = "pi-zero-w"
@@ -51,60 +51,60 @@ sources = ["docs/api/tools.md", "docs/RISORSE.md", "docs/PROJECT-LAYOUT.md", "do
 [[manual]]
 id = "editor-sdk"
 order = 10
-sources = ["carts/editor/main.lua", "docs/design/suite-sdk.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/editor/main.lua", "docs/design/suite-sdk.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-code"
 order = 11
-sources = ["carts/code/main.lua", "docs/design/suite-code.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/code/main.lua", "docs/design/suite-code.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-pixel"
 order = 12
-sources = ["carts/pixel/main.lua", "docs/design/suite-pixel.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/pixel/main.lua", "docs/design/suite-pixel.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-studio"
 order = 13
-sources = ["carts/studio/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/studio/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-animator"
 order = 14
-sources = ["carts/animator/main.lua", "docs/design/suite-animator.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/animator/main.lua", "docs/design/suite-animator.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-mesh"
 order = 15
-sources = ["carts/mesh/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/mesh/main.lua", "docs/design/suite-studio-mesh.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-sound"
 order = 16
-sources = ["carts/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/sound/main.lua", "docs/design/suite-sound.md", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "editor-write"
 order = 17
-sources = ["carts/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
+sources = ["bm/write/main.lua", "docs/progress/tools.md", "sdk/README.md", "docs/RISORSE.md"]
 
 [[manual]]
 id = "characters"
 order = 18
 sources = ["docs/api/draw.md", "docs/api/light3d.md", "docs/progress/graphics.md", "docs/progress/yharnam.md", "docs/progress/tools.md",
            "docs/design/suite-pixel.md", "docs/design/suite-animator.md", "docs/design/games-architecture.md",
-           "carts/pixel/main.lua", "carts/animator/main.lua", "carts/studio/main.lua", "carts/mesh/main.lua",
-           "carts/titan/build/mkrobot.py", "carts/yharnam/build/mkassets.py", "tools/cutout2mesh.py", "tools/img2mesh.py"]
+           "bm/pixel/main.lua", "bm/animator/main.lua", "bm/studio/main.lua", "bm/mesh/main.lua",
+           "bm/titan/build/mkrobot.py", "bm/yharnam/build/mkassets.py", "core/tools/cutout2mesh.py", "core/tools/img2mesh.py"]
 
 [[manual]]
 id = "levels"
 order = 19
-sources = ["carts/editor/main.lua", "src/bm/map3d.c", "docs/api/draw.md", "docs/api/bmlib.md", "docs/api/light3d.md", "docs/GAME-GUIDE.md", "docs/design/games-architecture.md", "docs/design/suite-sdk.md", "docs/progress/tools.md", "docs/progress/graphics.md", "docs/progress/v3d.md", "docs/ROADMAP.md"]
+sources = ["bm/editor/main.lua", "core/src/bm/map3d.c", "docs/api/draw.md", "docs/api/bmlib.md", "docs/api/light3d.md", "docs/GAME-GUIDE.md", "docs/design/games-architecture.md", "docs/design/suite-sdk.md", "docs/progress/tools.md", "docs/progress/graphics.md", "docs/progress/v3d.md", "docs/ROADMAP.md"]
 
 [[manual]]
 id = "smw-guide"
 order = 20
-sources = ["carts/smw/src/game.lua", "carts/smw/src/physics.lua", "carts/smw/build/build.py", "carts/smw/build/sprites.py", "docs/progress/smw.md"]
+sources = ["bm/smw/src/game.lua", "bm/smw/src/physics.lua", "bm/smw/build/build.py", "bm/smw/build/sprites.py", "docs/progress/smw.md"]
 
 [[manual]]
 id = "graphics-techniques"
@@ -114,4 +114,4 @@ sources = ["docs/PERF-BUDGET.md", "docs/progress/graphics.md", "docs/progress/gr
 [[manual]]
 id = "bml"
 order = 22
-sources = ["tools/bml/bml.py", "docs/design/bml-manual.md", "docs/progress/typed.md", "src/bm/bmvm.h"]
+sources = ["core/tools/bml/bml.py", "docs/design/bml-manual.md", "docs/progress/typed.md", "core/src/bm/bmvm.h"]

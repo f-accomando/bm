@@ -4,7 +4,7 @@
   tests/fixtures/mktestkit.py OUT.bm [--plain | --map]
 
 Made at test time from a few lines of code (no binary in the repository), with
-the repository's own tools (scripts/mkbm.py, scripts/bmmesh.py):
+the repository's own tools (core/scripts/mkbm.py, core/scripts/bmmesh.py):
 
   - a 256x256 sheet (SHEET8) with 8 textured patches and a clear background;
   - MESH: 8 models in this order: ground (288 faces), house, tree, bush, well,
@@ -24,7 +24,7 @@ import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 

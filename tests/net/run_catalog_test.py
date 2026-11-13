@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The Market's catalog (M25): scripts/mkmarket.py checks a folder of games
+"""The Market's catalog (M25): core/scripts/mkmarket.py checks a folder of games
 and signs the catalog with a test key (openssl, ECDSA P-256), then
-tests/net/test_catalog.c reads it with src/net/catalog.c and decodes the
+tests/net/test_catalog.c reads it with core/src/net/catalog.c and decodes the
 covers with the kernel's PNG reader. Also mkmarket.py's own refusals and
 --add."""
 import os
@@ -11,10 +11,10 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mkbm  # noqa: E402
 
-MKMARKET = os.path.join(HERE, "..", "..", "scripts", "mkmarket.py")
+MKMARKET = os.path.join(HERE, "..", "..", "core", "scripts", "mkmarket.py")
 fails = 0
 
 

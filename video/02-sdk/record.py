@@ -4,7 +4,7 @@ Builds the first level of Skyvale World on the cartridge of episode 1.
 
   python3 video/02-sdk/record.py [--build-only] [--no-record]
 
-Run 1: the SDK (carts/editor/main.lua) with bmhost --tool, on a clean SD that
+Run 1: the SDK (bm/editor/main.lua) with bmhost --tool, on a clean SD that
 holds start.bm (the cartridge episode 1 saved). Run 2: the saved cartridge, as
 F5 would run it (the tool leaves for the game, so it is another recording);
 its frames follow the first run's. Needs build/host/bmhost-bin and build/editor.bm
@@ -302,13 +302,13 @@ def main():
     if "--no-record" not in sys.argv:
         for d in (SD, SD_GAME):
             shutil.rmtree(d, ignore_errors=True)
-            os.makedirs(os.path.join(d, "carts"))
-        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "carts", "SKYVALE.BM"))
+            os.makedirs(os.path.join(d, "bm"))
+        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "bm", "SKYVALE.BM"))
         raw1, raw2 = os.path.join(OUT, "raw1.rgb"), os.path.join(OUT, "raw2.rgb")
         call([BMHOST, SDK, "--tool", "--sd", SD, "--seconds", str(s.t_editor_end / FPS), "--input",
               os.path.join(OUT, "input.txt"), "--video", raw1, "--quiet"])
-        shutil.copy(os.path.join(SD, "carts", "SKYVALE.BM"), os.path.join(SD_GAME, "carts", "SKYVALE.BM"))
-        call([BMHOST, os.path.join(SD_GAME, "carts", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
+        shutil.copy(os.path.join(SD, "bm", "SKYVALE.BM"), os.path.join(SD_GAME, "bm", "SKYVALE.BM"))
+        call([BMHOST, os.path.join(SD_GAME, "bm", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
               "--video", raw2, "--quiet"])
         raw = os.path.join(OUT, "raw.rgb")
         with open(raw, "wb") as out:

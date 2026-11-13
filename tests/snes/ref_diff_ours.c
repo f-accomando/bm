@@ -1,4 +1,4 @@
-/* ref_diff_ours.c: our 65C816 (src/bm/snes_cpu.c, built with -DSNES_TRACE) driven for tests/snes/ref_diff.cpp.
+/* ref_diff_ours.c: our 65C816 (core/src/bm/snes_cpu.c, built with -DSNES_TRACE) driven for tests/snes/ref_diff.cpp.
  * The memory map is replaced by one flat 16 MB array (every page plain memory, 6 master clocks per access) so the harness sees every write in order.
  * Only the C core of the repository is in this file; the reference side (ref_diff.cpp) is a separate program part that reads an outside source tree.
  * Original code. */

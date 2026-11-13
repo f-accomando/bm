@@ -1,6 +1,6 @@
 # The 500 ms SD read timeout (sdhost): history and open fault
 
-Status: open fault, cause unknown. Written 27 Oct 2026 after a Pi Zero W lost its WiFi because of this fault. Read this file before you change a timeout in `src/drivers/sdhost.c` or `src/drivers/sd.c`.
+Status: open fault, cause unknown. Written 27 Oct 2026 after a Pi Zero W lost its WiFi because of this fault. Read this file before you change a timeout in `core/src/drivers/sdhost.c` or `core/src/drivers/sd.c`.
 
 Short rule: do not change the timeout value again to hide the stall. Two attempts of that kind failed. One of them is the suspected cause of the 27 Oct WiFi loss.
 
@@ -52,7 +52,7 @@ Ideas written in the notes and not tried:
 
 ## 4. The side effect of S1: the WiFi can be lost
 
-`sd_read` in `src/drivers/sd.c` moves the card to the Arasan (EMMC) controller for good when `sdhost_read` fails after its own retry. The WiFi chip uses the Arasan controller. After the move there is no controller for WiFi.
+`sd_read` in `core/src/drivers/sd.c` moves the card to the Arasan (EMMC) controller for good when `sdhost_read` fails after its own retry. The WiFi chip uses the Arasan controller. After the move there is no controller for WiFi.
 
 The plan in [sd-stall-plan](sd-stall-plan.md) section 2 has this rule: a soft timeout must never reach `fall_back`; only the third attempt uses the full spec timeout. S1 did not keep it. `wait_transfer_complete` uses 25 ms for the first try and for the retry. Two timeouts in a row now cost 50 ms and then call `fall_back`. Before S1 the same case needed two waits of 500 ms.
 
@@ -66,7 +66,7 @@ Not proved: that the 25 ms retry caused the move. The log has no `sd_error()` te
 
 Open question for the owner: the S1 pass criterion "no more fallbacks than before" was written. Nobody counted the fallbacks on the Pi. Count them first.
 
-Change on branch `claude/sd-reinit-before-arasan` (27 Oct 2026, not yet run on the Pi): `sd_read` and a single-block `sd_write` call `restart_sdhost` in `src/drivers/sd.c` after SDHOST fails twice. It writes the error text and the sites that moved to the RAM log, runs `sdhost_init` once, and repeats the transfer. The card moves to the Arasan controller only if that fails too. Look for these lines in `logs bootprev` after the next fault: `sd: sdhost read failed (...)`, `sd: sdhost started again`.
+Change on branch `claude/sd-reinit-before-arasan` (27 Oct 2026, not yet run on the Pi): `sd_read` and a single-block `sd_write` call `restart_sdhost` in `core/src/drivers/sd.c` after SDHOST fails twice. It writes the error text and the sites that moved to the RAM log, runs `sdhost_init` once, and repeats the transfer. The card moves to the Arasan controller only if that fails too. Look for these lines in `logs bootprev` after the next fault: `sd: sdhost read failed (...)`, `sd: sdhost started again`.
 
 ## 5. Rules for the next attempt
 
@@ -89,7 +89,7 @@ These leads are not checked. Mark each result here when you read it.
 
 ## 7. Code and notes
 
-- Driver: `src/drivers/sdhost.c` (`wait_transfer_complete`, `read_blocks`, `sdhost_read`), `src/drivers/sd.c` (`fall_back`), `src/wifi/wifi.c` (the message).
+- Driver: `core/src/drivers/sdhost.c` (`wait_transfer_complete`, `read_blocks`, `sdhost_read`), `core/src/drivers/sd.c` (`fall_back`), `core/src/wifi/wifi.c` (the message).
 - Plan with the stages S0 to S5: [sd-stall-plan](sd-stall-plan.md).
 - History of the fibers and the first notes: [multitasking](../progress/multitasking.md).
 - Wait budget remark: [multitasking-alternatives](multitasking-alternatives.md) item 11, [multitasking-report](multitasking-report.md).

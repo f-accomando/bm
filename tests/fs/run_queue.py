@@ -11,7 +11,7 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mksd  # noqa: E402
 
 PART_OFFSET = 2048 * 512
@@ -22,7 +22,7 @@ def check(binary, size_mib, cluster_sectors):
     what = f"{cluster_sectors * 512} B clusters"
     with tempfile.TemporaryDirectory() as tmp:
         img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(readme, "carts/README.TXT")], size_mib, cluster_sectors=cluster_sectors)
+        mksd.build(img, [(readme, "bm/README.TXT")], size_mib, cluster_sectors=cluster_sectors)
         print(f"-- {what}")
         if subprocess.run([binary, img], cwd=tmp).returncode:
             print(f"FAIL ({what})")

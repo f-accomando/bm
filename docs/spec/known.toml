@@ -1,7 +1,7 @@
 # Divergences that are accepted: each has a reason and a kind (hardware = the platform really differs;
 # history = built at different times, to align; todo = missing on purpose for now; text = noise in the docs;
 # intended = accepted in writing, the reason is in `because`).
-# `scripts/consistency.py check` fails on anything NOT listed here, and on an entry that is no longer found.
+# `core/scripts/consistency.py check` fails on anything NOT listed here, and on an entry that is no longer found.
 
 [[accept]]
 id = "platform-screen:modes"

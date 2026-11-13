@@ -7,7 +7,7 @@ description: Headless stdlib Python toolkit for bm 3D assets and games. Use it t
 
 ## What it is
 
-A command line (`scripts/bm_forge.py`) over `bm_core`, a stdlib-only Python port of the bm
+A command line (`core/scripts/bm_forge.py`) over `bm_core`, a stdlib-only Python port of the bm
 container, MESH and ANIM formats. It builds, exports, validates and previews 3D assets and
 example games without the console, a GPU or any third-party package.
 
@@ -20,7 +20,7 @@ example games without the console, a GPU or any third-party package.
 - Default limits 4096 vertices / 16384 triangles a model; `--kernel-limits` raises them to 65535.
 - Validation is strict: stricter than the kernel reader on purpose (`references/OPEN_QUESTIONS.md`).
 - A `.bm` cartridge says in its header (`targets`: pi, rgb30) which kernels it is for. `export cart --targets` writes it.
-  `skel`/`anim` refuse an output kind different from the input (`.bm` to `.bme`) (`scripts/bm_forge.py:336`).
+  `skel`/`anim` refuse an output kind different from the input (`.bm` to `.bme`) (`core/scripts/bm_forge.py:336`).
 - Something not checked is written NON VERIFICATO, never stated as fact.
 - No network, no third-party tool needed (`doctor` lists the optional ones).
 - Always pass absolute `-o` paths. Never write outputs to the repo root.
@@ -29,8 +29,8 @@ example games without the console, a GPU or any third-party package.
 
 ## CLI at a glance
 
-Command: `python .claude/skills/bm-forge/scripts/bm_forge.py <sub>`. Launchers `scripts/bm-forge` (sh)
-and `scripts/bm-forge.cmd` (Windows) run `doctor` (checked 2026-10-13: WSL and Windows).
+Command: `python .claude/skills/bm-forge/scripts/bm_forge.py <sub>`. Launchers `core/scripts/bm-forge` (sh)
+and `core/scripts/bm-forge.cmd` (Windows) run `doctor` (checked 2026-10-13: WSL and Windows).
 Details, syntax and output lines: `references/CLI.md`.
 
 - `mesh` boxes `.json` / untextured `.glb` -> models `.bm` or `.bmm`.

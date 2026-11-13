@@ -1,5 +1,5 @@
 /*
- * The GPU backend of r3d (src/gpu/gpu3d.c) against the software
+ * The GPU backend of r3d (core/src/gpu/gpu3d.c) against the software
  * rasterizer, on the V3D emulator of v3d_emu.c (M33).
  *
  *   test_gpu3d RED_A TEX_SWAP [TFORMAT [MS_LOAD_ONE [DIR]]]

@@ -1,4 +1,4 @@
-/* The tests of the SA-1 co-processor (src/bm/snes_sa1.c): small original programs on a made-up ROM (no commercial ROM). The S-CPU program releases the SA-1
+/* The tests of the SA-1 co-processor (core/src/bm/snes_sa1.c): small original programs on a made-up ROM (no commercial ROM). The S-CPU program releases the SA-1
  * CPU; the SA-1 program uses the math unit, the BW-RAM window, the bit processor, the I-RAM and the interrupts between the two CPUs. Run: make test-snes-sa1. */
 #include "snes.h"
 #include "snes_int.h"

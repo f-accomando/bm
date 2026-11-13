@@ -36,9 +36,9 @@
 2026-10-15|bm-planner|opus|WO APP-5b editor help and lint|sync|-|-|DONE|118988|66|513
 2026-10-15|bm-planner|opus|WO API-1 performance budget|sync|-|-|DONE|88252|74|376
 2026-10-15|bm-planner|opus|WO APP-6 dev without PC|sync|-|-|DONE|168760|101|770
-2026-10-15|general-purpose|sonnet|write tools/sync_log.py|sync|-|-|DONE|76088|6|88
-2026-10-15|general-purpose|sonnet|write scripts/ledger_add.py|sync|-|-|DONE|80476|13|117
-2026-10-15|general-purpose|sonnet|write scripts/ledger_repeats.py|sync|-|-|DONE|73365|7|70
+2026-10-15|general-purpose|sonnet|write core/tools/sync_log.py|sync|-|-|DONE|76088|6|88
+2026-10-15|general-purpose|sonnet|write core/scripts/ledger_add.py|sync|-|-|DONE|80476|13|117
+2026-10-15|general-purpose|sonnet|write core/scripts/ledger_repeats.py|sync|-|-|DONE|73365|7|70
 2026-10-15|general-purpose|sonnet|write bm-translate skill and checker|docs|-|-|DONE|162604|47|631
 2026-10-15|general-purpose|sonnet|review AGY-7 Italian PDF|sync|-|-|DONE|145966|26|160
 2026-10-15|general-purpose|sonnet|review AGY-8 scaffold prompt|sync|-|-|DONE|93763|10|183

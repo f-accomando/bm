@@ -23,8 +23,8 @@ import time
 import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "core", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
 sys.path.insert(0, os.path.join(HERE, "studio"))
 sys.path.insert(0, os.path.join(HERE, "ai"))
 import anim_figure  # noqa: E402
@@ -225,7 +225,7 @@ def read_ppm(path):
 
 
 def load_font(cw=8, ch=16):
-    """Glyph bitmaps from src/gfx/font<cw>x<ch>.c, keyed by row bytes."""
+    """Glyph bitmaps from core/src/gfx/font<cw>x<ch>.c, keyed by row bytes."""
     import re
     # the menu at 360p and on the RGB30 draws with Inter (font_inter8x16.c), the monitor with the classic 8x16
     names = ["font%dx%d.c" % (cw, ch)]
@@ -233,7 +233,7 @@ def load_font(cw=8, ch=16):
         names.append("font_inter8x16.c")
     table = {}
     for name in names:
-        src = open(os.path.join(HERE, "..", "src", "gfx", name)).read()
+        src = open(os.path.join(HERE, "..", "core", "src", "gfx", name)).read()
         rows = re.findall(r"\{ (0x[0-9a-f]{2}(?:, 0x[0-9a-f]{2}){%d}) \}" % (ch - 1), src)
         for code, r in enumerate(rows):
             key = bytes(int(b, 16) for b in r.split(", "))
@@ -562,7 +562,7 @@ def scroll_thumb(img):
     """The thumb of the menu's scroll bar (more than two rows of covers):
     (top, bottom) of its light pixels at x 620, y 96-300, or None. The bar
     is 4 pixels wide, centred in the right margin: SBAR_X in
-    src/kernel/menu_ui.c (618 with six covers of 88 and a gap of 6)."""
+    core/src/kernel/menu_ui.c (618 with six covers of 88 and a gap of 6)."""
     ys = [y for y in range(96, 300) if sum(pixel(img, 620, y)) > 600]
     return (ys[0], ys[-1] + 1) if ys else None
 
@@ -757,7 +757,7 @@ def holdkey(q, key, ms):
 
 
 def test_keys_help(b, opts):
-    """The system's keys (src/kernel/syskeys.c, 2026-10-04): F12 held over
+    """The system's keys (core/src/kernel/syskeys.c, 2026-10-04): F12 held over
     the menu shows them with the keys' pictures, then the menu's own; let
     go, the menu again. In an app (bm Studio) the same, then the app's
     (keyhelp()); Ctrl+Esc leaves it."""
@@ -878,7 +878,7 @@ def test_wifi_probe(b, opts):
     message, without hanging, and the SD card must still work afterwards."""
     tmp = tempfile.mkdtemp(prefix="bm-wifi-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/astrowing.bm"), "bm/demo.bm")])
+    mksd.build(img, [(b("bm/astrowing.bm"), "bm/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
@@ -899,16 +899,16 @@ def test_sd_games_bm(b, opts):
     /bm or in the root is listed, a game left in /carts is not."""
     tmp = tempfile.mkdtemp(prefix="bm-sdbm-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.bm"), "carts/pong.bm"),
-                     (b("carts/snake.bm"), "snake.bm"),
-                     (b("carts/astrowing.bm"), "bm/rgbgame.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm"),
+                     (b("bm/snake.bm"), "snake.bm"),
+                     (b("bm/astrowing.bm"), "bm/rgbgame.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
         assert "label BMSD; 2 cartridges" in out, out
         q.send(":carts list\r")
         out = q.expect("> ").decode(errors="replace")
-        assert "/snake.bm" in out and "/bm/rgbgame.bm" in out and "/carts/pong.bm" not in out, out
+        assert "/snake.bm" in out and "/bm/rgbgame.bm" in out and "/bm/pong.bm" not in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -934,7 +934,7 @@ def test_suspend_resume(b, opts):
     cart = os.path.join(tmp, "counter.bm")
     with open(cart, "wb") as f:
         f.write(mkbm.pack(COUNTER_CART.encode(), title="AAA counter"))
-    mksd.build(img, [(cart, "bm/counter.bm"), (b("carts/astrowing.bm"), "bm/zdemo.bm")])
+    mksd.build(img, [(cart, "bm/counter.bm"), (b("bm/astrowing.bm"), "bm/zdemo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -1094,7 +1094,7 @@ def test_sd_save_and_config(b, opts):
     card is still a clean FAT32 volume afterwards (fsck.vfat, mtools)."""
     tmp = tempfile.mkdtemp(prefix="bm-save-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/snake.bm"), "bm/snake.bm")])
+    mksd.build(img, [(b("bm/snake.bm"), "bm/snake.bm")])
     cart = mkbm.pack(SAVE_CART.encode(), title="save test")
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     try:
@@ -1337,7 +1337,7 @@ function _init()
   show("w2", res_write("/bmm/tri.bmm", "model", { sections = { [8] = M, [2] = SHEET }, replace = true,
                                                   name = "Tri Two", author = "me" }))
   whole("r2", res_read("/BMM/TRI.BMM"))
-  for i, p in ipairs({ "/bmm/Tri.bmm", "/carts/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
+  for i, p in ipairs({ "/bmm/Tri.bmm", "/bm/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
                        "/bmm/../x.bmm", "/bmm/.bmm", "/bmm/sp ace.bmm", "/bmm" }) do
     show("path" .. i, res_write(p, 1, { sections = { [8] = M } }))
   end
@@ -1363,7 +1363,7 @@ def test_res_write(b, opts):
     file (BMRES) in /bmm, res_read(path) gives it back. For a game: res_write is refused and
     res_read works. For a tool (the SD card's sdk.bm runs as bm SDK): a new file, the file read
     back, no overwrite without replace, replace, a lower case name only, the MESH section
-    checked, one sheet, the bytes of the file (the ones scripts/bmres.py makes), nothing else
+    checked, one sheet, the bytes of the file (the ones core/scripts/bmres.py makes), nothing else
     written in /bmm."""
     tmp = tempfile.mkdtemp(prefix="bm-reswrite-")
     img = os.path.join(tmp, "sd.img")
@@ -1460,7 +1460,7 @@ def test_res_write(b, opts):
         assert "TRI.BMM" in names and len(names.split()) == 1, names          # nothing else written in /bmm
         got = subprocess.run(["mtype", "-i", part, "::/BMM/TRI.BMM"], capture_output=True, env=env).stdout
         want = bmres.dump(bmres.File(bmres.MODEL, "Tri Two", "me", [[8, mesh], [2, sheet]]))
-        assert got == want, "the file is not the one scripts/bmres.py makes"
+        assert got == want, "the file is not the one core/scripts/bmres.py makes"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -1729,11 +1729,11 @@ end
 
 
 def test_bmweb(b, opts):
-    """bm Web (carts/bmweb) starts on the Pi kernel, draws its home page and, with no network (the QEMU
+    """bm Web (bm/bmweb) starts on the Pi kernel, draws its home page and, with no network (the QEMU
     machine has none), shows an error page for a request and for a refused address. The browser logic
     against a mock kernel is tested on the PC by make test-web."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("bmweb_build", os.path.join(HERE, "..", "carts", "bmweb", "build", "build.py"))
+    spec = importlib.util.spec_from_file_location("bmweb_build", os.path.join(HERE, "..", "bm", "bmweb", "build", "build.py"))
     bb = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bb)
     src = bb.build() + BMWEB_DRIVER
@@ -2082,7 +2082,7 @@ def test_bt_pair_and_reconnect(b, opts):
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
         f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
-    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/snake.bm"), "bm/snake.bm")])
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("bm/snake.bm"), "bm/snake.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     pad = FakeDs4Chip.DS4
     try:
@@ -2574,8 +2574,8 @@ def test_bt_mouse(b, opts):
     hcd = os.path.join(tmp, "BCM43430A1.hcd")
     with open(hcd, "wb") as f:
         f.write(bytes([0x4C, 0xFC, 4, 1, 2, 3, 4, 0x4E, 0xFC, 4, 0xFF, 0xFF, 0xFF, 0xFF]))
-    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("carts/pong.bm"), "bm/pong.bm"),
-                     (b("carts/snake.bm"), "bm/snake.bm")])
+    mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (b("bm/pong.bm"), "bm/pong.bm"),
+                     (b("bm/snake.bm"), "bm/snake.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
     try:
@@ -3056,7 +3056,7 @@ def test_menu_tabs(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
-                     (b("carts/astrowing.bm"), "bm/game.bm")])
+                     (b("bm/astrowing.bm"), "bm/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
 
@@ -3182,8 +3182,8 @@ def _market_site(tmp, b, key):
     cover = (128, 80, bytes([200, 60, 40, 255]) * (128 * 80))       # one red
     carts = [("mtest", "mtest.bm", mkbm.pack(MARKET_GAME.encode(), title="Market Test", author="tests",
                                              cover=cover)),
-             ("pong", "pong.bm", open(b("carts/pong.bm"), "rb").read()),
-             ("snake", "snake.bm", open(b("carts/snake.bm"), "rb").read()),
+             ("pong", "pong.bm", open(b("bm/pong.bm"), "rb").read()),
+             ("snake", "snake.bm", open(b("bm/snake.bm"), "rb").read()),
              ("zbroken", "broken.bm", mkbm.pack(MARKET_GAME.encode(), title="Broken", author="tests"))]
     for gid, name, data in carts:
         d = os.path.join(games, gid)
@@ -3193,7 +3193,7 @@ def _market_site(tmp, b, key):
         with open(os.path.join(d, "info.txt"), "w") as f:
             f.write("version: 1.0\nlicense: MIT\nabout: A game for the test.\n")
     site = os.path.join(tmp, "site")
-    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "scripts", "mkmarket.py"), games, "-o", site,
+    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "core", "scripts", "mkmarket.py"), games, "-o", site,
                         "--key", key, "--serial", "20261001120000"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     broken = os.path.join(site, "games", "zbroken", "broken.bm")
@@ -3317,7 +3317,7 @@ def test_market(b, opts):
         with open(cfg, "w") as f:
             f.write("layout=us\nwifi_boot=0\nmarket_url=sd:/market/\nmarket_delay=250\n")
         img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/market.pem"), (b("carts/pong.bm"), "bm/pong.bm")]
+        mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/market.pem"), (b("bm/pong.bm"), "bm/pong.bm")]
                    + _market_site(tmp, b, key))
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
@@ -3475,10 +3475,10 @@ def test_update(b, opts):
         own = "/kernel7.img" if KERNEL7 else "/kernel.img"
         other = "/kernel.img" if KERNEL7 else "/kernel7.img"
         files = [(k6, "/kernel.img"), (k7, "/kernel7.img"),
-                 (snake2, "/carts/snake.bm"), (b("carts/pong.bm"), "/carts/pong.bm"),
-                 (b("carts/shooter.bm"), "/carts/shooter.bm"),
-                 (os.path.join(HERE, "..", "boot", "ca.pem"), "/bm/ca.pem")]
-        args = [sys.executable, os.path.join(HERE, "..", "scripts", "mkrelease.py"), rel, "--version", "v9.9.9",
+                 (snake2, "/bm/snake.bm"), (b("bm/pong.bm"), "/bm/pong.bm"),
+                 (b("bm/shooter.bm"), "/bm/shooter.bm"),
+                 (os.path.join(HERE, "..", "core", "boot", "ca.pem"), "/bm/ca.pem")]
+        args = [sys.executable, os.path.join(HERE, "..", "core", "scripts", "mkrelease.py"), rel, "--version", "v9.9.9",
                 "--commit", "abc1234", "--key", key, "--pub", pub]
         for src, path in files:
             args += ["--file", f"{src}:{path}"]
@@ -3495,8 +3495,8 @@ def test_update(b, opts):
             f.write("layout=us\nwifi_boot=0\nupdate_url=sd:/release/\n")
         img = os.path.join(tmp, "sd.img")
         mksd.build(img, [(cfg, "bm/config.txt"), (pub, "bm/release.pem"), (old_ca, "bm/ca.pem"),
-                         (old_kernel, "kernel.img"), (b("carts/pong.bm"), "carts/pong.bm"),
-                         (b("carts/snake.bm"), "carts/snake.bm")]
+                         (old_kernel, "kernel.img"), (b("bm/pong.bm"), "bm/pong.bm"),
+                         (b("bm/snake.bm"), "bm/snake.bm")]
                    + [(os.path.join(rel, n), "release/" + n) for n in os.listdir(rel)])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
@@ -3532,8 +3532,8 @@ def test_update(b, opts):
             assert "a build of the sources" in out or "newer than this kernel" in out, out
             lines = {l.split()[0]: l for l in out.replace("\r", "").splitlines() if l.startswith("  /")}
             assert lines["/kernel.img"].endswith("changed") and lines["/kernel7.img"].endswith("new"), lines
-            assert lines["/carts/snake.bm"].endswith("changed") and lines["/carts/pong.bm"].endswith("same"), lines
-            assert lines["/carts/shooter.bm"].endswith("not on the card (Market)"), lines
+            assert lines["/bm/snake.bm"].endswith("changed") and lines["/bm/pong.bm"].endswith("same"), lines
+            assert lines["/bm/shooter.bm"].endswith("not on the card (Market)"), lines
             assert lines["/bm/ca.pem"].endswith("changed"), lines
             # the menu stayed on the panel: the check's result, then what it would write
             screen(["Check for updates", "v9.9.9: 4 files", "/kernel.img", "changed", "/kernel7.img", "new"])
@@ -3571,9 +3571,9 @@ def test_update(b, opts):
         assert read("/KERNEL7.IMG") == open(k7, "rb").read(), "kernel7.img installed"
         assert read("/BM/BACKUP/KERNEL.IMG") == open(old_kernel, "rb").read(), "the old kernel kept"
         assert read("/CARTS/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
-        assert read("/CARTS/PONG.BM") == open(b("carts/pong.bm"), "rb").read(), "the same game untouched"
+        assert read("/CARTS/PONG.BM") == open(b("bm/pong.bm"), "rb").read(), "the same game untouched"
         assert read("/CARTS/SHOOTER.BM") is None, "a game not on the card stays off it"
-        assert read("/BM/CA.PEM") == open(os.path.join(HERE, "..", "boot", "ca.pem"), "rb").read(), "ca.pem"
+        assert read("/BM/CA.PEM") == open(os.path.join(HERE, "..", "core", "boot", "ca.pem"), "rb").read(), "ca.pem"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -3735,7 +3735,7 @@ def test_sd_sdhc_and_usb_menu(b, opts):
     """4 GB card (SDHC addressing); with a USB keyboard boot ends in the menu."""
     tmp = tempfile.mkdtemp(prefix="bm-sd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/astrowing.bm"), "bm/game.bm")], 4096)
+    mksd.build(img, [(b("bm/astrowing.bm"), "bm/game.bm")], 4096)
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
     try:
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
@@ -3783,7 +3783,7 @@ def test_menu_scroll(b, opts):
     gone (15 cartridges: three rows of six)."""
     tmp = tempfile.mkdtemp(prefix="bm-scroll-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/astrowing.bm"), f"bm/g{i}.bm") for i in range(1, 16)])
+    mksd.build(img, [(b("bm/astrowing.bm"), f"bm/g{i}.bm") for i in range(1, 16)])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def thumb():
@@ -3970,7 +3970,7 @@ def test_pong_kit(b, opts):
     lib.sounds for its notes and tunes): it starts on the ARM, runs without an
     error and draws its title. Its play is compared with the old version by
     make test-game-trace."""
-    cart = b("carts/pong.bm")
+    cart = b("bm/pong.bm")
     if not os.path.exists(cart):
         subprocess.run(["make", "-s", cart], check=True, cwd=os.path.dirname(os.path.abspath(__file__)) + "/..")
     tmp = tempfile.mkdtemp(prefix="bm-pongkit-")
@@ -4127,7 +4127,7 @@ def test_monitor_line(b, opts):
         assert "err: none" in out, out
         assert "running: menu" in out, out
         q.expect("> ")
-        # net fetch (src/kernel/netfetch.c): the checks before the network; QEMU has no network
+        # net fetch (core/src/kernel/netfetch.c): the checks before the network; QEMU has no network
         for line, want in ((":net fetch\r", "net fetch URL [NAME] [replace]"),
                            (":net fetch http://example.org/x.bm\r", "only https"),
                            (":net fetch https://example.org/readme.txt\r", ".bm cartridge, a .bme project, a .bmk kit or a .bmm model"),
@@ -4225,7 +4225,7 @@ def _plain(data):
 
 
 def test_monitor_help_table(b, opts):
-    """The help is made from the table of commands (src/kernel/monitor_cmd.c): one
+    """The help is made from the table of commands (core/src/kernel/monitor_cmd.c): one
     line for each command, none longer than the console (79 characters: the pager wraps at 80), the old
     words in a last line; 'help NAME' says more about one command."""
     q = Qemu(b("kernel.img"))
@@ -4513,7 +4513,7 @@ def test_monitor_words(b, opts):
 
 
 def test_reports(b, opts):
-    """The reports (src/kernel/reports.c, 2026-10-04): Z in the monitor makes
+    """The reports (core/src/kernel/reports.c, 2026-10-04): Z in the monitor makes
     one of the log, saved as bm/reports/rpt00001.txt with its header (kernel,
     branch, board, date, the long name with kernel and branch), the token
     masked where the log had it (the repository may be public); with a token
@@ -4523,7 +4523,7 @@ def test_reports(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\ngithub_token=test-token-4242\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/astrowing.bm"), "bm/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -4573,13 +4573,13 @@ def test_crash_report(b, opts):
     cable): the red screen shows who called (the return addresses on the
     stack), after 60 s the watchdog restarts the Pi, which keeps its memory,
     and the next boot saves the crash as a report with the lines printed
-    before it (src/kernel/crumbs.c). Not in the first 20 s of a boot."""
+    before it (core/src/kernel/crumbs.c). Not in the first 20 s of a boot."""
     tmp = tempfile.mkdtemp(prefix="bm-crash-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/astrowing.bm"), "bm/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -4625,7 +4625,7 @@ def test_menu_scale(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nmenu_scale=3\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/astrowing.bm"), "bm/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -4652,7 +4652,7 @@ def test_menu_scale_360_gpu(b, opts):
     cfg = os.path.join(tmp, "config.txt")
     with open(cfg, "w") as f:
         f.write("layout=us\nmenu_scale=4\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/astrowing.bm"), "bm/game.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)
@@ -4809,7 +4809,7 @@ def test_stat_perf(b, opts):
         q.close()
     # not for logic: a cartridge that reads them stays away from netplay
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for d, _, files in os.walk(os.path.join(root, "carts")):
+    for d, _, files in os.walk(os.path.join(root, "bm")):
         for f in files:
             if f.endswith(".lua"):
                 with open(os.path.join(d, f), encoding="utf-8", errors="replace") as fh:
@@ -4849,7 +4849,7 @@ def test_devkit_per_run(b, opts):
 
 
 def test_bm_write(b, opts):
-    """bm Write (carts/write, 2026-10-06): a document with a title and a bold
+    """bm Write (bm/write, 2026-10-06): a document with a title and a bold
     word, saved in /docs: the console asks the first time for the documents
     (A allows, docs=yes in bm/config.txt); exported to PDF; the toolbar
     shows its name. The card is still a clean FAT32 volume and holds
@@ -4869,7 +4869,7 @@ def test_bm_write(b, opts):
 
     try:
         q.boot()
-        with open(b("carts/write.bm"), "rb") as f:
+        with open(b("bm/write.bm"), "rb") as f:
             assert _upload(q, f.read())
         q.expect("write: ready", timeout=30)
         time.sleep(0.5)
@@ -5092,7 +5092,7 @@ function _init()
 end
 """
 
-# a cartridge with the demo bank of the Sound editor (carts/sound/demo.json)
+# a cartridge with the demo bank of the Sound editor (bm/sound/demo.json)
 BANK_CART = r"""
 local n = 0
 function _init()
@@ -5128,9 +5128,9 @@ end
 
 
 def _bank_bm(src, **kw):
-    sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+    sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
     import bmaudio
-    return mkbm.pack(src.encode(), audio=bmaudio.load(os.path.join(HERE, "..", "carts", "sound", "demo.json")), **kw)
+    return mkbm.pack(src.encode(), audio=bmaudio.load(os.path.join(HERE, "..", "bm", "sound", "demo.json")), **kw)
 
 
 def test_audio_bank(b, opts):
@@ -5168,7 +5168,7 @@ def test_volume_saved(b, opts):
     comes back after a reboot."""
     tmp = tempfile.mkdtemp(prefix="bm-vol-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     try:
         q = Qemu(b("kernel.img"), drive)
@@ -5210,7 +5210,7 @@ def test_sd_logs(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nwifi_boot=0\nnet_password=test-pass-4242\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/astrowing.bm"), "bm/game.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/astrowing.bm"), "bm/game.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
         try:
             q.expect(MENU, timeout=30)
@@ -5263,7 +5263,7 @@ def test_sound_editor(b, opts):
     (PONG.BME), after the console's question."""
     tmp = tempfile.mkdtemp(prefix="bm-snd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")])
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     q = Qemu(b("kernel.img"), drive)
 
@@ -5303,13 +5303,13 @@ def test_sound_editor(b, opts):
         fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
         assert fsck.returncode == 0, fsck.stdout + fsck.stderr
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
         import bmaudio
         pong = subprocess.run(["mtype", "-i", part, "::/BME/PONG.BME"], capture_output=True, env=env).stdout
         assert pong[:8] == b"BMCART\x00\x00", pong[:16]
         assert pong[18] & 1, "the copy is a project (.bme)"
         game = subprocess.run(["mtype", "-i", part, "::/BM/PONG.BM"], capture_output=True, env=env).stdout
-        assert game == open(b("carts/pong.bm"), "rb").read(), "the game stays as it was"
+        assert game == open(b("bm/pong.bm"), "rb").read(), "the game stays as it was"
         import zlib
         assert zlib.crc32(pong[128:]) & 0xFFFFFFFF == int.from_bytes(pong[20:24], "little"), "pong.bm CRC"
         bank = bmaudio.unpack(bmaudio.extract(pong))
@@ -5337,7 +5337,7 @@ def test_sound_editor(b, opts):
 
 
 def test_sound_assistant(b, opts):
-    """The music assistant in bm Sound (F6, src/ai/music.c): a lo-fi backing
+    """The music assistant in bm Sound (F6, core/src/ai/music.c): a lo-fi backing
     track for the words goes into new patterns with a song of its own, then
     a coin into a free sound effect; the kernel's network chose them."""
     q = Qemu(b("kernel.img"))
@@ -5474,7 +5474,7 @@ def test_sound_import(b, opts):
         fsck = subprocess.run(["fsck.vfat", "-n", part], capture_output=True, text=True)
         assert fsck.returncode == 0, fsck.stdout + fsck.stderr
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
         import bmaudio
         pack = subprocess.run(["mtype", "-i", part, "::/BME/DEMO.BME"], capture_output=True, env=env).stdout
         bank = bmaudio.unpack(bmaudio.extract(pack))
@@ -5614,7 +5614,7 @@ def test_video_player(b, opts):
 
 def test_bench_stop(b, opts):
     """2026-10-10: the rendering tests stop on the keys that leave a game
-    (src/kernel/syskeys.h: Start+Select, Ctrl+Esc, PS), here Ctrl+Esc on
+    (core/src/kernel/syskeys.h: Start+Select, Ctrl+Esc, PS), here Ctrl+Esc on
     the USB keyboard: the 3D Bench in its ramps (no report, no pages); the
     monitor goes on after it, the PS not taken as its own."""
     q = Qemu(b("kernel.img"), USB_KBD)
@@ -5882,14 +5882,14 @@ def test_sdk_keeps_models(b, opts):
 
 
 def _assist_checksum(question):
-    """CRC-32 of the assistant's network outputs, as scripts/assistlib.py
+    """CRC-32 of the assistant's network outputs, as core/scripts/assistlib.py
     computes them (the ARM must give the same: ai.checksum)"""
     import struct
     import zlib
-    sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+    sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
     import assistlib as al
-    entries = al.parse_kb(al.kb_paths(os.path.join(HERE, "..", "src", "ai", "kb")))
-    classes, net = al.load_weights(os.path.join(HERE, "..", "src", "ai", "assist.weights"))
+    entries = al.parse_kb(al.kb_paths(os.path.join(HERE, "..", "core", "src", "ai", "kb")))
+    classes, net = al.load_weights(os.path.join(HERE, "..", "core", "src", "ai", "assist.weights"))
     out = al.logits(al.entry_net(entries, classes, net), al.features(question))
     return "%08x" % (zlib.crc32(struct.pack("<%di" % len(out), *out)) & 0xFFFFFFFF)
 
@@ -6077,7 +6077,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/mapkit.bm"), "bm/Il mio demo.bm"), (b("carts/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -6191,7 +6191,7 @@ def test_code_editor(b, opts):
 
         # leave: the untitled tab has changes; kept for later
         k("\x1b", 0.6)                                     # Esc: the menu
-        # the menu has more rows than the screen (MENU in carts/code/main.lua,
+        # the menu has more rows than the screen (MENU in bm/code/main.lua,
         # 27 entries): Exit, the last, is below the first window
         see(["New project"])
         k("\x1b[A", 0.3)                                   # up from the first: Exit
@@ -6213,12 +6213,12 @@ def test_code_editor(b, opts):
         # the games stay as they were: the saves went into their editable copies
         game = os.path.join(tmp, "game.bm")
         subprocess.run(["mcopy", "-i", part, "::/BM/Il mio demo.bm", game], check=True, env=env)
-        assert open(game, "rb").read() == open(b("carts/mapkit.bm"), "rb").read(), "the demo (a game) changed"
+        assert open(game, "rb").read() == open(b("bm/mapkit.bm"), "rb").read(), "the demo (a game) changed"
         out = os.path.join(tmp, "demo.bm")
         subprocess.run(["mcopy", "-i", part, "::/BME/ILMIODEM.BME", out], check=True, env=env)
-        sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+        sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
         new = open(out, "rb").read()
-        old = open(b("carts/mapkit.bm"), "rb").read()
+        old = open(b("bm/mapkit.bm"), "rb").read()
         def sections(d):
             import struct
             n = d[17]
@@ -6252,7 +6252,7 @@ def test_code_templates(b, opts):
     /bme/game1.bme. The card is still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-codetpl-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/astrowing.bm"), "bm/demo.bm")])
+    mksd.build(img, [(b("bm/astrowing.bm"), "bm/demo.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.04):
@@ -6505,7 +6505,7 @@ def test_assistant_app(b, opts):
 
 
 def test_code_completion(b, opts):
-    """bm Code's word completion (src/ai/predict.lua): while a word is typed
+    """bm Code's word completion (core/src/ai/predict.lua): while a word is typed
     its rest appears in grey-blue and the status line says "Tab: word"; Tab
     writes it (green until the next key) with the words of where the cursor
     is: Lua in the code, Italian after "--", the questions to the assistant
@@ -6641,7 +6641,7 @@ def test_code_completion(b, opts):
 
 
 def test_pad_typing(b, opts):
-    """Typing with the pad (src/ai/padtype.lua) with a simulated DS4. Pad
+    """Typing with the pad (core/src/ai/padtype.lua) with a simulated DS4. Pad
     Typing from the Games tab, free writing in compose: up writes t and the
     prediction its syllable after the wait, up up quickly d, circle erases
     the syllable; L2 + R2 the numbers, triangle turns the digit, cross twice
@@ -6659,7 +6659,7 @@ def test_pad_typing(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
-                     (b("carts/typing.bm"), "bm/typing.bm")])
+                     (b("bm/typing.bm"), "bm/typing.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
     HAT = {None: 8, "up": 0, "right": 2, "down": 4, "left": 6}
@@ -6815,7 +6815,7 @@ def test_editor(b, opts):
     FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-ed-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
 
@@ -7140,7 +7140,7 @@ def test_sdk_suite(b, opts):
     bm SDK"; the SDK comes back on the project."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
 
@@ -7230,7 +7230,7 @@ def test_sdk_elastic(b, opts):
     tab bar at the top, the hint row and the status bar at the bottom."""
     tmp = tempfile.mkdtemp(prefix="bm-elastic-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
     UP = "\x1b[A"
@@ -7315,7 +7315,7 @@ def test_suite_elastic(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nbm_screen=1280x720\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/testkit.bm"), "bm/testkit.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/testkit.bm"), "bm/testkit.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
         def k(s, gap=0.4):
@@ -7418,11 +7418,11 @@ def test_nano8(b, opts):
     no timeout) and a .p8.png cart; Esc (q) leaves nano8 suspended."""
     tmp = tempfile.mkdtemp(prefix="bm-n8-")
     img = os.path.join(tmp, "sd.img")
-    api = os.path.join(HERE, "nano8", "carts", "api.p8")
-    heavy = os.path.join(HERE, "nano8", "carts", "heavy.p8")
-    png = os.path.join(HERE, "..", "carts", "nano8", "roms", "sixlets2.p8.png")
-    mksd.build(img, [(b("carts/nano8.bm"), "bm/nano8.bm"), (api, "carts/nano8/api.p8"),
-                     (heavy, "carts/nano8/heavy.p8"), (png, "carts/nano8/sixlets2.p8.png")])
+    api = os.path.join(HERE, "nano8", "bm", "api.p8")
+    heavy = os.path.join(HERE, "nano8", "bm", "heavy.p8")
+    png = os.path.join(HERE, "..", "bm", "nano8", "roms", "sixlets2.p8.png")
+    mksd.build(img, [(b("bm/nano8.bm"), "bm/nano8.bm"), (api, "bm/nano8/api.p8"),
+                     (heavy, "bm/nano8/heavy.p8"), (png, "bm/nano8/sixlets2.p8.png")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.expect(MENU, timeout=30)

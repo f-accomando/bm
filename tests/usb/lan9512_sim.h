@@ -1,5 +1,5 @@
 /* A simulated LAN9512 Ethernet function for the host tests of
- * src/usb/smsc95xx.c: registers behind vendor requests, the PHY behind
+ * core/src/usb/smsc95xx.c: registers behind vendor requests, the PHY behind
  * MII, frames in both directions. Also the kernel's timer and firmware
  * (MAC address) as the driver sees them. */
 #ifndef LAN9512_SIM_H

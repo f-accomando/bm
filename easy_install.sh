@@ -7,7 +7,7 @@
 # firmware (make firmware, into firmware/); the file keeps what it did.
 # Every time it shows the branch you are on, then a menu:
 #   1  [NET] update kernel  to a console on the network, without the card
-#                           (tools/bm_net.py --kernel): a saved profile (name,
+#                           (core/tools/bm_net.py --kernel): a saved profile (name,
 #                           IP, the 6-digit console code, the board: Pi, Pi
 #                           Zero 2 W or RGB30) or a new one
 #   2   [SD] update kernel  kernel.img on the card (the old one in bm/backup)
@@ -18,8 +18,8 @@
 #                           own games are kept, unless you say no
 #   5  [NET] send a file    a game (.bm, into /bm: the menu shows it at once),
 #                           a resource (.bmm .bmi .bms ..., into /bm/lib) or any
-#                           file to a console's SD card (tools/bm_net.py --send)
-#   6  [NET] monitor        a console's monitor on this PC (tools/bm_net.py): its
+#                           file to a console's SD card (core/tools/bm_net.py --send)
+#   6  [NET] monitor        a console's monitor on this PC (core/tools/bm_net.py): its
 #                           keys and commands (the console says what takes them:
 #                           the menu, without echo, or the monitor; in the menu a
 #                           monitor line starts with ':'); Ctrl-Q leaves
@@ -27,23 +27,23 @@
 #                           settings shown (tokens and passwords hidden), keys set
 #                           (github_token for the reports, WiFi...) or removed
 #   8   [SD] config         the same on the card in the reader
-#   9  [NET] bridge         tools/pi_bridge.py for a saved profile (its board: pi,
+#   9  [NET] bridge         core/tools/pi_bridge.py for a saved profile (its board: pi,
 #                           zero2 or rgb30): you type the password, NET and AGY
-#                           then run tools/pi.py without seeing it;
+#                           then run core/tools/pi.py without seeing it;
 #                           ./easy_install.sh bridge [profile]
-#   w  [NET] screen         a console's screen live in this terminal (tools/bm_watch.py,
+#   w  [NET] screen         a console's screen live in this terminal (core/tools/bm_watch.py,
 #                           op V of the transfer port): sixel (real pixels, 640x360, the
 #                           text is legible: Windows Terminal 1.22 or later, WezTerm, foot)
 #                           or blocks (shapes only); Ctrl-C stops
-#   r  release              a new version on GitHub (scripts/release.sh --no-sd:
+#   r  release              a new version on GitHub (core/scripts/release.sh --no-sd:
 #                           the tag, the CI tests it and publishes it); the
 #                           consoles take it from Settings > Updates
 #   o  older release        an older release on the card (also: rollback [vX.Y.Z]):
-#                           the signed manifest checked with keys/release-pub.pem,
+#                           the signed manifest checked with core/keys/release-pub.pem,
 #                           every file downloaded and checked (size, SHA-256) before
 #                           the card is touched, the old kernels in bm/backup, the
 #                           card's own kernel last
-#   m  market               the project's games in the bm Market (scripts/market.sh):
+#   m  market               the project's games in the bm Market (core/scripts/market.sh):
 #                           the first time also the key, the secret, the public
 #                           key on bm-core and GitHub Pages; the market's clone
 #                           is bm-market next to this repository
@@ -478,13 +478,13 @@ reach_console() {
     done
 }
 
-# tools/bm_net.py on the caller's ip with its code (asked again if it is not
+# core/tools/bm_net.py on the caller's ip with its code (asked again if it is not
 # the console's); sets the caller's out, returns bm_net's status
 net_do() {
     local x rc
     while :; do
         rc=0
-        out=$(python3 tools/bm_net.py "$ip" -p "$code" "$@" 2>&1 | tee /dev/stderr) || rc=$?
+        out=$(python3 core/tools/bm_net.py "$ip" -p "$code" "$@" 2>&1 | tee /dev/stderr) || rc=$?
         grep -q "wrong password" <<< "$out" || return "$rc"
         read -r -p "Not its code: the Console password now (6 digits, Enter: stop): " x || x=
         [[ $x =~ ^[0-9]{6}$ ]] || die "stopped"
@@ -542,19 +542,19 @@ short_name() {                                  # an 8.3 name for the SD card (p
     echo "$stem${ext:+.$ext}"
 }
 
-# a file on a console's SD card (tools/bm_net.py --send): a game goes into
+# a file on a console's SD card (core/tools/bm_net.py --send): a game goes into
 # /bm and the console's menu shows it once written, a resource into /bm/lib
 job_send() {
     local file=${1:-} base n83 to x p name ip code board out old rc
     if [ -z "$file" ]; then
         say "Send a file to a console"
         echo "A game (.bm), a resource (.bmm .bmi .bms .bmt .bmc .bmk) or any file. Built here:"
-        ls build/carts/*.bm 2>/dev/null | sed 's/^/  /' || echo "  (none: make builds them in build/carts/)"
+        ls build/bm/*.bm 2>/dev/null | sed 's/^/  /' || echo "  (none: make builds them in build/bm/)"
         read -e -r -p "File (Tab completes; Enter: back): " file || file=
         [ -n "$file" ] || return 0
     fi
     file=${file/#\~/$HOME}
-    if [ ! -f "$file" ] && [[ $file == build/carts/*.bm ]]; then
+    if [ ! -f "$file" ] && [[ $file == build/bm/*.bm ]]; then
         make "$file" || true                    # a game of the repository not built yet
     fi
     [ -f "$file" ] || { warn "$file: no such file"; return 0; }
@@ -596,7 +596,7 @@ job_send() {
     fi
 }
 
-# a console's monitor on this PC (tools/bm_net.py): its keys and the
+# a console's monitor on this PC (core/tools/bm_net.py): its keys and the
 # commands of its monitor; Ctrl-Q (or Enter ~ .) leaves. With a line (the
 # second argument): that monitor line run, its output shown (--line)
 job_monitor() {
@@ -610,10 +610,10 @@ job_monitor() {
         rc=0
         if [ -n "$line" ]; then
             say "The line on $name ($ip, bm $old): $line"
-            python3 tools/bm_net.py "$ip" -p "$code" --line "$line" || rc=$?
+            python3 core/tools/bm_net.py "$ip" -p "$code" --line "$line" || rc=$?
         else
             say "The monitor of $name ($ip, bm $old): Ctrl-Q leaves; in the menu a monitor line starts with ':'"
-            python3 tools/bm_net.py "$ip" -p "$code" || rc=$?
+            python3 core/tools/bm_net.py "$ip" -p "$code" || rc=$?
         fi
         [ "$rc" = 1 ] || break                  # 1: not let in (2: the console in a game)
         read -r -p "It did not let you in? The Console password now (6 digits, Enter: stop): " x || x=
@@ -624,7 +624,7 @@ job_monitor() {
     save_conf
 }
 
-# a console's screen on this PC (tools/bm_watch.py): live in the terminal, Ctrl-C stops. The second argument says how it is
+# a console's screen on this PC (core/tools/bm_watch.py): live in the terminal, Ctrl-C stops. The second argument says how it is
 # drawn: sixel (real pixels, 640x360: Windows Terminal 1.22 or later, WezTerm, foot) or blocks (shapes only); asked if missing
 job_watch() {
     PICK_Q="Which console to watch"
@@ -643,7 +643,7 @@ job_watch() {
     while :; do
         rc=0
         say "The screen of $name ($ip, bm $old), $mode: Ctrl-C stops"
-        python3 tools/bm_watch.py "$ip" -p "$code" --mode "$mode" || rc=$?
+        python3 core/tools/bm_watch.py "$ip" -p "$code" --mode "$mode" || rc=$?
         [ "$rc" = 1 ] || break                  # 1: not let in, or no stream (a kernel before op V)
         read -r -p "It did not let you in? The Console password now (6 digits, Enter: stop): " x || x=
         [[ $x =~ ^[0-9]{6}$ ]] || break
@@ -659,12 +659,12 @@ job_bridge() {
     pick_profile "${1:-}" || return 0
     local p=${PROFILES[$PICK]} name ip board
     name=$(profile_field "$p" 0); ip=$(profile_field "$p" 1); board=$(profile_field "$p" 3)
-    say "The bridge to $name ($ip, $(board_name "$board")): type the console password, then NET and AGY use tools/pi.py. Ctrl-C stops it."
-    python3 tools/pi_bridge.py --board "${board:-pi}" "$ip"
+    say "The bridge to $name ($ip, $(board_name "$board")): type the console password, then NET and AGY use core/tools/pi.py. Ctrl-C stops it."
+    python3 core/tools/pi_bridge.py --board "${board:-pi}" "$ip"
 }
 
 # ---------------------------------------------------------------- a console's settings
-# bm/config.txt: "key=value" lines (src/kernel/config.c); the ones you may want
+# bm/config.txt: "key=value" lines (core/src/kernel/config.c); the ones you may want
 config_keys() {
     cat <<'KEYS'
   github_token   a GitHub token: the tests' reports go to the reports branch (and the Market)
@@ -826,7 +826,7 @@ job_config_sd() {
     [ -n "${EASY_SD_DIR:-}" ] || ok "You can take the card out of the reader."
 }
 
-# a release on GitHub: scripts/release.sh VERSION --no-sd makes the tag, the
+# a release on GitHub: core/scripts/release.sh VERSION --no-sd makes the tag, the
 # CI tests it and publishes the release; the consoles (the Pi, the RGB30)
 # take it from Settings > Updates
 job_release() {
@@ -850,8 +850,8 @@ job_release() {
         v=${v:-$next}
     fi
     [[ $v =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { warn "a version is vX.Y.Z (e.g. $next)"; return 0; }
-    echo "scripts/release.sh asks before every step that changes GitHub (the secret, a push, the tag)."
-    scripts/release.sh "$v" --no-sd || { warn "the release stopped: see above"; return 0; }
+    echo "core/scripts/release.sh asks before every step that changes GitHub (the secret, a push, the tag)."
+    core/scripts/release.sh "$v" --no-sd || { warn "the release stopped: see above"; return 0; }
     LAST_RUN="$(now) release $v"
     save_conf
     exit 0
@@ -859,14 +859,14 @@ job_release() {
 
 # an older release on the card: the signed manifest of a release on GitHub
 # (the same files the consoles' Settings > Updates fetch: manifest.txt +
-# manifest.sig, checked with keys/release-pub.pem), every file downloaded and
+# manifest.sig, checked with core/keys/release-pub.pem), every file downloaded and
 # checked (size, SHA-256) BEFORE the card is touched; then the other files, the
 # old kernels in bm/backup, the card's own kernel last
 job_rollback() {
     local v=${1:-} rel=${BM_RELEASES:-https://github.com/f-accomando/bm} man=manifest base tmp i
     local -a tags=()
     command -v openssl >/dev/null && command -v curl >/dev/null || die "openssl and curl are needed"
-    [ -f keys/release-pub.pem ] || die "keys/release-pub.pem is missing: the signature cannot be checked"
+    [ -f core/keys/release-pub.pem ] || die "core/keys/release-pub.pem is missing: the signature cannot be checked"
     say "An older release on the card"
     mount_sd
     local kimg=kernel.img
@@ -886,8 +886,8 @@ job_rollback() {
     trap 'rm -rf "$tmp"' RETURN
     curl -fsSL "$base/$man.txt" -o "$tmp/$man.txt" && curl -fsSL "$base/$man.sig" -o "$tmp/$man.sig" \
         || die "$v has no $man.txt/.sig on GitHub (a release from before this card's board?)"
-    openssl dgst -sha256 -verify keys/release-pub.pem -signature "$tmp/$man.sig" "$tmp/$man.txt" 2>/dev/null \
-        | grep -q 'Verified OK' || die "the signature of $v does not match keys/release-pub.pem: nothing written"
+    openssl dgst -sha256 -verify core/keys/release-pub.pem -signature "$tmp/$man.sig" "$tmp/$man.txt" 2>/dev/null \
+        | grep -q 'Verified OK' || die "the signature of $v does not match core/keys/release-pub.pem: nothing written"
     ok "$v: manifest signed, good"
     local kind name path size sha got
     local -a names=() paths=()
@@ -928,13 +928,13 @@ job_rollback() {
     finish rollback "$old" "$(kernel_version "$SD/$kimg")"
 }
 
-# the bm Market: scripts/market.sh sets it up the first time (the key, the
+# the bm Market: core/scripts/market.sh sets it up the first time (the key, the
 # secret, GitHub Pages) and puts the project's games in it, every time
 job_market() {
     say "The bm Market"
     echo "  the market's clone: $(dirname "$REPO")/bm-market"
-    echo "scripts/market.sh asks before every step that changes GitHub (the secret, Pages, a push)."
-    scripts/market.sh --market "$(dirname "$REPO")/bm-market" || { warn "the market stopped: see above"; return 0; }
+    echo "core/scripts/market.sh asks before every step that changes GitHub (the secret, Pages, a push)."
+    core/scripts/market.sh --market "$(dirname "$REPO")/bm-market" || { warn "the market stopped: see above"; return 0; }
     LAST_RUN="$(now) market"
     save_conf
     exit 0
@@ -1114,7 +1114,7 @@ Raspberry Pi Imager; 2 or 3 update its files."
     read -r -p "Type $DRIVE to go on: " typed || typed=
     [ "${typed%:}" = "$DRIVE" ] || [ "${typed%:}" = "${DRIVE,,}" ] || die "stopped: nothing touched"
 
-    if [ -n "$(ls -A "$SD" 2>/dev/null)" ] && ask "Keep your settings, saves and games (bm/ and carts/: copied to the PC first, then back)?" y; then
+    if [ -n "$(ls -A "$SD" 2>/dev/null)" ] && ask "Keep your settings, saves and games (bm/ and bm/: copied to the PC first, then back)?" y; then
         bk=$BACKUPS/$(date +%Y%m%d-%H%M%S)
         mkdir -p "$bk"
         for f in bm carts kernel.img; do
@@ -1136,7 +1136,7 @@ Raspberry Pi Imager; 2 or 3 update its files."
         if [ -d "$bk/bm" ]; then cp -r $keep "$bk/bm/." "$SD/bm/"; fi
         if [ -d "$bk/carts" ]; then
             cp -r $keep "$bk/carts/." "$SD/carts/"
-            for g in "$SD"/carts/*.bm "$SD"/carts/*.BM "$SD"/carts/*.b16 "$SD"/carts/*.B16; do   # the menus read bm/ only
+            for g in "$SD"/bm/*.bm "$SD"/bm/*.BM "$SD"/bm/*.b16 "$SD"/bm/*.B16; do   # the menus read bm/ only
                 [ -f "$g" ] && mv -n "$g" "$SD/bm/"
             done
         fi

@@ -349,7 +349,7 @@ Not built yet (SYS-9b): a benchmark at the start of a game that picks the values
 
 # Collision worlds
 
-Solid boxes, rays and bodies that move sliding on the walls, in C: much faster than in Lua. Complete example: `carts/overbit`. For the 2D map there are the tiles' flags (`mflags`) and bmlib's `lib.move` / `lib.step`.
+Solid boxes, rays and bodies that move sliding on the walls, in C: much faster than in Lua. Complete example: `bm/overbit`. For the 2D map there are the tiles' flags (`mflags`) and bmlib's `lib.move` / `lib.step`.
 
 | Function | Description |
 |---|---|
@@ -433,11 +433,11 @@ dark_end()
 spr(FLAME, fx, fy)                           -- the flames are not darkened
 ```
 
-Complete example: `carts/yharnam`. A small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256x256 cartridge).
+Complete example: `bm/yharnam`. A small one: `SQUARE_CART` in `tests/qemu_test.py` (a lamp on a 256x256 cartridge).
 
 ## The n8 library
 
-Every cartridge also sees the `n8` table: the **nano8** machine, with the functions of the `.p8` cartridges (`n8.spr`, `n8.map`, `n8.print`, `n8.peek` and the others, with their arguments and numbers as they want them) and those to load, start and show them (`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). It is made for `carts/nano8`; a `.bm` game does not need it.
+Every cartridge also sees the `n8` table: the **nano8** machine, with the functions of the `.p8` cartridges (`n8.spr`, `n8.map`, `n8.print`, `n8.peek` and the others, with their arguments and numbers as they want them) and those to load, start and show them (`n8.load`, `n8.power`, `n8.buttons`, `n8.blit`, `n8.preview`, `n8.compile`). It is made for `bm/nano8`; a `.bm` game does not need it.
 
 # Performance tips
 

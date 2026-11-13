@@ -8,13 +8,13 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 import lib3d as L  # noqa: E402
 out = os.path.join(HERE, "out", "probe")
 os.makedirs(out, exist_ok=True)
-src = open(os.path.join(L.ROOT, "carts", "animator", "main.lua"), encoding="utf-8").read()
+src = open(os.path.join(L.ROOT, "bm", "animator", "main.lua"), encoding="utf-8").read()
 src = src.replace("local rg = {", "rg = {", 1).replace("local an = {", "an = {", 1)
 lua = os.path.join(out, "main_dbg.lua")
 open(lua, "w", encoding="utf-8").write(src + open(os.path.join(HERE, "dbg.lua"), encoding="utf-8").read())
 cart = os.path.join(out, "animator_dbg.bm")
-subprocess.run([sys.executable, os.path.join(L.ROOT, "scripts", "mkbm.py"), "-o", cart, "--lua", lua, "--cover",
-                os.path.join(L.ROOT, "carts", "animator", "icon.png"), "--info", os.path.join(L.ROOT, "carts", "animator", "bm.info")],
+subprocess.run([sys.executable, os.path.join(L.ROOT, "core", "scripts", "mkbm.py"), "-o", cart, "--lua", lua, "--cover",
+                os.path.join(L.ROOT, "bm", "animator", "icon.png"), "--info", os.path.join(L.ROOT, "bm", "animator", "bm.info")],
                check=True, cwd=L.ROOT, stdout=subprocess.DEVNULL)
 start = os.path.join(L.ROOT, "video", "3d", "out", "assets", "models.bm")
 sd = L.fresh_sd(os.path.join(out, "sd"), [(start, "TROPIC.BM")])

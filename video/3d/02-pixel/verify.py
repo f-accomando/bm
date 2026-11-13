@@ -22,7 +22,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, HERE)
 import bmres  # noqa: E402
 import art    # noqa: E402
@@ -100,9 +100,9 @@ def main():
     start = os.path.join(HERE, "out", "start.bme")
     if "--start" in sys.argv:
         start = sys.argv[sys.argv.index("--start") + 1]
-    path = os.path.join(sd, "carts", "TROPIC.BME")
+    path = os.path.join(sd, "bm", "TROPIC.BME")
     if not os.path.exists(path):
-        print("no", path, "- files:", os.listdir(os.path.join(sd, "carts")) if os.path.isdir(os.path.join(sd, "carts")) else "none")
+        print("no", path, "- files:", os.listdir(os.path.join(sd, "bm")) if os.path.isdir(os.path.join(sd, "bm")) else "none")
         return 1
     f = bmres.read(path)
     print("project:", path)
@@ -190,7 +190,7 @@ def main():
 
     # ---------------------------------------------------------------- 3. forge and chain
     print("forge / chain")
-    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py"), "check", path,
+    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py"), "check", path,
                         "--no-sync", "--json"], capture_output=True, text=True)
     try:
         j = json.loads(r.stdout)

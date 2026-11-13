@@ -58,8 +58,8 @@ Compila due volte lo stesso progetto. La seconda compilazione sostituisce il pri
 `mkbm.py` scrive il tipo di file in base all'estensione di `-o`: `.bm` o `.bme`.
 
 ::: copy
-python3 scripts/mkbm.py -o ball.bme --lua carts/ball/main.lua --title "Ball" --author "me"
-python3 scripts/mkbm.py -o ball.bm --lua carts/ball/main.lua --title "Ball" --author "me"
+python3 core/scripts/mkbm.py -o ball.bme --lua bm/ball/main.lua --title "Ball" --author "me"
+python3 core/scripts/mkbm.py -o ball.bm --lua bm/ball/main.lua --title "Ball" --author "me"
 :::
 
 # Le sezioni di una cartuccia
@@ -112,7 +112,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 
 ## Giochi e progetti nell'API
 
-`cart_save`, `cart_write` e `cart_put_audio` restituiscono `true` **e il file scritto** quando non è quello richiesto. Succede quando salvi un gioco: lo strumento scrive la copia modificabile e prosegue con quel file. Un nuovo `.bm` diventa un progetto (`"/carts/new.bm"` diventa `/carts/new.bme`). Un progetto produce il suo gioco con `cart_build`.
+`cart_save`, `cart_write` e `cart_put_audio` restituiscono `true` **e il file scritto** quando non è quello richiesto. Succede quando salvi un gioco: lo strumento scrive la copia modificabile e prosegue con quel file. Un nuovo `.bm` diventa un progetto (`"/bm/new.bm"` diventa `/carts/new.bme`). Un progetto produce il suo gioco con `cart_build`.
 
 ## Tastiera e file
 
@@ -140,7 +140,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 | `tool_write(path, data)` | solo per gli strumenti di bm: scrive un file script `.b` o `.lua` sulla scheda SD creando le cartelle necessarie; restituisce `true` oppure `false` e un messaggio |
 | `tool_lua_check(src, [name])` | solo per gli strumenti di bm: controlla la sintassi Lua tramite `luaL_loadbufferx`; restituisce `true` oppure `false` e il messaggio di errore |
 | `tool_lua_run(src)` | solo per gli strumenti di bm: esegue codice Lua in uno stato sandbox (librerie standard sicure e API grafiche/input bm, senza `dofile`/`loadfile`/`load`); restituisce `{ok, ret, us, error, interactive}` |
-| `cart_data(kind, [bytes])` | le sezioni MESH (`kind` 8), ANIM (9), SPRITES (11) e BOXES (14) del progetto come stringhe nel formato di `src/bm/bm.h`. Senza `bytes` le restituisce (`nil` se non ci sono); con `bytes` le sostituisce (`nil` o `""` le toglie) e restituisce `true`, oppure `false` e il motivo |
+| `cart_data(kind, [bytes])` | le sezioni MESH (`kind` 8), ANIM (9), SPRITES (11) e BOXES (14) del progetto come stringhe nel formato di `core/src/bm/bm.h`. Senza `bytes` le restituisce (`nil` se non ci sono); con `bytes` le sostituisce (`nil` o `""` le toglie) e restituisce `true`, oppure `false` e il motivo |
 | `cart_config(key, [value])` | il testo di una chiave di `bm/config.txt`, oppure `nil`. Solo chiavi che iniziano con la prima parola del titolo del gioco in minuscolo e `_` (Overbit: `overbit_`); qualsiasi altra cosa è un errore. Con un valore la chiave viene cambiata e salvata (`""` la cancella). Valori fino a 127 caratteri, senza `;` o `,` |
 | `sheet_png(x, y, w, h)` | dà i byte di un file PNG (tipo colore 6, con alpha) di un rettangolo del foglio sprite. Un pixel trasparente sul foglio ha alpha 0. Ogni altro pixel ha alpha 255. La chiamata dà `nil` e il motivo se il rettangolo non è dentro il foglio, se è più largo o più alto di 4096, o se manca la memoria. Scrivi i byte in un file con `doc_write` |
 | `sheet_png({{x, y, w, h}, ...})` | lo stesso per un elenco di 1 a 64 rettangoli. Il PNG li mette affiancati, da sinistra a destra, nell'ordine dell'elenco. Tutti i rettangoli devono avere la stessa altezza. La larghezza totale è al massimo 4096. Altrimenti la chiamata dà `nil` e il motivo. |
@@ -161,7 +161,7 @@ Parte dell'API dei giochi. Queste funzioni sono pensate per gli strumenti di svi
 | Funzione | Descrizione |
 |---|---|
 | `cart_meshes(path)` | le mesh che il codice di un `.bm` costruisce con `mesh()`, `mesh_sphere()` e `mesh_cube()`: `{ {name=, kind=, verts={x,y,z,...}, faces={a,b,c,colore,...}, [uv={...}]}, ... }` (indici da 1, colore `-1` = texture), e `nil` o il primo errore del codice. Il codice gira a parte, in uno stato Lua tutto suo, con un limite di istruzioni; le altre funzioni di bm non fanno nulla. Per bm Mesh |
-| `mesh_reduce(record, triangles, [bones, [max_err]])` | meno triangoli per un modello della sezione MESH (collasso degli spigoli con quadriche, nessuna IA). `bones` è l'osso di ogni vertice, `max_err` si ferma prima di un collasso più costoso (0: nessun limite). Restituisce il record, le ossa dei suoi vertici (`nil` senza `bones`) e il numero di triangoli; `nil` e un messaggio se il record è rotto. Sul PC: `tools/bmreduce.py` |
+| `mesh_reduce(record, triangles, [bones, [max_err]])` | meno triangoli per un modello della sezione MESH (collasso degli spigoli con quadriche, nessuna IA). `bones` è l'osso di ogni vertice, `max_err` si ferma prima di un collasso più costoso (0: nessun limite). Restituisce il record, le ossa dei suoi vertici (`nil` senza `bones`) e il numero di triangoli; `nil` e un messaggio se il record è rotto. Sul PC: `core/tools/bmreduce.py` |
 | `picture3d(action, ...)` | un'immagine diventa un modello 3D tramite un servizio da immagine a 3D. `picture3d("providers")` elenca i servizi; `picture3d("ready", service)` dà `true`, oppure `false` e il perché (manca la chiave); `picture3d("start", picture, {provider=, polycount=})` avvia il lavoro su un `.png`/`.jpg` della SD o su un URL https e dà l'id del lavoro (o `nil` e un messaggio); `picture3d("status", id, service)` dà `"running", progress` oppure `"done", url`; `picture3d("take", url, {name=, faces=, height=})` scarica il `.glb` e lo converte in `{record=, flat=, texture=, nv=, nf=, textured=}`. Il primo servizio è Meshy, con la chiave `meshy_key=...` in `bm/config.txt`. Le chiamate bloccano finché la rete lavora |
 | `cutout3d(picture, {name=, lathe=, height=, depth=, segments=, faces=})` | un modello dal contorno dell'immagine, fatto sulla console senza rete né IA: una sagoma spessa `depth`, oppure con `lathe = true` il mezzo contorno fatto girare attorno all'asse verticale in `segments` passi. `height` in blocchi (2), `faces` triangoli al massimo (1200). Restituisce la stessa tabella di `picture3d("take")`, oppure `nil` e un messaggio |
 | `glb3d(path, {name=, height=, faces=, sheet=})` | un modello da un file `.glb` della scheda SD (gli editor usano `/glb/NAME.glb`), fatto sulla console senza rete né IA. Il file è solo letto. `height` in blocchi (2), `faces` triangoli al massimo (0: tutti), `sheet` il lato della texture (256, da 8 a 1024). Un modello contiene al massimo 65535 vertici e 65535 triangoli: un file con più triangoli dà `nil` e un messaggio, a meno che si imposti `faces`. Un file oltre 16 MB dà `nil` e un messaggio. Restituisce la stessa tabella di `picture3d("take")`, oppure `nil` e un messaggio |
@@ -198,11 +198,11 @@ Una piccola IA che gira sulla console. Capisce una domanda (italiano o inglese, 
 
 ### Piccole reti per i giochi
 
-Una rete di strati densi con pesi e attivazioni INT8, da una stringa scritta da uno script di addestramento (`scripts/nnetlib.py`).
+Una rete di strati densi con pesi e attivazioni INT8, da una stringa scritta da uno script di addestramento (`core/scripts/nnetlib.py`).
 
 | Funzione | Che cosa fa |
 |---|---|
-| `nnet(blob)` | la rete di una stringa "BMNN" (formato in `src/ai/net.h`; errore se è rotta), fino a 8 strati da 256 |
+| `nnet(blob)` | la rete di una stringa "BMNN" (formato in `core/src/ai/net.h`; errore se è rotta), fino a 8 strati da 256 |
 | `net:run(inputs, [outputs])` | le uscite per una tabella di ingressi; `outputs`: una tabella da riempire invece di una nuova |
 | `k, v = net:pick(inputs, [mask])` | l'indice (da 1) dell'uscita maggiore e il suo valore; `mask`: una tabella di booleani, `false` = quell'uscita non viene scelta |
 | `n_in, n_out = net:size()` | quanti ingressi e quante uscite |
@@ -283,7 +283,7 @@ Un file di risorse usa lo stesso contenitore di un `.bm`, con il magic `BMRES` e
 - Il menu non ha una scheda per i file di risorse (la scheda Lib è stata rimossa). Apri un file di risorse da un editor.
 - Le app che aprono ogni tipo di file di risorse non sono ancora pronte.
 - `bmres.py add` con una cartuccia `.bme` e senza `-o` scrive il `.bme` sul posto. Con un `.bm` e senza `-o` si rifiuta di cambiare il gioco ("is a game, read only") e scrive una copia con lo stesso nome e l'estensione `.bme`. Un'uscita `.bme` è segnata come progetto.
-- [DA COMPLETARE: `docs/RISORSE.md` dice che `mkbm.py --res FILE` integra le risorse in fase di compilazione, ma in `scripts/mkbm.py` l'opzione `--res` sceglie la risoluzione dello schermo. Dire quale strumento fa l'integrazione in compilazione.]
+- [DA COMPLETARE: `docs/RISORSE.md` dice che `mkbm.py --res FILE` integra le risorse in fase di compilazione, ma in `core/scripts/mkbm.py` l'opzione `--res` sceglie la risoluzione dello schermo. Dire quale strumento fa l'integrazione in compilazione.]
 
 ## Che cosa fa l'integrazione
 
@@ -309,11 +309,11 @@ Ti servono Python 3 e il repository. I comandi girano sul PC, dalla cartella del
 5. Esegui `list` sul risultato. Il modello c'è.
 
 ::: copy
-python3 scripts/bmres.py list GAME.bm
-python3 scripts/bmres.py extract GAME.bm -o VILLAGER.bmm --model villager
-python3 scripts/bmres.py info VILLAGER.bmm --name "Villager" --author me --license CC0-1.0 --tags character,village
-python3 scripts/bmres.py add OTHER.bm VILLAGER.bmm -o OUT.bm
-python3 scripts/bmres.py list OUT.bm
+python3 core/scripts/bmres.py list GAME.bm
+python3 core/scripts/bmres.py extract GAME.bm -o VILLAGER.bmm --model villager
+python3 core/scripts/bmres.py info VILLAGER.bmm --name "Villager" --author me --license CC0-1.0 --tags character,village
+python3 core/scripts/bmres.py add OTHER.bm VILLAGER.bmm -o OUT.bm
+python3 core/scripts/bmres.py list OUT.bm
 :::
 
 ::: try
@@ -329,14 +329,14 @@ Se `add` dice che un'isola non ci sta, il foglio di destinazione è più stretto
 Il tipo di un nuovo file di risorse viene dall'estensione del suo nome. Le opzioni `--name`, `--author`, `--license`, `--version`, `--tags` e `--desc` funzionano anche con `extract` e `convert`.
 
 ::: copy
-python3 scripts/bmres.py extract GAME.bm -o OUT.bmi --sprite NAME
-python3 scripts/bmres.py extract GAME.bm -o OUT.bmi --rect X,Y,W,H --name N --frames N --fps N
-python3 scripts/bmres.py extract GAME.bm -o OUT.bms --sfx NAME --song NAME --sound NAME
-python3 scripts/bmres.py extract GAME.bm -o OUT.bmt
-python3 scripts/bmres.py extract GAME.bm -o OUT.bmc
-python3 scripts/bmres.py extract GAME.bm -o OUT.bmk
-python3 scripts/bmres.py convert IN OUT
-python3 scripts/bmres.py convert IN.csv OUT.bmt --tiles TILES.png
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bmi --sprite NAME
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bmi --rect X,Y,W,H --name N --frames N --fps N
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bms --sfx NAME --song NAME --sound NAME
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bmt
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bmc
+python3 core/scripts/bmres.py extract GAME.bm -o OUT.bmk
+python3 core/scripts/bmres.py convert IN OUT
+python3 core/scripts/bmres.py convert IN.csv OUT.bmt --tiles TILES.png
 :::
 
 `extract` senza `--sprite` e senza `--rect` prende tutto il foglio; senza le opzioni dei suoni prende tutto il banco dei suoni. `convert` va tra queste coppie:
@@ -356,10 +356,10 @@ python3 scripts/bmres.py convert IN.csv OUT.bmt --tiles TILES.png
 
 # La struttura del progetto
 
-Un gioco o un'app sta in `carts/<id>/`. La struttura comune tiene i metadati in un solo file, `bm.info`. Una cartella senza `bm.info` si compila ancora alla vecchia maniera, con titolo, autore e risoluzione dal Makefile, quindi puoi spostare un gioco alla volta.
+Un gioco o un'app sta in `bm/<id>/`. La struttura comune tiene i metadati in un solo file, `bm.info`. Una cartella senza `bm.info` si compila ancora alla vecchia maniera, con titolo, autore e risoluzione dal Makefile, quindi puoi spostare un gioco alla volta.
 
 ```text
-carts/<id>/
+bm/<id>/
   bm.info        metadati (sezione INFO), l'unica fonte
   main.lua       punto d'ingresso (sempre questo nome)
   cover.png      copertina del menu (facoltativa)
@@ -381,7 +381,7 @@ carts/<id>/
 
 ## Da sapere
 
-- Il Makefile cerca prima in `assets/`, poi in `carts/<id>/`, così i giochi vecchi funzionano ancora.
+- Il Makefile cerca prima in `assets/`, poi in `bm/<id>/`, così i giochi vecchi funzionano ancora.
 - Le chiavi sconosciute vengono conservate nella cartuccia. Il formato binario `.bm` non cambia, e un kernel più vecchio ignora INFO.
 - Giochi già spostati: `pong` (`bm.info`), `yharnam` (`bm.info`, `sheet.png` e `map_*.csv` in `assets/`, gli script `mk*.py`, `mapview.py` e `art/` in `build/`).
 
@@ -396,9 +396,9 @@ carts/<id>/
 
 L'esempio sposta un gioco chiamato `ball`, con un foglio e una mappa.
 
-1. Crea `carts/ball/bm.info` con nome, autore e risoluzione del gioco (vedi il blocco sotto).
-2. Crea la cartella `carts/ball/assets/` e spostaci `sheet.png` e `map.csv`.
-3. Se il gioco ha script suoi (`mk*.py`), crea `carts/ball/build/` e spostali lì. Aprili uno per uno e correggi i percorsi verso `main.lua` e `assets/`.
+1. Crea `bm/ball/bm.info` con nome, autore e risoluzione del gioco (vedi il blocco sotto).
+2. Crea la cartella `bm/ball/assets/` e spostaci `sheet.png` e `map.csv`.
+3. Se il gioco ha script suoi (`mk*.py`), crea `bm/ball/build/` e spostali lì. Aprili uno per uno e correggi i percorsi verso `main.lua` e `assets/`.
 4. Togli dal Makefile la riga `title_ball` del gioco, perché ora il titolo viene da `bm.info`.
 5. Compila il gioco.
 6. Confrontalo con il `.bm` che avevi compilato prima dello spostamento. Deve essere identico tranne la sezione INFO.
@@ -413,7 +413,7 @@ tags: demo
 :::
 
 ::: copy
-python3 scripts/mkbm.py -o ball.bm --lua carts/ball/main.lua --sheet carts/ball/assets/sheet.png --map carts/ball/assets/map.csv --info carts/ball/bm.info
+python3 core/scripts/mkbm.py -o ball.bm --lua bm/ball/main.lua --sheet bm/ball/assets/sheet.png --map bm/ball/assets/map.csv --info bm/ball/bm.info
 :::
 
 ::: warn
@@ -441,8 +441,8 @@ Un riquadro dice `Screenshot saved` e il nome del file per due secondi. L'immagi
 - Il nome è `<PREFISSO><NNNN>.PNG`, 8.3. Il prefisso è formato dalle prime lettere o cifre del titolo del gioco, fino a 4 (`Pong` da `PONG`, `Star Shooter` da `STAR`, `SHOT` se non ce ne sono) oppure dal `prefix` che hai dato.
 - Il numero è uno più del più alto di quel prefisso già presente in `bm/shots/`, da 0001 a 9999. Il Pi Zero non ha orologio, quindi non c'è la data.
 - Il formato è PNG, 8 bit RGB, della dimensione dello schermo del gioco (640x360, 360x360...). Non si perde nulla: i colori a 16 bit della console vengono allargati a 8 bit. Non c'è il JPG, perché rovina la pixel art.
-- Dal PC, sul collegamento di rete, `python tools/bm_net.py IP --shot out.png` chiede alla console uno screenshot del gioco in corso (la console chiede la password della Console) e lo salva come `out.png`. `python tools/bm_net.py IP --get bm/shots/pong0007.png out.png` scarica un file già presente in `bm/shots/`. Il gioco deve disegnare fotogrammi: se non ne disegna, la richiesta fallisce dopo 3 secondi. Si possono scaricare solo file di `bm/shots/`. Non è verificato su un RGB30.
-- Dal PC, `python tools/bm_net.py IP --play game.bm` invia un `.bm` alla console e lo avvia subito. La console chiede la password della console. Il file non viene salvato sulla scheda SD. Il menu avvia il gioco quando ha i tasti; se è in corso un aggiornamento o una pubblicazione sul Market, mostra un messaggio e non avvia il gioco. `--send game.bm` salva invece il file sulla scheda SD. Non verificato su un RGB30.
+- Dal PC, sul collegamento di rete, `python core/tools/bm_net.py IP --shot out.png` chiede alla console uno screenshot del gioco in corso (la console chiede la password della Console) e lo salva come `out.png`. `python core/tools/bm_net.py IP --get bm/shots/pong0007.png out.png` scarica un file già presente in `bm/shots/`. Il gioco deve disegnare fotogrammi: se non ne disegna, la richiesta fallisce dopo 3 secondi. Si possono scaricare solo file di `bm/shots/`. Non è verificato su un RGB30.
+- Dal PC, `python core/tools/bm_net.py IP --play game.bm` invia un `.bm` alla console e lo avvia subito. La console chiede la password della console. Il file non viene salvato sulla scheda SD. Il menu avvia il gioco quando ha i tasti; se è in corso un aggiornamento o una pubblicazione sul Market, mostra un messaggio e non avvia il gioco. `--send game.bm` salva invece il file sulla scheda SD. Non verificato su un RGB30.
 - Uno schermo piatto occupa pochi KB; il rumore può occupare quanto l'immagine grezza (circa 0,7 MB a 640x360).
 
 ## Attenzione
@@ -469,4 +469,4 @@ local path = shot("menu")    -- "bm/shots/MENU0001.png"
 
 ## Per un manuale
 
-Le immagini per un manuale si prendono sulla console, si copiano da `bm/shots/` nel repository e si nominano con un nome che dice che cosa mostrano. Sul PC, `bmhost --shots` e `scripts/qemu-screenshot.sh` fanno immagini senza console, e `make test-shot` controlla i PNG.
+Le immagini per un manuale si prendono sulla console, si copiano da `bm/shots/` nel repository e si nominano con un nome che dice che cosa mostrano. Sul PC, `bmhost --shots` e `core/scripts/qemu-screenshot.sh` fanno immagini senza console, e `make test-shot` controlla i PNG.

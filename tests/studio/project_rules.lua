@@ -1,4 +1,4 @@
--- The console's rules for the files the tools write (src/bm/project.h,
+-- The console's rules for the files the tools write (core/src/bm/project.h,
 -- write_target in runtime.c), for the stand-ins of the PC's tests: a game
 -- (.bm, .b16) is read only, so a write to one goes into its editable copy
 -- (/bme/name.bme, or name1.bme..., the question answered yes), and a new .bm

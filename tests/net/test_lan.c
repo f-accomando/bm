@@ -1,5 +1,5 @@
 /*
- * Host test of the games between consoles (src/net/lan.c) on lwIP with its
+ * Host test of the games between consoles (core/src/net/lan.c) on lwIP with its
  * loopback interface: the hello heard (and our own ignored, and forgotten
  * after 7 s), a game sent with lan_send and accepted by the "player", one
  * refused, one never answered, a damaged one, a busy receiver, a game too

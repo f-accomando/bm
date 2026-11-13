@@ -1,10 +1,10 @@
 -- The lint of Lua files with the rules of predict.lua, in the output of
--- scripts/api_lint.py (the make check of APP-5b-2 diffs the two):
+-- core/scripts/api_lint.py (the make check of APP-5b-2 diffs the two):
 --   luahost tests/predict/lint_cli.lua build FILE
 -- prints FILE:line: unknown API name 'name' for each unknown name called.
 
 local build = arg[1] or "build"
-package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
+package.path = build .. "/?.lua;core/src/ai/?.lua;" .. package.path
 local P = require "predict"
 local path = arg[2]
 

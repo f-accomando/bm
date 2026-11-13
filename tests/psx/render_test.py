@@ -2,7 +2,7 @@
 """
 render_test.py - the bm PSX cartridge in bmhost: it plays the test PS-EXE (no BIOS) and checks the picture.
 
-  python3 tests/psx/render_test.py build/host/bmhost-bin build/carts/psx.bm
+  python3 tests/psx/render_test.py build/host/bmhost-bin build/bm/psx.bm
 
 Checks: the game list shows the file; after A the picture holds the blue background, the Gouraud triangle (red,
 green and blue corners with mixed colours between), and the white square.

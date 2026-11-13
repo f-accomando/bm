@@ -7,28 +7,28 @@
 
 ## Goal
 
-The assistant (`src/ai`, F6 in every tool) builds 3D models from separate primitives (`mesh_script.c`: box, tube, ell,
+The assistant (`core/src/ai`, F6 in every tool) builds 3D models from separate primitives (`mesh_script.c`: box, tube, ell,
 prism, one bone per group of faces). It cannot make a **continuous skin**: limbs, ears, tail and fingers that grow
 out of vertices shared with the body, so a bent joint stretches instead of opening a gap. Add recipes that do:
 `biped` (organic person, 15 bones) and `chameleon` (a biped with a tail, 18 bones), with idle, walk and wave.
 
 ## What the code allows (planner, with file:line)
 
-- `mesh_face_t` keeps `p[4][3]` and `b[4]`: **a bone per corner already exists** (`src/ai/mesh.h:25-30`).
-- Vertex welding by position and bone already happens on export: `T.encode_mesh` (`src/script/bm3d.lua:148-192`,
+- `mesh_face_t` keeps `p[4][3]` and `b[4]`: **a bone per corner already exists** (`core/src/ai/mesh.h:25-30`).
+- Vertex welding by position and bone already happens on export: `T.encode_mesh` (`core/src/script/bm3d.lua:148-192`,
   `pkey` at 1e-4; corners of different bones stay apart). Positions are snapped to a 1/256 grid by `mesh_finish`
   (`mesh.c:1138,1162-1167`).
 - The only blocker is `face()` (`mesh.c:152-175`): it gives every corner `c->bone`. A quad between two rings with
   different bones cannot be written. `mirror_x` already respects the bone of each corner (`mesh.c:388`).
-- `img2mesh` has its own SPEC (`tools/img2mesh.py:45`): extending the script language would not change it by itself.
+- `img2mesh` has its own SPEC (`core/tools/img2mesh.py:45`): extending the script language would not change it by itself.
   And a `loft` that refers to rings is what a language model writes badly; a table of numbers is more reliable.
 - Limits: 2048 faces, 40 bones, 4 clips, 6 keys a clip (`mesh.h:19-22`); extra faces are silently dropped
-  (`mesh.c:155`). The RGB30 kernel does not build `mesh*.c` or `lua_ai.c` (`rgb30.mk:87-90`): no impact, no new divergence.
+  (`mesh.c:155`). The RGB30 kernel does not build `mesh*.c` or `lua_ai.c` (`core/rgb30.mk:87-90`): no impact, no new divergence.
 
 ## Recommendation
 
 **A C recipe on top of a small reusable skin kit.** Port the `Skin` of `examples/charkit/charkit.py` (vertex table,
-rings, bridge, cap, tent, align) to `src/ai/mesh_skin.c`, emit faces through a new `face_b()` that takes a bone per
+rings, bridge, cap, tent, align) to `core/src/ai/mesh_skin.c`, emit faces through a new `face_b()` that takes a bone per
 corner, and write `r_biped` and `r_chameleon` with fixed numbers. Rule for the bone of a shared ring: the **distal**
 bone. The script language is not extended for now (WO-7).
 
@@ -44,12 +44,12 @@ Order: WO-0 -> WO-1 -> WO-2 -> WO-3 -> WO-4 -> WO-5a -> WO-5b -> WO-6; WO-7 only
 | WO | Goal | Files | Verify | Agent |
 |---|---|---|---|---|
 | 0 | Snapshot of every recipe's output and of the training before any change | none | the 53 recipes dumped with `meshview json`; baseline of `trainassist.py` kept | bm-ops |
-| 1 | `face_b`: a bone for each corner of a face | `src/ai/mesh.c`, `mesh_int.h` | the dumps of all recipes are **identical** to WO-0 | bm-coder |
+| 1 | `face_b`: a bone for each corner of a face | `core/src/ai/mesh.c`, `mesh_int.h` | the dumps of all recipes are **identical** to WO-0 | bm-coder |
 | 2 | Skin test | `tests/ai/test_ai.c` (`test_skins`) | one bone per position; the hips component reaches head, hands, feet (and `tail3`); at most 640 triangles, 512 distinct positions; skips when the recipe is absent | bm-coder |
-| 3 | Skin kit and `biped` recipe, 15 bones, clips idle walk wave | `src/ai/mesh_skin.c`, `mesh_int.h`, `mesh.c` `recipes[]`, `Makefile` (`AI_SRCS`) | `make test-ai`; `meshview one biped` prints 15 bones, 3 clips | bm-light |
+| 3 | Skin kit and `biped` recipe, 15 bones, clips idle walk wave | `core/src/ai/mesh_skin.c`, `mesh_int.h`, `mesh.c` `recipes[]`, `Makefile` (`AI_SRCS`) | `make test-ai`; `meshview one biped` prints 15 bones, 3 clips | bm-light |
 | 4 | Tail and `chameleon`, 18 bones (`tail1..3`, 2 rings of 6 sides each) | `mesh_skin.c`, `mesh.c` | `make test-ai` (checks `tail3`); 18 bones, 3 clips | bm-light |
-| 5a | KB entries `mesh.biped`, `mesh.chameleon`, `tip.skinning` and six held-out questions | `src/ai/kb/meshes.txt`, `tips.txt`, `tests.txt` | `make build/assist.bin` | bm-mechanic |
-| 5b | Retrain, compare with the baseline | `src/ai/assist.weights` | `make test-ai`; `held-out first three >= 90%`; commit the weights | bm-ops |
+| 5a | KB entries `mesh.biped`, `mesh.chameleon`, `tip.skinning` and six held-out questions | `core/src/ai/kb/meshes.txt`, `tips.txt`, `tests.txt` | `make build/assist.bin` | bm-mechanic |
+| 5b | Retrain, compare with the baseline | `core/src/ai/assist.weights` | `make test-ai`; `held-out first three >= 90%`; commit the weights | bm-ops |
 | 6 | Docs | `docs/progress/tools.md` (Open work, Rules), `tools-assistant.md`, `CHARACTERS.md` | `docs_audit.py score`, `consistency.py check` clean | bm-mechanic |
 | 7 | (deferred) `skin` instructions in the part language for `ai.script` and `img2mesh` | `mesh_script.c`, SPEC, `docs/api/tools.md`, replays in `tests/ai/img2mesh/` | back to bm-planner | - |
 

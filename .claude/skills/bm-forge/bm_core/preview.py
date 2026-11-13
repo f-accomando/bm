@@ -1,8 +1,8 @@
 """Headless preview of MESH models and ANIM clips: a software rasterizer in
 pure Python (no numpy), PNG / GIF out (imageio.py), playback maths from
-skin.py (port of src/bm/runtime.c pose_at / skin).
+skin.py (port of core/src/bm/runtime.c pose_at / skin).
 
-What follows the console (r3d, src/bm/r3d.c) and what is approximated:
+What follows the console (r3d, core/src/bm/r3d.c) and what is approximated:
 
 - Camera: world -> camera rows of view_setup (r3d.c:975-985), screen
   sx = w/2 + x f / z, sy = h/2 - y f / z (r3d.c:1022-1023), focal
@@ -87,7 +87,7 @@ def decode_sheet(body):
 
 def decode_sheet8(body):
     """SHEET8 (5) body: palette + runs, port of sheet8_walk
-    (src/bm/format.c:37-63); checked first by sections.check_sheet8"""
+    (core/src/bm/format.c:37-63); checked first by sections.check_sheet8"""
     from .sections import check_sheet8
     info = check_sheet8(body)
     w, h, ncol = info["w"], info["h"], info["ncol"]
@@ -501,7 +501,7 @@ def anim_gif(model, rig, clip, fps=12, **kw):
 
 def model_texture(cart):
     """(Texture or None, inset in sheet px) of a cartridge (inset = MESH u16 / 256,
-    bm_mesh_inset src/bm/format.c:192-195)"""
+    bm_mesh_inset core/src/bm/format.c:192-195)"""
     b = cart.get(8)
     inset = struct.unpack_from("<H", b, 2)[0] / 256.0 if b is not None and len(b) >= 4 else 0.25
     return texture_of(cart), inset

@@ -1,4 +1,4 @@
-/* dsp_ref.cpp: compares the S-DSP of bm (src/bm/snes_dsp.c) with the one of ares (ISC licence), sample by sample.
+/* dsp_ref.cpp: compares the S-DSP of bm (core/src/bm/snes_dsp.c) with the one of ares (ISC licence), sample by sample.
  * ares is NOT part of this repository. Get it into a directory of your own and give the path:
  *     git clone --depth 1 https://github.com/ares-emulator/ares.git /path/to/ares
  *     make test-snes-audio-ref ARES=/path/to/ares

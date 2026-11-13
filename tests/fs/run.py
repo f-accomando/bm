@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FAT write test: builds an SD image (scripts/mksd.py), runs the host test
+FAT write test: builds an SD image (core/scripts/mksd.py), runs the host test
 binary on it, then checks the result with independent tools: fsck.vfat
 (filesystem consistency) and mtools (reads back what bm wrote). Twice: a
 small card with 512-byte clusters, and one with 4 KB clusters as a real
@@ -14,7 +14,7 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mksd  # noqa: E402
 
 PART_OFFSET = 2048 * 512
@@ -26,10 +26,10 @@ def check(binary, size_mib, cluster_sectors):
     what = f"{cluster_sectors * 512} B clusters"
     with tempfile.TemporaryDirectory() as tmp:
         img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(readme, "carts/README.TXT"),
-                         (readme, "carts/Un gioco da cancellare.bm")], size_mib,
+        mksd.build(img, [(readme, "bm/README.TXT"),
+                         (readme, "bm/Un gioco da cancellare.bm")], size_mib,
                    cluster_sectors=cluster_sectors)
-        r = subprocess.run([binary, img, readme, "/carts/README.TXT"], cwd=tmp)
+        r = subprocess.run([binary, img, readme, "/bm/README.TXT"], cwd=tmp)
         if r.returncode:
             print(f"FAIL ({what})")
             return 1

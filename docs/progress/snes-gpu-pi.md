@@ -6,7 +6,7 @@ Part of [snes-gpu.md](snes-gpu.md) (items G1 to G11, rules and open work are the
 
 Status: built and tested on the PC (V3D emulator and QEMU build). Nothing is measured on the Pi yet. Default off.
 
-- Config key `snes_gpu_m7=1` (Pi only; the RGB30 and the host never see the code). At boot `snes_gpu_enable` (`src/kernel/snes_gpu.c`) starts the V3D, loads `qp_snes_mode7` (`src/gpu/qpu_snes.c`) and runs a probe: a synthetic Mode 7 picture of 24 lines, QPU against the ARM version. If the probe fails, the log says why and the ARM PPU draws everything.
+- Config key `snes_gpu_m7=1` (Pi only; the RGB30 and the host never see the code). At boot `snes_gpu_enable` (`core/src/kernel/snes_gpu.c`) starts the V3D, loads `qp_snes_mode7` (`core/src/gpu/qpu_snes.c`) and runs a probe: a synthetic Mode 7 picture of 24 lines, QPU against the ARM version. If the probe fails, the log says why and the ARM PPU draws everything.
 - `snes_ppu.c` keeps the lines of a frame that show BG1 Mode 7 alone (`bgmode` 7, `tm` = 1, no window on BG1, no colour math, no clip rule). It writes X and Y of the line (the ARM set-up of `draw_mode7`) in a table. A run of lines ends, and the QPUs draw it, when the matrix words or `m7sel` change, the palette or the brightness change, the video RAM is written, the lines are not in sequence (forced blank), or the frame ends (`ppu_frame_end` in `snes_bus.c`). Every other line goes through the normal ARM path (rule G8: the ARM picture is the reference and the fallback).
 - A copy of the 64 KB of video RAM is made only when `ppu_vram_dirty` was called since the last copy (a Mode 7 game that writes VRAM only in the blank pays the copy once or never).
 - `qpu_snes_m7` runs the lines in up to 12 jobs. If a run fails (timeout, queue error), the ARM version of the same lines draws them from the same buffers (the picture is correct). Two failed runs in a row turn the QPUs off for the session. A run skipped because a 3D job runs is not a failure.
@@ -58,7 +58,7 @@ Next version (the user keeps it as a to-do, 2026-11-13): the QPU draws BG1 and g
 
 `tests/snes/m7test/main.s` is an original ROM (written with the SDK assembler, also an SDK example) that measures the GPU Mode 7 path on the Pi with the sprites and the other rules switched on and off. BG1 shows a 128x128 map of 16 tiles (8 bpp, made by the code: a checker and a colour gradient). Every frame the NMI turns the matrix by one step (the frame counter, 256 frames a turn), scrolls and sets the registers of the variant, so a run is the same every time.
 
-- Build: `tests/snes/build_m7test.sh` (WSL or Linux, from the repository root; `scripts/wsl-run.ps1 "tests/snes/build_m7test.sh"` on Windows) writes `build/m7test.sfc` (32 KB). The ROM is not in git. Copy it to the `snes` folder of the SD card.
+- Build: `tests/snes/build_m7test.sh` (WSL or Linux, from the repository root; `core/scripts/wsl-run.ps1 "tests/snes/build_m7test.sh"` on Windows) writes `build/m7test.sfc` (32 KB). The ROM is not in git. Copy it to the `snes` folder of the SD card.
 - Variants: the ROM starts in variant 1 and keeps the last variant that a key selected (it stays after the key is released). Pad keys: B or no input = 1, Y = 2, A = 3, X = 4, L = 5. In the cart use the keys that the cart maps to these pad buttons.
 - Test on the PC: `make test-snes-m7rom` (the five variants in the C core; the picture changes in every frame; two runs give the same hashes; the QPU path on the V3D emulator equals the ARM picture in every frame; the reject counters) and `make test-snes-m7rom-arm` (host pictures against an ARM1176 in QEMU).
 
@@ -72,7 +72,7 @@ Next version (the user keeps it as a to-do, 2026-11-13): the QPU draws BG1 and g
 
 Test build with no hands (`SNES_M7TEST=1`):
 
-- Build: `SNES_M7TEST=1 python3 carts/snes/build/build.py build/snes-m7` writes `build/snes-m7/snes.bm`. The normal cart is not changed (`M7TEST = false`). Send it with `tools/pi.py send`. Put `m7test.sfc` in the `snes` folder of the SD card first.
+- Build: `SNES_M7TEST=1 python3 bm/snes/build/build.py build/snes-m7` writes `build/snes-m7/snes.bm`. The normal cart is not changed (`M7TEST = false`). Send it with `core/tools/pi.py send`. Put `m7test.sfc` in the `snes` folder of the SD card first.
 - The cart opens `m7test.sfc` by itself (if it is not there, the first ROM named `m7test*`). The logger is on. The cart injects the pad 1 keys itself, only in this build: variant 1 (no key), 2 (Y), 3 (A), 4 (X), 5 (L), then 1 again. Each step lasts 20 s of emulated time (1200 frames, counted in updates, so a slow Pi stretches the real time). The whole run is about 2 minutes of emulated time. After the script the ROM keeps running in variant 1.
 - Log lines: `m7test variant N step=S t=T` when the variant changes (N = variant, S = step 1 to 6, T = emulated seconds since the ROM started: 0, 20, 40, 60, 80, 100). Take the `snes t=` lines between two `m7test variant` lines as the figures of that variant. Read the log with `pi.py line log`. Run the whole script twice: with `snes_gpu_m7=1` and with 0.
 - PC test: `make test-snes-m7` builds the ROM and the cart, runs it in bmhost for 135 s of emulated time and checks that the log lines go 1 2 3 4 5 1 at 0, 20 ... 100 s, that the ROM runs, and that the flag off leaves the normal cart as it was.

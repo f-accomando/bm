@@ -2,12 +2,12 @@
 # Date: 2026-10-13.
 # Regenerate the list of names: grep -rhoE 'config_[a-z_]*\("[a-z0-9_]+"' src
 #   (that finds the literal keys; also read: the keys built at run time, listed below as [[pattern]], and
-#   bt_kbd/bt_mouse (+ _key) and meshy_key, whose names are in src/bt/ble.c key_addr/key_ltk and src/net/img3d.c;
-#   github_api/report_repo/report_branch are read through cfg("...") in src/kernel/reports.c).
+#   bt_kbd/bt_mouse (+ _key) and meshy_key, whose names are in core/src/bt/ble.c key_addr/key_ltk and core/src/net/img3d.c;
+#   github_api/report_repo/report_branch are read through cfg("...") in core/src/kernel/reports.c).
 # Format of a block: scope = all | pi | rgb30 | tests (where the code reads it); values = what is accepted;
 #   default = what happens when the key is missing; settings = the Settings row that edits it ("" = by hand only);
 #   read_in = file:line of the read.
-# Rules of the file itself (src/kernel/config.c): a key is letters, digits, "_" (max 23 chars), a value max 127;
+# Rules of the file itself (core/src/kernel/config.c): a key is letters, digits, "_" (max 23 chars), a value max 127;
 #   a key ending in _token, _psk, _password or _key is a secret (hidden by config_list and the PC tools);
 #   "key=" from the PC removes the key. Unknown keys are kept as they are.
 
@@ -18,7 +18,7 @@ values = "it or en (fixes the assistant's language); anything else = auto"
 default = "auto: follows the language of the questions, last used"
 meaning = "Language of the assistant (ai_set_lang)."
 settings = ""
-read_in = "src/bm/runtime.c:4897"
+read_in = "core/src/bm/runtime.c:4897"
 
 [[key]]
 name = "battery_log"
@@ -27,7 +27,7 @@ values = "1 = on; anything else = off"
 default = "off"
 meaning = "One line a minute (seconds, mV, mA, mAh, plug, charge) appended to bm/battery.csv, for the battery calibration."
 settings = ""
-read_in = "src/rgb30/battery.c"
+read_in = "core/src/rgb30/battery.c"
 
 [[key]]
 name = "battery_icon"
@@ -36,7 +36,7 @@ values = "0 = off; anything else = on"
 default = "on (the icon shows when the battery is low)"
 meaning = "Small red low-battery icon over games and tools."
 settings = "Settings > Screen > Low battery icon"
-read_in = "src/bm/runtime.c:8409"
+read_in = "core/src/bm/runtime.c:8409"
 
 [[key]]
 name = "lock_screen"
@@ -45,7 +45,7 @@ values = "1 = on; anything else = off"
 default = "off"
 meaning = "The menu (not a game or an application) turns the screen off after 60 s without a button, to save the battery; the same button pressed 3 times unlocks it."
 settings = "Settings > Screen > Lock screen"
-read_in = "src/rgb30/ui.c"
+read_in = "core/src/rgb30/ui.c"
 
 [[key]]
 name = "bm_scale"
@@ -54,7 +54,7 @@ values = "int = whole-pixel scale (largest that fits); anything else = fill"
 default = "fill the panel"
 meaning = "How a .bm game is scaled on the RGB30 panel."
 settings = ""
-read_in = "src/rgb30/fb.c:87"
+read_in = "core/src/rgb30/fb.c:87"
 
 [[key]]
 name = "hdmi"
@@ -63,7 +63,7 @@ values = "0 = the panel only; anything else = the screen follows the micro HDMI 
 default = "on"
 meaning = "With a cable plugged in, the panel goes off and the external screen shows 1280x720 at 60 Hz; unplugged, the panel is back."
 settings = ""
-read_in = "src/rgb30/rk_display.c"
+read_in = "core/src/rgb30/rk_display.c"
 
 [[key]]
 name = "hdmi_origin"
@@ -72,7 +72,7 @@ values = "1 = window positions count from the sync start; anything else = from t
 default = "from the active area (as on the panel)"
 meaning = "Hardware test switch for the image position on the external screen (see docs/RGB30.md, HDMI)."
 settings = ""
-read_in = "src/rgb30/rk_display.c"
+read_in = "core/src/rgb30/rk_display.c"
 
 [[key]]
 name = "hdmi_swap"
@@ -81,7 +81,7 @@ values = "1 = swap red and green on the external screen; anything else = off"
 default = "off"
 meaning = "Hardware test switch for the colour order on the external screen (see docs/RGB30.md, HDMI)."
 settings = ""
-read_in = "src/rgb30/rk_display.c"
+read_in = "core/src/rgb30/rk_display.c"
 
 [[key]]
 name = "bm_smooth"
@@ -90,7 +90,7 @@ values = "1 = smooth scaling; anything else = off"
 default = "off"
 meaning = "Smoothing of the scaled .bm game picture."
 settings = ""
-read_in = "src/rgb30/fb.c:87"
+read_in = "core/src/rgb30/fb.c:87"
 
 [[key]]
 name = "bt_kbd"
@@ -99,7 +99,7 @@ values = "\"<address aa:bb:cc:dd:ee:ff> <type 0|1> <irk or ->\" (written when pa
 default = "no Bluetooth LE keyboard paired"
 meaning = "The paired Bluetooth LE keyboard (written by the pairing, removed by Forget)."
 settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:245"
+read_in = "core/src/bt/ble.c:245"
 
 [[key]]
 name = "bt_kbd_key"
@@ -108,7 +108,7 @@ values = "\"<ltk 32 hex> <ediv 4 hex> <rand 16 hex>\" (at least 54 chars)"
 default = "no bond"
 meaning = "Keys of the Bluetooth LE keyboard bond (secret: ends in _key)."
 settings = "Settings > Controllers > Pair a keyboard (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:246"
+read_in = "core/src/bt/ble.c:246"
 
 [[key]]
 name = "bt_mouse"
@@ -117,7 +117,7 @@ values = "same format as bt_kbd"
 default = "no Bluetooth LE mouse paired"
 meaning = "The paired Bluetooth LE mouse."
 settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:245"
+read_in = "core/src/bt/ble.c:245"
 
 [[key]]
 name = "bt_mouse_classic"
@@ -126,7 +126,7 @@ values = "\"<address> <32 hex digits of the link key>\" (as bt_pad<N>); the mous
 default = "no classic Bluetooth mouse paired (the key present at all counts as paired)"
 meaning = "Paired classic Bluetooth mouse (slot after the 4 pads)."
 settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
-read_in = "src/bt/bt.c:639"
+read_in = "core/src/bt/bt.c:639"
 
 [[key]]
 name = "bt_mouse_key"
@@ -135,7 +135,7 @@ values = "same format as bt_kbd_key"
 default = "no bond"
 meaning = "Keys of the Bluetooth LE mouse bond (secret: ends in _key)."
 settings = "Settings > Controllers > Pair a mouse (written); Forget all controllers (removed)"
-read_in = "src/bt/ble.c:246"
+read_in = "core/src/bt/ble.c:246"
 
 [[key]]
 name = "bt_pad"
@@ -144,7 +144,7 @@ values = "\"<address aa:bb:cc:dd:ee:ff> <32 hex digits>\" (old format)"
 default = "absent; used as player 1 only when bt_pad1 is missing, then moved to bt_pad1 at the next pairing"
 meaning = "Legacy key of a paired Bluetooth pad (the same as bt_pad1 now)."
 settings = "Settings > Controllers > Forget all controllers (removed)"
-read_in = "src/bt/bt.c:217"
+read_in = "core/src/bt/bt.c:217"
 
 [[key]]
 name = "confirm"
@@ -153,7 +153,7 @@ values = "a or A = A confirms and B goes back; anything else = B confirms, Y goe
 default = "B confirms, Y goes back"
 meaning = "Confirm button of the RGB30 menus."
 settings = "none: mo of controls= in bm/config.txt (no Settings page since 28 Oct 2026)"
-read_in = "src/rgb30/pad.c:pad_config"
+read_in = "core/src/rgb30/pad.c:pad_config"
 
 [[key]]
 name = "cores"
@@ -162,7 +162,7 @@ values = "2, 3 or 4 = that many cores in all (PSCI CPU_ON for the others, worker
 default = "one core on the console; QEMU always starts four"
 meaning = "Number of cores of the RGB30 kernel (docs/progress/multicore.md, M1-M5, V5). The loop over the workers uses the cores that came up."
 settings = ""
-read_in = "src/rgb30/main.c:smp_boot"
+read_in = "core/src/rgb30/main.c:smp_boot"
 
 [[key]]
 name = "bench3d_boot"
@@ -171,7 +171,7 @@ values = "test ids with '.' or '-' between (spheres.draws), or all"
 default = "absent: no bench at boot"
 meaning = "One 3D Bench run of those tests at the next boot, then the key is removed (set through the bridge: the RGB30 has no monitor line). With the bridge on fast (Settings > System > Bridge) the bench closes by itself after its summary (3 s) and the report is sent at once."
 settings = ""
-read_in = "src/rgb30/main.c:kernel_main"
+read_in = "core/src/rgb30/main.c:kernel_main"
 
 [[key]]
 name = "controls"
@@ -180,7 +180,7 @@ values = "space-separated code:button pairs: c1-c4 (scroller), t1-t4 (top-down),
 default = "empty: every action on the game's own button"
 meaning = "The player's remap of the game buttons (CONTROLS-1); mo wins over confirm=."
 settings = "none: set it by hand in bm/config.txt (the Settings > Controls page went away on 28 Oct 2026; each game remaps its own keys)"
-read_in = "src/kernel/controls.c:controls_get"
+read_in = "core/src/kernel/controls.c:controls_get"
 
 [[key]]
 name = "dma_zclear"
@@ -189,7 +189,7 @@ values = "0 = off; anything else = on"
 default = "on (the z-buffer clear runs on the DMA when the DMA is ready; the RGB30 has none)"
 meaning = "DMA clear of the ARM 3D z-buffer during _update."
 settings = ""
-read_in = "src/bm/runtime.c:1974"
+read_in = "core/src/bm/runtime.c:1974"
 
 [[key]]
 name = "draw"
@@ -198,7 +198,7 @@ values = "ram = .bm games draw via RAM; anything else = direct"
 default = "direct (the variable starts at 0)"
 meaning = "Drawing mode of the .bm games."
 settings = ""
-read_in = "src/kernel/config.c:105"
+read_in = "core/src/kernel/config.c:105"
 
 [[key]]
 name = "file_write_max_kib"
@@ -207,7 +207,7 @@ values = "KB, a whole number from 1 to 32768; anything else = default"
 default = "8192 (8 MB)"
 meaning = "Largest file that file_write() writes in bm/web."
 settings = ""
-read_in = "src/bm/runtime.c:4068"
+read_in = "core/src/bm/runtime.c:4068"
 
 [[key]]
 name = "game_buttons"
@@ -216,7 +216,7 @@ values = "position = B A Y X swapped as a quarter turn; anything else = by lette
 default = "by letter"
 meaning = "Button mapping of the games' face buttons on the RGB30."
 settings = ""
-read_in = "src/rgb30/bm_input.c:34"
+read_in = "core/src/rgb30/bm_input.c:34"
 
 [[key]]
 name = "game_intro"
@@ -225,7 +225,7 @@ values = "0 = no loading intro; anything else = intro"
 default = "intro shown"
 meaning = "The retro loading screen before a game."
 settings = ""
-read_in = "src/bm/loading.c:285"
+read_in = "core/src/bm/loading.c:285"
 
 [[key]]
 name = "github_api"
@@ -234,7 +234,7 @@ values = "a URL (empty counts as missing)"
 default = "https://api.github.com"
 meaning = "GitHub API base for the reports and the Market publishing."
 settings = ""
-read_in = "src/kernel/reports.c:144"
+read_in = "core/src/kernel/reports.c:144"
 
 [[key]]
 name = "github_token"
@@ -243,7 +243,7 @@ values = "a GitHub token (empty counts as missing); secret"
 default = "no token: reports stay on the SD card, publishing is off"
 meaning = "Token to send reports to GitHub (also turns session_report on when it is unset) and to publish."
 settings = ""
-read_in = "src/kernel/reports.c:118"
+read_in = "core/src/kernel/reports.c:118"
 
 [[key]]
 name = "gpu3d"
@@ -252,7 +252,7 @@ values = "0 = the ARM draws the 3D; anything else = the V3D GPU (a game's own se
 default = "GPU"
 meaning = "GPU or ARM for the 3D of the games."
 settings = ""
-read_in = "src/bm/runtime.c:1852"
+read_in = "core/src/bm/runtime.c:1852"
 
 [[key]]
 name = "gpu2d_only"
@@ -261,7 +261,7 @@ values = "1 = a game with no 3D has its 2D (rectangles, sprites, map, rows) draw
 default = "off (0). The default is what the Pi verified: Yharnam measured on the Pi (27 Oct): no gain: without a window its 4096 x 3400 sheet is over the 2048 limit, with gpu2d_sheet the map on the GPU is slower than the ARM (44.3 fps against 50.5, docs/progress/yharnam.md)."
 meaning = "The GPU draws the 2D of a game that never calls the 3D (bm3d 7.16). The job opens with the first quad; dark_begin starts it. Hidden key, no Settings row."
 settings = ""
-read_in = "src/bm/runtime.c:gpu2d_only_frame"
+read_in = "core/src/bm/runtime.c:gpu2d_only_frame"
 
 [[key]]
 name = "gpu3d_light"
@@ -270,7 +270,7 @@ values = "1 = the light of dark_begin .. dark_end (fades, glow) is made by the V
 default = "off (0) until the Pi measures it."
 meaning = "The GPU lights the page: one quad over it multiplies each pixel by the ambient plus the lamps' colour (bm3d 7.17). The look is smooth and lamps add up; the ARM's is in levels and keeps the highest. Hidden key, no Settings row."
 settings = ""
-read_in = "src/bm/runtime.c:light_gpu_wanted"
+read_in = "core/src/bm/runtime.c:light_gpu_wanted"
 
 [[key]]
 name = "gpu3d_2d"
@@ -279,7 +279,7 @@ values = "1 = the 2D over the 3D is drawn by the GPU in its job; 0 = ARM"
 default = "on (1). GPU+2D measured +6.7% and 3569+ sprites against 2574 on ARM (SYS-9b)."
 meaning = "Who draws the 2D over the GPU 3D. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c"
+read_in = "core/src/bm/runtime.c"
 
 [[key]]
 name = "gpu3d_aa"
@@ -288,7 +288,7 @@ values = "1 = MSAA 4x; anything else = off"
 default = "off"
 meaning = "Anti-aliasing of the GPU 3D. Hidden key, no Settings row; a game sets it with the second value of gpu3d(). Pi: not measured."
 settings = ""
-read_in = "src/bm/runtime.c:1865"
+read_in = "core/src/bm/runtime.c:1865"
 
 [[key]]
 name = "gpu3d_attr"
@@ -297,7 +297,7 @@ values = "1 = compact vertex attributes (where the boot probe_attr passes); anyt
 default = "floats (off). On the Pi Zero W the compact attributes gave no gain (herotris 54 056 against 54 013 triangles at 60 fps, 23 Oct). The Mali (RGB30) has no such path."
 meaning = "Vertex attribute format of the GPU 3D. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:2029"
+read_in = "core/src/bm/runtime.c:2029"
 
 [[key]]
 name = "gpu3d_etc1"
@@ -306,7 +306,7 @@ values = "1 = opaque textures as ETC1; anything else = off"
 default = "off. Pi, 21 Oct: within 1-6% of the plain path (quad_tex 2.19 against 2.20 ns/px), no gain."
 meaning = "ETC1 compression of the opaque 3D textures. Hidden key, no Settings row (SYS-9). The old Settings row set gpu3d_tex16 as well."
 settings = ""
-read_in = "src/bm/runtime.c:1879"
+read_in = "core/src/bm/runtime.c:1879"
 
 [[key]]
 name = "gpu3d_filter"
@@ -315,7 +315,7 @@ values = "1 = bilinear; anything else = nearest"
 default = "nearest. Bilinear changes the look and costs more per pixel (Pi: 2.3 ns/px against 1.65 nearest in a full-screen pass)."
 meaning = "Texture filter of the GPU 3D."
 settings = ""
-read_in = "src/bm/runtime.c:1875"
+read_in = "core/src/bm/runtime.c:1875"
 
 [[key]]
 name = "gpu3d_fs2"
@@ -324,7 +324,7 @@ values = "0 = one-thread pixel shaders; anything else = two threads"
 default = "two threads (on). Pi: quad_tex 148 quads against 121 (+22%)."
 meaning = "Two-thread pixel shaders of the GPU 3D. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1881"
+read_in = "core/src/bm/runtime.c:1881"
 
 [[key]]
 name = "gpu3d_later"
@@ -333,7 +333,7 @@ values = "1 = each frame shown a frame later (needs gpu3d_queue=2); anything els
 default = "Pi: at once (off), 22 Oct: no gain (+0.9% triangles drawn, the same 6.74 sets). RGB30: on (6 Nov 2026, Dark Night: better frame rate); gpu3d_later=0 = at once."
 meaning = "Shows the GPU frame one frame later. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1889"
+read_in = "core/src/bm/runtime.c:1889"
 
 [[key]]
 name = "snes_gpu_m7"
@@ -342,7 +342,7 @@ values = "1 = the SNES PPU draws a frame of Mode 7 with BG1 alone on the QPUs of
 default = "off (no V3D start for the SNES, the ARM PPU)"
 meaning = "G2 of docs/progress/snes-gpu.md: Mode 7 on the QPUs, byte for byte equal to the ARM picture. The snes t= line gets the gpu_m7 time and the frames each side drew. Also adds the V3D micro-benchmark row to the 3D Bench."
 settings = ""
-read_in = "src/kernel/config.c"
+read_in = "core/src/kernel/config.c"
 
 [[key]]
 name = "gpu3d_qpu"
@@ -351,7 +351,7 @@ values = "1 = the 3D Bench runs the QPU programs against the ARM versions, and t
 default = "off (no qpu_init call, no new work)"
 meaning = "QPU check: a row in the 3D Bench; the darkness levels of dark_end() on the QPUs with the ARM as fallback. For the first run on the Pi."
 settings = ""
-read_in = "src/kernel/config.c:26"
+read_in = "core/src/kernel/config.c:26"
 
 [[key]]
 name = "gpu3d_merge"
@@ -360,7 +360,7 @@ values = "0 = off; anything else = on"
 default = "on (bm3d 7.6) where the vertex shader and the clipper pass the boot probe; gpu3d_merge=0 is the off switch. A run merges only from 32 pieces with at most 150 faces on average (Pi, 23 Oct: 100 pieces of 50 faces +24%, 10 of 500 -26%). The Mali (RGB30) has no merge hook and never merges."
 meaning = "Draw merging: consecutive draw3d calls of meshes with baked light (or flag 2) with the same sheet that stand still, many small ones (at least 32, at most 150 faces each on average), become one mesh and one draw. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:2038"
+read_in = "core/src/bm/runtime.c:2038"
 
 [[key]]
 name = "gpu3d_queue"
@@ -369,7 +369,7 @@ values = "0 = off, 1 = one job queued, 2 = two jobs in flight; anything else = 0
 default = "1 (on) where a V3D answers and the boot probe passes; gpu3d_queue=0 is the off switch and the fallback. RGB30 (Mali): 2 without the key (6 Nov 2026)."
 meaning = "Frame queue: the game runs while the GPU draws the previous frame. Hidden key, no Settings row (SYS-9). Pi, 22 Oct: x1.75 (3.85 to 6.74 sets); queue 2 gives the same as 1."
 settings = ""
-read_in = "src/bm/runtime.c:2005"
+read_in = "core/src/bm/runtime.c:2005"
 
 [[key]]
 name = "gpu3d_sort"
@@ -378,7 +378,7 @@ values = "1 = opaque meshes nearest first; anything else = as the game"
 default = "as the game (off). Not measured on the Pi; emulator only (8 boxes: 99 960 pixels shaded instead of 416 546)."
 meaning = "Draw order of the opaque meshes. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1883"
+read_in = "core/src/bm/runtime.c:1883"
 
 [[key]]
 name = "gpu3d_tex16"
@@ -387,7 +387,7 @@ values = "1 = opaque textures in 16 bits; anything else = off"
 default = "off. Pi, 21 Oct: within 1-6% of the plain path (quad_tex 2.35 against 2.20 ns/px), no gain."
 meaning = "16-bit opaque textures. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1877"
+read_in = "core/src/bm/runtime.c:1877"
 
 [[key]]
 name = "gpu3d_vs"
@@ -396,7 +396,7 @@ values = "0 = the ARM places the corners, 1 = GPU for scenery, 2 = GPU for every
 default = "2. Pi, 22 Oct: GPU+VS 3.85 sets against GPU 0.56 (x6.9)."
 meaning = "Vertex shader mode of the GPU 3D. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1867"
+read_in = "core/src/bm/runtime.c:1867"
 
 [[key]]
 name = "gpu3d_wc"
@@ -405,7 +405,7 @@ values = "1 = job memory uncached (write-combined); anything else = cached"
 default = "cached (off). Pi: no gain (d-cache misses -72%, load 199 against 200)."
 meaning = "Memory type of the GPU jobs. Hidden key, no Settings row (SYS-9)."
 settings = ""
-read_in = "src/bm/runtime.c:1873"
+read_in = "core/src/bm/runtime.c:1873"
 
 [[key]]
 name = "layout"
@@ -414,7 +414,7 @@ values = "us = US layout; anything else = Italian (it)"
 default = "it"
 meaning = "Layout of the USB or Bluetooth keyboard."
 settings = "Settings > Controllers > Keyboard layout"
-read_in = "src/kernel/config.c:103"
+read_in = "core/src/kernel/config.c:103"
 
 [[key]]
 name = "mali_diag"
@@ -423,7 +423,7 @@ values = "N = the log prints the first N mesh calls of the Mali driver (the mesh
 default = "0"
 meaning = "A diagnostic for the Mali (2026-10-30), read in bm/lastrun.txt after a restart."
 settings = ""
-read_in = "src/rgb30/bm_port.c"
+read_in = "core/src/rgb30/bm_port.c"
 
 [[key]]
 name = "mali_split"
@@ -432,7 +432,7 @@ values = "1 = a mesh of textured and flat faces is drawn by the Mali in two part
 default = "off"
 meaning = "A palm (leaves textured, trunk flat) is two cached meshes with two shaders. Experimental (2026-10-30). Run on an RGB30 with Island Bench and mali_alpha=1: 57 ms a frame in the orbit view (48 ms without the split), so it is off."
 settings = ""
-read_in = "src/rgb30/bm_port.c"
+read_in = "core/src/rgb30/bm_port.c"
 
 [[key]]
 name = "mali_alpha"
@@ -441,7 +441,7 @@ values = "0 = the ARM draws a 3D sheet with transparent texels; anything else = 
 default = "1"
 meaning = "On by default since 5 Nov 2026 (was experimental, 2026-10-30): the GPU stays on for a cartridge whose 3D sheet has holes. Run on an RGB30 with Island Bench: the GPU stays on and the leaves are cut out, but meshes with flat and textured faces still go through the ARM one triangle at a time and some near objects are not drawn."
 settings = ""
-read_in = "src/rgb30/bm_port.c"
+read_in = "core/src/rgb30/bm_port.c"
 
 [[key]]
 name = "mali_barrier"
@@ -450,7 +450,7 @@ values = "1 = every draw of the Mali carries the primitive barrier bit"
 default = "0"
 meaning = "A test (5 Nov 2026). It changed nothing in the depth tests of Hero Stress and Dark Night; kept for the next hardware test."
 settings = ""
-read_in = "src/rgb30/bm_port.c"
+read_in = "core/src/rgb30/bm_port.c"
 
 [[key]]
 name = "mali_noshadow"
@@ -459,7 +459,7 @@ values = "1 = the Mali does not draw the shadows (shadow3d); anything else = a s
 default = "ARM (the shadows hand the 3D over)"
 meaning = "A test (2 Nov 2026): the Mali has no screen-door face, so one shadow (Dark Night) moved the whole 3D to the ARM. With it the GPU stays on and the shadows are not drawn."
 settings = ""
-read_in = "src/rgb30/bm_port.c"
+read_in = "core/src/rgb30/bm_port.c"
 
 [[key]]
 name = "mali3d"
@@ -468,7 +468,7 @@ values = "1 = the Mali draws the flat-colour triangles of the 3D; anything else 
 default = "ARM"
 meaning = "RK3566 Mali backend of r3d (phase 2), flat colours only; textures and effects hand over to the ARM. Not run on a console."
 settings = ""
-read_in = "src/rgb30/bm_port.c:35"
+read_in = "core/src/rgb30/bm_port.c:35"
 
 [[key]]
 name = "mali_lit"
@@ -477,7 +477,7 @@ values = "0 = the ARM lights the faces of a mesh; anything else = the Mali verte
 default = "1"
 meaning = "Q2: a rigid lit mesh (no cel levels, no bones) is one draw: BM_VS_LIT (sun and ambient light) or BM_VS_LITX (also rim, lamps, gloss, fog) lights each face, flat. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:38"
+read_in = "core/src/rgb30/bm_port.c:38"
 
 [[key]]
 name = "mali_msaa"
@@ -486,7 +486,7 @@ values = "1 = 4x MSAA; anything else = off"
 default = "0"
 meaning = "The Mali tile buffer holds 4 samples and the triangle edges are smooth. The surface keeps the coverage in its alpha byte and the ARM blends the edge pixels with the page. About 8% slower on spheres. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:40"
+read_in = "core/src/rgb30/bm_port.c:40"
 
 [[key]]
 name = "mali_res"
@@ -495,7 +495,7 @@ values = "0 = no cache of the faces of a lit mesh; anything else = the Mali keep
 default = "1"
 meaning = "A lit mesh the Mali has seen before (a frame holds 10922 of their faces) is drawn from the vertices of its faces kept in a cache: a frame only tests the faces (back faces stay out) and copies the visible ones. The pictures do not change. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:38"
+read_in = "core/src/rgb30/bm_port.c:38"
 
 [[key]]
 name = "mali_2d"
@@ -504,7 +504,7 @@ values = "1 = the Mali draws rectangles and sprites over the 3D (with mali3d=1);
 default = "0"
 meaning = "The 2D over the 3D (gpu3d_rect2d, gpu3d_blit2d) goes into the frame of the Mali, after the 3D and without a depth test. Text, the light of dark_end and the enlarge stay on the ARM. Off by default: on the RGB30 the ARM draws the sprites faster. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:38"
+read_in = "core/src/rgb30/bm_port.c:38"
 
 [[key]]
 name = "mali_lit_min"
@@ -513,7 +513,7 @@ values = "pixels: the smallest average face a mesh needs to be lit by the Mali; 
 default = "100"
 meaning = "Q2: a mesh with faces smaller than this (estimated from its radius and distance) is lit by the ARM, as many tiny faces cost more to send to the GPU than to light. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:38"
+read_in = "core/src/rgb30/bm_port.c:38"
 
 [[key]]
 name = "mali_z"
@@ -522,7 +522,7 @@ values = "0 = far-to-near sort on the ARM; anything else = the Mali depth buffer
 default = "1"
 meaning = "G2: the Mali tests depth in the tile buffer (less or equal, cleared to 1) and the backend does not sort the triangles. A frame that does not fit one pass (over 1024 draws) goes back to the sort. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:38"
+read_in = "core/src/rgb30/bm_port.c:38"
 
 [[key]]
 name = "mali_tex"
@@ -531,7 +531,7 @@ values = "0 = opaque textures stay on the ARM; anything else = the Mali draws th
 default = "1"
 meaning = "G1: the Mali draws textured faces of opaque RGB565 sheets (BM_VS_TEX and BM_FS_TEX); 0 sends them to the ARM, as before. Read at every gpu3d init."
 settings = ""
-read_in = "src/rgb30/bm_port.c:36"
+read_in = "core/src/rgb30/bm_port.c:36"
 
 [[key]]
 name = "mali_probe"
@@ -540,7 +540,7 @@ values = "1 = run the Mali triangle probe at boot; anything else = off"
 default = "off"
 meaning = "Run the Mali triangle probe and print/report hardware diagnostics at boot."
 settings = ""
-read_in = "src/rgb30/main.c:273"
+read_in = "core/src/rgb30/main.c:273"
 
 [[key]]
 name = "market_delay"
@@ -549,7 +549,7 @@ values = "milliseconds (strtol)"
 default = "0 (no delay)"
 meaning = "Slows a Market source down (for tests)."
 settings = ""
-read_in = "src/kernel/market.c:443"
+read_in = "core/src/kernel/market.c:443"
 
 [[key]]
 name = "market_repo"
@@ -558,7 +558,7 @@ values = "owner/repo of GitHub (empty counts as missing)"
 default = "f-accomando/bm-market"
 meaning = "Repository where Dev > Publish sends the pull request."
 settings = ""
-read_in = "src/kernel/publish.c:45"
+read_in = "core/src/kernel/publish.c:45"
 
 [[key]]
 name = "market_url"
@@ -567,7 +567,7 @@ values = "a URL; a final / is added if missing (empty counts as missing)"
 default = "https://f-accomando.github.io/bm-market/"
 meaning = "Base URL of the Market catalog."
 settings = ""
-read_in = "src/kernel/market.c:438"
+read_in = "core/src/kernel/market.c:438"
 
 [[key]]
 name = "menu_scale"
@@ -576,7 +576,7 @@ values = "2 = 1280x720 and 3 = 1920x1080, both drawn by the GPU; 4 = 360p drawn 
 default = "2 (1280x720 drawn by the GPU, 6.3 ms a frame on the Pi Zero W). The ARM never enlarges the menu: when the GPU cannot draw 2, 3 or 4, the menu stays at 360p on the ARM."
 meaning = "Size of the menu on the Pi."
 settings = "Settings > Screen > Menu size"
-read_in = "src/kernel/menu_ui.c:1208"
+read_in = "core/src/kernel/menu_ui.c:1208"
 
 [[key]]
 name = "boot"
@@ -585,7 +585,7 @@ values = "shell = the Pi starts at the monitor (the bm shell menu) and its item 
 default = "no key (the cartridge menu)"
 meaning = "What the Pi starts with."
 settings = ""
-read_in = "src/kernel/main.c"
+read_in = "core/src/kernel/main.c"
 
 [[key]]
 name = "autoexec"
@@ -594,7 +594,7 @@ values = "1 = /bm/autoexec.lua runs once at boot, before the menu or the shell (
 default = "no key"
 meaning = "A script of the card that runs at boot."
 settings = ""
-read_in = "src/kernel/main.c"
+read_in = "core/src/kernel/main.c"
 
 [[key]]
 name = "menu_layout"
@@ -603,7 +603,7 @@ values = "1 = with menu_scale 2 or 3, the menu is laid out at the screen's own s
 default = "no key (a trial, 28 Oct 2026)"
 meaning = "Layout of the menu at 720p and 1080p on the Pi."
 settings = "Settings > Screen > Menu layout (Pi only): Scaled or Native"
-read_in = "src/kernel/menu_ui.c"
+read_in = "core/src/kernel/menu_ui.c"
 
 [[key]]
 name = "menu_font"
@@ -612,7 +612,7 @@ values = "inter = modern Inter UI font; terminus = classic retro font; bm = bm f
 default = "no key (inter)"
 meaning = "Font of the menu UI on the Pi."
 settings = "Settings > Screen > Font UI"
-read_in = "src/kernel/menu_ui.c,src/kernel/settings.c"
+read_in = "core/src/kernel/menu_ui.c,core/src/kernel/settings.c"
 
 [[key]]
 name = "monitor_font"
@@ -621,7 +621,7 @@ values = "terminus = classic Terminus 8x16; inter = Inter 8x16; 6x12 = compact 6
 default = "no key (terminus)"
 meaning = "Font of the text monitor on the Pi."
 settings = "Settings > Screen > Font monitor"
-read_in = "src/kernel/main.c,src/kernel/settings.c"
+read_in = "core/src/kernel/main.c,core/src/kernel/settings.c"
 
 [[key]]
 name = "meshy_key"
@@ -630,7 +630,7 @@ values = "the API key of the Meshy image-to-3D service; secret"
 default = "missing: the image-to-3D service reports 'put the key in bm/config.txt'; on the RGB30 the service does not exist"
 meaning = "Key of the picture-to-model service (img3d provider meshy)."
 settings = ""
-read_in = "src/bm/runtime.c:6302"
+read_in = "core/src/bm/runtime.c:6302"
 
 [[key]]
 name = "mouse"
@@ -639,7 +639,7 @@ values = "off, 0 or no = pointer off; anything else = on"
 default = "on"
 meaning = "Mouse pointer in the menus and games."
 settings = ""
-read_in = "src/kernel/pointer.c:27"
+read_in = "core/src/kernel/pointer.c:27"
 
 [[key]]
 name = "name"
@@ -648,7 +648,7 @@ values = "a text (empty counts as missing)"
 default = "bm-<last number of the IP address>"
 meaning = "Name of this console for the nearby consoles (LAN)."
 settings = ""
-read_in = "src/kernel/market.c:1092"
+read_in = "core/src/kernel/market.c:1092"
 
 [[key]]
 name = "net_password"
@@ -657,7 +657,7 @@ values = "a text (empty counts as missing); secret"
 default = "a random 6-digit number is made when the network console starts and saved here"
 meaning = "Password of the network console (port 3333)."
 settings = ""
-read_in = "src/net/netcon.c:178"
+read_in = "core/src/net/netcon.c:178"
 
 [[key]]
 name = "perf"
@@ -666,7 +666,7 @@ values = "off or 0 = off; bottom = bottom overlay; anything else (top, 1, 2, 3) 
 default = "off"
 meaning = "The dev kit's performance overlay."
 settings = ""
-read_in = "src/kernel/config.c:107"
+read_in = "core/src/kernel/config.c:107"
 
 [[key]]
 name = "prompts"
@@ -675,7 +675,7 @@ values = "colour = coloured button icons; anything else = white"
 default = "white"
 meaning = "Colour of the DS4 button icons in the hints."
 settings = "Settings > Controllers > Button icons"
-read_in = "src/kernel/settings.c:146"
+read_in = "core/src/kernel/settings.c:146"
 
 [[key]]
 name = "r3d_fast"
@@ -684,7 +684,7 @@ values = "0 = exact; anything else = fast (one matrix a model, light in its axes
 default = "fast (since 26 Oct 2026; best for speed)"
 meaning = "Mode of the ARM 3D (r3d)."
 settings = ""
-read_in = "src/bm/runtime.c:1915"
+read_in = "core/src/bm/runtime.c:1915"
 
 [[key]]
 name = "r3d_impostor"
@@ -693,7 +693,7 @@ values = "number of pixels (atoi), limited to 2..64; 0 or less = off"
 default = "0 (off)"
 meaning = "Far small meshes drawn as one quad, up to that many pixels of a 1080-line screen."
 settings = ""
-read_in = "src/bm/runtime.c:1917"
+read_in = "core/src/bm/runtime.c:1917"
 
 [[key]]
 name = "report_branch"
@@ -702,7 +702,7 @@ values = "a branch name (empty counts as missing)"
 default = "reports"
 meaning = "Branch where the reports are put."
 settings = ""
-read_in = "src/kernel/reports.c:145"
+read_in = "core/src/kernel/reports.c:145"
 
 [[key]]
 name = "report_repo"
@@ -711,7 +711,7 @@ values = "owner/repo (empty counts as missing)"
 default = "f-accomando/bm"
 meaning = "Repository that receives the reports."
 settings = ""
-read_in = "src/kernel/reports.c:145"
+read_in = "core/src/kernel/reports.c:145"
 
 [[key]]
 name = "report_upload"
@@ -720,7 +720,7 @@ values = "0 = never send automatically; anything else = send"
 default = "send (when there is a github_token and a network)"
 meaning = "Turns the automatic upload of the reports off."
 settings = ""
-read_in = "src/kernel/reports.c:233"
+read_in = "core/src/kernel/reports.c:233"
 
 [[key]]
 name = "session_report"
@@ -729,7 +729,7 @@ values = "text starting with 0 = off; any other non-empty text = on"
 default = "on if github_token is set, else off"
 meaning = "A report with the frames of a game run, when it ends (30 frames or more)."
 settings = ""
-read_in = "src/bm/runtime.c:9462"
+read_in = "core/src/bm/runtime.c:9462"
 
 [[key]]
 name = "sound"
@@ -738,7 +738,7 @@ values = "8bit = 8-bit chip style; anything else = hifi"
 default = "hifi"
 meaning = "Sound style."
 settings = "Settings > Sound > Sound style"
-read_in = "src/kernel/config.c:111"
+read_in = "core/src/kernel/config.c:111"
 
 [[key]]
 name = "sound_depth"
@@ -747,7 +747,7 @@ values = "16, 24 or 32 (bits a sample); any other value = 24"
 default = "24"
 meaning = "Bit depth of the sound output."
 settings = "Settings > Sound > Bit depth"
-read_in = "src/kernel/config.c:113"
+read_in = "core/src/kernel/config.c:113"
 
 [[key]]
 name = "test_battery"
@@ -756,7 +756,7 @@ values = "\"mV[,charger state]\" (1 charging, 2 full); strtol of the text"
 default = "no battery (plat_battery fails)"
 meaning = "A battery for the QEMU virt platform of the RGB30 (no battery there)."
 settings = ""
-read_in = "src/rgb30/plat_virt.c:188"
+read_in = "core/src/rgb30/plat_virt.c:188"
 
 [[key]]
 name = "update_url"
@@ -765,7 +765,7 @@ values = "a URL or a folder of the SD card (empty counts as missing)"
 default = "https://github.com/f-accomando/bm/releases"
 meaning = "Where the updates are looked for."
 settings = ""
-read_in = "src/kernel/update.c:175"
+read_in = "core/src/kernel/update.c:175"
 
 [[key]]
 name = "v3d_clock"
@@ -774,7 +774,7 @@ values = "text starting with m (max) = the GPU at the highest clock the firmware
 default = "the firmware's clock"
 meaning = "V3D GPU clock."
 settings = ""
-read_in = "src/kernel/main.c:286"
+read_in = "core/src/kernel/main.c:286"
 
 [[key]]
 name = "volume"
@@ -783,7 +783,7 @@ values = "a number starting with a digit (atoi), limited to 0..10"
 default = "10 (AUDIO_VOLUME_MAX)"
 meaning = "Sound volume."
 settings = "Settings > Sound > Volume"
-read_in = "src/kernel/config.c:109"
+read_in = "core/src/kernel/config.c:109"
 
 [[key]]
 name = "web_max_kib"
@@ -792,7 +792,7 @@ values = "KB, a whole number from 1 to 32768; anything else = default"
 default = "4096 (4 MB)"
 meaning = "Largest answer body that web_get() keeps. A cartridge can ask for less, never more."
 settings = ""
-read_in = "src/bm/runtime.c:3884"
+read_in = "core/src/bm/runtime.c:3884"
 
 [[key]]
 name = "wifi_boot"
@@ -801,7 +801,7 @@ values = "0 = do not join the saved network at boot; anything else = join"
 default = "join (needs wifi_ssid)"
 meaning = "Connect to the saved network when the console starts."
 settings = "Settings > WiFi and network > Connect at boot"
-read_in = "src/net/wifi_auto.c:54"
+read_in = "core/src/net/wifi_auto.c:54"
 
 [[key]]
 name = "wifi_psk"
@@ -810,7 +810,7 @@ values = "the network's password (empty or missing for an open network); secret"
 default = "none"
 meaning = "Password of the saved WiFi network."
 settings = "Settings > WiFi and network > Connect to a network (Pi: written after a join; RGB30: by hand)"
-read_in = "src/wifi/wifi.c:1092; src/rgb30/rtw_sta.c:647"
+read_in = "core/src/wifi/wifi.c:1092; core/src/rgb30/rtw_sta.c:647"
 
 [[key]]
 name = "wifi_security"
@@ -819,7 +819,7 @@ values = "UNVERIFIED (the security text of the scan result, e.g. open or WPA2; t
 default = "WPA2 when the network is not seen in the scan"
 meaning = "Security type of the saved network (written after a successful join)."
 settings = "Settings > WiFi and network > Connect to a network (written)"
-read_in = "src/wifi/wifi.c:1219"
+read_in = "core/src/wifi/wifi.c:1219"
 
 [[key]]
 name = "wifi_ssid"
@@ -828,7 +828,7 @@ values = "the network's name (empty counts as none)"
 default = "no network saved: no join"
 meaning = "The saved WiFi network."
 settings = "Settings > WiFi and network > Connect to a network (Pi: written after a join; RGB30: by hand)"
-read_in = "src/net/wifi_auto.c:54; src/wifi/wifi.c:1092; src/rgb30/rtw_sta.c:647"
+read_in = "core/src/net/wifi_auto.c:54; core/src/wifi/wifi.c:1092; core/src/rgb30/rtw_sta.c:647"
 
 # Keys built at run time (patterns).
 
@@ -839,16 +839,16 @@ values = "N = 1..4 (BT_PADS); \"<address aa:bb:cc:dd:ee:ff> <32 hex digits of th
 default = "that player slot has no Bluetooth pad paired"
 meaning = "Link key of the Bluetooth pad of player N; written by the pairing. The mouse's classic slot is bt_mouse_classic."
 settings = "Settings > Controllers > Pair a new controller (written); Forget all controllers (removed)"
-read_in = "src/bt/bt.c:189"
+read_in = "core/src/bt/bt.c:189"
 
 [[pattern]]
 name = "allow_<save name>"
 scope = "all"
 values = "\"net=yes|no,report=yes|no,docs=yes|no\" (a part may be missing; yes if the text after the = starts with yes); the kernel adds the game title in parentheses"
 default = "missing = never asked: the game stops and asks the player on the first use; the answer is saved. Not asked for the tools (tool_mode) or when the kernel has not turned the question on (bmhost, PC tests): allowed"
-meaning = "Permissions given to a game: network, sending a report, documents. <save name> is the game's save name without its extension (src/bm/runtime.c perm_key). Remove the line to be asked again."
+meaning = "Permissions given to a game: network, sending a report, documents. <save name> is the game's save name without its extension (core/src/bm/runtime.c perm_key). Remove the line to be asked again."
 settings = ""
-read_in = "src/bm/runtime.c:7695 (perm_key), 7703 (perm_get), 7816 (perm_allowed)"
+read_in = "core/src/bm/runtime.c:7695 (perm_key), 7703 (perm_get), 7816 (perm_allowed)"
 
 [[pattern]]
 name = "<game>_<anything>"
@@ -857,7 +857,7 @@ values = "free text; <game> = first word of the game's title, lower case, only a
 default = "cart_config(key) returns nil when missing or empty"
 meaning = "Flags of one game, read and written only by the Lua cart_config(key [, value]); a key with another prefix is an error. Set from the monitor line (set overbit_bench=1080) or easy_install. `bm_screen` (`1280x720` or `640x360`; none = 1280x720 where the GPU draws) is the screen of the SDK and of the editors of the suite: every tool is `bm ...`, so they share it (`lib.layout.auto`, the Screen row of their menus)."
 settings = ""
-read_in = "src/bm/runtime.c:3511 (l_cart_config)"
+read_in = "core/src/bm/runtime.c:3511 (l_cart_config)"
 
 [[key]]
 name = "r3d_bands"
@@ -866,7 +866,7 @@ values = "0 = off; anything else, or absent = on"
 default = "on with cores=4"
 meaning = "The ARM raster of a mesh by bands of rows, one band a core (docs/progress/multicore.md, V1). 0 draws on core 0 only."
 settings = ""
-read_in = "src/rgb30/main.c:smp_boot"
+read_in = "core/src/rgb30/main.c:smp_boot"
 
 [[key]]
 name = "dev"
@@ -875,7 +875,7 @@ values = "1 = old bridge switch; read once"
 default = "absent"
 meaning = "Retired. A kernel of an older build wrote dev=1; the first boot turns it into bridge=fast in bm/bridge.txt and removes the key."
 settings = "Settings > System > Bridge"
-read_in = "src/kernel/config.c:config_load"
+read_in = "core/src/kernel/config.c:config_load"
 
 [[key]]
 name = "mali_par"
@@ -884,4 +884,4 @@ values = "0 = off; anything else, or absent = on"
 default = "on with cores=4"
 meaning = "The Mali draw build of a frame on all cores, a block of draws a core (docs/progress/multicore.md). 0 builds on core 0 only."
 settings = ""
-read_in = "src/rgb30/main.c:smp_boot"
+read_in = "core/src/rgb30/main.c:smp_boot"

@@ -1,10 +1,10 @@
-"""Tests for scripts/syllables.py: syllables() and plain()."""
+"""Tests for core/scripts/syllables.py: syllables() and plain()."""
 import os
 import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 from syllables import plain, syllables
 
 

@@ -1,7 +1,7 @@
 /*
  * r3dbench: the 3D rasterizer on a scene like Overbit's (a floor, some boxes,
  * N copies of a model of a .bm at rest), for profiling the ARM code with
- * tools/armprof.py (built for ARM Linux, run by qemu-arm) or on the PC.
+ * core/tools/armprof.py (built for ARM Linux, run by qemu-arm) or on the PC.
  *
  *   r3dbench CART.bm MODEL [copies] [distance] [flags] [frames] [out.ppm]
  */

@@ -1,4 +1,4 @@
--- The fixed chip "F12 keys" of the hint bars (U.hint_row in src/script/bmui.lua),
+-- The fixed chip "F12 keys" of the hint bars (U.hint_row in core/src/script/bmui.lua),
 -- checked on the pages of one editor. Shared by the editors' host tests:
 --   dofile(ROOT .. "/tests/studio/hintchip.lua")(o)
 -- o = { name =, check =, texts = fn -> the texts drawn this frame {s, x, y},

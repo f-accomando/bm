@@ -1,7 +1,7 @@
 /* doom_trace.c: a host harness for the SNES core trace hooks (snes_trace in snes_int.h, built with -DSNES_TRACE). It runs a Super FX ROM from the
  * reset and prints the CPU writes to $7E:5980-$7E:5B80 and $7F:4F72-$7F:5000, every mvn/mvp, every general DMA and every $2180 run, and stops at the
  * first jump into $7E:5980-$7E:5B80. No ROM data is kept in the repository. Build and run (WSL, from the repository root):
- *   gcc -O1 -DSNES_TRACE -Isrc/bm -o /tmp/doom_trace tests/snes/doom_trace.c src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp}.c
+ *   gcc -O1 -DSNES_TRACE -Icore/src/bm -o /tmp/doom_trace tests/snes/doom_trace.c core/src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp}.c
  *   /tmp/doom_trace doom.sfc 2500      (the second argument is the number of frames; pic*.ppm are written at the end)
  */
 #include "snes_int.h"

@@ -3,7 +3,7 @@
 Results of the spikes that need no hardware. Study: [video-feasibility-2026-10.md](video-feasibility-2026-10.md). Area sheet: [video.md](../progress/video.md).
 The numbers are measured on the PC unless the row says **I** (inference).
 
-## VID-S3: size of one frame (tool: `tools/video/spike_sizes.py`)
+## VID-S3: size of one frame (tool: `core/tools/video/spike_sizes.py`)
 
 Input: 8 s of finished mp4 files from `video/` and `docs/img/` (the repo has no raw captures). Each frame is scaled with Lanczos and taken at 15 fps. The sources are already lossy, so the noise helps neither codec. RLE+delta is measured on a 256-colour palette made from the whole clip, a key frame every 30 frames. Raw RGB565 is 115,200 bytes at 320x180 and 259,200 bytes at 480x270.
 
@@ -38,7 +38,7 @@ The line below turned a raw RGB565 file and a raw PCM file into an mp4 on the PC
 ffmpeg -f rawvideo -pix_fmt rgb565le -s 320x180 -r 15 -i REC.raw -f s16le -ar 48000 -ac 2 -i REC.pcm -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest out.mp4
 ```
 
-The byte order is little-endian. `g16_rgb` (`src/bm/gfx16.h:38`) packs `r<<11 | g<<5 | b` in a `uint16_t`, and the ARM cores are little-endian. This matches `rgb565le`. An eye check of the colours on a real recording stays open (VID-REC).
+The byte order is little-endian. `g16_rgb` (`core/src/bm/gfx16.h:38`) packs `r<<11 | g<<5 | b` in a `uint16_t`, and the ARM cores are little-endian. This matches `rgb565le`. An eye check of the colours on a real recording stays open (VID-REC).
 
 ## Container estimate
 
@@ -57,5 +57,5 @@ Results:
 * The index costs 0.08% of the file. A seek is one index read.
 * The audio is the largest part with 48 kHz stereo (56%). A clip should store 22.05 kHz mono by default.
 * The clip audio must stream from the file. The cartridge sample bank holds at most 2^20 values (`AU_PCM_MAX`), so a 10 s clip does not fit in it.
-* The MJPEG decoder (`src/bm/jpeg.c`) allocates its output on each call and writes 24-bit RGB. A player needs a call that writes RGB565 into a given buffer and keeps its tables between frames.
+* The MJPEG decoder (`core/src/bm/jpeg.c`) allocates its output on each call and writes 24-bit RGB. A player needs a call that writes RGB565 into a given buffer and keeps its tables between frames.
 * **I**: the 320x180 frame has 1,400 blocks. The second IDCT pass is 512 multiply-adds a block, so a frame costs at most about 1.4 million float operations. The decode time on the Pi is open until VID-S2 runs.

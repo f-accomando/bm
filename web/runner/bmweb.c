@@ -1,11 +1,11 @@
 /*
  * bmweb: the browser runner of the web player (docs/design/bm-web-player.md, stage 3).
- * It plays a .bm cartridge with the console's own runtime (src/bm/runtime.c) and the PC's
+ * It plays a .bm cartridge with the console's own runtime (core/src/bm/runtime.c) and the PC's
  * kernel stubs (tests/host/stubs.c), built with Emscripten and -sASYNCIFY.
  *
  *   bmweb_start(cart, len)   plays until the cartridge ends (a long call: Asyncify gives
  *                            the page its time between frames)
- *   bmweb_input(pad, lx, ly, rx, ry)   buttons (HID_* bits of src/usb/hid.h) and sticks
+ *   bmweb_input(pad, lx, ly, rx, ry)   buttons (HID_* bits of core/src/usb/hid.h) and sticks
  *   bmweb_quit()             leave the cartridge (as Start+Select)
  *
  * The page gives four JavaScript hooks (web/player.js): Module.bmFrame(rgbaPtr, w, h),

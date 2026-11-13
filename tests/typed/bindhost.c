@@ -13,7 +13,7 @@
 #include "lua.h"
 #include "lualib.h"
 
-#include "hot.c"        /* build/typed/hot.c, made by scripts/bmt.py */
+#include "hot.c"        /* build/typed/hot.c, made by core/scripts/bmt.py */
 #include "parts.c"      /* build/typed/parts.c: update_parts of Yharnam */
 
 #define MAXN 64

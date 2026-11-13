@@ -1,10 +1,10 @@
--- Host tests of the JavaScript engine of the bmweb cart (carts/bmweb/src/js.lua).
+-- Host tests of the JavaScript engine of the bmweb cart (bm/bmweb/src/js.lua).
 -- Pure Lua, no network. Run from the repository root:
 --   /tmp/bmweb-luahost/luahost tests/web/js_test.lua
 -- Build the host Lua first if it is missing:
---   mkdir -p /tmp/bmweb-luahost && cc -O2 -w -Ithird_party/lua -o /tmp/bmweb-luahost/luahost \
---     tests/kitchen/luahost.c third_party/lua/*.c -lm
-package.path = "carts/bmweb/src/?.lua;" .. package.path
+--   mkdir -p /tmp/bmweb-luahost && cc -O2 -w -Icore/third_party/lua -o /tmp/bmweb-luahost/luahost \
+--     tests/kitchen/luahost.c core/third_party/lua/*.c -lm
+package.path = "bm/bmweb/src/?.lua;" .. package.path
 
 local js = require("js")
 

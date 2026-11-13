@@ -1,4 +1,4 @@
-"""tools/sync_hdr.py --deliver WO: ledger row + DELIVERED line + state FREE in one call (SYNC-EN-4)."""
+"""core/tools/sync_hdr.py --deliver WO: ledger row + DELIVERED line + state FREE in one call (SYNC-EN-4)."""
 import json
 import os
 import re
@@ -8,8 +8,8 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL = os.path.join(HERE, "..", "..", "tools", "sync_hdr.py")
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+TOOL = os.path.join(HERE, "..", "..", "core", "tools", "sync_hdr.py")
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import sync_check as sc  # noqa: E402
 
 START = "---\nschema: 1\nid: OP\nstate: WORKING\ntask: t\nwaiting_on: \nack: 2026-10-19T08:00+02:00\nupdated: x\n---\n# OP\n\n"

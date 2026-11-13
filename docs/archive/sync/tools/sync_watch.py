@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A heartbeat that costs no model tokens (docs/design/sync-heartbeat-cost.md).
 
-  python3 tools/sync_watch.py --id AGY [--branch bm-core] [--every 5] [--beat 15] [--wake-cmd "..."] [--once] [--no-push]
+  python3 core/tools/sync_watch.py --id AGY [--branch bm-core] [--every 5] [--beat 15] [--wake-cmd "..."] [--once] [--no-push]
 
 Run it in the operator's own clone (checked out on the sync branch), in a terminal or a background process. Every `--every` minutes:
   1. `git fetch origin <branch>` and `git pull --rebase`;
@@ -9,7 +9,7 @@ Run it in the operator's own clone (checked out on the sync branch), in a termin
      and the Log rows of SYNC.md addressed to it (its ID, or TUTTI);
   3. if something changed it WAKES the model: writes `.sync_wake` (the text of the news), prints it and runs `--wake-cmd`
      (e.g. a command that starts or messages the agent's session); the model reads, works, and clears `.sync_wake`;
-  4. every `--beat` minutes (default 15) it writes the heartbeat itself: `tools/sync_hdr.py <ID> --ack auto` (it keeps state and task as the
+  4. every `--beat` minutes (default 15) it writes the heartbeat itself: `core/tools/sync_hdr.py <ID> --ack auto` (it keeps state and task as the
      agent last wrote them; only `updated` and `ack` move), commits `sync(<ID>): heartbeat` and pushes.
 Without news nothing reaches the model, so a heartbeat costs no tokens. It never changes the state or the task: the agent does that.
 `--once` does one round and exits (to test); `--no-push` commits nothing remote (a dry run: prints what it would do)."""
@@ -84,7 +84,7 @@ def main():
                     print("  (dry run) would run: sync_hdr.py %s --ack auto; commit; push origin HEAD:%s" % (a.id, a.branch))
                 else:
                     git("pull", "--rebase", "origin", a.branch)
-                    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "sync_hdr.py"), a.id, "--ack", "auto"], capture_output=True, text=True)
+                    r = subprocess.run([sys.executable, os.path.join(ROOT, "core", "tools", "sync_hdr.py"), a.id, "--ack", "auto"], capture_output=True, text=True)
                     print("  " + (r.stdout or r.stderr).strip()[-120:])
                     git("add", "sync/%s.md" % a.id)
                     git("commit", "-m", "sync(%s): heartbeat" % a.id)

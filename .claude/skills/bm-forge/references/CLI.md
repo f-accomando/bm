@@ -1,9 +1,9 @@
 # bm-forge: CLI reference
 
-Entry: `python .claude/skills/bm-forge/scripts/bm_forge.py <sub> ...` (`build_parser`, `scripts/bm_forge.py:28`).
+Entry: `python .claude/skills/bm-forge/scripts/bm_forge.py <sub> ...` (`build_parser`, `core/scripts/bm_forge.py:28`).
 Paths below are relative to `.claude/skills/bm-forge`; `<ABS>` is an absolute directory. Errors go to
 stderr as `error: ...`. Cart editions (`.bm`, `.bme`) are never converted.
-Launchers `scripts/bm-forge` (sh) and `scripts/bm-forge.cmd` (Windows) run `doctor` (checked 2026-10-13: WSL and Windows).
+Launchers `core/scripts/bm-forge` (sh) and `core/scripts/bm-forge.cmd` (Windows) run `doctor` (checked 2026-10-13: WSL and Windows).
 
 ## mesh
 
@@ -14,7 +14,7 @@ mesh INPUT [INPUT ...] -o OUT [--title T] [--author A] [--max-tris N] [--kernel-
 - Inputs: `.json` boxes (`bm_core/shapes.py:44` `load_boxes`: `{"model": name, "boxes": [{"lo": [x,y,z], "hi": [x,y,z],
   "colour": 0xRRGGBB or "#RRGGBB", "bone": optional}]}`, `shapes.py:27`) or untextured `.glb` (`glb.glb_models`).
 - Output `.bm` (models cart) or `.bmm` (BMRES); any other extension exits 2 (`bm_forge.py:155`). Input equal to output exits 2.
-- Textured `.glb` faces are refused (exit 1, `bm_forge.py:208`): use `scripts/mkbm.py --models`.
+- Textured `.glb` faces are refused (exit 1, `bm_forge.py:208`): use `core/scripts/mkbm.py --models`.
 - `--max-tris`: total triangles over all inputs, over it exits 1 (`bm_forge.py:219`).
 - `--kernel-limits` only matters for `.glb` inputs: box JSON is validated against 4096 vertices while loading, so a larger
   one exits 2 before the flag is read (`references/OPEN_QUESTIONS.md`, section CLI).

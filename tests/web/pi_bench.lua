@@ -1,6 +1,6 @@
 -- Web bench: the numbers for multitasking stages 3-5 on the Pi Zero W (and the RGB30).
 -- Not a game. Build and run it as a cartridge (see docs/progress/multitasking.md):
---   python scripts/mkbm.py -o build/webbench.bm --lua tests/web/pi_bench.lua --title "Web bench" --author bm --res 640x360
+--   python core/scripts/mkbm.py -o build/webbench.bm --lua tests/web/pi_bench.lua --title "Web bench" --author bm --res 640x360
 -- Copy build/webbench.bm to bm/ on the SD card by hand. Press A to start. The result is on the screen and in
 -- /docs/WEBBENCH.TXT (doc_write). It writes bm/web/BENCH1.BIN, BENCH2.BIN and, with a URL, BENCH.BIN / BENCH.PRT.
 --

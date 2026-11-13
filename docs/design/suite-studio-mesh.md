@@ -1,6 +1,6 @@
 # Development Proposals: bm Studio & bm Mesh (3D Modeling Suite)
 
-This document analyzes what **bm Studio** (`carts/studio`) and **bm Mesh** (`carts/mesh`) lack to support fast creation of 3D assets, complex scenery and collision geometry for both three-dimensional games (like *Overbit* or *Astro Wing*) and hybrid 2D/3D ones.
+This document analyzes what **bm Studio** (`bm/studio`) and **bm Mesh** (`bm/mesh`) lack to support fast creation of 3D assets, complex scenery and collision geometry for both three-dimensional games (like *Overbit* or *Astro Wing*) and hybrid 2D/3D ones.
 
 ---
 
@@ -39,7 +39,7 @@ Despite the ease of use for small single objects, clear limitations emerge when 
 - bm Studio and bm Mesh allow working on **a single model at a time**, but offer no mode to **compose a 3D scene** by placing multiple models in space with rotations, scales and Y heights.
 
 ### C. Modeling Complex Shapes vs Mathematical Scripting
-- In *Astro Wing* ([`carts/astrowing/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/astrowing/main.lua)), the spaceships and details were written entirely as procedural mathematical generators (`builder()`, tetrahedra and cuboids with vector-product computation of normals).
+- In *Astro Wing* ([`bm/astrowing/main.lua`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/astrowing/main.lua)), the spaceships and details were written entirely as procedural mathematical generators (`builder()`, tetrahedra and cuboids with vector-product computation of normals).
 - This happened because modeling tapered shapes, tapering wings and beveled sections by hand in bm Studio starting from simple cubes is long and lacks tools for extrusion along curves (loft/lathe) or edge cuts (chamfer).
 
 ### D. UV Mapping and Texture Assignment from the Sheet

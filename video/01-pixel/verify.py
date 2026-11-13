@@ -10,15 +10,15 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 sys.path.insert(0, HERE)
 import bmres  # noqa: E402
 import art    # noqa: E402
 
 sd = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out", "sd")
-path = os.path.join(sd, "carts", "SKYVALE.BM")
+path = os.path.join(sd, "bm", "SKYVALE.BM")
 if not os.path.exists(path):
-    print("no", path, "- files:", os.listdir(os.path.join(sd, "carts")) if os.path.isdir(os.path.join(sd, "carts")) else "none")
+    print("no", path, "- files:", os.listdir(os.path.join(sd, "bm")) if os.path.isdir(os.path.join(sd, "bm")) else "none")
     sys.exit(1)
 w, h, rgba = bmres.sheet_get(bmres.read(path))
 
@@ -57,5 +57,5 @@ if len(solid) < 80 or len(cols) < 4:
     bad += 1
 extra = [(x, y) for y in range(h) for x in range(w) if x >= cx + 16 and px(x, y)]
 print("pixels outside the sprites:", len(extra))
-print("sheet %dx%d, files in /carts: %s" % (w, h, os.listdir(os.path.join(sd, "carts"))))
+print("sheet %dx%d, files in /carts: %s" % (w, h, os.listdir(os.path.join(sd, "bm"))))
 sys.exit(1 if bad or extra else 0)

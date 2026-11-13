@@ -1,26 +1,26 @@
 # Project layout: games and apps
 
-Common layout for `carts/<id>/` (games and apps). Migration is gradual: a folder without
+Common layout for `bm/<id>/` (games and apps). Migration is gradual: a folder without
 `bm.info` still builds the old way (title, author and resolution from the Makefile).
-Check it with `python scripts/carts_layout.py`: every project with `bm.info` must pass, and the table "Migrated so far" must match the folders.
+Check it with `python core/scripts/carts_layout.py`: every project with `bm.info` must pass, and the table "Migrated so far" must match the folders.
 
 ```
-carts/<id>/
+bm/<id>/
   bm.info        metadata (INFO section), the single source: see below
   main.lua       entry point (Lua)
   main.b         native .b (BML) module or entry point (optional)
   cover.png      menu cover (optional)
   assets/        sheet.png, map.csv, map_<layer>.csv, flags.csv, sprites.txt, models.bm|glb
-                 (the Makefile looks here first, then in carts/<id>/: old games still work)
+                 (the Makefile looks here first, then in bm/<id>/: old games still work)
   res/           shared resource files .bmm .bmi .bms .bmt .bmc .bmk   (docs/RISORSE.md)
   build/         the game's own build scripts (mk*.py, build.py)
 ```
 
 ## `bm.info`
 
-Same syntax as the INFO section of a `.bm` (`src/bm/bm.h`, section 10): `key: value` lines,
+Same syntax as the INFO section of a `.bm` (`core/src/bm/bm.h`, section 10): `key: value` lines,
 `[type name]` blocks for parts, `#` lines are comments and are not copied. `mkbm.py --info
-carts/<id>/bm.info` copies it into the cartridge.
+bm/<id>/bm.info` copies it into the cartridge.
 
 | key | meaning | used by the build |
 |---|---|---|
@@ -45,17 +45,17 @@ groups a cartridge without reading its INFO. On the SD, `.bm` games live in `/bm
 
 ## Add a cart to the Makefile
 
-One rule builds every cart (`build/carts/<id>.bm`, and `build/<tool>.bm` for the built-in tools).
+One rule builds every cart (`build/bm/<id>.bm`, and `build/<tool>.bm` for the built-in tools).
 The rule is in the Makefile, section "Cartridges: one data-driven recipe".
 
-1. Make the folder `carts/<id>/` with `main.lua`. Add `bm.info`, `cover.png` and the files of `assets/` that the cart uses.
-2. Add `<id>` to `GAMES` in the Makefile. Then `make build/carts/<id>.bm` builds it.
+1. Make the folder `bm/<id>/` with `main.lua`. Add `bm.info`, `cover.png` and the files of `assets/` that the cart uses.
+2. Add `<id>` to `GAMES` in the Makefile. Then `make build/bm/<id>.bm` builds it.
 3. The rule adds each file that exists: `bm.info`, `cover.png`, `sheet.png`, `map.csv`, `flags.csv`, `sprites.txt`, `models.bm` or `models.glb`. Each file is also a prerequisite, so a change rebuilds the cart.
 4. Set a variable only where the cart differs from the default:
 
 | Variable | Meaning |
 |---|---|
-| `cdir_<id>` | folder of the cart (default `carts/<id>`) |
+| `cdir_<id>` | folder of the cart (default `bm/<id>`) |
 | `lua_<id>` | the Lua file (default `main.lua` in the folder). For a cart joined by a `build.py`, give `$(BUILD)/<id>/main.lua` and write the rule of that file |
 | `bminfo_<id>`, `cover_<id>`, `sheet_<id>`, `models_<id>`, `audio_<id>` | a file other than the default |
 | `noinfo_<id> := 1` | no `bm.info`: use `title_<id>` and `res_<id>` (default `640x360`) |
@@ -70,15 +70,15 @@ Special builds keep their own rules: the Overbit variants (reel, match), the tes
 ## Where projects live on the SD card
 
 - A `.bme` project lives in `/bme`. The tools write there: the editable copy of a game, a new project, Save as, Ctrl+S.
-  The console makes the folder when it is missing. One helper builds the path: `bm_project_path()` in `src/bm/project.h`
-  for the kernel, `U.project_path()` in `src/script/bmui.lua` for the tools.
+  The console makes the folder when it is missing. One helper builds the path: `bm_project_path()` in `core/src/bm/project.h`
+  for the kernel, `U.project_path()` in `core/src/script/bmui.lua` for the tools.
 - The menu and every open list of the tools read `/bme` first. They also read a `.bme` found next to its game (`/carts`
   or the root, old SD cards). The console does not move it. The tool saves it where it is and the status line says so
   (`old place`).
 - `Ctrl+B` builds the game from a project in `/bme` into the games folder: `/bm` on both consoles
   (`bm_games_dir()`). An old project next to its game builds next to it, as before.
 - Decision of 25 Oct 2026 (done the same day): both kernels stop scanning `/carts`. The games folder is `/bm`. The Pi menu
-  scans `/`, `/bm` and `/bme`; the RGB30 menu scans `/bm`. The Market, a file sent from the PC to `carts/` (it is stored in
+  scans `/`, `/bm` and `/bme`; the RGB30 menu scans `/bm`. The Market, a file sent from the PC to `bm/` (it is stored in
   `bm/`), the games a cartridge writes and `make sdcard` all use `/bm`. A game left in `/carts` on an old card is not listed:
   move it to `/bm` (`make install` and `easy_install.sh` do it). The tools still read `/carts` and the root for a `.bme` next to its game.
   No menu tab lists a project on either kernel (user decision 21 Oct 2026, D44): the editors open the projects.
@@ -117,10 +117,10 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
 | `darknight` | `bm.info`; `main.lua`; no sheet, no map file: the map kit `art/maps/clinic.bmk` and the models `art/models/dnhunter.bmm` are merged in by `bmres.py` (rule in the Makefile); `darknight.bme` is the project |
-| `snes` | `bm.info`; `cover.png`; the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `src/bm/snes_*.c` |
-| `nes` | `bm.info`; `cover.png`; the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `src/bm/nes.c` |
-| `psx` | `bm.info`; `cover.png` (made by `build.py` if missing); the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `src/bm/psx_*.c` |
-| `tape` | `bm.info`; the Lua files in `src/` (joined in name order); `src/engine.b`, the `.b` engine that the cartridge compiles on the Pi; `build/build.py` joins them, draws the cover, adds a blank sheet, calls `scripts/felpack.py` and packs the `.bme` and the `.bm`; `sounds/felucca.json` lists the 24 PCM sounds of the bank. `felpack.py` renders them with `tools/felrender/felrender.c` and `third_party/felucca-engines/` (MIT, PC only) into WAV files in `build/` and writes the bank input `bank.json`, which `mkbm.py --audio` packs. The bank has samples only. `tape.bme` is the project and carries the bank (2.3 MB); Pi only |
+| `snes` | `bm.info`; `cover.png`; the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `core/src/bm/snes_*.c` |
+| `nes` | `bm.info`; `cover.png`; the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `core/src/bm/nes.c` |
+| `psx` | `bm.info`; `cover.png` (made by `build.py` if missing); the interface in `src/main.lua`, packed by `build/build.py` (with a blank sheet) into the `.bme` and the `.bm`; the machine is C in `core/src/bm/psx_*.c` |
+| `tape` | `bm.info`; the Lua files in `src/` (joined in name order); `src/engine.b`, the `.b` engine that the cartridge compiles on the Pi; `build/build.py` joins them, draws the cover, adds a blank sheet, calls `core/scripts/felpack.py` and packs the `.bme` and the `.bm`; `sounds/felucca.json` lists the 24 PCM sounds of the bank. `felpack.py` renders them with `core/tools/felrender/felrender.c` and `core/third_party/felucca-engines/` (MIT, PC only) into WAV files in `build/` and writes the bank input `bank.json`, which `mkbm.py --audio` packs. The bank has samples only. `tape.bme` is the project and carries the bank (2.3 MB); Pi only |
 | `overbit` | `bm.info`; `build.py`, `reel.py` and `viewer.lua` in `build/`; `art/` stays at the top (generators and Meshy figures, like `yharnam`). |
 | `code`, `assistant`, `editor` (bm SDK), `sound`, `animator`, `mesh`, `pixel` | `bm.info` used by their rule (`--info`); built into the kernel or installed on the SD as before |
 | `studio` | `bm.info`; `sheet.png` moved to `assets/` |

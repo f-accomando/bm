@@ -1,4 +1,4 @@
--- bm Write (carts/write): the PDF it exports against the screen it draws (M45).
+-- bm Write (bm/write): the PDF it exports against the screen it draws (M45).
 -- A document with every style, alignment, bold, italic, underline, accents,
 -- brackets and a backslash, on five pages, is opened and exported to PDF. A
 -- second copy of the cart runs on a screen tall enough to show every page;
@@ -123,7 +123,7 @@ E.mousep = function() return false end
 local bmui
 E.require = function(name)
   if name == "bmui" then
-    bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+    bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
     return bmui
   end
   if name == "predict" then return { preload = function() return true end, complete = function() return nil end } end
@@ -133,7 +133,7 @@ E.require = function(name)
   end
   error("require: " .. name)
 end
-assert(loadfile(ROOT .. "/carts/write/main.lua", "t", E))()
+assert(loadfile(ROOT .. "/bm/write/main.lua", "t", E))()
 local function tick() frame = frame + 1; ev = {}; E._update(); E._draw() end
 local function keys(...) for _, k in ipairs({ ... }) do keyq[#keyq + 1] = k end; tick(); tick() end
 

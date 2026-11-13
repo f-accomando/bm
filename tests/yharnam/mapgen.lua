@@ -1,18 +1,18 @@
--- The whole hunt as the chunks make it (the street plan of carts/yharnam/main.lua), written as the cartridge's
+-- The whole hunt as the chunks make it (the street plan of bm/yharnam/main.lua), written as the cartridge's
 -- map: three CSV files of 256 x 256 cells, the layers "ground", "overlay" (kerbs, grass edges, puddles, leaves)
 -- and "objects" (a placeholder, art/places.py, on the tile of every house, tree, lamp, grave and thing the chunks
 -- make: their units). It is the first drawn map, the one the SDK opens to be changed by hand
--- (carts/yharnam/build/mkmap.py runs it; the cartridge reads it: MAP.drawn, MAP.objects in main.lua). With it the game
+-- (bm/yharnam/build/mkmap.py runs it; the cartridge reads it: MAP.drawn, MAP.objects in main.lua). With it the game
 -- makes the same town.
 --
---   luahost tests/yharnam/mapgen.lua carts/yharnam/main.lua OUTDIR   -> OUTDIR/map_{ground,overlay,objects}.csv
+--   luahost tests/yharnam/mapgen.lua bm/yharnam/main.lua OUTDIR   -> OUTDIR/map_{ground,overlay,objects}.csv
 --
 -- Every chunk of the map is made once in the fake bm with no map (the ring, as on a cartridge without a drawn
 -- map) and its cells are read from the ring at once: ground at cells 0-127 of the ring's rows, overlay at 128-255.
 -- Two units on one tile cannot both have a placeholder: that stops it (the plan would need a change).
 local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
 local SRC, OUT = arg[1], arg[2]
-assert(SRC and OUT, "luahost tests/yharnam/mapgen.lua carts/yharnam/main.lua OUTDIR")
+assert(SRC and OUT, "luahost tests/yharnam/mapgen.lua bm/yharnam/main.lua OUTDIR")
 local Y = B.load(SRC)
 local M, CS, env = Y.MAP, Y.CS, B.env
 assert(not M.drawn and M.ring == 1, "the fake bm has no drawn map: the ring is layer 1")
@@ -76,7 +76,7 @@ local function write(name, cells, about)
   local path = OUT .. "/map_" .. name .. ".csv"
   local f = assert(io.open(path, "wb"))
   f:write("# Yharnam's map, layer \"" .. name .. "\": " .. about .. ". " .. N .. " x " .. N .. " cells of 8 x 8 (sheet.png);\n")
-  f:write("# drawn in the SDK (F3 F3), taken back with carts/yharnam/build/mkmap.py --from\n")
+  f:write("# drawn in the SDK (F3 F3), taken back with bm/yharnam/build/mkmap.py --from\n")
   local row = {}
   for y = 0, N - 1 do
     for x = 0, N - 1 do row[x + 1] = cells[y * N + x] or 0 end

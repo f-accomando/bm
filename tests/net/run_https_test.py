@@ -151,7 +151,7 @@ with tempfile.TemporaryDirectory() as tmp:
     make_cross(tmp)
     for t in ("ec", "rsa", "old", "other", "cross"):
         serve(t, tmp)
-    # the agent relay (tools/bm_agent_relay.py): its own CA, a certificate for 127.0.0.1, a fake program
+    # the agent relay (core/tools/bm_agent_relay.py): its own CA, a certificate for 127.0.0.1, a fake program
     relay_dir = os.path.join(tmp, "relay")
     relay = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                          "tools", "bm_agent_relay.py")

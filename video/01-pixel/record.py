@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Episode 1: bm Pixel. Draws Kip, the hero of Skyvale World, with the
-console's own editor (carts/pixel/main.lua) run by bmhost.
+console's own editor (bm/pixel/main.lua) run by bmhost.
 
   python3 video/01-pixel/record.py [--build-only] [--stage N]
 

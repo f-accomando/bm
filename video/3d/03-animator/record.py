@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Episode 3 of Tropic Trail: bm Animator. Pico gets a skeleton of 9 bones and five clips, made with the console's own
-editor (carts/animator/main.lua) run by bmhost --tool. Standard library only (+ bm_core of bm-forge to read the model).
+editor (bm/animator/main.lua) run by bmhost --tool. Standard library only (+ bm_core of bm-forge to read the model).
 
   python3 video/3d/03-animator/record.py [--start chain|forge] [--build-only] [--no-video] [--debug] [--seconds N]
 
@@ -19,10 +19,10 @@ What it does
                       (the first Ctrl+S makes the editable copy TROPIC.BME, as in the video);
   3. bmhost --tool (lib3d.run_headless) with --shots: no video unless ffmpeg is there (then out/ep03_main.mp4);
   4. the project the editor saved (out/sd/carts/TROPIC.BME) goes to video/3d/chain/03-animator.bme; the .bm
-     (chain/03-animator.bm) is that project built like bm SDK's Ctrl+B (src/bm/project.c bm_build: project bit cleared,
+     (chain/03-animator.bm) is that project built like bm SDK's Ctrl+B (core/src/bm/project.c bm_build: project bit cleared,
      "built from" name written, nothing else changed): the SDK is another program, so the same step is done here.
   5. verify.py is run on it.
-The editor cartridge is compiled here (scripts/mkbm.py -> out/animator.bm): build/animator.bm is not needed.
+The editor cartridge is compiled here (core/scripts/mkbm.py -> out/animator.bm): build/animator.bm is not needed.
 --debug: the editor with a log of its state (dbg.lua) and bmhost without --quiet (to calibrate the numbers).
 """
 import argparse
@@ -592,7 +592,7 @@ def start_cart(which):
 def build_editor(debug):
     """The editor cartridge, compiled here (the same call as the Makefile's build/animator.bm rule)."""
     os.makedirs(OUT, exist_ok=True)
-    lua = os.path.join(L.ROOT, "carts", "animator", "main.lua")
+    lua = os.path.join(L.ROOT, "bm", "animator", "main.lua")
     cart = os.path.join(OUT, "animator.bm")
     if debug:
         src = open(lua, encoding="utf-8").read()
@@ -601,14 +601,14 @@ def build_editor(debug):
         with open(lua, "w", encoding="utf-8") as f:
             f.write(src + open(os.path.join(HERE, "dbg.lua"), encoding="utf-8").read())
         cart = os.path.join(OUT, "animator_dbg.bm")
-    subprocess.run([sys.executable, os.path.join(L.ROOT, "scripts", "mkbm.py"), "-o", cart, "--lua", lua, "--cover",
-                    os.path.join(L.ROOT, "carts", "animator", "icon.png"), "--info",
-                    os.path.join(L.ROOT, "carts", "animator", "bm.info")], check=True, cwd=L.ROOT, stdout=subprocess.DEVNULL)
+    subprocess.run([sys.executable, os.path.join(L.ROOT, "core", "scripts", "mkbm.py"), "-o", cart, "--lua", lua, "--cover",
+                    os.path.join(L.ROOT, "bm", "animator", "icon.png"), "--info",
+                    os.path.join(L.ROOT, "bm", "animator", "bm.info")], check=True, cwd=L.ROOT, stdout=subprocess.DEVNULL)
     return cart
 
 
 def bme_to_bm(src, dst):
-    """What bm SDK's Ctrl+B does to a project (src/bm/project.c bm_build): project bit off, 'built from' = the project's name."""
+    """What bm SDK's Ctrl+B does to a project (core/src/bm/project.c bm_build): project bit off, 'built from' = the project's name."""
     data = bytearray(open(src, "rb").read())
     flags = (data[18] | data[19] << 8) & ~1
     data[18], data[19] = flags & 255, flags >> 8
@@ -674,9 +674,9 @@ def main():
         print("bmhost failed:", r.returncode)
         return 1
 
-    bme = os.path.join(sd, "carts", "TROPIC.BME")
+    bme = os.path.join(sd, "bm", "TROPIC.BME")
     if not os.path.exists(bme):
-        print("no TROPIC.BME on the SD: the editor did not save; files:", os.listdir(os.path.join(sd, "carts")))
+        print("no TROPIC.BME on the SD: the editor did not save; files:", os.listdir(os.path.join(sd, "bm")))
         return 1
     L.chain_put(bme, "03-animator.bme")
     bme_to_bm(bme, os.path.join(L.CHAIN, "03-animator.bm"))

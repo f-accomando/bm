@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tools/local2mesh.py with a stand-in backend (--backend command: a tool
+"""core/tools/local2mesh.py with a stand-in backend (--backend command: a tool
 that writes the test .glb of glbfix.py): the .bm comes out textured and
 reduced, the model is added to an existing cartridge flat, --check and a
 missing backend speak clearly.
@@ -10,12 +10,12 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmmesh  # noqa: E402
 
 out_dir = sys.argv[1]
 os.makedirs(out_dir, exist_ok=True)
-tool = os.path.join(HERE, "..", "..", "tools", "local2mesh.py")
+tool = os.path.join(HERE, "..", "..", "core", "tools", "local2mesh.py")
 fix = os.path.join(HERE, "glbfix.py")
 pic = os.path.join(out_dir, "hero.png")
 import glbfix  # noqa: E402

@@ -1,4 +1,4 @@
--- bm SDK (RGB30), the .b16 edition of the SDK (carts/sdk_b16), on the PC:
+-- bm SDK (RGB30), the .b16 edition of the SDK (bm/sdk_b16), on the PC:
 -- its layout module on its own, then the cartridge at 360x360 on stand-ins
 -- for the bm API (a folder is the SD card, as tests/studio/sdk_host.lua),
 -- driven by the RGB30's pad alone (btn by names: "ok" is B, "back" is A,
@@ -7,16 +7,16 @@
 -- grid (45 columns, 22 rows), no text or chip over another on its row. The
 -- pad reaches every page, every action of every page (X) and back; a name
 -- is typed with padtype's keyboard. The SDK runs as the RGB30's kernel runs
--- it, a tool (src/rgb30/ui.c, src/kernel/devtool.c): the stand-ins of
+-- it, a tool (core/src/rgb30/ui.c, core/src/kernel/devtool.c): the stand-ins of
 -- cart_save, cart_build, cart_run and cart_tool follow the runtime's rules
--- for a tool (src/bm/runtime.c write_target: any file but a game; saving a
+-- for a tool (core/src/bm/runtime.c write_target: any file but a game; saving a
 -- game, the console asks and makes its editable copy next to it), and the
 -- console has no other program of the suite, which the SDK must not offer.
 --
 --   luahost tests/studio/sdk_b16_host.lua ROOT SDDIR CART   (make test-sdk-b16)
 --
 -- CART is the built script (build/sdk_b16/main.lua); SDDIR/bm/testkit.b16
--- must be there (a copy of build/carts/testkit.bm).
+-- must be there (a copy of build/bm/testkit.bm).
 
 local ROOT, SD, CART = arg[1] or ".", arg[2] or "build/sdk-b16-sd", arg[3] or "build/sdk_b16/main.lua"
 local checks, fails = 0, 0
@@ -29,7 +29,7 @@ end
 
 do
   local env = setmetatable({ SCREEN_W = 360, SCREEN_H = 360 }, { __index = _G })
-  local LY = assert(loadfile(ROOT .. "/carts/sdk_b16/layout.lua", "t", env))()
+  local LY = assert(loadfile(ROOT .. "/bm/sdk_b16/layout.lua", "t", env))()
   local scr = LY.rect(0, 0, 360, 360)
   local t = LY.split(scr, "v", { 16, "*", 16, 24 })
   check(#t == 4 and t[2].y == 16 and t[2].h == 304 and t[3].y == 320 and t[4].y == 336 and t[4].h == 24,
@@ -210,7 +210,7 @@ local function g_fail(msg)
   G.fails[#G.fails + 1] = key
 end
 local function mine(src) return src == CARTSRC or src:find("bmui.lua", 1, true) ~= nil end
--- the assistant's panel (src/ai/assist.lua, shared with the Pi's tools) is
+-- the assistant's panel (core/src/ai/assist.lua, shared with the Pi's tools) is
 -- not the SDK's: on the RGB30 it is not there (no ai.ask); where it is, its
 -- row of keys is wider than 360 and the screen cuts it (listed, not failed)
 local ASSIST_OUT = {}
@@ -679,9 +679,9 @@ local function new_env(arg, o)
   E.require = function(name)
     if loaded[name] ~= nil then return loaded[name] end
     if name == "words" then loaded[name] = o.words or true; return loaded[name] end
-    local file = ({ assist = "/src/ai/assist.lua", bm3d = "/src/script/bm3d.lua", bmlib = "/src/script/bmlib.lua",
-                    bmnet = "/src/script/bmnet.lua", bmui = "/src/script/bmui.lua", padtype = "/src/ai/padtype.lua",
-                    predict = "/src/ai/predict.lua" })[name]
+    local file = ({ assist = "/core/src/ai/assist.lua", bm3d = "/core/src/script/bm3d.lua", bmlib = "/core/src/script/bmlib.lua",
+                    bmnet = "/core/src/script/bmnet.lua", bmui = "/core/src/script/bmui.lua", padtype = "/core/src/ai/padtype.lua",
+                    predict = "/core/src/ai/predict.lua" })[name]
     if not file then error("require: no " .. name .. " here") end
     loaded[name] = assert(loadfile(ROOT .. file, "t", E))(name)
     if loaded[name] == nil then loaded[name] = true end

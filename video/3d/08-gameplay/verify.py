@@ -15,7 +15,7 @@ import wave
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 import record  # noqa: E402
 
@@ -48,8 +48,8 @@ def main():
     f = bmres.read(record.find_cart())
     f.put(bmres.SEC_LUA, f.get(bmres.SEC_LUA) + LOG.encode())
     wd = os.path.join(HERE, "out", "verify-sd")
-    os.makedirs(os.path.join(wd, "carts"), exist_ok=True)
-    path = os.path.join(wd, "carts", "V.BM")
+    os.makedirs(os.path.join(wd, "bm"), exist_ok=True)
+    path = os.path.join(wd, "bm", "V.BM")
     bmres.write(path, f)
     r = subprocess.run([os.path.join(ROOT, "build", "host", "bmhost-bin"), path, "--sd", wd, "--seconds", str(record.SECONDS), "--input",
                         os.path.join(HERE, "replay.txt")], capture_output=True, text=True)

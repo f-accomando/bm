@@ -282,7 +282,7 @@ On the ARM software rasterizer, the console draws about 1200 triangles in a scen
 
 ## Resource files
 
-The resource format for models is `.bmm`: MESH, ANIM when animated and a sheet with only the cells the textures use. On the PC, `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one from a game.
+The resource format for models is `.bmm`: MESH, ANIM when animated and a sheet with only the cells the textures use. On the PC, `core/scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one from a game.
 
 bm Studio reads and writes `.bmm` files in `/bmm`. The next section shows how.
 
@@ -302,7 +302,7 @@ A `.glb` gives flat colours. A `.bmm` with a skeleton keeps it (bm Animator play
 
 ## For a game built from the repository
 
-A `.bm` with the models and skeletons, saved by bm Studio, can be put as `models.bm` in `carts/<game>/`. `make` puts it into the cartridge with `mkbm.py --models`. If the game has no `sheet.png`, the sheet is the one of `models.bm`.
+A `.bm` with the models and skeletons, saved by bm Studio, can be put as `models.bm` in `bm/<game>/`. `make` puts it into the cartridge with `mkbm.py --models`. If the game has no `sheet.png`, the sheet is the one of `models.bm`.
 
 # Using the model in a game
 

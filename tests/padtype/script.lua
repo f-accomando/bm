@@ -1,5 +1,5 @@
 -- An input script for bmhost (tests/host/bmhost.c) that copies a text of
--- Pad Typing (carts/typing) to the end: the presses padtype's coach says,
+-- Pad Typing (bm/typing) to the end: the presses padtype's coach says,
 -- simulated here frame by frame with the same clock as bmhost (frame n is
 -- at n/60 s), then written as "frame pad 1 buttons" lines, with shots.
 --   luahost tests/padtype/script.lua build LANG TEXT OUT.txt [MODE]
@@ -7,7 +7,7 @@
 -- text 1, hints on; the script moves to LANG and TEXT, then Start.
 
 local build, lang, text, out, mode = arg[1] or "build", arg[2] or "it", tonumber(arg[3] or 1), arg[4], arg[5]
-package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
+package.path = build .. "/?.lua;core/src/ai/?.lua;" .. package.path
 local pt = require "padtype"
 local B = pt.BITS
 local NAMES = { [B.LEFT] = "left", [B.RIGHT] = "right", [B.UP] = "up", [B.DOWN] = "down", [B.A] = "a",

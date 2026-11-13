@@ -17,7 +17,7 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 DEFAULTS = dict(start=60, pit_ahead=20, pit_hold=40, slime_min=18, slime_max=40, slime_hold=18,
@@ -96,7 +96,7 @@ def make(cart, out_cart, params):
 
 
 def run(cart, workdir, params, seconds=60, input_out=None):
-    dbg = os.path.join(workdir, "carts", "BOT.BM")
+    dbg = os.path.join(workdir, "bm", "BOT.BM")
     make(cart, dbg, params)
     r = subprocess.run([os.path.join(ROOT, "build", "host", "bmhost-bin"), dbg, "--sd", workdir, "--seconds", str(seconds)],
                        capture_output=True, text=True)

@@ -1,6 +1,6 @@
 # Deflate on the Pi Zero W (5 Nov 2026)
 
-Question: can a `.bm` section be stored compressed? Measured with a temporary Deflate Bench utility on the Pi Zero W, kernel `dev` (commit bd3214bd of `bm-core`: `src/kernel/defbench.c` and `scripts/defbench_make.py`; both were removed afterwards). The corpus was a `.bm` with a DATA blob per section type, made from real cartridges: 24167 KB raw, 7031 KB compressed (zlib level 6). The decoder is `png_inflate` (`src/bm/png.c`). Every CRC matched.
+Question: can a `.bm` section be stored compressed? Measured with a temporary Deflate Bench utility on the Pi Zero W, kernel `dev` (commit bd3214bd of `bm-core`: `core/src/kernel/defbench.c` and `core/scripts/defbench_make.py`; both were removed afterwards). The corpus was a `.bm` with a DATA blob per section type, made from real cartridges: 24167 KB raw, 7031 KB compressed (zlib level 6). The decoder is `png_inflate` (`core/src/bm/png.c`). Every CRC matched.
 
 | Blob | Raw KB | Zip KB | Ratio | Inflate ms | Inflate KB/s |
 |---|---|---|---|---|---|

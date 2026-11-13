@@ -1,4 +1,4 @@
-"""Tests for scripts/quarantine_check.py."""
+"""Tests for core/scripts/quarantine_check.py."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "quarantine_check.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "quarantine_check.py")
 
 
 class QuarantineCheckTest(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 Models.bm: a cartridge with Lua stub + MESH + ANIM (if rigs).
 .bmm: a BMRES file with MESH + ANIM (if rigs).
-Game carts (.bm): with optional cover, budget checks, section order from scripts/mkbm.py:364-415.
+Game carts (.bm): with optional cover, budget checks, section order from core/scripts/mkbm.py:364-415.
 Game folders and Market layouts: repo structure and market catalog folders.
 
 Python >= 3.8, standard library only.

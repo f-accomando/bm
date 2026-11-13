@@ -1,5 +1,5 @@
 /*
- * The RGB30's sound driver (src/rgb30/rk_audio.c) on a simulated chip:
+ * The RGB30's sound driver (core/src/rgb30/rk_audio.c) on a simulated chip:
  * the CRU, the GRFs, the I2S1 controller with its FIFO draining at the
  * frame rate its clocks give, and the RK817's codec registers on I2C.
  * Checked against Linux's values (rockchip_i2s_tdm.c, rk817_codec.c,

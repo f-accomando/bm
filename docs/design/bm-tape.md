@@ -1,10 +1,10 @@
 # bm Tape: a portable studio cartridge (design)
 
-Name: **bm Tape** (folder `carts/tape`, project `carts/tape/tape.bme`).
+Name: **bm Tape** (folder `bm/tape`, project `bm/tape/tape.bme`).
 
-bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `carts/ko2`). All code and all pictures are original.
+bm Tape is one `.bm` app with five jobs: synth, sampler, sequencer, multitrack, and live DJ set. The references are the OP-1 (one display, four colour encoders, a tape) and the EP-133 K.O. II (pads, groups, punch-in effects; bm has `bm/ko2`). All code and all pictures are original.
 
-Status: phase 3 (synth, drums, sequencer, song with TAPE clips, MIX, FX, punch-in effects, save and load; `carts/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. DJ is still the scene of phase 1 (it shows PREVIEW). Section 10 gives the phases.
+Status: phase 3 (synth, drums, sequencer, song with TAPE clips, MIX, FX, punch-in effects, save and load; `bm/tape`) passes on bmhost (`make test-tape`). Test it on the Pi Zero W. DJ is still the scene of phase 1 (it shows PREVIEW). Section 10 gives the phases.
 
 Development state (source map, build, tests, keys, what is missing): [`bm-tape-dev.md`](bm-tape-dev.md).
 
@@ -23,10 +23,10 @@ Facts read on 9 Nov 2026 (`docs/progress/audio.md`, `docs/api/sound.md`, `docs/a
 
 | Need | State | Source |
 |---|---|---|
-| 8 voices, 48 kHz stereo, 14 waves, filter, LFO, drive, crush, vowel, duck per voice | ready | `src/audio/synth.c` |
+| 8 voices, 48 kHz stereo, 14 waves, filter, LFO, drive, crush, vowel, duck per voice | ready | `core/src/audio/synth.c` |
 | Reverb, ping-pong echo, chorus (sends per voice) | ready | `reverb()`, `echo()`, `chorus()` |
 | Notes on an exact time | ready | `play_at()`, `audio_time()`, `play_voices()` |
-| 50 presets and an 8-drum kit | ready | `src/audio/presets.c`, `audio_samples("kit")` |
+| 50 presets and an 8-drum kit | ready | `core/src/audio/presets.c`, `audio_samples("kit")` |
 | PCM samples in the bank of a cartridge (16 MB limit) | ready, read-only at run time | `docs/progress/audio-samples.md` |
 | Patterns as text, bake to a bank piece | ready | `require "riff"`, `R.bake()` |
 | `.b` compiled on the console | ready on the Pi (ARMv6) | `native_compile`, `native_load`, `native_run`, `vm_buf` |
@@ -58,7 +58,7 @@ Consequence of the last row: "sampling" means three things here. Load a WAV from
 
 The synth has 8 voices. The modules share them with `play_voices()`.
 
-The API gives no voices per track. `play_at` picks the voice when the note starts: a silent voice, then a tail, then the oldest note of `play_at` (`src/audio/player.c`, `pick_at_voice`). `play_voices(...)` is one mask for all notes of `play_at` (`player_at_voices`). It keeps `play_at` away from the voices outside the mask. A call `play(v, ...)` with a voice number takes that voice (`src/bm/api_sound.c`, `l_play`). Phase 2 uses this split:
+The API gives no voices per track. `play_at` picks the voice when the note starts: a silent voice, then a tail, then the oldest note of `play_at` (`core/src/audio/player.c`, `pick_at_voice`). `play_voices(...)` is one mask for all notes of `play_at` (`player_at_voices`). It keeps `play_at` away from the voices outside the mask. A call `play(v, ...)` with a voice number takes that voice (`core/src/bm/api_sound.c`, `l_play`). Phase 2 uses this split:
 
 | Use | Voices | Note |
 |---|---|---|
@@ -86,7 +86,7 @@ Without K2 (phases 1 to 4) a deck is a pattern set of 4 voices. The DJ module wa
 - A block lasts 1333 µs.
 - The cost grows about 1.3 times for 12 voices and about 1.8 times for 16 voices. The room, the echo, and the limiter are a fixed part.
 - The host numbers do not give the Pi time. Measure on the Pi Zero W before a decision.
-- `AU_TRACKS` in `src/audio/player.h` equals `SYNTH_VOICES`. The register block is `SYNTH_VOICES * 32` bytes. A change of the voice count changes the bank format and the three encoders.
+- `AU_TRACKS` in `core/src/audio/player.h` equals `SYNTH_VOICES`. The register block is `SYNTH_VOICES * 32` bytes. A change of the voice count changes the bank format and the three encoders.
 - Decision: keep 8 voices and use freeze.
 
 ## 4. The display
@@ -203,16 +203,16 @@ Record: while the transport plays and record is armed, a pad or note key writes 
 
 ## 6. The `.b` integration (first cartridge with `.b`)
 
-Facts: `native_compile(src)` compiles `.b` text on the Pi into ARMv6 code in RAM. The Lua output of a `.b` file is the source minus the types (`tools/bml/bml.py --lua`), and it is the reference of every test.
+Facts: `native_compile(src)` compiles `.b` text on the Pi into ARMv6 code in RAM. The Lua output of a `.b` file is the source minus the types (`core/tools/bml/bml.py --lua`), and it is the reference of every test.
 
 Decided plan:
 
 1. The project holds `src/engine.b`.
-2. The build puts the `.b` text into the Lua source as a long string. A Lua cartridge has no API to read a DATA blob (`bm_data_find` is used only by the kernel in `src/kernel/appdata.c`).
+2. The build puts the `.b` text into the Lua source as a long string. A Lua cartridge has no API to read a DATA blob (`bm_data_find` is used only by the kernel in `core/src/kernel/appdata.c`).
 3. At `_init`, the cartridge calls `native_compile`, then `native_load`, then `native_run` with `vm_buf` arguments.
 4. `targets: pi` is set in `bm.info`. This agrees with the rule in `docs/progress/typed.md`.
 5. The `.bm` carries source, not machine code. The "one cartridge type" rule holds.
-6. Each `.b` function has a host test. The test compares the native result with the Lua output of `tools/bml/bml.py`.
+6. Each `.b` function has a host test. The test compares the native result with the Lua output of `core/tools/bml/bml.py`.
 
 ### 6.1 What goes into `.b`
 
@@ -235,7 +235,7 @@ Each `.b` function gets a test in `tests/bml/` that compares native, `bmvm`, and
 
 ## 7. riff and bm Sound
 
-- **Sounds.** A sound slot is a bank sound. LIB reads the sounds of a `.bms` or of a bank and writes them back. The three encoders of the bank format (`au_parse`, `carts/sound/main.lua`, `scripts/bmaudio.py`) stay the only writers of the format: bm Tape calls shared code, it does not add a fourth encoder. Put the Lua encoder of bm Sound in a module that both carts `require`.
+- **Sounds.** A sound slot is a bank sound. LIB reads the sounds of a `.bms` or of a bank and writes them back. The three encoders of the bank format (`au_parse`, `bm/sound/main.lua`, `core/scripts/bmaudio.py`) stay the only writers of the format: bm Tape calls shared code, it does not add a fourth encoder. Put the Lua encoder of bm Sound in a module that both carts `require`.
 - **Songs.** Export a tape as a bank song (patterns and sequence), so a game plays it with `music()`. Import a bank song as 4 tracks. A bank pattern has one track per voice: the import maps voices to tracks with the budget of 3.1.
 - **riff lane.** A track can hold a riff line and not a step grid. The cartridge plays it with `R.play(track_name, pattern)` and gives riff the voices of that track with `R.voices()`. `R.setcpm(bpm / 4)` ties riff to the tempo: one cycle is one bar. "Bake" turns the lane into steps with `R.bake()`.
 - **Live code.** A page of SEQ takes `R.code(text)` from the USB keyboard, as bm Code does.
@@ -246,28 +246,28 @@ Three layers. Only the third changes the kernel.
 
 A fourth source is built (work order [`bm-tape-wo-felucca.md`](bm-tape-wo-felucca.md)): the engine `PCM`. It plays 24 presets of the MIT engines of Felucca-Engines, rendered on the PC into bank samples.
 
-- **Render.** `scripts/felpack.py` makes the tables (`--fs 32000`), builds `tools/felrender/felrender.c` with `third_party/felucca-engines/`, and renders one note of each preset of `carts/tape/sounds/felucca.json`. It cuts the tail at -60 dB, fades the last 10 ms and sets the peak to -1 dB. Each sample is 32000 Hz, mono, 16 bits. The root is C2 for a bass and C3 for the others. The total is 2.35 MB. The build is deterministic: `tests/tape/felucca_golden.txt` holds the SHA-256 of each WAV.
+- **Render.** `core/scripts/felpack.py` makes the tables (`--fs 32000`), builds `core/tools/felrender/felrender.c` with `core/third_party/felucca-engines/`, and renders one note of each preset of `bm/tape/sounds/felucca.json`. It cuts the tail at -60 dB, fades the last 10 ms and sets the peak to -1 dB. Each sample is 32000 Hz, mono, 16 bits. The root is C2 for a bass and C3 for the others. The total is 2.35 MB. The build is deterministic: `tests/tape/felucca_golden.txt` holds the SHA-256 of each WAV.
 - **Engine.** The base tone is `{ wave = "sample", sample = <name> }`. The four macros are START (`begin`, 0 to 0.9), CUTOFF, RESO, and DRIVE. They change the bm voice. They do not change the timbre of the Felucca engine.
 - **Sounds.** The sound table has 44 entries: 20 synth sounds, then 24 PCM sounds. The keys `[` and `]` reach them in that order. The 24 sounds: PHASE (BRASS, ORGAN, STRING, RESO, BELL, WIRE), TRIO (FAT BASS, ARP LEAD, SYNC LEAD, RING BELL, CHIP CHOIR), WHEEL (FULL ORGAN, JAZZ PERC, GOSPEL, SOFT FLUTE, ROCK DRIVE), ANALOG (RAVE, PWM STR, SUB BASS, BRASS), LOFI (PULSE LD, WAVE BASS, WAVE LEAD), NOISE (METAL).
 - **Scene.** The PCM scene draws the sample as a ridge from the 32 peaks of `audio_samples()`. Encoder 1 moves the start gate. The sun shows the cutoff.
 - **Limits.** A held key stops at the end of the sample: the order has no loop points. The envelope of the host in `felrender.c` is a bm choice (the release is at most 1.5 s), made to keep the total under 2.5 MB. Nobody has judged the sounds by ear on the Pi yet.
 
 1. **Engines (cartridge, Lua tables).** An engine is a `tone()` table and four macros. A macro maps one encoder to one or more registers with a curve. The seven engines of 4.3 use the waves that exist today.
-2. **The "wave" pack (cartridge first, then `presets.c`).** About 40 sounds made with the engines: gated snare, tom fill, DX bass, pick bass, Juno-style pad, brass stab, PWM strings, sync-style lead, glass bell, arp pluck, tape noise, vinyl crackle, risers. Each sound has a name, a kind, and four macro defaults. Move the best ones to `src/audio/presets.c` after the tests on both consoles.
+2. **The "wave" pack (cartridge first, then `presets.c`).** About 40 sounds made with the engines: gated snare, tom fill, DX bass, pick bass, Juno-style pad, brass stab, PWM strings, sync-style lead, glass bell, arp pluck, tape noise, vinyl crackle, risers. Each sound has a name, a kind, and four macro defaults. Move the best ones to `core/src/audio/presets.c` after the tests on both consoles.
 3. **Synth work (kernel, each one a separate decision).**
    - A second oscillator per voice (detune, octave, hard sync). It gives the sync lead and thick basses with one voice.
    - A wavetable wave (a 64-frame table, position as a register). It gives moving timbres at a low cost.
    - A master bus insert: tape saturation with wow and flutter, and a master filter for the DJ module.
    - A new register changes `synth.h`, the tone bytes, and the three encoders (rule of the audio area).
 
-Phase 2 has layer 1 and 20 sounds of layer 2 in `carts/tape/src/25_sounds.lua`, and the engine `PCM` with its 24 sounds (above): three FM, three STRING, three PULSE, four CLUSTER, three ORGAN, two VOX, two DIGITAL. Nobody has judged them by ear on the Pi yet.
+Phase 2 has layer 1 and 20 sounds of layer 2 in `bm/tape/src/25_sounds.lua`, and the engine `PCM` with its 24 sounds (above): three FM, three STRING, three PULSE, four CLUSTER, three ORGAN, two VOX, two DIGITAL. Nobody has judged them by ear on the Pi yet.
 
 Measure each kernel item on the Pi Zero W before the decision: the budget is 8 voices in a 64-sample block.
 
 ## 9. Project and files
 
 ```
-carts/tape/
+bm/tape/
   tape.bme          the project (the source of the build)
   bm.info           name, type: app, targets, resolution
   src/main.lua      loop, input, module switch
@@ -278,9 +278,9 @@ carts/tape/
 tests/tape/         host tests with bmhost: sequencer timing, voice budget, save and load
 ```
 
-A song is saved under `/bm/save` first. A song file of its own (and its section layout) is a decision for phase 4, with `docs/BM-FORMAT.md` and `python scripts/consistency.py check`.
+A song is saved under `/bm/save` first. A song file of its own (and its section layout) is a decision for phase 4, with `docs/BM-FORMAT.md` and `python core/scripts/consistency.py check`.
 
-**Song file (phase 3).** The cartridge writes the song state with `save()` into save slot 1 (`carts/tape/src/29_save.lua`, as `carts/ko2` does). It is a Lua table with `magic = "BMTAPE"` and `ver = 1`. A reader refuses another magic, another version or a wrong shape, and the demo song starts. The fields: `bpm`, `swing`, `len`, `metro`, `song` (mode), `lin`, `lout` (loop slots); `lvl`, `pan`, `send` (room, echo and chorus of each track), `mute`, `sel` (selected pattern of each track); `snd` (the three synth tracks: sound number, engine, edited flag, octave, sample, macros, envelope, filter); `pads` (start, release, pitch and level of the 12 pads); `fx` (room, echo, chorus); `pats` (a text `step,slot,note,velocity,gate;` for each used pattern only); `rows` (a string of digits for each track that stops at the last used slot). A typical song of four tracks is about 3 KB; a slot holds 32 KB at most.
+**Song file (phase 3).** The cartridge writes the song state with `save()` into save slot 1 (`bm/tape/src/29_save.lua`, as `bm/ko2` does). It is a Lua table with `magic = "BMTAPE"` and `ver = 1`. A reader refuses another magic, another version or a wrong shape, and the demo song starts. The fields: `bpm`, `swing`, `len`, `metro`, `song` (mode), `lin`, `lout` (loop slots); `lvl`, `pan`, `send` (room, echo and chorus of each track), `mute`, `sel` (selected pattern of each track); `snd` (the three synth tracks: sound number, engine, edited flag, octave, sample, macros, envelope, filter); `pads` (start, release, pitch and level of the 12 pads); `fx` (room, echo, chorus); `pats` (a text `step,slot,note,velocity,gate;` for each used pattern only); `rows` (a string of digits for each track that stops at the last used slot). A typical song of four tracks is about 3 KB; a slot holds 32 KB at most.
 
 ## 10. Phases
 
@@ -302,7 +302,7 @@ Closed (9 Nov 2026):
 1. The name is bm Tape.
 2. The target is the Pi only. The RGB30 is a later project.
 3. The synth keeps 8 voices. Use freeze (section 3.2).
-4. `carts/ko2` stays a separate cartridge. bm Tape reuses its recorder logic and its key block. `carts/ko2` has no `.bme`: make one when the code moves.
+4. `bm/ko2` stays a separate cartridge. bm Tape reuses its recorder logic and its key block. `bm/ko2` has no `.bme`: make one when the code moves.
 
 Open:
 

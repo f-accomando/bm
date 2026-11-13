@@ -1,4 +1,4 @@
-"""Tests for scripts/config_readin.py."""
+"""Tests for core/scripts/config_readin.py."""
 
 import os
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPTS = os.path.join(ROOT, "scripts")
+SCRIPTS = os.path.join(ROOT, "core", "scripts")
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
@@ -29,7 +29,7 @@ class ConfigReadinTest(unittest.TestCase):
         with open(os.path.join(spec_dir, "config-keys.toml"), "w", encoding="utf-8") as f:
             f.write(toml_content)
 
-        src_dir = os.path.join(self.tmp.name, "src")
+        src_dir = os.path.join(self.tmp.name, "core", "src")
         os.makedirs(src_dir, exist_ok=True)
         with open(os.path.join(src_dir, "x.c"), "w", encoding="utf-8") as f:
             f.write(c_content)

@@ -1,4 +1,4 @@
-/* asm_run.c: run a ROM built by src/script/snes_asm.lua in the SNES core for a few frames (make test-snes-asm).
+/* asm_run.c: run a ROM built by core/src/script/snes_asm.lua in the SNES core for a few frames (make test-snes-asm).
  *   snes_asm_run rom.sfc frames
  * The ROM is the one of tests/snes/testrom.s: it sets the backdrop colour, turns the screen on and counts the NMI
  * in the work RAM at $0010. The program exits 0 when the machine did what the program says. */

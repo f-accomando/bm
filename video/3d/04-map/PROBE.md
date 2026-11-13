@@ -1,6 +1,6 @@
 # Live Validation: Map 3D Editor & Linear Tools (`PROBE.md`)
 
-> **Modulo**: `carts/editor/main.lua` (edizione Pi, 640×360)
+> **Modulo**: `bm/editor/main.lua` (edizione Pi, 640×360)
 > **Target consumer**: `video/3d/04-map/record.py` (Claude local)
 > **Modalità di verifica**: Analisi statica, binding input.txt e AST editor
 

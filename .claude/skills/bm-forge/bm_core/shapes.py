@@ -3,7 +3,7 @@
 The corner order and the 12 triangles are copied from the villager of
 tests/golden/village_models.bm (MESH model "villager", its first box: vertices 0..7,
 faces 0..11, read with bm_core.mesh.decode), so the winding is the real
-tool's: clockwise seen from outside (src/bm/bm.h:46-47, the r3d.c invariant).
+tool's: clockwise seen from outside (core/src/bm/bm.h:46-47, the r3d.c invariant).
 """
 import json
 

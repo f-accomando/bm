@@ -1,5 +1,5 @@
 /*
- * Host unit test for Shell Code (src/kernel/shell_code.c)
+ * Host unit test for Shell Code (core/src/kernel/shell_code.c)
  */
 #include <stdio.h>
 #include <stdlib.h>

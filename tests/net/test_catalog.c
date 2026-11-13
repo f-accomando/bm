@@ -1,6 +1,6 @@
 /*
- * Host test of the Market's catalog (src/net/catalog.c) with the files made
- * by scripts/mkmarket.py: tests/net/run_catalog_test.py builds a catalog
+ * Host test of the Market's catalog (core/src/net/catalog.c) with the files made
+ * by core/scripts/mkmarket.py: tests/net/run_catalog_test.py builds a catalog
  * signed with a test key, and passes the directory, the keys and the
  * covers it expects (RGBA, as in the cartridges).
  *   test_catalog DIR PUB OTHER_PUB [ID COVER.rgba]...
@@ -93,10 +93,10 @@ int main(int argc, char **argv)
     }
 
     /* the key built into the kernel: the placeholder, or a real P-256 key */
-    char *repo_key = slurp("", "keys/market-pub.pem", &n);
+    char *repo_key = slurp("", "core/keys/market-pub.pem", &n);
     int real = repo_key && strstr(repo_key, "BEGIN PUBLIC KEY") != NULL;
     check(repo_key && catalog_set_key(repo_key) == (real ? 0 : -1),
-          real ? "keys/market-pub.pem: a P-256 public key" : "keys/market-pub.pem: placeholder, no key");
+          real ? "core/keys/market-pub.pem: a P-256 public key" : "core/keys/market-pub.pem: placeholder, no key");
     free(repo_key);
 
     check(catalog_set_key("# no key\n") == -1 && !catalog_has_key(), "placeholder: no key");

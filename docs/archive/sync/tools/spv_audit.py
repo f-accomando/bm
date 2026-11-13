@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only audit of SPV's cost to the sync, from files and git only (stdlib).
 
-  python tools/spv_audit.py [--repo DIR] [--since YYYY-MM-DD]
+  python core/tools/spv_audit.py [--repo DIR] [--since YYYY-MM-DD]
 
 Sources: SYNC.md Log rows, sync/OP-*.ledger.jsonl and sync/<ID>.ledger.jsonl (--close rows: fields wo, min, iso),
 sync/*.md (DELIVERED lines, `preso WO <X>` / `concluso WO <X>` lines) and `git log` of sync/wo/.

@@ -197,23 +197,23 @@ def main():
     if "--build-only" in args:
         return 0
     os.makedirs(BIN, exist_ok=True)
-    subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", os.path.join(BIN, "editor.bm"), "--lua", os.path.join(ROOT, "carts", "editor", "main.lua"),
-                           "--cover", os.path.join(ROOT, "carts", "editor", "icon.png"), "--info", os.path.join(ROOT, "carts", "editor", "bm.info")], cwd=ROOT)
+    subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", os.path.join(BIN, "editor.bm"), "--lua", os.path.join(ROOT, "bm", "editor", "main.lua"),
+                           "--cover", os.path.join(ROOT, "bm", "editor", "icon.png"), "--info", os.path.join(ROOT, "bm", "editor", "bm.info")], cwd=ROOT)
     lib3d.fresh_sd(SD, [(os.path.join(OUT, "start.bme"), "TROPIC.BME")])
     shots = os.path.join(OUT, "shots") if "--shots" in args else None
     for name, secs in (("r1", R1_SECONDS), ("r3", R3_SECONDS)):
         r = lib3d.run_headless(os.path.join(BIN, "editor.bm"), os.path.join(OUT, "input-%s.txt" % name), secs + 3, SD, shots=shots)
         print(name, (r.stderr or r.stdout)[-160:].strip())
     # Ctrl+B is not built by bmhost --tool: the game of the project is the same file without the project flag (R2 runs it)
-    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
     import bmres
-    f = bmres.read(os.path.join(SD, "carts", "TROPIC.BME"))
+    f = bmres.read(os.path.join(SD, "bm", "TROPIC.BME"))
     f.header = f.header[:18] + bytes([f.header[18] & ~1 & 255]) + f.header[19:]
-    bmres.write(os.path.join(SD, "carts", "TROPIC.BM"), f)
+    bmres.write(os.path.join(SD, "bm", "TROPIC.BM"), f)
     bmres.write(os.path.join(OUT, "06-sdk.bm"), f)
     with open(os.path.join(OUT, "r2-input.txt"), "w", newline=chr(10)) as g:
         g.write(chr(10).join(["60 shot r2a", "300 shot r2b", "600 shot r2c"]) + chr(10))
-    r = lib3d.run_headless(os.path.join(SD, "carts", "TROPIC.BM"), os.path.join(OUT, "r2-input.txt"), 12, SD, shots=os.path.join(OUT, "shots"), tool=False)
+    r = lib3d.run_headless(os.path.join(SD, "bm", "TROPIC.BM"), os.path.join(OUT, "r2-input.txt"), 12, SD, shots=os.path.join(OUT, "shots"), tool=False)
     print("r2", (r.stderr or r.stdout)[-160:].strip())
     return 0
 

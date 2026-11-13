@@ -1,4 +1,4 @@
-/* ref_diff.cpp: our 65C816 (src/bm/snes_cpu.c) against the 65C816 module of the ares emulator (ISC licence), one instruction at a time.
+/* ref_diff.cpp: our 65C816 (core/src/bm/snes_cpu.c) against the 65C816 module of the ares emulator (ISC licence), one instruction at a time.
  *
  * Build: make test-snes-ref ARES=/path/to/ares   (the make target skips with a message when ARES is not set).
  * The ares sources are NOT in this repository and are NOT copied: this file only #includes the processor module from the ARES tree at build time.

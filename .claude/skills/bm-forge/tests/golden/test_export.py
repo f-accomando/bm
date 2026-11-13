@@ -31,7 +31,7 @@ class ModelsCart(unittest.TestCase):
 
     def test_models_equals_mkbm_pack(self):
         """export_models bytes match mkbm.pack() with same params."""
-        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkbm.py")):
+        if not os.path.exists(os.path.join(C.REPO, "core", "scripts", "mkbm.py")):
             self.skipTest("repo scripts not available")
 
         mkbm = C.import_script("mkbm")
@@ -54,7 +54,7 @@ class ModelsCart(unittest.TestCase):
 
     def test_cart_equals_mkbm_pack_with_cover(self):
         """export_cart with cover bytes match mkbm.pack() with cover."""
-        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkbm.py")):
+        if not os.path.exists(os.path.join(C.REPO, "core", "scripts", "mkbm.py")):
             self.skipTest("repo scripts not available")
 
         mkbm = C.import_script("mkbm")
@@ -185,7 +185,7 @@ class Bmm(unittest.TestCase):
             self.assertEqual([s.type for s in cart.sections], [S.MESH, S.ANIM])
 
             # bmres.load should work (if available)
-            if os.path.exists(os.path.join(C.REPO, "scripts", "bmres.py")):
+            if os.path.exists(os.path.join(C.REPO, "core", "scripts", "bmres.py")):
                 bmres = C.import_script("bmres")
                 parsed = bmres.load(data)
                 self.assertIsNotNone(parsed)
@@ -235,7 +235,7 @@ class GameFolders(unittest.TestCase):
 
     def test_folder_mkbm_models(self):
         """export_folder-generated models.bm works with mkbm.py --models."""
-        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkbm.py")):
+        if not os.path.exists(os.path.join(C.REPO, "core", "scripts", "mkbm.py")):
             self.skipTest("repo scripts not available")
 
         mesh, anim = C.forge_assets()
@@ -246,7 +246,7 @@ class GameFolders(unittest.TestCase):
 
             # Run mkbm.py with --models pointing to the generated models.bm
             out_path = os.path.join(tmpdir, "rebuilt.bm")
-            cmd = [sys.executable, os.path.join(C.REPO, "scripts", "mkbm.py"),
+            cmd = [sys.executable, os.path.join(C.REPO, "core", "scripts", "mkbm.py"),
                    "-o", out_path,
                    "--lua", result["main.lua"],
                    "--models", result["models.bm"],
@@ -298,7 +298,7 @@ class MarketFolders(unittest.TestCase):
 
     def test_market_mkmarket_check(self):
         """export_market-generated folder passes mkmarket.py --check."""
-        if not os.path.exists(os.path.join(C.REPO, "scripts", "mkmarket.py")):
+        if not os.path.exists(os.path.join(C.REPO, "core", "scripts", "mkmarket.py")):
             self.skipTest("repo scripts not available")
 
         mesh, anim = C.forge_assets()
@@ -314,7 +314,7 @@ class MarketFolders(unittest.TestCase):
             export.export_market(games_dir, "forgedemo", "1.0", "MIT", "A test game", bm_path=src_bm)
 
             # Run mkmarket.py --check
-            cmd = [sys.executable, os.path.join(C.REPO, "scripts", "mkmarket.py"), games_dir, "--check"]
+            cmd = [sys.executable, os.path.join(C.REPO, "core", "scripts", "mkmarket.py"), games_dir, "--check"]
             proc = subprocess.run(cmd, capture_output=True, text=True)
             self.assertEqual(proc.returncode, 0, f"mkmarket.py failed: {proc.stderr}")
             self.assertIn("all right", proc.stdout)

@@ -51,14 +51,14 @@ local r7 = ai.synth("(compose (cooldown shot 15) (platform-jump hero 1 7))", { t
 check(r7.ok, "compose bml ok")
 check(r7.code:find("tick_shot", 1, true) ~= nil and r7.code:find("jump_hero", 1, true) ~= nil, "compose emits both")
 
--- 5. Verify all generated .b snippets with tools/bml/bml.py --check
+-- 5. Verify all generated .b snippets with core/tools/bml/bml.py --check
 local bml_samples = { r2.code, r4.code, r5.code, r7.code }
 for idx, src in ipairs(bml_samples) do
   local tmp = os.tmpname() .. ".b"
   local f = assert(io.open(tmp, "w"))
   f:write(src .. "\n")
   f:close()
-  local ok = os.execute("python3 tools/bml/bml.py " .. tmp .. " --check > /dev/null 2>&1")
+  local ok = os.execute("python3 core/tools/bml/bml.py " .. tmp .. " --check > /dev/null 2>&1")
   os.remove(tmp)
   check(ok == true or ok == 0, "bml.py --check sample #" .. idx)
 end

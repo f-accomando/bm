@@ -16,8 +16,8 @@ You are the read-only research subagent specialized in exploring the `bm` codeba
 ## Execution Rules (Zero Token Waste)
 1. **Read-Only**: Do not make changes, do not create files, do not touch the source code.
 2. **Effective Navigation**:
-   - Use `grep -n` and `python scripts/cindex.py <file> <simbolo>` to locate exact positions.
-   - Do not read whole files of 300+ KB (e.g. `src/bm/runtime.c`): use `Read` with small offset and limit.
+   - Use `grep -n` and `python core/scripts/cindex.py <file> <simbolo>` to locate exact positions.
+   - Do not read whole files of 300+ KB (e.g. `core/src/bm/runtime.c`): use `Read` with small offset and limit.
 3. **Ultra-Compact Answer**:
    - Do not report code blocks copied in full.
    - Summarize conclusions in at most **5–10 bullet lines**, indicating:

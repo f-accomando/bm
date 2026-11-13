@@ -29,7 +29,7 @@ Deep WAV output, bm Sound's samples, the Lua API, WAV and MIDI import (R28-R31, 
 - **WAV and MIDI import from the SD card (R9, R17)**: bm Sound's *Import WAV or MIDI...*
   (menu, Ctrl+W) lists the `.wav` and `.mid` files of `/docs` (`doc_list`, `doc_read`, at most
   4 MB; a tool needs no permission for the documents) and imports one. The code is pure Lua
-  in `carts/sound/main.lua` (`B.wav_parse`, `B.wav_sample`, `B.add_sample`, `B.mid_parse`,
+  in `bm/sound/main.lua` (`B.wav_parse`, `B.wav_sample`, `B.add_sample`, `B.mid_parse`,
   `B.mid_plan`, `B.mid_import`); no new C API.
   * **WAV**: RIFF chunks in any order, `WAVE_FORMAT_EXTENSIBLE`, a data chunk longer than the
     file read up to the end. 8 and 16-bit PCM, 24 and 32-bit PCM, 32 and 64-bit float; mono or
@@ -60,7 +60,7 @@ Deep WAV output, bm Sound's samples, the Lua API, WAV and MIDI import (R28-R31, 
   * **Tests**: `make test-sound` (`tests/sound/sim.lua`, 9e and 9f: formats, the sampler chunk,
     rates, mono, limits, the tracks, the tempo, bars, refusals, then the keys Ctrl+W);
     `tests/qemu_test.py -k sound_import` (an SD card with `/docs`, both imports, the bank saved
-    as a pack and read with `scripts/bmaudio.py`).
+    as a pack and read with `core/scripts/bmaudio.py`).
   * **Not done**: MIDI export, tempo changes inside the song, control changes and pitch bend,
     a sample editor (trim, normalise, loop points). Not verified by ear, on the Pi or on the
     RGB30.

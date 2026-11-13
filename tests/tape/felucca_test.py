@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-felucca_test.py - the 24 PCM sounds of bm Tape, rendered on the PC from Felucca-Engines (scripts/felpack.py).
+felucca_test.py - the 24 PCM sounds of bm Tape, rendered on the PC from Felucca-Engines (core/scripts/felpack.py).
 
-  python3 tests/tape/felucca_test.py build/tape build/carts/tape.bm
+  python3 tests/tape/felucca_test.py build/tape build/bm/tape.bm
 
-Checks: the 24 WAV files of build/tape/felucca/ exist (one for each entry of carts/tape/sounds/felucca.json), are 32000 Hz
+Checks: the 24 WAV files of build/tape/felucca/ exist (one for each entry of bm/tape/sounds/felucca.json), are 32000 Hz
 mono 16 bits, are not silent and have a peak between -1.5 dB and -0.9 dB; the SHA-256 of each file equals the value
 in tests/tape/felucca_golden.txt (the same commit of the engines gives the same bytes); the PCM total is 2.5 MB or less;
 the sample names have 8 characters or less; the Lua source names the same 24 samples as the list; the bank of the
-cartridge lists the 24 names (scripts/bmaudio.py).
+cartridge lists the 24 names (core/scripts/bmaudio.py).
 """
 import array, hashlib, json, math, os, re, subprocess, sys, wave
 
@@ -24,7 +24,7 @@ def check(name, ok):
     print(("ok   " if ok else "FAIL ") + name)
 
 
-sounds = json.load(open(os.path.join(ROOT, "carts", "tape", "sounds", "felucca.json")))["sounds"]
+sounds = json.load(open(os.path.join(ROOT, "bm", "tape", "sounds", "felucca.json")))["sounds"]
 names = [x["sample"] for x in sounds]
 gold = {}
 for line in open(os.path.join(HERE, "felucca_golden.txt")):
@@ -65,11 +65,11 @@ check("the SHA-256 of each WAV equals tests/tape/felucca_golden.txt (different: 
 print("PCM total %d bytes (%.3f MB)" % (total, total / 1048576))
 check("the PCM total is 2.5 MB or less", total <= 2621440)
 
-lua = open(os.path.join(ROOT, "carts", "tape", "src", "25_sounds.lua")).read()
+lua = open(os.path.join(ROOT, "bm", "tape", "core", "src", "25_sounds.lua")).read()
 in_lua = re.findall(r'pcm\("[^"]+", "([A-Z0-9]+)", "[a-z]+"\)', lua)
 check("25_sounds.lua names the 24 samples of the list in the same order", in_lua == names)
 
-out = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "bmaudio.py"), "show", cart], capture_output=True, text=True).stdout
+out = subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "bmaudio.py"), "show", cart], capture_output=True, text=True).stdout
 listed = re.findall(r"^\s+sample\s+\d+ (\S+)", out, re.M)
 check("the bank of %s lists the 24 names (%s ... %s)" % (os.path.basename(cart), listed[:1], listed[-1:]), listed == names)
 print("tape felucca: %s" % ("FAIL" if fails else "ok"))

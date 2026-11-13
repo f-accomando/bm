@@ -1,8 +1,8 @@
-/* Host test of the compatibility policy (bm_compat_facts, bm_compat_classify in src/bm/format.c).
+/* Host test of the compatibility policy (bm_compat_facts, bm_compat_classify in core/src/bm/format.c).
  *
  *   test_compat          the cases: every rule of docs/spec/compat-policy.toml once, the old files, the new header
  *   test_compat --grid   prints the verdict for a grid of facts, read from real headers;
- *                        tests/tools/test_compat_policy.py compares it with scripts/bm_weight.py classify */
+ *                        tests/tools/test_compat_policy.py compares it with core/scripts/bm_weight.py classify */
 #include <stdio.h>
 #include <string.h>
 

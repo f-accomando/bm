@@ -2,9 +2,9 @@
 """Screenshots of the guide edition (the real level, redrawn graphics) for the PDF guide.
 
     python3 tests/smw/guide_shots.py          # the redrawn edition, into manuals/shots (tracked)
-    python3 tests/smw/guide_shots.py --real   # the real build, into carts/smw/extracted/shots (ignored)
+    python3 tests/smw/guide_shots.py --real   # the real build, into bm/smw/extracted/shots (ignored)
 
-Builds carts/smw/guide/build.py (build/smw-guide/guide.b16), plays a few input scripts in bmhost
+Builds bm/smw/guide/build.py (build/smw-guide/guide.b16), plays a few input scripts in bmhost
 (make build/host/bmhost-bin first) and writes manuals/shots/smw-guide-NN-name.png."""
 import os, shutil, subprocess, sys, tempfile
 from PIL import Image
@@ -12,7 +12,7 @@ from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REAL = "--real" in sys.argv
 CART = ROOT + ("/build/smw/smw.b16" if REAL else "/build/smw-guide/guide.b16")
-OUT = ROOT + ("/carts/smw/extracted/shots" if REAL else "/manuals/shots")
+OUT = ROOT + ("/bm/smw/extracted/shots" if REAL else "/manuals/shots")
 PREFIX = "smw-real" if REAL else "smw-guide"
 # name -> (input script, frame to shoot). Frames are 60 a second; the game ticks at 50 Hz.
 SCENES = {
@@ -27,7 +27,7 @@ SCENES = {
 
 
 def main():
-    builder = "/carts/smw/build/build.py" if REAL else "/carts/smw/guide/build.py"
+    builder = "/bm/smw/build/build.py" if REAL else "/bm/smw/guide/build.py"
     subprocess.run([sys.executable, ROOT + builder], check=True, capture_output=True)
     os.makedirs(OUT, exist_ok=True)
     for name, (script, frame) in SCENES.items():

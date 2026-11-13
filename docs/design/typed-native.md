@@ -12,7 +12,7 @@ This document keeps the reasons, the tests and the numbers of the work on native
 | Road | What it is | State |
 |---|---|---|
 | **A. C+Lua hybrid** | Games in Lua. The hot parts are C functions of the kernel (`spr`, `map`, `hit3d`...). Lua fixes come first, a new C function comes after the profile asks for it. | Works today. Its results are in section 3 and are the baseline. |
-| **B. Typed language** | A typed Lua-like source that gives plain Lua and C. Own compiler (`scripts/bmt.py`), or Pallene, or a mix. | Prototype. Sections 5 to 7. |
+| **B. Typed language** | A typed Lua-like source that gives plain Lua and C. Own compiler (`core/scripts/bmt.py`), or Pallene, or a mix. | Prototype. Sections 5 to 7. |
 
 Rule: road B is judged against road A with the same scene and the same sums. A new way must beat the hybrid, or give something that the hybrid cannot give.
 
@@ -46,7 +46,7 @@ On the Pi the Lua is a large part of the frame: `fdiv`, `blocked` and `draw_scen
 
 *Dark Night*, a walk with the camera turning, 3595 frames: 59.0 fps, 7.0 ms a frame (update 1.9, draw 2.8, 3D calls 0.2, audio 2.7, GPU wait 0.8), 9549 triangles a frame. The game is within the 60 fps budget; the Lua functions `cam_blocked`, `update_enemies` and `draw_objects` are 0.25 to 0.65 ms each. Typed code would gain under 1 ms here.
 
-**Typed C against Lua on the Pi Zero W** (8 Nov 2026, kernel with `src/bm/api_typed.c` (removed on 9 Nov 2026), the V3D on, cartridge `tests/typed/pi_bench`). **Pi.** The C is written by hand as `bmt.py` would give it (the data in C arrays); the Lua is the code of `fdiv`, `solid_at` and `blocked` of Yharnam with the game's tables. Same results in both ways (24146, 8947 and 8887 blocked points):
+**Typed C against Lua on the Pi Zero W** (8 Nov 2026, kernel with `core/src/bm/api_typed.c` (removed on 9 Nov 2026), the V3D on, cartridge `tests/typed/pi_bench`). **Pi.** The C is written by hand as `bmt.py` would give it (the data in C arrays); the Lua is the code of `fdiv`, `solid_at` and `blocked` of Yharnam with the game's tables. Same results in both ways (24146, 8947 and 8887 blocked points):
 
 | Function | Lua | C | C against Lua |
 |---|---|---|---|
@@ -67,7 +67,7 @@ A call from Lua to a C function costs about 1 us on the ARM1176. A function that
 
 The gain is 6.7% in fps and 1.1 ms a frame. The 13 times of the micro test becomes 1.1 ms in the game because `blocked` is 3.2 ms of the frame and most of it was Lua; the light (`dark_end`) and the draw (`draw_scene`, `map`, `spr`) did not change. The next candidates by the profile: `draw_scene` (3.7 ms, 13 with its calls) and the light.
 
-**The same `blocked`, made by `bmt.py`** (8 Nov 2026). `bmt.py` now has `//` and `%` (rounding toward minus infinity, as Lua), `floor`, `min`, `max`, calls between typed functions and arrays passed by name. `tests/typed/yblocked.bmt` is `solid_at` and `blocked` of Yharnam on flat arrays; the C goes to `src/bm/typed_yblocked_gen.h`. `make test-typed` (16 checks) compares C and Lua on 30000 random points (12298 blocked, 11724 free, 5978 chunk missing: the same) and checks that the committed header is what `bmt.py` makes. **Pi.** In the game: 0 differences in 80000 calls, 53.5 fps (the hand-written C gave 53.9, the Lua 50.5), frame 15.7 ms.
+**The same `blocked`, made by `bmt.py`** (8 Nov 2026). `bmt.py` now has `//` and `%` (rounding toward minus infinity, as Lua), `floor`, `min`, `max`, calls between typed functions and arrays passed by name. `tests/typed/yblocked.bmt` is `solid_at` and `blocked` of Yharnam on flat arrays; the C goes to `core/src/bm/typed_yblocked_gen.h`. `make test-typed` (16 checks) compares C and Lua on 30000 random points (12298 blocked, 11724 free, 5978 chunk missing: the same) and checks that the committed header is what `bmt.py` makes. **Pi.** In the game: 0 differences in 80000 calls, 53.5 fps (the hand-written C gave 53.9, the Lua 50.5), frame 15.7 ms.
 
 **A negative result: the cull of `draw_scene` in C** (8 Nov 2026). The loop that picks the visible scenery objects of the near chunks was made in the typed subset (data of the objects copied to C, the same order, 0 differences in the game) and run on the Pi: 53.1 fps against 53.5 with `blocked` alone, and `draw_scene` kept its 3.8 ms of its own time. The code was dropped. The Lua line profile of Yharnam on a PC (60 s of autoplay, 88726 samples) shows why: `draw_scene` is 44.7% of the samples and they are spread: the comparator `by_depth` of `table.sort` 7.3%, the cull loop about 8%, the tile loop of the buildings 5.6%, the `sspr` line of the objects 3.9%, the flames 4.7%. No one function of `draw_scene` is worth a port. A gain needs the whole draw of the objects in C (the objects, the order and the calls to `spr` and `sspr` together), which is a larger change of the data of the game.
 
@@ -95,7 +95,7 @@ The cost of a call that does nothing is 3.1 us on the machine (6.0 us of the 7.6
 | 22.6% | `cam_blocked` | a scan over all 46 objects for the doors |
 | 19.7% | `saw_icon` | one `rectfill` for each pixel of the HUD icon |
 
-**The fixes** (all in `carts/darknight/main.lua`, pixel-identical or event-identical, `make test-darknight` passes with 97 events):
+**The fixes** (all in `bm/darknight/main.lua`, pixel-identical or event-identical, `make test-darknight` passes with 97 events):
 
 | Step | Commit in `bm-core` | Samples |
 |---|---|---|
@@ -129,7 +129,7 @@ The last way is not in the game. On the sprite sheet it breaks the 3D textures (
 | Teal | typed Lua that gives plain Lua | safety, not speed |
 | MicroPython `@native`, `viper` | a typed subset of Python in machine code | the same idea on the Pico |
 
-## 5. Prototype of the typed subset (`scripts/bmt.py`)
+## 5. Prototype of the typed subset (`core/scripts/bmt.py`)
 
 One source gives plain Lua (the types cut out) and C. Types `i32`, `f32`, `f64`, `bool` and arrays. `local`, `for`, `while`, `if`, `return`, `break`, `sqrt`, `abs`. A type error names the line of its statement; a float is never cut into an `i32`. The language is in the docstring of the script.
 
@@ -172,7 +172,7 @@ The draw of the particles is not in this number. The draw reads x, y, kind, t an
 
 **Build** (`tests/typed/pallene/setup.sh WORKDIR`, 9 seconds). Pallene needs a Lua 5.4.7 with a patch (`expose-internal-apis.patch`) and LPeg. The site lua.org is not reachable from the session, so the script takes Lua from the Git mirror of the tag v5.4.7 and LPeg from its Git mirror. The Makefile parts of the patch do not apply to the mirror; the script makes `luacore.h` itself. Pallene's text is MIT; its last commit is 3 Nov 2026.
 
-**What the code does.** The generated C reads the array part of a Lua table in place (`arr->array[i - 1]`) and tests the tag of the value. It copies nothing. Of all the files of `third_party/lua`, only `ldo.c` and `lvm.c` differ from Lua 5.4.7 (the profile hooks): the structures of the tables are the same.
+**What the code does.** The generated C reads the array part of a Lua table in place (`arr->array[i - 1]`) and tests the tag of the value. It copies nothing. Of all the files of `core/third_party/lua`, only `ldo.c` and `lvm.c` differ from Lua 5.4.7 (the profile hooks): the structures of the tables are the same.
 
 **Run** (`tests/typed/pallene/run.py PREFIX build/typed`, 3 checks): the 20,000 random cases give the same result from Pallene and from Lua. The frame sums are equal in all four ways. The particles give the same count and sums.
 
@@ -232,7 +232,7 @@ The numbers vary between runs (a shared PC): read the ratios, not the digits. Th
 make test-typed                                                  # the prototype: 14 checks and the numbers of section 5
 sh tests/typed/pallene/setup.sh /path/to/work                    # builds Pallene
 python3 tests/typed/pallene/run.py /path/to/work/prefix build/typed   # the trial of section 6
-BMHOST_LUAPROF=1 build/host/bmhost-bin build/carts/darknight.bm --input keys.txt --seconds 62   # the profile of section 3
+BMHOST_LUAPROF=1 build/host/bmhost-bin build/bm/darknight.bm --input keys.txt --seconds 62   # the profile of section 3
 ```
 
 The keys of Dark Night: take `SCRIPT` from `tests/darknight/check.py` (one line `<frame> keys <usages>`, and `<frame> quit`).

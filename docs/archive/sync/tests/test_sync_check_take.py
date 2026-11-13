@@ -1,11 +1,11 @@
-"""tools/sync_check.py: an assigned WO that nobody took within TAKE_MIN minutes is flagged (SYNC-EN-7)."""
+"""core/tools/sync_check.py: an assigned WO that nobody took within TAKE_MIN minutes is flagged (SYNC-EN-7)."""
 import datetime
 import os
 import sys
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import sync_check as sc  # noqa: E402
 
 NOW = datetime.datetime.now().astimezone().replace(second=0, microsecond=0)

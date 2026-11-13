@@ -33,12 +33,12 @@ To carry into `docs/video/03-animator/{shot-list,script,input}.md` (not edited h
   Enter or Space. Not answered, the run ends with "no editable copy made". Then the status line says `saved /carts/TROPIC.BME`.
 - Row 76: `Esc` in the menu goes back to the page it came from (F1).
 - `build/animator.bm` of this checkout (31 KB, 17:54) stops with `main.lua:1: unexpected symbol near '#'`; `record.py` compiles its own
-  `out/animator.bm` with `scripts/mkbm.py`, so it does not depend on it (someone should rebuild it: `make build/animator.bm`).
+  `out/animator.bm` with `core/scripts/mkbm.py`, so it does not depend on it (someone should rebuild it: `make build/animator.bm`).
 
 ## Output
 
 - `chain/03-animator.bme` = the file the editor saved. `chain/03-animator.bm` = the same built as bm SDK's Ctrl+B does (project bit off,
-  "built from" `TROPIC.BME`): the SDK is another program, so `record.py` does the same step (src/bm/project.c `bm_build`).
+  "built from" `TROPIC.BME`): the SDK is another program, so `record.py` does the same step (core/src/bm/project.c `bm_build`).
 - The editor re-encodes MESH: the skin splits the vertices of PICO (128 -> 180); triangles, positions and colours are the same,
   APPLE and CRATE are byte for byte (`verify.py` compares the geometry).
 - Timing: the recording is 202.0 s (12120 frames) = 3:30 of the video minus the 8 s hook (a cut of the last seconds). Every row of the

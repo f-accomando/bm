@@ -7,11 +7,11 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). Phase 1 of the pla
 
 | File | Use |
 |---|---|
-| `src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player) |
+| `core/src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player) |
 | `tests/snes/asm_test.lua` | unit tests: all 256 opcodes, the addressing modes, width tracking, expressions, directives, macros, errors, the builder |
 | `tests/snes/testrom.s`, `tests/snes/asm_rom_test.py` | the program of `make_testrom.py` in assembly; the test compares the bytes and runs the ROM in the core |
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |
-| `carts/shared/snescode.lua`, `carts/shared/asmbuf.lua` | the helpers of the Code tab: colours, F1 texts, errors in plain words, snippets, the text buffer (no bm API) |
+| `bm/shared/snescode.lua`, `bm/shared/asmbuf.lua` | the helpers of the Code tab: colours, F1 texts, errors in plain words, snippets, the text buffer (no bm API) |
 | `tests/snes/code_test.lua` | the tests of the two modules above (`make test-snes-code`) |
 | `tests/snes/asm_cli.lua` | a command line: `build/host/luahost tests/snes/asm_cli.lua in.s out.sfc [--title T] [--map hirom] [--sym f]` |
 
@@ -49,9 +49,9 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - Special: `brk`, `cop` and `wdm` are two bytes (`brk` gives signature 0; `brk #n` sets it). `mvn src,dst` and `mvp src,dst` are written source first. `pea` takes `$1234` or `#$1234`. Aliases: `bge` `blt` `ina` `dea` `tad` `tda` `tas` `tsa` `swa`.
 - Errors: each has the file and the line. An error in a macro also names the macro and the line of the call. The assembler reports up to 200 errors.
 
-## The app: bm SNES SDK (`carts/snes_sdk`)
+## The app: bm SNES SDK (`bm/snes_sdk`)
 
-- One SDK, many tabs: the SDK is ONE app with a tab bar (Code, Sprites, Map, Music, Run, Learn; F1 to F5, Ctrl+L). A new tool of the SDK is a new tab in `carts/snes_sdk/main.lua`, not a new app. The Code, Run and Learn tabs work. Map and Music say "coming soon".
+- One SDK, many tabs: the SDK is ONE app with a tab bar (Code, Sprites, Map, Music, Run, Learn; F1 to F5, Ctrl+L). A new tool of the SDK is a new tab in `bm/snes_sdk/main.lua`, not a new app. The Code, Run and Learn tabs work. Map and Music say "coming soon".
 - Code tab: the editor of the `.s` and `.inc` files of the project, on `snes_asm`. The files are in `/docs` (8.3 names; `doc_read`, `doc_write`). The project keeps the names of the open files and the main file in the line `--code main=... files=...` of the data between the marks. A new project opens `main.s` (from `/docs`, or new with the reset snippet).
   - Keys: Ctrl+B build, F1 help on the instruction (a short help shows in the status line when the cursor is on one), Ctrl+G go to a label (the label under the cursor, or a list; a double click on a label name goes to it), Ctrl+F find, F6 and F7 next and previous match, F8 next error, Ctrl+J snippets (reset, nmi, dma, joypad, colour; each line has its comment), Ctrl+E the files (open, new, save all, main file, close), Ctrl+W close the file, Ctrl+S save the sources (and the project when it has a name), Ctrl+Q start or stop a selection, Ctrl+C/X/V/K/D copy, cut, paste, cut line, copy line down. The mouse puts the cursor, drags a selection, scrolls with the wheel and clicks an error or a file tab. F1 in another tab opens the Code tab.
   - Build: the buffers are saved, then `snes_asm` assembles the main file (`.include` reads the open buffer, else `/docs`) and the ROM builder writes `<project name>.sfc` (or the stem of the main file) to `/docs`. The size of the ROM is 32 KB minimum. The title in the header is the name in upper case (21 characters at most).
@@ -61,7 +61,7 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
   - Panel: A X Y S D DB PB PC P with the flags (N V M X D I Z C: capital letter set, small letter clear; emulation mode shows `-` and `B` for bits 5 and 4) and the set flags in words, the source line at the PC, the breakpoints, then a hex view with four spaces: RAM (24-bit CPU space, `snes_peek`), VRAM, CGRAM and OAM (`snes_mem`). Keys when stopped: `g` go to an address, `w` write `address=bytes` (`snes_poke`, CPU addresses), `b` toggle a breakpoint at an address, `c` clear all, Tab next memory, arrows and PgUp/PgDn scroll, Ctrl+R reset. The mouse: click a memory name, `go` or `poke`, the wheel scrolls.
   - The map of lines and addresses is `res.lines` of `A.assemble` (instruction lines only, not macro lines). A breakpoint keeps its source line: a build finds the new address. F9 builds first when a text is not the same as at the last build. Lines that move because of an edit keep the old marker line until the next build.
   - Tests: `make test-snes-run` (the helpers, with the assembler map) and `make test-studio` (the whole tab in the host SDK test, with a stand-in machine; the C core is in `make test-snes-debug`). No Pi or RGB30 run.
-- Learn tab (key Ctrl+L, or click the tab): 13 original lessons in English, one data file each in the `.txt` files of `carts/snes_sdk/lessons` (the order is in `LIST`). The Makefile puts them in the built `main.lua` as the table `SNESLESSONS`. Format and helpers: `carts/shared/sneslearn.lua` (head `title:`, `goal:`, `link: Name | https://...`, then `---`, text, `## heading`, fenced blocks `asm` (a whole program) or `text`, `try:` lines). Each `asm` block has `expect=` checks, `frames=` and `pad=` for the test.
+- Learn tab (key Ctrl+L, or click the tab): 13 original lessons in English, one data file each in the `.txt` files of `bm/snes_sdk/lessons` (the order is in `LIST`). The Makefile puts them in the built `main.lua` as the table `SNESLESSONS`. Format and helpers: `bm/shared/sneslearn.lua` (head `title:`, `goal:`, `link: Name | https://...`, then `---`, text, `## heading`, fenced blocks `asm` (a whole program) or `text`, `try:` lines). Each `asm` block has `expect=` checks, `frames=` and `pad=` for the test.
   - Layout: the list of lessons on the left, the reader on the right. Tab: lesson and Code buffer side by side, Tab again types in the Code buffer, Tab again returns to the list view. Esc or F1 returns to the Code tab at the same cursor. The lesson never changes the open files.
   - Each code block: `i` Insert at the cursor of the current Code file (Ctrl+Z in the Code tab undoes it); `o` Open as new file (`lessNN.s`, then `lessNN_2.s`, ... in `/docs`; it is added to the open files; the file you are in stays the current one); `r` or Enter Run alone (builds the block as the scratch file `(lesson)`, loads it in the machine and shows the Run tab; no file and no ROM is written; the Run tab says "lesson example"; F5 or Ctrl+B runs your project again). Mouse: the three buttons on the bar of each block. `n`/`p` select a block, `m` marks it (Notes), `l` lists the marks, `d` marks the lesson done, Left/Right the other lesson, Ctrl+F searches all the lessons.
   - Saved in the `.bme` Lua section between `-- snes-learn:begin` and `-- snes-learn:end` (outside the `snes-sdk:` marks): the last lesson, the split view, the read position and done mark of each lesson, the notes. Nothing is written for a project that never used the tab.
@@ -69,7 +69,7 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - Frame: the project is a `.bme` in `/bme` (Ctrl+N new, Ctrl+O open, Ctrl+S save, Esc menu). The sheet is its SHEET8. The data of the Sprites tab is text between `-- snes-sdk:begin` and `-- snes-sdk:end` in its Lua section: depth, sizes, the sub-palettes (BGR555 words) and the sub-palette of each tile. Other tabs keep their own data outside these marks.
 - Sprites tab: depth 2/4/8 bpp, the size pairs 8/16, 8/32, 8/64, 16/32, 16/64, 32/64 (small or large), 8 sub-palettes of BGR555 with colour 0 clear, 5-bit channel bars with a live preview, the sub-palette of each tile on the grid, a sprite editor (pencil, fill, mouse or keys), an OAM preview (flip X, flip Y, priority, palette bits), PNG import with the quantiser (15 colours + clear), export of `.chr` (planar tiles, rows padded to 16 tiles: use a sheet 128 wide) and `.pal` (all sub-palettes, low byte first) to `/docs`.
 - The pixels are indices in the sub-palette of their tile (the data); the colours of the runtime sheet come from the palette. A change of a colour repaints the sheet.
-- Converters: `carts/shared/snesgfx.lua` (no UI, no bm API). Test: `make test-snes-gfx`. Host test of the app: `tests/studio/snes_sdk_host.lua` (in `make test-studio`).
+- Converters: `bm/shared/snesgfx.lua` (no UI, no bm API). Test: `make test-snes-gfx`. Host test of the app: `tests/studio/snes_sdk_host.lua` (in `make test-studio`).
 - Build: the Makefile adds the converter after `main.lua` as the global `SNESGFX` (`build/snes_sdk/main.lua`; a cart has no other Lua file). The cart reads it lazily (`G`), because the global exists only after the main chunk ran.
 - bm Pixel keeps its own F7 page (the first version of the same tool, kept as it is). The SDK is the place for new SNES work: do not extend bm Pixel for it.
 
@@ -77,18 +77,18 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 
 - The assembler is original code. The references (PVSnesLib, the ersanio course, the SMW disassembly, libSFX, the WDC datasheet) are read only: no code and no data from them enters the repository.
 - The ROM goes to a buffer that the cart gives to `snes_load`. A cart writes a ROM file to `/docs` (`doc_write`). `/sfc` is read only for carts: the SNES cart reads `.sfc` from `/sfc` and, for a ROM of the SDK, from `/docs`.
-- One module `snes_asm` holds the assembler and the builder. Register a new built-in library in the same places as `snes_asm` (`src/bm/require.c`, `src/script/embed.S`, `src/rgb30/bm_embed.S`, `tests/host/libs.S`, `rgb30.mk`, `Makefile`, `scripts/mkweblibs.py`).
+- One module `snes_asm` holds the assembler and the builder. Register a new built-in library in the same places as `snes_asm` (`core/src/bm/require.c`, `core/src/script/embed.S`, `core/src/rgb30/bm_embed.S`, `tests/host/libs.S`, `core/rgb30.mk`, `Makefile`, `core/scripts/mkweblibs.py`).
 - The opcode test of `asm_test.lua` lists the 256 opcodes in the order of the opcode map, apart from the table of the assembler. Keep it so: the two lists check each other.
 - Pass 1 decides the size of each instruction and pass 2 only writes bytes. A change to the size rules must keep the two passes equal.
 - The Code tab has no Lua macros, no `.lua` blocks and no Lisp syntax (the user decided to leave them out). Do not add them to `snes_asm`.
 - Each snippet of `snescode.lua` assembles by itself (with a `reset` label) and has a comment on every line. Add a snippet to the list and the test checks it.
 - A new instruction or mode in `snes_asm` needs its F1 text in `snescode.lua` (the test fails without it).
-- One SDK, many tabs: new SNES tools are tabs of `carts/snes_sdk`. Shared code goes in a module (`carts/shared/`), never in the interface of another app.
+- One SDK, many tabs: new SNES tools are tabs of `bm/snes_sdk`. Shared code goes in a module (`bm/shared/`), never in the interface of another app.
 - Keep the converters free of any bm API, so the PC tests run them.
 - The Run tab runs the machine only while it shows and never adds a check to the C hot loop; the debug panel reads through `snes_peek`, `snes_mem`, `snes_regs`, `snes_step`, `snes_break` and `snes_run`.
 - Register a new shared module of the SDK (`snesrun.lua`) in the build of `$(BUILD)/snes_sdk/main.lua` as a global (`SNESRUN`), as for `SNESCODE`.
 - Write the text of docs and comments in ASD-STE100.
-- A lesson example is a whole program that assembles and runs by itself, with an `expect=` check. A new lesson goes in `carts/snes_sdk/lessons/` and in `LIST`. Lessons are English and original: links to outside sources only, no copied text or code.
+- A lesson example is a whole program that assembles and runs by itself, with an `expect=` check. A new lesson goes in `bm/snes_sdk/lessons/` and in `LIST`. Lessons are English and original: links to outside sources only, no copied text or code.
 - The Learn tab code is one function inside `main.lua` (the main chunk is at the limit of 200 local variables). Do not add top-level locals to `main.lua`: use fields of `LN`.
 
 ## Open work
@@ -104,16 +104,16 @@ First, the Sprites tab (done; the rest of it is here). Then the tabs below, in t
 6. OAM view: the table of the 128 sprites (from `snes_debug` or `snes_peek`) and boxes on the screen; a click on a box selects the sprite.
 7. A watch on the writes to one address. Measure the cost on the Pi Zero W before you keep it.
 8. Map and Music tabs (Phase 2 and 3).
-9. Code assistant for 65C816 (later, after the tabs above; user decision 2026-11-13: not now). Extend the symbolic synthesizer of bm (`bm_lisp` in `src/ai/lisp.c`, `src/ai/synth.c`, `ai.synth` in `src/ai/lua_ai.c`, panel F6 in `src/ai/assist.lua`, commit f93bafd0; today it has the targets `.b` BML and Lua 5.4) with a target `65816`. Steps:
-   1. An emitter in `src/ai/synth.c` that writes plain 65C816 text for `snes_asm`: registers A, X, Y; the flags M and X with `REP` and `SEP` and the `.a8/.a16/.i8/.i16` lines; DMA and OAM set-up; PPU register writes; NMI and V-blank handlers; loops; sprite and AABB tests. The output is ordinary assembly text. It adds no Lisp syntax, no Lua macros and no `.lua` blocks to `snes_asm` or to the Code tab (user decision 2026-11-13).
-   2. The target `65816` in `ai.synth` and in F6 (`src/ai/assist.lua`), with a check on the console: the result assembles with `snes_asm` (`A.assemble`), and a short program runs a few frames in the SNES core with `snes_step`/`snes_regs` (`src/bm/snes_cpu.c`, `carts/snes/`).
-   3. A hook in the Code tab of `carts/snes_sdk`: the F6 result goes in at the cursor, with the same marks as `bm Code` (`BL.integrate_block`, `ai_marks`), and the lessons of the Learn tab are the first examples for the query set.
+9. Code assistant for 65C816 (later, after the tabs above; user decision 2026-11-13: not now). Extend the symbolic synthesizer of bm (`bm_lisp` in `core/src/ai/lisp.c`, `core/src/ai/synth.c`, `ai.synth` in `core/src/ai/lua_ai.c`, panel F6 in `core/src/ai/assist.lua`, commit f93bafd0; today it has the targets `.b` BML and Lua 5.4) with a target `65816`. Steps:
+   1. An emitter in `core/src/ai/synth.c` that writes plain 65C816 text for `snes_asm`: registers A, X, Y; the flags M and X with `REP` and `SEP` and the `.a8/.a16/.i8/.i16` lines; DMA and OAM set-up; PPU register writes; NMI and V-blank handlers; loops; sprite and AABB tests. The output is ordinary assembly text. It adds no Lisp syntax, no Lua macros and no `.lua` blocks to `snes_asm` or to the Code tab (user decision 2026-11-13).
+   2. The target `65816` in `ai.synth` and in F6 (`core/src/ai/assist.lua`), with a check on the console: the result assembles with `snes_asm` (`A.assemble`), and a short program runs a few frames in the SNES core with `snes_step`/`snes_regs` (`core/src/bm/snes_cpu.c`, `bm/snes/`).
+   3. A hook in the Code tab of `bm/snes_sdk`: the F6 result goes in at the cursor, with the same marks as `bm Code` (`BL.integrate_block`, `ai_marks`), and the lessons of the Learn tab are the first examples for the query set.
    4. Tests: assemble every emitted pattern and compare the bytes with the opcode table (`A.opcodes`); run each pattern in the core (`tests/snes/`, as `make test-snes-m7rom` does) and check A, X, Y, P and memory; add the cases to `tests/ai/synth_test.lua` (`make test-ai`).
    Rules: offline, no PC at run time, the arena of 512 KB, the step and depth budget of `lisp.c`; the Pi Zero W is the benchmark. Not started.
 
 Other open work:
 
-- A project layout: `src/*.s`, `gfx/*.png`, `snes.bme`, with `.include` read from the project (Phase 1, steps 2 and 6).
+- A project layout: `core/src/*.s`, `gfx/*.png`, `snes.bme`, with `.include` read from the project (Phase 1, steps 2 and 6).
 - The assembler has no listing file, no `.struct`, no `.enum`, no anonymous labels (`+`, `-`) and no linker. Add them when a game needs them.
 - Measure the speed of `A.assemble` on the Pi Zero W with a large source. The tests run on the PC only.
 - Super FX opcodes (GSU) and the DSP, SA-1 modes (Phase 4).

@@ -1,4 +1,4 @@
-"""Tests for tools/stack2mesh.py: sprite stack -> MESH model (.bmm)."""
+"""Tests for core/tools/stack2mesh.py: sprite stack -> MESH model (.bmm)."""
 import os
 import struct
 import subprocess
@@ -8,10 +8,10 @@ import unittest
 import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, os.path.join(ROOT, "core", "tools"))
 import stack2mesh as s2m  # noqa: E402
 
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
 RED, BLUE, GREEN = (255, 0, 0), (0, 0, 255), (0, 255, 0)
 CLEAR = (0, 0, 0, 0)
 
@@ -132,13 +132,13 @@ class Stack2MeshTest(unittest.TestCase):
             png, out = os.path.join(d, "synth.png"), os.path.join(d, "synth.bmm")
             with open(png, "wb") as f:
                 f.write(png_rgba(12, 4, stack_pixels(self.src)))
-            r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "stack2mesh.py"), png, "-o", out,
+            r = subprocess.run([sys.executable, os.path.join(ROOT, "core", "tools", "stack2mesh.py"), png, "-o", out,
                                 "--size", "4", "4", "-n", "3"], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn("25 voxels, 3 boxes, 24 vertices, 36 triangles", r.stdout)
             c = subprocess.run([sys.executable, FORGE, "check", out, "--no-sync"], capture_output=True, text=True)
             self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
-            bad = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "stack2mesh.py"), png, "-o", out,
+            bad = subprocess.run([sys.executable, os.path.join(ROOT, "core", "tools", "stack2mesh.py"), png, "-o", out,
                                   "--size", "4", "4", "-n", "5"], capture_output=True, text=True)
             self.assertEqual(bad.returncode, 2)
 

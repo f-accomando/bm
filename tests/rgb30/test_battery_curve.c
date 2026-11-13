@@ -1,5 +1,5 @@
 /*
- * The RGB30's charge from the voltage and the current (src/rgb30/battery_curve.h):
+ * The RGB30's charge from the voltage and the current (core/src/rgb30/battery_curve.h):
  * rows of the full run-down of 2026-10-27 (bm/bat09.csv, menu only), with the
  * charge left from the summed current (3700 mAh from full to 3.3 V under
  * load). The percent must be within 4 points; the bars of the menu

@@ -24,7 +24,7 @@ video shows **what happens on the screen and which key, tab or button causes it*
   `BMHOST_AI_WEIGHTS`): with the normal `bmhost` bm Code does not start (`attempt to index a nil value (global 'ai')`).
 - **QEMU** `-M raspi0` (`tests/qemu_test.py`): the whole kernel, tabs included. It is
   preferred when available and the video must show the menu.
-- `tools/bmplay/video.sh`: a game played by a bot, with sound (for the episodes on the
+- `core/tools/bmplay/video.sh`: a game played by a bot, with sound (for the episodes on the
   finished game).
 - Ready-made library: **`video/lib/bmvideo.py`** (key script → `--input` file, keyboard
   overlay, 1920×1080 page with side panel, ffmpeg). An episode is
@@ -47,9 +47,9 @@ video shows **what happens on the screen and which key, tab or button causes it*
 - bm Pixel's "Save as" asks for a name that is **already filled in** ("SPRITES.BM"): the typed text is
   appended and then the FAT 8.3 name is truncated (`SPRITESB.BM`). First 10 Backspace (`\\x7f`).
 - Verify without looking at images: `video/01-pixel/verify.py` reads the saved cartridge
-  (`scripts/bmres.py`, `sheet_get`) and compares every sprite pixel by pixel with `art.py`;
+  (`core/scripts/bmres.py`, `sheet_get`) and compares every sprite pixel by pixel with `art.py`;
   then `ffprobe` for the duration. If the user asks "no screenshots", work this way.
-- To know what an editor does without images: copy of the editor with `log(...)` in `_update` (page state, `S.msg`), compiled with `scripts/mkbm.py`, and `bmhost` without `--quiet`: the log arrives on the terminal. F5 inside `bmhost` ends the run (the cartridge under test is another recording, appended with `cat` of the raws).
+- To know what an editor does without images: copy of the editor with `log(...)` in `_update` (page state, `S.msg`), compiled with `core/scripts/mkbm.py`, and `bmhost` without `--quiet`: the log arrives on the terminal. F5 inside `bmhost` ends the run (the cartridge under test is another recording, appended with `cat` of the raws).
 - A code editor: type without indentation (bm Code indents by itself), Ctrl+K cuts a line to clean up; the test (F5) ends the recording, so the game is a second recording with a key script (`pad 1 right a`), its wav appended to the first (`wave`); jump timings are computed with a log (copy of the cartridge with a wrapped `_update`) until the game does what the narrator says; `video/04-code/verify.py` checks it.
 - Several editors in the same episode: same SD, one after the other (`input-pixel.txt`, `input-code.txt`: `split_input` by frame), then the game; raw and wav appended. bm Code Replace: Ctrl+H = Backspace on the serial, so menu Esc → 12× Down → Enter. Cut all the old lines with Ctrl+K (exact count). A block inserted by the assistant (F6, Enter) leaves the cursor at the end of the block: Enter before writing the next line.
 - To tune a game: log in a copy of the cartridge, then search by trial (jump frame × duration) with `bmhost` without video; a patrolling enemy can only be stomped in a narrow window, so search for the timing instead of guessing it.
@@ -98,7 +98,7 @@ Branch `bm-core`. Read with the available tools; do not write from memory.
 - `tests/qemu_test.py`: existing QEMU harness (option `--shots DIR` for
   screenshots). Understand how it starts QEMU (`-M raspi0`), how it sends keys and how it
   captures frames **by reading the code**, then reuse it instead of writing a new one.
-- `carts/` and `sdk/`: example cartridges and tool READMEs.
+- `bm/` and `sdk/`: example cartridges and tool READMEs.
 
 ## Workflow
 

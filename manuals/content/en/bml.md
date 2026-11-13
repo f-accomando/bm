@@ -6,9 +6,9 @@ subtitle: The typed subset of Lua for the Pi Zero W: syntax, stack VM, kernel bm
 footer: bm manuals - bml
 
 ::: readme
-**What this is.** How to write hot functions in the typed language of bm (`tools/bml/bml.py`), run the same source in plain Lua, and inspect the generated stack bytecode, kernel `bmvm` register code, C equivalent, and native 32-bit ARMv6 A32 machine instructions for the Raspberry Pi Zero W.
+**What this is.** How to write hot functions in the typed language of bm (`core/tools/bml/bml.py`), run the same source in plain Lua, and inspect the generated stack bytecode, kernel `bmvm` register code, C equivalent, and native 32-bit ARMv6 A32 machine instructions for the Raspberry Pi Zero W.
 
-**How to read it.** Every rule, opcode, and machine word comes from `tools/bml/bml.py`, `scripts/bmt.py`, `src/bm/bmvm.h`, and `docs/design/bml-manual.md`. Chapter 4 shows four complete functions with their BML source, C equivalent, and disassembled ARMv6 assembly side by side.
+**How to read it.** Every rule, opcode, and machine word comes from `core/tools/bml/bml.py`, `core/scripts/bmt.py`, `core/src/bm/bmvm.h`, and `docs/design/bml-manual.md`. Chapter 4 shows four complete functions with their BML source, C equivalent, and disassembled ARMv6 assembly side by side.
 
 **What is missing.** Every open stage of the roadmap in `docs/progress/typed.md` is marked with a highlighted TO FILL tag and listed in the last chapter.
 :::
@@ -19,23 +19,23 @@ A game on the Raspberry Pi Zero W 1.1 runs on a single-core ARM1176JZF-S at 1000
 
 ## One source, four targets
 
-A `.b` file uses the syntax of Lua with type annotations (`: i32`, `: bool`) on parameters and return values. From a single `.b` file, `tools/bml/bml.py` gives:
+A `.b` file uses the syntax of Lua with type annotations (`: i32`, `: bool`) on parameters and return values. From a single `.b` file, `core/tools/bml/bml.py` gives:
 
 | Target | Flag / API | Where it runs | Purpose |
 |---|---|---|---|
 | Plain Lua 5.4 | `--lua` | `luahost` and the console Lua VM | Reference oracle: strips `: <type>` and `struct ... end` |
 | Stack VM (Stage 2) | `--run` / `--dump` | Host Python (`StackVM`) | Fast verification and bytecode inspection |
-| Kernel `bmvm` (Stage 3) | `--bmvm` | `src/bm/bmvm.c` (`vm_load`, `vm_run`) | Safe register-machine blob inside a cartridge |
-| Native ARMv6 A32 (Stages 4–8) | `--armv6` / `--native` | `src/bm/bmnative.c` (`native_load`, `native_run`) | Native 32-bit A32 + VFPv2 words in executable RAM (AAPCS) |
-| On-Console Compiler (Stage 9) | `native_compile(src)` | `src/bm/bmlc.c` (`bml_compile_native`) | Compiles `.b` source directly to `BMN1` ARMv6 machine code on the Pi |
+| Kernel `bmvm` (Stage 3) | `--bmvm` | `core/src/bm/bmvm.c` (`vm_load`, `vm_run`) | Safe register-machine blob inside a cartridge |
+| Native ARMv6 A32 (Stages 4–8) | `--armv6` / `--native` | `core/src/bm/bmnative.c` (`native_load`, `native_run`) | Native 32-bit A32 + VFPv2 words in executable RAM (AAPCS) |
+| On-Console Compiler (Stage 9) | `native_compile(src)` | `core/src/bm/bmlc.c` (`bml_compile_native`) | Compiles `.b` source directly to `BMN1` ARMv6 machine code on the Pi |
 
 ::: note
-`scripts/bmt.py` translates the same typed Lua syntax to C (`--c`) for functions linked into the kernel (`src/bm/api_collmap.c`). `tools/bml/bml.py` is the standalone compiler that generates bytecode and ARMv6 machine words directly without a C compiler.
+`core/scripts/bmt.py` translates the same typed Lua syntax to C (`--c`) for functions linked into the kernel (`core/src/bm/api_collmap.c`). `core/tools/bml/bml.py` is the standalone compiler that generates bytecode and ARMv6 machine words directly without a C compiler.
 :::
 
 # Syntax and type rules
 
-The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) checks every statement before emitting code. Any error stops compilation and prints `line <N>: <reason>`.
+The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `core/tools/bml/bml.py`) checks every statement before emitting code. Any error stops compilation and prints `line <N>: <reason>`.
 
 ## Types and literals
 
@@ -84,13 +84,13 @@ The front end (`Lexer`, `Parser`, `AST`, `TypeChecker` in `tools/bml/bml.py`) ch
 ## Stage 3 and Stage 4: Kernel `bmvm` and ARMv6 A32
 
 1. `compute_stack_depths()` computes the exact height of the evaluation stack before every instruction.
-2. `BMVMCompiler` maps parameters to `R[0..nparams-1]`, constants to `R[nparams..nparams+nconst-1]`, locals to `R[nparams+nconst..]`, and stack slots `S[k]` above locals, emitting a `BMV1` blob for `src/bm/bmvm.c`.
-3. `ARMv6Compiler` and `src/bm/bmlc.c` emit 32-bit ARMv6 A32 + VFPv2 machine words following the AAPCS ABI (`r0`..`r3` arguments, `r0` return value, callee-saved `r4`..`r10` and `s4`..`s31` with minimal frames, rotated `imm12` folding, `mla`/`vmla.f32` fusion, and `[base_m4, idx, lsl #2]` array indexing).
-4. `compile_native_blob()` (`--native`) and `native_compile(src)` pack the `BMN1` module for `src/bm/bmnative.c` (`native_load`, `native_fn`, `native_run`, `native_disasm`): `bmnative_load` validates A32 and CP10 VFPv2 words, copies them into 32-byte-aligned executable RAM, cleans the D-cache (`dcache_clean_range`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch target cache (`c7, c5, 6`), and executes `DSB` + `ISB`.
+2. `BMVMCompiler` maps parameters to `R[0..nparams-1]`, constants to `R[nparams..nparams+nconst-1]`, locals to `R[nparams+nconst..]`, and stack slots `S[k]` above locals, emitting a `BMV1` blob for `core/src/bm/bmvm.c`.
+3. `ARMv6Compiler` and `core/src/bm/bmlc.c` emit 32-bit ARMv6 A32 + VFPv2 machine words following the AAPCS ABI (`r0`..`r3` arguments, `r0` return value, callee-saved `r4`..`r10` and `s4`..`s31` with minimal frames, rotated `imm12` folding, `mla`/`vmla.f32` fusion, and `[base_m4, idx, lsl #2]` array indexing).
+4. `compile_native_blob()` (`--native`) and `native_compile(src)` pack the `BMN1` module for `core/src/bm/bmnative.c` (`native_load`, `native_fn`, `native_run`, `native_disasm`): `bmnative_load` validates A32 and CP10 VFPv2 words, copies them into 32-byte-aligned executable RAM, cleans the D-cache (`dcache_clean_range`), invalidates the I-cache (`mcr p15, 0, a, c7, c5, 1`) and branch target cache (`c7, c5, 6`), and executes `DSB` + `ISB`.
 
 ## Cartridges in `.b`, disassembly, and editors
 
-- **Cartridge section (`BM_SEC_B = 17`, spec revision 7)**: pack `.b` source into a `.bm` or `.bme` with `scripts/mkbm.py --b main.b`. A **100% `.b` cartridge** defines `_init`, `_update`, and `_draw` (each with `()` or `(state: i32[])` backed by a 256-word persistent state buffer). A **hybrid Lua + `.b` cartridge** pairs `--lua` and `--b`: the runtime compiles `main.b` on load and exposes its functions to Lua as `B.<fn>(...)`.
+- **Cartridge section (`BM_SEC_B = 17`, spec revision 7)**: pack `.b` source into a `.bm` or `.bme` with `core/scripts/mkbm.py --b main.b`. A **100% `.b` cartridge** defines `_init`, `_update`, and `_draw` (each with `()` or `(state: i32[])` backed by a 256-word persistent state buffer). A **hybrid Lua + `.b` cartridge** pairs `--lua` and `--b`: the runtime compiles `main.b` on load and exposes its functions to Lua as `B.<fn>(...)`.
 - **Console disassembler (`native_disasm`)**: `bmnative_disasm_word` decodes ARMv6 A32 and VFPv2 CP10 instructions (`vldr`, `vstr`, `vpush`, `vpop`, `vmov`, `vadd.f32`..`vdiv.f32`, `vmla.f32`, `vmls.f32`, `vcvt`, `vcmp`, `vcmpz`, `vmrs`, indexed `ldr`/`str`, `mla`, rotated immediates and shifts). View it inside **bm Code** (`Ctrl+Shift+D`) or from the serial `code` shell (`shell_code.c`, with `f32` CLI arguments and `f32` return values).
 
 # Practical code examples: BML, C, and ARMv6 ASM
@@ -109,7 +109,7 @@ end
 ```
 
 ```c
-/* 2. Equivalent C (scripts/bmt.py --c) */
+/* 2. Equivalent C (core/scripts/bmt.py --c) */
 int32_t bmt_sum(int32_t n)
 {
     int32_t s = 0;
@@ -327,10 +327,10 @@ int32_t step_vec2f(Vec2f *v, float dt, float lim)
 
 ## Example 6: Game cartridge optimization (Dark Night)
 
-In `carts/darknight/main.lua`, enemy separation checks 272 pairs every frame ($O(N^2)$). In Lua, table lookups (`e.x`, `o.x`, `o.st`) and floating-point VM operations take 27.3% of the total logic time. Converting the loop to a `.b` hot function with `vm_buf` eliminates table boxing, uses hardware VFPv2 single-precision instructions, and reduces runtime from 20 us to 4 us (up to 5x faster).
+In `bm/darknight/main.lua`, enemy separation checks 272 pairs every frame ($O(N^2)$). In Lua, table lookups (`e.x`, `o.x`, `o.st`) and floating-point VM operations take 27.3% of the total logic time. Converting the loop to a `.b` hot function with `vm_buf` eliminates table boxing, uses hardware VFPv2 single-precision instructions, and reduces runtime from 20 us to 4 us (up to 5x faster).
 
 ```lua
--- 1. Original Lua in carts/darknight/main.lua
+-- 1. Original Lua in bm/darknight/main.lua
 for i = 1, #enemies do
   local o = enemies[i]
   local ox = ex - o.x
@@ -388,16 +388,16 @@ native_run(mod, "move_and_separate", N, bx, bz, bvx, bvz, balive, bout, bcounts)
 ::: try
 Compile `tests/bml/sum.b` and `tests/bml/darknight_enemy.b`, inspect the stack bytecode and ARMv6 + VFPv2 machine words, or compile `.b` source strings directly in Lua with `native_compile(src)`:
 
-1. Run `python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10`: you see the stack instructions and the result `55`.
-2. Run `python3 tools/bml/bml.py tests/bml/sum.b --dump-armv6`: you see the 9 hexadecimal A32 words from `0x0000` to `0x0020`.
+1. Run `python3 core/tools/bml/bml.py tests/bml/sum.b --dump --run sum 10`: you see the stack instructions and the result `55`.
+2. Run `python3 core/tools/bml/bml.py tests/bml/sum.b --dump-armv6`: you see the 9 hexadecimal A32 words from `0x0000` to `0x0020`.
 3. Run `make test-bml`: the suite checks 23 invalid programs, `sum.b`, `features.b`, 200 random programs, `types_mem.b`, `kernel_fn.b`, `darknight_enemy.b` (60 frames of 17 enemies), and the Stage 9 on-console C compiler `native_compile` across Lua, `StackVM`, C `bmvm`, `native_run`, and `qemu-system-arm -cpu arm1176`.
 :::
 
 ::: copy
 ```
-python3 tools/bml/bml.py tests/bml/sum.b --dump --run sum 10
-python3 tools/bml/bml.py tests/bml/sum.b --dump-armv6
-python3 tools/bml/bml.py tests/bml/features.b --native build/features.bmn
+python3 core/tools/bml/bml.py tests/bml/sum.b --dump --run sum 10
+python3 core/tools/bml/bml.py tests/bml/sum.b --dump-armv6
+python3 core/tools/bml/bml.py tests/bml/features.b --native build/features.bmn
 make test-bml
 ```
 :::

@@ -1,5 +1,5 @@
 /*
- * Host test for the steps of a queued file_write (src/bm/webfile.c): the SD card is an image file.
+ * Host test for the steps of a queued file_write (core/src/bm/webfile.c): the SD card is an image file.
  *
  *   test_fat_queue IMAGE
  *

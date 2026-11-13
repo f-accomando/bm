@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 glbfix: a small .glb made by hand for the tests of the converters
-(tests/ai/check_meshy.py for tools/meshy2mesh.py, tests/bm/run_glb_test.py
-for src/bm/glb.c): a textured box (red left, blue right; 16-bit indices)
+(tests/ai/check_meshy.py for core/tools/meshy2mesh.py, tests/bm/run_glb_test.py
+for core/src/bm/glb.c): a textured box (red left, blue right; 16-bit indices)
 and a pyramid with vertex colours (32-bit indices) moved and scaled by its
 node; a mirrored-node variant; the texture as PNG, or JPEG through Pillow.
 

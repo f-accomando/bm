@@ -4,13 +4,13 @@ Roadmap line: SYS-21 ([ROADMAP](../ROADMAP.md)).
 
 Cut from [system](system.md): the menu and kernel services. Open work and rules stay in system.
 
-### Menu and kernel services (`src/kernel/`)
+### Menu and kernel services (`core/src/kernel/`)
 - `library.c` (the game library of both menus), `carts.c` (the Pi menu: `carts_menu` calls
   the steps `cm_*`, launches, `background_stop()`), `menu_ui.c` (the one menu, Pi and RGB30;
   `menu_ui_frame` calls the steps `frame_*`), `settings.c` (`home_panel` calls `panel_*`,
   `home_act` calls `act_*`), `syskeys.c`, `splash.c` / `loading.c`, `market.c`, `update.c`,
   `reports.c`, `ledstate.c`, `notice.c`, `prompts.c`, `monitor.c`. The RGB30 menu is
-  `src/rgb30/ui.c` (`ui_home` calls the steps `uh_*`).
+  `core/src/rgb30/ui.c` (`ui_home` calls the steps `uh_*`).
 - The game library (`library.c`, `library.h`): one `library` (`lib_t`, up to 64 `lib_game_t`) for
   the Pi and the RGB30. Each console gives a `lib_backend_t`: the folders, the compat target,
   `want` (which file is listed), `add_builtins`, `stop_background`, the rows of the cartridge
@@ -33,16 +33,16 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   `details` and no `note`. A failed action shows its reason in the notice box (`notice_fail()`,
   4 s). Every other message goes to the console log (`home_report()` in `settings.c`, `market.c`).
   The help line of a panel row is inside the Settings box, not in the bar: it stays.
-- The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). On the RGB30 (`src/rgb30/ui.c`) it holds the bm SDK, then the cartridges of type app or utility (D51, D52); its utilities are the 3D Bench (Settings > Screen) and the Render bench (Settings > System > Utilities); the Utilities row is hidden when the count is 0 (D53); Settings > System has the "3D driver" row (D15a). The
+- The Dev tab holds the editors only: bm Code, Assistant, Monitor, Lua (`NDEV` in `home.c`). On the RGB30 (`core/src/rgb30/ui.c`) it holds the bm SDK, then the cartridges of type app or utility (D51, D52); its utilities are the 3D Bench (Settings > Screen) and the Render bench (Settings > System > Utilities); the Utilities row is hidden when the count is 0 (D53); Settings > System has the "3D driver" row (D15a). The
   benchmarks and tests are utilities (`home_utils()`): the 3D Bench in Settings > Screen.
   The DMA test was removed on 25 Oct 2026. Input test, Audio test, Test pattern, System and Log are
   Settings rows. The GPU test, Texture Room, Video bench, Stack bench and Diagnostics (with the CPU
   bench, the libc and fiber self-tests, the boot demo and the Lua boot script) were removed on 24 Oct 2026.
   The monitor keys `b`, `g` and `R`, and the line words `gpu`, `room`, `video` and `stack`, went with them.
   The monitor keys `k` (CPU bench), `d` (animation demo) and `p` (render bench) were removed on 28 Oct 2026 with `bench.c`, `demo.c` and `bm_bench` (the RGB30 Settings row *Render bench* went too).
-  The monitor is a table of commands (`commands` in `src/kernel/monitor.c`). The bm shell menu (`src/kernel/shell_menu.c`)
+  The monitor is a table of commands (`commands` in `core/src/kernel/monitor.c`). The bm shell menu (`core/src/kernel/shell_menu.c`)
   runs lines of commands (7 Nov 2026: the single keys are gone). The `bm:` prompt (the item Command line, selected at start) stays open and
-  has history, Tab and line editing (`src/kernel/monitor_cmd.c`). The old line words stay as aliases.
+  has history, Tab and line editing (`core/src/kernel/monitor_cmd.c`). The old line words stay as aliases.
   A game in memory has a star at the top right of its card; a game with a newer
   Market version has a down triangle at the bottom right (`market_has_update()`). The Market
   cards have no "Installed" or "Update" pill.
@@ -61,7 +61,7 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   720p not yet verified). When the GPU cannot start, the menu stays at 360p on the ARM (26 Oct 2026; `menu_gpu` is gone).
 
 - **Menu on the GPU, cost per frame (Pi Zero W, 28 Oct 2026, [`docs/bench/menu-1080p-probe/`](../bench/menu-1080p-probe/README.md)).** Cause of the high cost: the V3D texture cache had 8 slots (`NTEX`), and the menu uses more than 8 sheets (background, covers, fonts), so each frame made the textures again in turn; the cost did not depend on the resolution (the background cost 20 ms at 360p and 27 ms at 1080p). Fix: `NTEX` 32, and the background sheet is copied only when what shows changes (`bg_sig` in `menu_ui.c`). Draw time a frame on the cover grid: 360p 31.9 -> 2.9 ms (the ARM draws 360p in 6.6 ms), 720p 47.8 -> 6.3 ms, 1080p 73.5 -> 12.5 ms. Open: the scenes were not seen by eye; Yharnam on the Pi with 32 slots: 52.3 fps against 51.6 with 8 (no slowdown; the 3D Bench and the free memory are not measured); the free time for the jobs (`free time used`) is still about 30 us, check where the ARM waits.
-- **Native menu layout (`menu_layout=1`, with `menu_scale` 2 or 3).** The layout uses the screen dimensions (1280x720 or 1920x1080) with native font sizes: 8 covers a row (6 at 360p), cover grid and key chips centred. Panels (`PANEL_Y`), Settings page and submenu, title, header tabs, and confirmation/notice dialogs (`frame_ask`, `frame_notice`) scale and centre dynamically (`src/kernel/menu_ui.c`). Left: hardware visual check and default choice after 3D Bench / free memory verification with 32 texture slots.
+- **Native menu layout (`menu_layout=1`, with `menu_scale` 2 or 3).** The layout uses the screen dimensions (1280x720 or 1920x1080) with native font sizes: 8 covers a row (6 at 360p), cover grid and key chips centred. Panels (`PANEL_Y`), Settings page and submenu, title, header tabs, and confirmation/notice dialogs (`frame_ask`, `frame_notice`) scale and centre dynamically (`core/src/kernel/menu_ui.c`). Left: hardware visual check and default choice after 3D Bench / free memory verification with 32 texture slots.
 - **Covers in a better resolution (SYS-18, idea).** Today a cover is `MENU_CARD` x `MENU_CARD` (88 x 88) in the cartridge. Plan: the cartridge carries a larger cover (for example 256 x 256); the menu makes the size for the screen from it (88 at 360p, a larger size at 720p and 1080p) and keeps the small one for the lists; the Market and the SD scan give the same cover. Check the cost in the cartridge size and in the cover loader (`covers` job) on the Pi Zero W before the format changes (`docs/BM-FORMAT.md`).
 
 
@@ -101,7 +101,7 @@ The native layout is cheaper at 1080p (10.6 ms against 17 ms). It prints `1x` in
 
 ### Step 2 started: the bm font family (29 Oct 2026)
 
-Style chosen by the user (variant C3): light, soft, condensed, fixed width. Choices: `a` with a hook on top, `l` with a tail, `0` with a bar, `1` without a base. Cells: 12x32 at 720p (pen 1) and 18x48 at 1080p (pen 2), each drawn at its own size, the straight strokes on whole pixels (the user chose S1 on 29 Oct 2026 because C3 with a pen of 1.4 looked grainy). `scripts/bmfont.py` draws the glyphs from strokes and writes `src/gfx/font_bm12x32.c` and `src/gfx/font_bm18x48.c` in the `font_t` format (`--check` finds files that are out of date; `--sheet OUT.png` makes a picture). Done: ASCII 32 to 126, the files, the two names in `font.h`. Not done: the 161 other entries of the code page 437 table (the menu draws some of them), the 8x16, 8x14 and 6x12 fonts, the files in the build lists (`Makefile`, `rgb30.mk`), the menu and the shell on the new cells (they count columns with `font_t`), a test of the screen and the Pi.
+Style chosen by the user (variant C3): light, soft, condensed, fixed width. Choices: `a` with a hook on top, `l` with a tail, `0` with a bar, `1` without a base. Cells: 12x32 at 720p (pen 1) and 18x48 at 1080p (pen 2), each drawn at its own size, the straight strokes on whole pixels (the user chose S1 on 29 Oct 2026 because C3 with a pen of 1.4 looked grainy). `core/scripts/bmfont.py` draws the glyphs from strokes and writes `core/src/gfx/font_bm12x32.c` and `core/src/gfx/font_bm18x48.c` in the `font_t` format (`--check` finds files that are out of date; `--sheet OUT.png` makes a picture). Done: ASCII 32 to 126, the files, the two names in `font.h`. Not done: the 161 other entries of the code page 437 table (the menu draws some of them), the 8x16, 8x14 and 6x12 fonts, the files in the build lists (`Makefile`, `core/rgb30.mk`), the menu and the shell on the new cells (they count columns with `font_t`), a test of the screen and the Pi.
 
 ### Menu layout row and a taller Settings box (30 Oct 2026)
 
@@ -112,5 +112,5 @@ Settings > Screen has a new row after Menu size: **Menu layout**, Scaled or Nati
 
 - The Market has one list. Games and apps install into `/bm`. The tab of a local title follows the cartridge `type` of bm.info: bm Tape is `type: game`, so it shows in Games.
 - Emulators (files `snes`, `nes`, `psx`, `ps1` in `/bm`) start with no bm splash (`lib_no_splash`).
-- Flat menu icons with no text: `python3 scripts/mkmenuicons.py` writes `art/icons/<market|nes|snes|psx|bm|settings>_<1080|720|360>.png` (192, 128 and 64 px) and `sheet.png`. The menu does not use them yet.
+- Flat menu icons with no text: `python3 core/scripts/mkmenuicons.py` writes `art/icons/<market|nes|snes|psx|bm|settings>_<1080|720|360>.png` (192, 128 and 64 px) and `sheet.png`. The menu does not use them yet.
 - Open: the NES and SNES menus (covers of the `.nes` and `.sfc` files; a start opens the emulator with that file).

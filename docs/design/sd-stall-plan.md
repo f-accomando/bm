@@ -13,7 +13,7 @@ Goal: no menu frame, no game start and no game close loses more than one frame (
 
 - The timeouts sat at site `rdend` (`sd sites: rdend 14`): `wait_transfer_complete` in `sdhost.c` spun 500 ms when the controller was slow to return to idle.
 - S1 bounds that read wait to 25 ms (`timeout_us = write ? 250000u : 25000u`). A retry reads in about 1 ms. The worst frame lag in the cold-boot cover scan fell from 504.3 ms to 29.5 ms; the scan fell from 4129 ms to 407 ms.
-- `rescan()` in `src/kernel/carts.c` keeps the loaded covers (`c->cover`, `c->cover_read = 1`) across scans. Going back to the menu after a game does no SD cover read.
+- `rescan()` in `core/src/kernel/carts.c` keeps the loaded covers (`c->cover`, `c->cover_read = 1`) across scans. Going back to the menu after a game does no SD cover read.
 - Left: report jobs still yield up to 100 ms in a TLS handshake (stages S3 and S5).
 
 History of the attempts on this fault, the WiFi loss of 27 Oct and the rules for the next one: [sd-read-timeout](sd-read-timeout.md).
@@ -22,7 +22,7 @@ How the other drivers end a read, and the change that aims at the `rdend` cause:
 
 ## 1. Why the fiber did not fix the 500 ms
 
-The fiber yields only between calls. The 500 ms is inside one call: `read_blocks` in `src/drivers/sdhost.c` spins on `timer_ticks() - t0 > 500000`. The hardware timeout (`SDTOUT`, `set_clock`) is also half a second. A fiber cannot give the CPU back from inside the spin. A smaller share does not help.
+The fiber yields only between calls. The 500 ms is inside one call: `read_blocks` in `core/src/drivers/sdhost.c` spins on `timer_ticks() - t0 > 500000`. The hardware timeout (`SDTOUT`, `set_clock`) is also half a second. A fiber cannot give the CPU back from inside the spin. A smaller share does not help.
 
 What the log says:
 - `sd 17 retried, 17 timed out` and `covers 8753 ms (+503.9)`: every first attempt fails and every retry works. The abort path (`HSTS_CLEAR`, `stop()`, second `read_blocks`) is sound. The fault is a transient: the first data never arrives. The only cost is the wait.
@@ -39,7 +39,7 @@ A2. Timeouts from the SD specification. The read access time is 100 ms at most, 
 
 A3. Soft first attempt. When the caller is a fiber, the first attempt gives up after 25 ms through the same abort path. A second soft attempt is allowed. Only the third attempt uses the full spec timeout. A timeout of a soft attempt is counted apart ("soft") and is not a failure.
 
-Rule for A3 (do not break): `sd_read` moves the card to the Arasan controller for good after one failed retry (`fall_back`, `src/drivers/sd.c`), and the WiFi chip uses that controller. A soft timeout must never reach `fall_back`.
+Rule for A3 (do not break): `sd_read` moves the card to the Arasan controller for good after one failed retry (`fall_back`, `core/src/drivers/sd.c`), and the WiFi chip uses that controller. A soft timeout must never reach `fall_back`.
 
 Expected effect: a timeout costs 25 ms instead of 500 ms. Check with `menu idle:`: `covers +x` under 30 ms, `sd soft` counting, `sd retried` and fallback unchanged, no "SD read error" in 10 minutes of browsing.
 
@@ -60,9 +60,9 @@ B3. An owner flag. A parked command owns the controller.
 - The main loop that enters while the flag is set runs the owner with `fiber_job_run(owner, now + 1 ms)` until it clears. The owner is inside a bounded wait (at most the spec timeout), so this ends. Check that `fiber_job_run` accepts a finished fiber.
 - `background_stop()` already cancels the owner. The wait loop tests `fiber_cancelled()` after each park and aborts the command with the existing path.
 - The SD writer lock (`sd_writer_begin`) stays. It orders writers. The owner flag protects one command.
-- `src/kernel/sdlog.c` and `config_save` write from the main loop: they follow the main-loop rule above. Check each direct `sd_read`/`sd_write` caller once (grep) before S2.
+- `core/src/kernel/sdlog.c` and `config_save` write from the main loop: they follow the main-loop rule above. Check each direct `sd_read`/`sd_write` caller once (grep) before S2.
 
-B4. The RGB30 drivers (`rk_sd.c`, `sd_emmc.c`) call the same hook from `src/drivers/sd.c`. Same rules.
+B4. The RGB30 drivers (`rk_sd.c`, `sd_emmc.c`) call the same hook from `core/src/drivers/sd.c`. Same rules.
 
 Expected effect: with A and B together a stall is invisible to the menu for writes, and at most one soft attempt (25 ms) for reads that stall before data.
 
@@ -70,7 +70,7 @@ Expected effect: with A and B together a stall is invisible to the menu for writ
 
 C1. Quiet gate for the reports. Send the reports only when the menu has been still for 5 s and the covers job is idle. A TLS handshake (270-300 ms in the log) then falls in idle time. If the user moves during a handshake, the loss is one stall, once.
 
-C2. Poll USB in `sd_tick` (about 5 lines, `src/kernel/carts.c`). The pointer motion then arrives in small parts and the pointer does not jump. Details: [multitasking-report](multitasking-report.md) section 7.
+C2. Poll USB in `sd_tick` (about 5 lines, `core/src/kernel/carts.c`). The pointer motion then arrives in small parts and the pointer does not jump. Details: [multitasking-report](multitasking-report.md) section 7.
 
 C3. Cancel at the selection. When the user presses A on a game (or holds the cursor on it), raise the cancel flag of all jobs at once. The fibers end while the splash draws. `background_stop()` at the real start then finds nothing to wait for. Today the start waits for the longest job step.
 

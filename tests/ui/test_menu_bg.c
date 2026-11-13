@@ -1,5 +1,5 @@
 /*
- * The menu's background (src/kernel/menu_bg.c) on the PC.
+ * The menu's background (core/src/kernel/menu_bg.c) on the PC.
  *
  * The bug (2026-10-23, the user): in the menu the mouse pointer jumped when
  * it passed over the covers. Each new selection made the whole 640x360

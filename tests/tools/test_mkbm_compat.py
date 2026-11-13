@@ -10,8 +10,8 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MKBM = os.path.join(ROOT, "scripts", "mkbm.py")
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+MKBM = os.path.join(ROOT, "core", "scripts", "mkbm.py")
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import mkbm  # noqa: E402
 
 

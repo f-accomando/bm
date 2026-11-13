@@ -6,7 +6,7 @@ subtitle: How one real game is built as a bm project: the .bme, the APIs it uses
 footer: bm manuals - smw-guide
 
 ::: readme
-**What this is.** A guided tour of `carts/smw/`, a personal port of the first level of a classic 16-bit platformer to the RGB30 (360x360, `.bm`). It is an example of a complete game written as a bm project: map layers with flags, sprite zones with boxes, `bmlib`, a fixed-rate game loop and a measured physics.
+**What this is.** A guided tour of `bm/smw/`, a personal port of the first level of a classic 16-bit platformer to the RGB30 (360x360, `.bm`). It is an example of a complete game written as a bm project: map layers with flags, sprite zones with boxes, `bmlib`, a fixed-rate game loop and a measured physics.
 
 **How to use it.** Read the first three chapters to see the shape of the project. Then read the chapter of the part you want to copy: movement, enemies, blocks, assets.
 
@@ -25,31 +25,31 @@ The port has two aims. It is a **benchmark**: the same level, the same physics a
 
 | Path | What it is |
 |---|---|
-| `carts/smw/src/game.lua` | the game: states, enemies, blocks, camera, drawing |
-| `carts/smw/src/physics.lua` | Mario's movement, with the constants measured on the original |
-| `carts/smw/build/build.py` | turns the extracted data into the `.bme` and the `.bm` |
-| `carts/smw/build/sprites.py` | cuts the sprite zones and their boxes |
-| `carts/smw/build/bg.py` | cuts the background layer |
-| `carts/smw/bm.info` | the metadata: name, `360x360`, target `rgb30`, input `pad` |
-| `carts/smw/guide/build.py` | the edition for this guide: the same level, redrawn graphics |
-| `scripts/smw_*.py` | the capture scripts: they run the ROM in an emulator and write the data |
+| `bm/smw/src/game.lua` | the game: states, enemies, blocks, camera, drawing |
+| `bm/smw/src/physics.lua` | Mario's movement, with the constants measured on the original |
+| `bm/smw/build/build.py` | turns the extracted data into the `.bme` and the `.bm` |
+| `bm/smw/build/sprites.py` | cuts the sprite zones and their boxes |
+| `bm/smw/build/bg.py` | cuts the background layer |
+| `bm/smw/bm.info` | the metadata: name, `360x360`, target `rgb30`, input `pad` |
+| `bm/smw/guide/build.py` | the edition for this guide: the same level, redrawn graphics |
+| `core/scripts/smw_*.py` | the capture scripts: they run the ROM in an emulator and write the data |
 | `tests/smw/` | the physics test and the comparison with the emulator |
 
 ::: note
-The ROM, the files it produces and the real graphics are kept out of git (`.gitignore`). The build scripts read them from `carts/smw/extracted/` on your machine.
+The ROM, the files it produces and the real graphics are kept out of git (`.gitignore`). The build scripts read them from `bm/smw/extracted/` on your machine.
 :::
 
 ## How a cartridge is made
 
-A `.bme` is the project of a game: the Lua code, the sprite sheet, the map layers and the zones in one file. A `.bm` is the same content as a game; its header says it is for the RGB30. `scripts/mkbm.py` makes both from the same inputs; the build calls it twice:
+A `.bme` is the project of a game: the Lua code, the sprite sheet, the map layers and the zones in one file. A `.bm` is the same content as a game; its header says it is for the RGB30. `core/scripts/mkbm.py` makes both from the same inputs; the build calls it twice:
 
 ```
-python3 scripts/mkbm.py --lua main.lua --sheet sheet.png --sprites sprites.txt \
+python3 core/scripts/mkbm.py --lua main.lua --sheet sheet.png --sprites sprites.txt \
   --map map_main.csv --map col=map_col.csv --map bg=map_bg.csv --flags flags.csv \
-  --info carts/smw/bm.info --targets rgb30 --input pad -o smw.bm
+  --info bm/smw/bm.info --targets rgb30 --input pad -o smw.bm
 ```
 
-`python3 scripts/bmres.py info smw.bm` lists what is inside: the Lua size, the sheet, the map (640x54 cells), the three layers `main`, `col` and `bg`, the flags and the 40 sprite zones.
+`python3 core/scripts/bmres.py info smw.bm` lists what is inside: the Lua size, the sheet, the map (640x54 cells), the three layers `main`, `col` and `bg`, the flags and the 40 sprite zones.
 
 # The level as a map
 
@@ -236,18 +236,18 @@ The goal is a bar that moves up and down along a fixed cycle. Crossing it starts
 
 ## Why a pipeline
 
-The graphics are not in the repository. A script reads the ROM and writes everything the build needs into `carts/smw/extracted/`. Anyone with their own cartridge can rebuild the same game. The scripts do this in order:
+The graphics are not in the repository. A script reads the ROM and writes everything the build needs into `bm/smw/extracted/`. Anyone with their own cartridge can rebuild the same game. The scripts do this in order:
 
 | Script | What it extracts |
 |---|---|
-| `scripts/smw_extract.py` | checks the ROM and decompresses its graphics |
-| `scripts/smw_map16.py` | the blocks of the level and the tiles of each |
-| `scripts/smw_sprites.py` | the poses of Mario, with their colours |
-| `scripts/smw_spawns.py` | where each enemy starts |
-| `scripts/smw_diff.py` | the exact picture of a sprite, taken by hiding it between two frames |
-| `scripts/smw_bg2.py` | the background layer |
-| `scripts/smw_solid.py` | which blocks are solid and which are platforms |
-| `scripts/smw_vine.py` | the vine, its growth and the climbing poses |
+| `core/scripts/smw_extract.py` | checks the ROM and decompresses its graphics |
+| `core/scripts/smw_map16.py` | the blocks of the level and the tiles of each |
+| `core/scripts/smw_sprites.py` | the poses of Mario, with their colours |
+| `core/scripts/smw_spawns.py` | where each enemy starts |
+| `core/scripts/smw_diff.py` | the exact picture of a sprite, taken by hiding it between two frames |
+| `core/scripts/smw_bg2.py` | the background layer |
+| `core/scripts/smw_solid.py` | which blocks are solid and which are platforms |
+| `core/scripts/smw_vine.py` | the vine, its growth and the climbing poses |
 
 Two techniques are worth knowing. The **diff capture** plays two frames from the same state, one with a sprite and one without it, and keeps the pixels that differ: the picture is exact even when the game builds it from several parts. The **solidity test** puts Mario against each kind of block in the emulator and records what happens, instead of reading a table.
 
@@ -259,13 +259,13 @@ The background has 637 distinct cells. `bg.py` folds the picture to its period, 
 
 ## The edition of this guide
 
-`carts/smw/guide/build.py` builds the same game with the graphics **redrawn** by role: the shapes are the same, the colours are picked by role and the shading is procedural, so no pixel of the original is in the output. The pictures in this guide come from it.
+`bm/smw/guide/build.py` builds the same game with the graphics **redrawn** by role: the shapes are the same, the colours are picked by role and the shading is procedural, so no pixel of the original is in the output. The pictures in this guide come from it.
 
 # Try it
 
-1. Build the guide edition: `python3 carts/smw/guide/build.py`. It writes `build/smw-guide/guide.bm`.
+1. Build the guide edition: `python3 bm/smw/guide/build.py`. It writes `build/smw-guide/guide.bm`.
 2. Run it in `bmhost` and take pictures: `python3 tests/smw/guide_shots.py`. The shots go to `manuals/shots/`.
-3. Open `carts/smw/src/physics.lua` and change `GRAV_HOLD` from 3.4 to 6.8. Build again and jump: the button no longer changes the height.
+3. Open `bm/smw/src/physics.lua` and change `GRAV_HOLD` from 3.4 to 6.8. Build again and jump: the button no longer changes the height.
 4. Open `game.lua`, find `FOE.koopa` and change what `hurts` returns for a walking Koopa. Build and walk into one.
 5. Press `Select` in the game to see the frame cost, and read the `bench` lines in the log.
 

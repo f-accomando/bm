@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 LUA = '''
@@ -33,8 +33,8 @@ end
 def replay(cart, inp, workdir, seconds=60):
     f = bmres.read(cart)
     f.put(bmres.SEC_LUA, (f.get(bmres.SEC_LUA).decode() + LUA).encode())
-    os.makedirs(os.path.join(workdir, "carts"), exist_ok=True)
-    dbg = os.path.join(workdir, "carts", "RPL.BM")
+    os.makedirs(os.path.join(workdir, "bm"), exist_ok=True)
+    dbg = os.path.join(workdir, "bm", "RPL.BM")
     bmres.write(dbg, f)
     r = subprocess.run([os.path.join(ROOT, "build", "host", "bmhost-bin"), dbg, "--sd", workdir, "--seconds", str(seconds),
                         "--input", inp], capture_output=True, text=True)

@@ -56,19 +56,19 @@ The encoder never makes a run that crosses a row. The decoder accepts such a run
 ## Rules
 
 * The reader checks the header and every index entry when it opens the clip. A frame, the index or the audio outside the file is refused.
-* The encoder writes baseline JPEG. The decoder in `src/bm/jpeg.c` refuses progressive files.
+* The encoder writes baseline JPEG. The decoder in `core/src/bm/jpeg.c` refuses progressive files.
 * The default audio is 22.05 kHz mono 16-bit. 48 kHz stereo is 4.4 times larger (see the container table in the spikes sheet).
 
 ## Tool
 
 ```
-python scripts/mkvid.py -o clip.bmv --clip movie.mp4 --size 320x180 --fps 15 --quality 6 --seconds 10
-python scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --rate 22050 --channels 1 --bits 16
+python core/scripts/mkvid.py -o clip.bmv --clip movie.mp4 --size 320x180 --fps 15 --quality 6 --seconds 10
+python core/scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --rate 22050 --channels 1 --bits 16
 ```
 
 `--clip` needs ffmpeg. `--jpegs` needs only Python.
 
-## Player API (C, `src/bm/vid.h`)
+## Player API (C, `core/src/bm/vid.h`)
 
 | Call | What it does |
 |---|---|
@@ -79,6 +79,6 @@ python scripts/mkvid.py -o clip.bmv --jpegs frames/ --fps 15 --pcm audio.raw --r
 | `bmv_duration_ms` | Gives the length of the clip. |
 | `bmv_audio_span` | Gives the PCM bytes for a time span. |
 
-`bmv_decode` also copies a raw RGB565 frame, decodes an RLE565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
+`bmv_decode` also copies a raw RGB565 frame, decodes an RLE565 frame and expands a raw RGB332 frame (r 3 bits, g 3 bits, b 2 bits, the top bits repeated). `jpeg_decode565` (`core/src/bm/jpeg.h`) writes RGB565 into a given buffer. It does not allocate a 24-bit picture.
 
 The Lua API for cartridges is in [api/video.md](api/video.md). The screen recorder that wrote codec 2, 3 and 4 clips was removed: see [video-recorder.md](archive/video-recorder.md).

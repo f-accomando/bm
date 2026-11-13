@@ -82,7 +82,7 @@ Numbers are estimates. Each one needs a measurement with `b3d tests=map8,sprites
 - `blur([x, y, w, h, radius, passes])`: separable 2D box blur on RGB565 with sliding running sum accumulators ($O(1)$ per pixel independent of radius, fixed-point shift multiplier, multi-pass approximation of Gaussian blur, defaults to full screen).
 - `conv3(x, y, w, h, kernel, [divisor, offset])`: general 3x3 spatial convolution matrix on RGB565 with clamped boundary sampling.
 - `radgrad(cx, cy, r, c0, c1)`: radial gradient circle using forward differences on $d^2 = dx^2 + dy^2$ ($(dx+1)^2 - dx^2 = 2dx + 1$) and 256-entry precomputed RGB565 LUT.
-- `vfont([data_or_path, size])`, `vprint(text, x, y, [c, size])`, `vmeasure(text, [size])`: TrueType engine via vendored `third_party/stb_truetype.h`; dynamic rasterization into 8-bit glyph alpha cache for ASCII 32..127 with kerning, fallback default vector font, and antialiased 8-bit alpha blending over RGB565.
+- `vfont([data_or_path, size])`, `vprint(text, x, y, [c, size])`, `vmeasure(text, [size])`: TrueType engine via vendored `core/third_party/stb_truetype.h`; dynamic rasterization into 8-bit glyph alpha cache for ASCII 32..127 with kerning, fallback default vector font, and antialiased 8-bit alpha blending over RGB565.
 - Blend modes & global alpha (`blend`, `palt`, `API-9`): 2D blend modes (`"alpha"`, `"add"`, `"sub"`, `"mul"`, `"screen"`, `"none"`) and global alpha (`0..255`) with fast-path bypass for standard opaque draws; palette transparency mask via `palt([c, t])`.
 - Render target off-screen (`target`, `target_blit`, `API-8`): draw into off-screen surface (`target([t])`) and blit to screen/target (`target_blit`) with scaling and alpha; zero memory cost until allocated.
 - Colour transformations & pattern paint (`colmat`, `fillpat`): 3x3 color matrix transformation with bias offset on RGB565 (`colmat([x, y, w, h,] mat, [offset])`); 8x8 tiled 1-bit stipple/dither pattern for drawing primitives with transparent and background colour options (`fillpat([pat, [trans, [bg]]])`).
@@ -97,4 +97,4 @@ A full-screen pass on one core is about 3 ms on the Pi and 1 ms on the A55. Full
 ## Rules (do not break)
 - The Pi keeps RGB565. No 32-bit colour for the 2D path.
 - A function that runs on bands writes only its own rows (see [multicore](multicore.md) rules). A band function has a one-band path for the Pi.
-- A new function goes in `docs/api/draw.md` and `src/ai/api.tsv` with its Pi and RGB30 cost measured.
+- A new function goes in `docs/api/draw.md` and `core/src/ai/api.tsv` with its Pi and RGB30 cost measured.

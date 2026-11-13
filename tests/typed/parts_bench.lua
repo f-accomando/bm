@@ -19,7 +19,7 @@ local function spawn_lua(x, y, vx, vy, life, kind, gy)
   parts[#parts + 1] = p
 end
 
--- the function of the game (carts/yharnam/main.lua), copied as it is
+-- the function of the game (bm/yharnam/main.lua), copied as it is
 local function update_parts()
   local n = #parts
   local i = 1

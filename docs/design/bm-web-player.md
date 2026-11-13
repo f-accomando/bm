@@ -8,7 +8,7 @@ and the test plan. It does not change the kernel API.
 - `docs/ROADMAP.md` item WEB-1: build the portable runtime (Lua runtime, gfx16, audio, bmlib) to
   WebAssembly, with canvas, keyboard/gamepad and WebAudio. Target: a static page with the cartridge
   embedded (up to 16 MB) that runs a `.bm` game at 360x360. The first step is a read-only study of how
-  much of `src/bm/runtime.c` depends on the kernel. This page is that study.
+  much of `core/src/bm/runtime.c` depends on the kernel. This page is that study.
 - `docs/design/triage-and-roadmap-cleanup.md` (PR 88): WEB-1 is PARTIAL. The mock under `web/` is a static
   UI with no kernel code.
 - `web/README.md`: the page calls `window.bmLauncher.start(cartUrl)`. The future player must start the
@@ -23,9 +23,9 @@ and the test plan. It does not change the kernel API.
 ## 2. What already works on the PC
 
 `make bmhost` (`tests/host/bmhost.c`, `tests/host/stubs.c`) builds the console's own runtime with a plain
-host C compiler and runs a `.bm` cartridge. It links `src/bm/runtime.c`, `gfx16.c`, `r3d.c`, `world3d.c`,
-`map3d.c`, `format.c`, the sound player and synthesizer (`src/audio/*`), the PNG, JPEG and WebP decoders,
-the Lua sources in `third_party/lua`, and the Lua libraries `bmlib`, `bm3d` and `bmui`. `tests/host/stubs.c`
+host C compiler and runs a `.bm` cartridge. It links `core/src/bm/runtime.c`, `gfx16.c`, `r3d.c`, `world3d.c`,
+`map3d.c`, `format.c`, the sound player and synthesizer (`core/src/audio/*`), the PNG, JPEG and WebP decoders,
+the Lua sources in `core/third_party/lua`, and the Lua libraries `bmlib`, `bm3d` and `bmui`. `tests/host/stubs.c`
 replaces the kernel services:
 
 | Service | How bmhost replaces it | Fit for the web |
@@ -47,7 +47,7 @@ generated C array instead.
    `~/emsdk` in WSL, outside the repository. Run `source ~/emsdk/emsdk_env.sh` before `make bmhost-wasm`.
 2. A frame-step entry. `bmhost.c` runs a blocking loop. A browser needs `bmweb_frame(ms)` called from
    `requestAnimationFrame`. This entry belongs in a new runner file for the web, not in the kernel.
-3. Fibers. `src/kernel/fiber.c` is cooperative and uses its own stacks. wasm cannot switch stacks without
+3. Fibers. `core/src/kernel/fiber.c` is cooperative and uses its own stacks. wasm cannot switch stacks without
    Asyncify. bmhost runs a cartridge's `_update` and `_draw` loop without fibers, so games are not blocked.
    Calls that wait (SD reads, `net_wait_step`) need a stub or Asyncify.
 4. A loader. The page reads a `.bm` (file input, drag and drop, or `fetch`) and copies it to the
@@ -63,7 +63,7 @@ generated C array instead.
 - **Rendering.** A cartridge is 640x360, 480x270, 320x180, 256x256 or 360x360 in RGB565. The page converts
   each frame to RGBA in a typed array and draws it on `canvas#bm-canvas` with integer scaling and
   `image-rendering: pixelated`. The first target is a 360x360 cartridge, as in the ROADMAP row.
-- **Input.** Keyboard and Gamepad API map to the `HID_*` bits of `src/usb/hid.h` (D-pad, A, B, X, Y, L1,
+- **Input.** Keyboard and Gamepad API map to the `HID_*` bits of `core/src/usb/hid.h` (D-pad, A, B, X, Y, L1,
   R1, L2, R2, Start, Select). Keys per device are in `docs/spec/ui-reference.md`.
 - **Audio.** The runtime mixes at 48 kHz in blocks of `AUDIO_CHUNK` (256) samples. An AudioWorklet reads a
   ring buffer. A browser starts audio only after a click: the "Start bm" button is that click.
@@ -105,7 +105,7 @@ generated C array instead.
 Stage 1 (done): `node tests/webplayer/test_bmcart.js`, or `make test-webplayer` (it skips when Node is
 missing). The test checks the CRC-32 check value, a cartridge built in memory (title, author, size, flags,
 sections, INFO lines, cover, Lua), a bad magic, a resource file, a short file, a missing LUA section, a
-wrong size, a wrong CRC, and a cartridge packed by `scripts/mkbm.py`. The page was also loaded in the
+wrong size, a wrong CRC, and a cartridge packed by `core/scripts/mkbm.py`. The page was also loaded in the
 browser pane, and a file was opened through the file input.
 
 Stage 2 (done): `make test-wasm` (`tests/webplayer/run_wasm.py`). It packs `tests/webplayer/cart.lua`, runs
@@ -141,9 +141,9 @@ build. It skips when Node is missing. Run result on 22 Oct: ok, equal to the PC 
 
 ## 9. What stage 2 found
 
-- The unchanged `src/bm/*` sources and `tests/host/stubs.c` compile with Emscripten. No kernel change was
+- The unchanged `core/src/bm/*` sources and `tests/host/stubs.c` compile with Emscripten. No kernel change was
   needed. Only the runner links `-sNODERAWFS` so that the SD card is a host folder under Node.
-- `wasm-ld` has no `--defsym`. `scripts/mkweblibs.py` writes the Lua libraries as one C array and defines the
+- `wasm-ld` has no `--defsym`. `core/scripts/mkweblibs.py` writes the Lua libraries as one C array and defines the
   `bm_lib_*` and `bm_lib_*_end` symbols with module assembly `.set`. `tests/host/libs.S` is not used.
 - `bm_play()` is a blocking loop. For a browser, link with `-sASYNCIFY` and make `fb_flip` yield with
   `emscripten_sleep(0)`, or move the loop to a frame-step function. The first option needs no kernel change.

@@ -6,13 +6,13 @@ Part of the game API. Index and basics: [API.md](../API.md).
 
 `local net = require "bmnet"` (2026-10-04): what Overbit's network code does, for every
 game. The consoles find each other on the **LAN** (UDP broadcasts) or over the
-**internet** through a relay (`tools/overbit_relay.py`: a room passes every packet to the
+**internet** through a relay (`core/tools/overbit_relay.py`: a room passes every packet to the
 other consoles, as a broadcast would); one **hosts** the match and the others **join**;
 they send **messages** (that may be lost, or sure and in order) and, for action games,
 the match runs in **lockstep**: every console runs the whole game with the same seed and
 only the players' inputs travel; a frame runs when everybody's inputs for it are there
 (the host gathers them and sends them to all). The SDK's *Online 2D* template is a whole
-example; the packets are described at the top of `src/script/bmnet.lua`.
+example; the packets are described at the top of `core/src/script/bmnet.lua`.
 
 | Function | Description |
 |---|---|
@@ -67,7 +67,7 @@ end
 ```
 
 **Trying it on the PC.** Two `bmhost` on the same PC are two consoles: `BMHOST_NET_ID=0`
-and `BMHOST_NET_ID=1`, with `--realtime`; the relay runs with `tools/overbit_relay.py
+and `BMHOST_NET_ID=1`, with `--realtime`; the relay runs with `core/tools/overbit_relay.py
 --port N`. `make test-bmnet` does it: the lobby, sure messages with a fifth of the packets
 lost (`loss = 0.2` in `net.open`, for tests only), a lockstep match the same on both
 consoles, a player leaving; on the LAN and through the relay.

@@ -1,4 +1,4 @@
-/* Host tests for src/drivers/board.c: revision codes of the BCM2835 boards
+/* Host tests for core/src/drivers/board.c: revision codes of the BCM2835 boards
  * and of the Pi Zero 2 W; built twice, as for kernel.img and kernel7.img
  * (-DBM_ZERO2: an unknown board has the LED of the Zero 2 W). */
 #include "drivers/board.h"

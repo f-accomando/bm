@@ -1,4 +1,4 @@
--- Loops with while (and break), for the test of scripts/bmt.py.
+-- Loops with while (and break), for the test of core/scripts/bmt.py.
 
 function sum_to(n: i32): i32
   local s = 0

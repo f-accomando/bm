@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Release manifests (M19): scripts/mkrelease.py signs a release with a test
+"""Release manifests (M19): core/scripts/mkrelease.py signs a release with a test
 key (openssl, ECDSA P-256), then tests/net/test_release.c checks it with
-src/net/release.c. Also mkrelease.py's own refusals."""
+core/src/net/release.c. Also mkrelease.py's own refusals."""
 import os
 import subprocess
 import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MKRELEASE = os.path.join(HERE, "..", "..", "scripts", "mkrelease.py")
+MKRELEASE = os.path.join(HERE, "..", "..", "core", "scripts", "mkrelease.py")
 fails = 0
 
 
@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory() as tmp:
     key, pub = keypair(tmp, "key")
     _, other = keypair(tmp, "other")
     files = []
-    for name, path, size in (("kernel.img", "/kernel.img", 150000), ("pong.bm", "/carts/pong.bm", 3000),
+    for name, path, size in (("kernel.img", "/kernel.img", 150000), ("pong.bm", "/bm/pong.bm", 3000),
                              ("ca.pem", "/bm/ca.pem", 900)):
         src = os.path.join(tmp, name)
         with open(src, "wb") as f:

@@ -1,9 +1,9 @@
 """Skeletal playback: the pose of a clip at a time and the bone matrices.
 
-Port of src/bm/runtime.c:2198-2321 (quat_norm, quat_slerp, pose_at, quat_mul,
-skin) and of the call in l_animate (src/bm/runtime.c:2369-2409). bm Animator
-(carts/animator/main.lua:772-812 `ease` / `sample`, Q.slerp in
-src/script/bm3d.lua:112-125) does the same sums; see
+Port of core/src/bm/runtime.c:2198-2321 (quat_norm, quat_slerp, pose_at, quat_mul,
+skin) and of the call in l_animate (core/src/bm/runtime.c:2369-2409). bm Animator
+(bm/animator/main.lua:772-812 `ease` / `sample`, Q.slerp in
+core/src/script/bm3d.lua:112-125) does the same sums; see
 references/OPEN_QUESTIONS.md "Preview" for the small differences found.
 
 Arithmetic is in Python doubles, the kernel uses f32: results agree to about
@@ -33,7 +33,7 @@ def quat_norm(q):
 
 def quat_slerp(a, b, u):
     """the shorter way from a to b (runtime.c:2209-2223; same as
-    src/script/bm3d.lua:112-125)"""
+    core/src/script/bm3d.lua:112-125)"""
     d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]
     s = 1.0
     if d < 0:
@@ -175,7 +175,7 @@ def check_link(model, rig):
     w = f"rig {rig.model!r}"
     need(rig.model == model.name, f"rig is for model {rig.model!r}, not {model.name!r}", w)
     need(len(rig.vbones) == len(model.verts),
-         f"rig has {len(rig.vbones)} vertices, model has {len(model.verts)} (src/bm/runtime.c:2161)", w)
+         f"rig has {len(rig.vbones)} vertices, model has {len(model.verts)} (core/src/bm/runtime.c:2161)", w)
     need(all(0 <= b < len(rig.bones) for b in rig.vbones), "a vertex on a bone the rig does not have", w)
     for c in rig.clips:
         for k in c.keys:
@@ -206,7 +206,7 @@ def frame_times(clip, fps=12, include_end=False):
     """t = i / fps for i in 0..n-1, n = max(1, round(length * fps)); with
     include_end one more frame at t = length (for a looping clip it equals
     frame 0, pose_at wraps). bm Animator's timeline snaps to 12 frames/s
-    (src/script/bm3d.lua:32)."""
+    (core/src/script/bm3d.lua:32)."""
     if not (isinstance(fps, (int, float)) and fps > 0 and math.isfinite(fps)):
         raise ValueError(f"fps must be a positive number, not {fps!r}")
     n = max(1, int(round(clip.length * fps)))

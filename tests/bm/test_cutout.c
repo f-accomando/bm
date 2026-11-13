@@ -1,5 +1,5 @@
 /*
- * Host tool / test of the outline maker (src/bm/cutout.c): a picture
+ * Host tool / test of the outline maker (core/src/bm/cutout.c): a picture
  * becomes a cutout or a lathe; the record, its flat twin and the sheet
  * texture go to files for tests/bm/run_cutout_test.py to check.
  *

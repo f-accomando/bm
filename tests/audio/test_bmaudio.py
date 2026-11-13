@@ -3,7 +3,7 @@
 
   test_bmaudio.py BMRENDER OUTDIR
 
-scripts/bmaudio.py reads WAV files of every format (8-bit, 16, 24, 32-bit
+core/scripts/bmaudio.py reads WAV files of every format (8-bit, 16, 24, 32-bit
 integers, 32 and 64-bit floats, mono and stereo, with or without a smpl
 chunk), packs them in a bank of version 3 (a bank without samples stays
 version 2), unpacks them (in base64, or as WAV files beside the JSON) and
@@ -20,7 +20,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmaudio  # noqa: E402
 
 checks = fails = 0
@@ -148,7 +148,7 @@ def main():
     bmau = os.path.join(out, "bank.bmau")
     open(bmau, "wb").write(data)
     js = os.path.join(out, "again.json")
-    subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "bmaudio.py"), "unpack", bmau,
+    subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "core", "scripts", "bmaudio.py"), "unpack", bmau,
                     "-o", js], check=True, stdout=subprocess.DEVNULL)
     again = json.load(open(js))
     check(all("wav" in x and "pcm" not in x for x in again["samples"]), "unpack -o: the samples as WAV files")
@@ -157,7 +157,7 @@ def main():
     # ---- a bank without samples stays version 2; limits
     plain = bmaudio.pack({"sounds": [{"name": "A"}]})
     check(plain[4] == 2 and plain[9] == 0, "no samples: version 2")
-    # the effects' keys: into registers 13, 28..31 (src/audio/synth.h) and back
+    # the effects' keys: into registers 13, 28..31 (core/src/audio/synth.h) and back
     fx = {"name": "FX", "wave": "pink", "filter": "bp", "keytrack": True, "vowel": "o", "curve": "fold",
           "color": "brown", "raw": True, "crush": 4, "coarse": 8, "trem": 9, "duck": 15, "chorus": 200}
     fb = bmaudio.pack({"sounds": [fx]})

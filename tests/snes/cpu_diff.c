@@ -1,5 +1,5 @@
 /* cpu_diff.c: one random instruction at a time through two copies of the 65C816: the one in this build (the assembly loop on the ARMv6 console) and
- * the C reference (src/bm/snes_cpu.c built with -DSNES_CPU_C and the names ref_*). Both start from the same random registers and the same machine
+ * the C reference (core/src/bm/snes_cpu.c built with -DSNES_CPU_C and the names ref_*). Both start from the same random registers and the same machine
  * state (S is saved and restored); registers, clock and the whole of S must be equal after the instruction. Prints the first differences.
  *   cpu_diff [trials] [first opcode] [last opcode]
  * On the PC both copies are C and this only checks the test. The real check is on ARM: make test-snes-cpu-arm (QEMU, arm1176). Original code. */

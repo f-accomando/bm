@@ -1,8 +1,8 @@
-"""Tests for scripts/ledger_repeats.py: runs the script as a subprocess on a temp ledger."""
+"""Tests for core/scripts/ledger_repeats.py: runs the script as a subprocess on a temp ledger."""
 import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "ledger_repeats.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "ledger_repeats.py")
 HEADER = "# date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs"
 
 

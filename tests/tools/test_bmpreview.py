@@ -1,8 +1,8 @@
-"""Tests for scripts/bmpreview.py: a COVER and a PREVIEW inside a resource file."""
+"""Tests for core/scripts/bmpreview.py: a COVER and a PREVIEW inside a resource file."""
 import os, struct, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmkit  # noqa: E402
 import bmmesh  # noqa: E402
 import bmpreview  # noqa: E402

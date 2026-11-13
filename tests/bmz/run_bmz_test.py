@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Round trip and refusals of .bmz: scripts/bmz.py makes the files, build/host/test_bmz (src/bm/bmz.c) reads them.
+"""Round trip and refusals of .bmz: core/scripts/bmz.py makes the files, build/host/test_bmz (core/src/bm/bmz.c) reads them.
 
   python3 tests/bmz/run_bmz_test.py build/host/test_bmz
 """

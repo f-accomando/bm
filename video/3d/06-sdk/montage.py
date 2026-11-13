@@ -85,7 +85,7 @@ def encode_r2(raw, vf, name):
 
 def record_r2():
     """R2: bmhost runs the cartridge by itself for 12 s, then the two encodes (with and without the lines)."""
-    need = [os.path.join(OUT, "sd", "carts", "TROPIC.BM"), os.path.join(OUT, "06-sdk.bm"),
+    need = [os.path.join(OUT, "sd", "bm", "TROPIC.BM"), os.path.join(OUT, "06-sdk.bm"),
             os.path.join(OUT, "r2-input.txt")]
     if not all(os.path.isfile(p) for p in need):
         fail("run record.py first")

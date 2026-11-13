@@ -1,10 +1,10 @@
-# WebP decoder (`src/bm/webp.c`)
+# WebP decoder (`core/src/bm/webp.c`)
 
 The decoder reads WebP pictures and writes RGB565. It serves the web browser cart
 ([web-browser-cart.md](web-browser-cart.md)) and every cart that loads pictures. The API for
 Lua (`image_load`) does not exist yet.
 
-## API (`src/bm/webp.h`)
+## API (`core/src/bm/webp.h`)
 
 | Function | Use |
 |---|---|

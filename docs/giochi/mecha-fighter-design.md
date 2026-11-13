@@ -8,7 +8,7 @@ players, few options (**light or heavy armor**, **sword or arm-mounted machine
 guns**), high-quality sprites, freedom on the detail choices. This document records
 the decisions made for the MVP and how they extend toward the full concept.
 
-Code: `carts/titan/` (cartridge *Titan Clash*).
+Code: `bm/titan/` (cartridge *Titan Clash*).
 
 ## 1. Conflicts between the mechanics and how they are resolved
 

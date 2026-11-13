@@ -19,7 +19,7 @@ Italian is the main language of the rules; they are kept as they are.
 
 - **Where**: in **bm Code** (Dev tab), Share; in the **Pad Typing** cartridge (Games
   tab), which is for practising and measuring yourself; in every cartridge with
-  `require "padtype"` (`src/ai/padtype.lua`, in the kernel).
+  `require "padtype"` (`core/src/ai/padtype.lua`, in the kernel).
 - **Numbers** (section 6): on the exercise texts, with word suggestions, **1.09
   presses per character** in Italian, 1.06 in English, 1.33 in Lua; with the on-screen
   keyboard 3.8–4.0.
@@ -94,7 +94,7 @@ digits rotate too.
 ### Why these consonants
 
 Counted as syllable starts (consonant + double + h + vowels, the composition
-rule) on the texts of `src/ai/words` and on the games' Lua, weighted ½ Italian, ¼
+rule) on the texts of `core/src/ai/words` and on the games' Lua, weighted ½ Italian, ¼
 English, ¼ Lua:
 
 n 12.1% · t 11.7 · r 10.1 · s 8.7 · l 8.4 · c 7.0 · d 5.9 · p 4.8 · m 4.6 · f 3.0 · g 2.8 ·
@@ -171,7 +171,7 @@ keeps working at the same time.
 
 ## 5. Pad Typing (the cartridge)
 
-`carts/typing`, in the Games tab: typing practice and test.
+`bm/typing`, in the Games tab: typing practice and test.
 
 - **Menu**: language (Italiano, English, Lua), initial mode (compose or keyboard), wait
   for the double (150–600 ms), text (eight per language, written for bm, or *free writing*),
@@ -236,10 +236,10 @@ waiting press, right away), `pt.suggestions()`, `pt.syllables(host, prima, conso
 
 ## 8. Files and tests
 
-- `src/ai/padtype.lua` (`require "padtype"`, in the kernel, in bmhost and in the RGB30
+- `core/src/ai/padtype.lua` (`require "padtype"`, in the kernel, in bmhost and in the RGB30
   image): rules, syllables, keyboard, overlay, `coach`, `text_host`, the texts.
-- `carts/typing/main.lua` (Pad Typing, cover from `scripts/mkcovers.py`);
-  `carts/code/main.lua` (bm Code: `pad_host`, Share).
+- `bm/typing/main.lua` (Pad Typing, cover from `core/scripts/mkcovers.py`);
+  `bm/code/main.lua` (bm Code: `pad_host`, Share).
 - `tests/padtype/pad_test.lua` (`make test-padtype`, in `make test`): the rules one by
   one (wait and double, levels, syllables and rotation, ○, words, punctuation, L1/R1,
   L1+R1, L3, Share, R3, diagonals) and all the texts written to the end in both modes,

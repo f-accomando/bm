@@ -1,15 +1,15 @@
 -- The borders of the hunt: the areas are closed by walls and barricades (gates), the way between them is
 -- open once the gates are, and the lamps and bosses can be reached.
---   luahost tests/yharnam/borders.lua carts/yharnam/main.lua   -> "borders ok", else the failed checks and exit 1
+--   luahost tests/yharnam/borders.lua bm/yharnam/main.lua   -> "borders ok", else the failed checks and exit 1
 -- Every chunk is made, then the 128 x 128 tiles of the map are checked. A tile is blocked if the chunk's
 -- ground is solid there, or if an object that is not broken, with a collider, sealed or at a gate, stands on it.
 -- All the checks run, so one run shows every failure.
 local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
 local SRC = arg[1]
-assert(SRC, "luahost tests/yharnam/borders.lua carts/yharnam/main.lua [--drawn]")
--- --drawn: the game reads the map drawn in the SDK (carts/yharnam/assets/map_*.csv), as on the console
+assert(SRC, "luahost tests/yharnam/borders.lua bm/yharnam/main.lua [--drawn]")
+-- --drawn: the game reads the map drawn in the SDK (bm/yharnam/assets/map_*.csv), as on the console
 if arg[2] == "--drawn" then
-  local A = (arg[0]:match("^(.*/)") or "") .. "../../carts/yharnam/assets/"
+  local A = (arg[0]:match("^(.*/)") or "") .. "../../bm/yharnam/assets/"
   B.load_map({ { "ground", A .. "map_ground.csv" }, { "overlay", A .. "map_overlay.csv" },
                { "objects", A .. "map_objects.csv" } })
 end

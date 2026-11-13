@@ -1,7 +1,7 @@
 /*
  * herobench: what a model of a .bm costs to draw, as Overbit draws its
  * heroes (skeleton, Gouraud, a level of detail), on the ARM rasterizer or
- * with the GPU backend (src/gpu/gpu3d.c on the V3D emulator), at 320x180.
+ * with the GPU backend (core/src/gpu/gpu3d.c on the V3D emulator), at 320x180.
  * For tests/bm/herocost.py, which counts the ARM instructions under
  * qemu-arm (the emulator's own work is not counted: BENCH_EMU_SKIP).
  *

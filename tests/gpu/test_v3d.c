@@ -1,5 +1,5 @@
 /*
- * The V3D driver's job runner (src/gpu/v3d.c) against a model of the
+ * The V3D driver's job runner (core/src/gpu/v3d.c) against a model of the
  * V3D's registers (M33). v3d_run must wait for the frame counts; the
  * binner's out-of-memory flag, on from reset as the Pi showed, is no
  * error; a list that never ends, or ends with an error, is one.

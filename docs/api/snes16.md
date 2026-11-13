@@ -1,6 +1,6 @@
 # API: SNES-16 native ARM engine
 
-Part of the game API. Index and basics: [API.md](../API.md). The native engine (`src/bm/snes16.c`, bindings in `src/bm/api_snes16.c`) reuses the ARMv6 SIMD PPU (`src/bm/snes_ppu.c`, `src/bm/snes_ppu_arm.S`) and S-DSP (`src/bm/snes_dsp.c`) without 65C816 or SPC700 emulation. The ten hot per-frame functions (`s16_mode`, `s16_scroll`, `s16_oam`, `s16_oam_clear`, `s16_m7`, `s16_hdma_grad`, `s16_hdma_band`, `s16_hdma_m7`, `s16_render`, `s16_sfx`) are also native `BMN_HOST_S16_*` builtins in `bmlc.c` and execute directly in C from `.b` ARMv6 modules.
+Part of the game API. Index and basics: [API.md](../API.md). The native engine (`core/src/bm/snes16.c`, bindings in `core/src/bm/api_snes16.c`) reuses the ARMv6 SIMD PPU (`core/src/bm/snes_ppu.c`, `core/src/bm/snes_ppu_arm.S`) and S-DSP (`core/src/bm/snes_dsp.c`) without 65C816 or SPC700 emulation. The ten hot per-frame functions (`s16_mode`, `s16_scroll`, `s16_oam`, `s16_oam_clear`, `s16_m7`, `s16_hdma_grad`, `s16_hdma_band`, `s16_hdma_m7`, `s16_render`, `s16_sfx`) are also native `BMN_HOST_S16_*` builtins in `bmlc.c` and execute directly in C from `.b` ARMv6 modules.
 
 | Function | Description |
 |---|---|

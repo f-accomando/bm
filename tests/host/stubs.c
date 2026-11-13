@@ -1,5 +1,5 @@
 /*
- * bmhost: the kernel services the .bm runtime (src/bm/runtime.c) uses,
+ * bmhost: the kernel services the .bm runtime (core/src/bm/runtime.c) uses,
  * replaced for the PC. The SD card is a directory, the clock is virtual
  * (it moves by whole frames, so a run is the same every time), the input
  * comes from a script, the framebuffer is three pages in memory and the
@@ -535,7 +535,7 @@ void irq_disable(unsigned irq) { (void)irq; }
 
 #ifndef BMHOST_GPU
 /* no V3D on the PC: the ARM's rasterizer draws the 3D, as in QEMU (make
- * bmhost-gpu links src/gpu/gpu3d.c with the V3D emulator instead) */
+ * bmhost-gpu links core/src/gpu/gpu3d.c with the V3D emulator instead) */
 const char *gpu3d_status(void) { return "no V3D (bmhost)"; }
 const char *gpu3d_probe_log(void) { return ""; }
 int gpu3d_init(void) { return -1; }
@@ -624,7 +624,7 @@ int gpu3d_queue_ok(void) { return 0; }
 void n8lua_set_io(const n8lua_io_t *io) { (void)io; }
 int luaopen_n8(lua_State *L) { lua_newtable(L); return 1; }
 void n8lua_close(void) { }
-#ifndef BMHOST_AI                       /* bmhost-ai links the real one (src/ai/lua_ai.c, assist.c) */
+#ifndef BMHOST_AI                       /* bmhost-ai links the real one (core/src/ai/lua_ai.c, assist.c) */
 void ai_lua_open(lua_State *L) { (void)L; }
 void ai_set_lang(int lang, int follow) { (void)lang; (void)follow; }
 int ai_lang(void) { return 0; }
@@ -632,7 +632,7 @@ int ai_lang_follows(void) { return 1; }
 #endif
 void n8snd_pause(int on) { (void)on; }
 
-/* No sound output on the PC (src/audio/audio_out.h): audio_idle() moves
+/* No sound output on the PC (core/src/audio/audio_out.h): audio_idle() moves
  * the player and the voices from the frames, as in QEMU */
 int audio_out_start(const char **status)
 {
@@ -643,7 +643,7 @@ int audio_out_start(const char **status)
 void audio_out_print(void) { }
 void audio_out_idle(void) { }
 
-/* The last stage of the console's audio mix (src/audio/audio.c): the
+/* The last stage of the console's audio mix (core/src/audio/audio.c): the
  * synthesizer's stereo frames in floats, which go to the WAV file (bmhost.c
  * --wav, --wav-bits: truncated, no dither, the same file every run). */
 int n8snd_mix_float(float *out, unsigned n, float gain)
@@ -697,7 +697,7 @@ int reports_session(const char *game, const char *text, size_t len)
     return reports_text("session", text, len);
 }
 
-/* the reports (src/kernel/reports.c): BMHOST_REPORTS=dir keeps them there as
+/* the reports (core/src/kernel/reports.c): BMHOST_REPORTS=dir keeps them there as
  * <kind>.txt; the log says so either way */
 int reports_text(const char *kind, const char *text, size_t len)
 {
@@ -715,7 +715,7 @@ int reports_text(const char *kind, const char *text, size_t len)
     return 0;
 }
 
-/* web_get (src/bm/webget.c) needs fibers and TLS: bmhost has neither, the request fails. image_load
+/* web_get (core/src/bm/webget.c) needs fibers and TLS: bmhost has neither, the request fails. image_load
  * and file_write are the real code (webimg.c, webpolicy.c, the host folder as the card). */
 #include "webget.h"
 int web_start(const char *url, size_t max, uint32_t timeout_ms, char *err, size_t en)
@@ -745,7 +745,7 @@ int web_start_lan(const char *url, size_t max, uint32_t timeout_ms, char *err, s
     return web_start(url, max, timeout_ms, err, en);
 }
 
-/* bm/ai.txt (src/net/aiconf.c): bmhost reads BMHOST_CONFIG's ai_url, ai_model and ai_key instead */
+/* bm/ai.txt (core/src/net/aiconf.c): bmhost reads BMHOST_CONFIG's ai_url, ai_model and ai_key instead */
 #include "net/aiconf.h"
 const char *ai_conf_get(const char *name)
 {
@@ -755,7 +755,7 @@ const char *ai_conf_get(const char *name)
 }
 int ai_conf_set(const char *url, const char *model, const char *key) { (void)url; (void)model; (void)key; return 0; }
 
-/* ai_pair (src/net/aipair.c) needs mbedTLS: bmhost has none, the code is refused before the network */
+/* ai_pair (core/src/net/aipair.c) needs mbedTLS: bmhost has none, the code is refused before the network */
 #include "net/aipair.h"
 int ai_pair_code(const char *typed, char out[AI_PAIR_CODE_LEN + 1], char *err, size_t en)
 {
@@ -777,7 +777,7 @@ int ai_pair_install(const char *pem, size_t len, char *err, size_t en)
     return -1;
 }
 
-/* file_write (src/bm/webfile.c) queues in a fiber: bmhost writes at once, the host folder is the card */
+/* file_write (core/src/bm/webfile.c) queues in a fiber: bmhost writes at once, the host folder is the card */
 #include "webfile.h"
 #include "webpolicy.h"
 #include "fs/sdlock.h"

@@ -2,8 +2,8 @@
 
 The format has no bind matrices and no weights: a bone is a name, a parent
 (-1 or an EARLIER index), and a rest segment head -> tail (44 bytes,
-src/bm/bm.h:61-76, src/bm/format.c:255-263). Skinning is rigid, one bone
-index (u8) per vertex (src/bm/format.c:266-269, src/bm/runtime.c:2319-2320).
+core/src/bm/bm.h:61-76, core/src/bm/format.c:255-263). Skinning is rigid, one bone
+index (u8) per vertex (core/src/bm/format.c:266-269, core/src/bm/runtime.c:2319-2320).
 So "bind pose" here = the head/tail points, and "skin weights" = one bone per
 vertex (assign_vertices). Output: anim.Rig with no clips (animgen adds them).
 
@@ -19,15 +19,15 @@ Description (dict or JSON file), every key checked (unknown keys refused):
 
 Rules (strict bm-forge choices, see references/OPEN_QUESTIONS.md 37-40):
 - names 1..15 bytes UTF-8, unique (C does not check, anim.validate_rig does);
-- 1..64 bones (bm.h:179; bm Animator "at most 64 bones", carts/animator/main.lua:416);
+- 1..64 bones (bm.h:179; bm Animator "at most 64 bones", bm/animator/main.lua:416);
 - exactly one root; every other parent must name a bone of the description
   (an unknown parent = orphan bone, refused); no cycles;
 - bones are reordered parents-first (stable: description order otherwise),
-  because the format needs parent < index (src/bm/format.c:257-259);
+  because the format needs parent < index (core/src/bm/format.c:257-259);
 - head/tail finite and in (-1e6, 1e6), the vertex range of MESH
-  (src/bm/format.c:157; the ANIM check only asks |v| < 1e9, format.c:241);
+  (core/src/bm/format.c:157; the ANIM check only asks |v| < 1e9, format.c:241);
 - bone length >= 1e-3: bm Animator never makes a zero-length bone (it moves
-  the tail when dist2 < 1e-6, carts/animator/main.lua:423).
+  the tail when dist2 < 1e-6, bm/animator/main.lua:423).
 """
 import json
 import math
@@ -36,8 +36,8 @@ from . import anim as animmod
 from .binary import name_bytes
 from .errors import ValidationError, need
 
-COORD_LIMIT = 1e6        # src/bm/format.c:157 (MESH vertices); strict for bone points too
-MIN_LENGTH = 1e-3        # carts/animator/main.lua:423 (dist2 < 1e-6 -> tail moved)
+COORD_LIMIT = 1e6        # core/src/bm/format.c:157 (MESH vertices); strict for bone points too
+MIN_LENGTH = 1e-3        # bm/animator/main.lua:423 (dist2 < 1e-6 -> tail moved)
 BONE_KEYS = {"name", "parent", "head", "tail", "length", "direction", "connect"}
 TOP_KEYS = {"model", "bones", "comment"}
 STRATEGIES = ("nearest_bone", "nearest_bone_part")
@@ -49,7 +49,7 @@ def _vec3(v, what, where):
     for x in v:
         need(isinstance(x, (int, float)) and not isinstance(x, bool), f"{what} {v!r}: not a number", where)
         need(math.isfinite(x) and -COORD_LIMIT < x < COORD_LIMIT,
-             f"{what} {v!r} not finite in (-1e6, 1e6) (src/bm/format.c:157)", where)
+             f"{what} {v!r} not finite in (-1e6, 1e6) (core/src/bm/format.c:157)", where)
         out.append(float(x))
     return out
 
@@ -69,13 +69,13 @@ def skeleton(desc):
     need(isinstance(d, dict), "a skeleton description is a JSON object", "skeleton")
     extra = set(d) - TOP_KEYS
     need(not extra, f"unknown keys {sorted(extra)} (allowed: {sorted(TOP_KEYS)})", "skeleton")
-    need("model" in d, "no 'model' name (the MESH model the rig moves, src/bm/runtime.c:2161)", "skeleton")
+    need("model" in d, "no 'model' name (the MESH model the rig moves, core/src/bm/runtime.c:2161)", "skeleton")
     model = d["model"]
     name_bytes(model, "skeleton", "model name")
     bones = d.get("bones")
     need(isinstance(bones, list) and bones, "'bones' must be a non-empty list", "skeleton")
     need(len(bones) <= animmod.BONES_MAX,
-         f"{len(bones)} bones, at most {animmod.BONES_MAX} (src/bm/bm.h:179)", "skeleton")
+         f"{len(bones)} bones, at most {animmod.BONES_MAX} (core/src/bm/bm.h:179)", "skeleton")
     names, byname = [], {}
     for i, b in enumerate(bones):
         w = f"skeleton bone {i}"
@@ -90,14 +90,14 @@ def skeleton(desc):
         names.append(b["name"])
     roots = [n for n in names if byname[n].get("parent") is None]
     need(len(roots) == 1, f"{len(roots)} root bones {roots}: exactly one bone has parent null "
-         "(strict; bm Animator starts every skeleton from one root, carts/animator/main.lua:389)", "skeleton")
+         "(strict; bm Animator starts every skeleton from one root, bm/animator/main.lua:389)", "skeleton")
     for n in names:
         p = byname[n].get("parent")
         if p is not None:
             need(isinstance(p, str), f"parent {p!r} must be a bone name or null", f"skeleton bone {n!r}")
             need(p != n, "a bone cannot be its own parent", f"skeleton bone {n!r}")
             need(p in byname, f"orphan bone: parent {p!r} is not a bone of this skeleton", f"skeleton bone {n!r}")
-    # parents first, stable (src/bm/format.c:257-259 needs parent < index)
+    # parents first, stable (core/src/bm/format.c:257-259 needs parent < index)
     order, placed = [], set()
     while len(order) < len(names):
         moved = False
@@ -139,7 +139,7 @@ def skeleton(desc):
             _vec3(tail, "tail", w)
         length = math.sqrt(sum((tail[k] - head[k]) ** 2 for k in range(3)))
         need(length >= MIN_LENGTH, f"bone length {length:.6g} < {MIN_LENGTH} (head == tail; "
-             "bm Animator never makes one, carts/animator/main.lua:423)", w)
+             "bm Animator never makes one, bm/animator/main.lua:423)", w)
         tails[n] = tail
         out.append(animmod.Bone(n, -1 if p is None else index[p], head, tail))
     rig = animmod.Rig(model, out, [], [])
@@ -181,7 +181,7 @@ def _parts(model):
 
 def assign_vertices(model, rig, strategy="nearest_bone"):
     """one bone index per vertex of `model` (rigid skinning, the only kind the
-    format has: src/bm/format.c:266-269). Strategies:
+    format has: core/src/bm/format.c:266-269). Strategies:
     - "nearest_bone": each vertex to the bone whose rest segment head-tail is
       nearest (ties -> lower bone index);
     - "nearest_bone_part": each connected part (vertices joined by faces) to
@@ -208,14 +208,14 @@ def assign_vertices(model, rig, strategy="nearest_bone"):
 
 def bind(model, rig, vbones=None, strategy="nearest_bone_part"):
     """a copy of `rig` bound to `model`: same name (the link is by name,
-    src/bm/runtime.c:2161), one bone per vertex (given, or assign_vertices),
+    core/src/bm/runtime.c:2161), one bone per vertex (given, or assign_vertices),
     len(vbones) == len(model.verts). Clips are kept. -> anim.Rig, checked."""
     w = f"bind rig {rig.model!r}"
     need(rig.model == model.name, f"rig is for model {rig.model!r}, the model is {model.name!r} "
-         "(they link by name, src/bm/runtime.c:2161)", w)
+         "(they link by name, core/src/bm/runtime.c:2161)", w)
     vb = list(vbones) if vbones is not None else assign_vertices(model, rig, strategy)
     need(len(vb) == len(model.verts), f"{len(vb)} vertex bones, the model has {len(model.verts)} vertices "
-         "(src/bm/runtime.c:2161)", w)
+         "(core/src/bm/runtime.c:2161)", w)
     out = animmod.Rig(rig.model, [animmod.Bone(b.name, b.parent, list(b.head), list(b.tail)) for b in rig.bones],
                       vb, list(rig.clips))
     animmod.validate_rig(out)
@@ -230,7 +230,7 @@ def describe(rig):
 
 
 def mirror_name(n):
-    """the other side's name, as bm Animator's mirror_name (carts/animator/main.lua:59-65):
+    """the other side's name, as bm Animator's mirror_name (bm/animator/main.lua:59-65):
     .L/.R, _L/_R suffixes, L_/R_ prefixes, Left/Right; None if no side"""
     import re
     for pat, rep in ((r"\.L$", ".R"), (r"\.R$", ".L"), (r"_L$", "_R"), (r"_R$", "_L"), (r"^L_", "R_"),

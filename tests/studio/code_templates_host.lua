@@ -1,4 +1,4 @@
--- bm Code, "New project" templates (R16): the starters of carts/code/main.lua.
+-- bm Code, "New project" templates (R16): the starters of bm/code/main.lua.
 -- The test reads the block between the "-- templates: begin" and
 -- "-- templates: end" lines, then for each template it checks the module
 -- lines, compiles the code and runs it for many frames with stand-ins for
@@ -12,7 +12,7 @@ local function check(ok, what)
   if not ok then fails = fails + 1; print("FAIL " .. what) end
 end
 
-local f = assert(io.open(ROOT .. "/carts/code/main.lua", "rb"))
+local f = assert(io.open(ROOT .. "/bm/code/main.lua", "rb"))
 local src = f:read("a")
 f:close()
 local a = assert(src:find("local TEMPLATE = [[", 1, true), "TEMPLATE not found")
@@ -20,7 +20,7 @@ local b1, b2 = src:find("-- templates: end", a, true)
 assert(b2, "templates end line not found")
 local TEMPLATES = assert(load(src:sub(a, b2) .. "\nreturn TEMPLATES", "=templates", "t", {}))()
 
-local U = assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", setmetatable({
+local U = assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", setmetatable({
   mouse = function(on) if on ~= nil then return true end end,
   mousep = function() return false end, keyp = function() end, time = function() return 0 end,
   screen_size = function() return 640, 360 end, rectfill = function() end, rect = function() end,

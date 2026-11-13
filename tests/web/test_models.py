@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The test catalog web/models (mock content): the committed files are the ones web/models/build.py makes,
-each .bmm passes the BMRES validator (scripts/bmres.py), the pages link only to files that are there,
+each .bmm passes the BMRES validator (core/scripts/bmres.py), the pages link only to files that are there,
 and the names follow the /bmm rule. The kernel's own reader runs in run_bmm_test.py (file_write)."""
 import os
 import re
@@ -11,7 +11,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 MODELS = os.path.join(ROOT, "web", "models")
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 fails = []

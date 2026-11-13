@@ -1,5 +1,5 @@
 /*
- * The 3D Bench (src/bm/b3d.c) on the PC: the V3D emulated
+ * The 3D Bench (core/src/bm/b3d.c) on the PC: the V3D emulated
  * (tests/gpu/v3d_emu.c), quick mode (a few steps, one frame each), the
  * reports in DIR as on the SD card, every page of results as DIR/page-NN.ppm.
  *

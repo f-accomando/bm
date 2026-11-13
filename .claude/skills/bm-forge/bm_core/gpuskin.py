@@ -1,7 +1,7 @@
 """Skins for the console's GPU: what keeps a skinned model on the V3D's mesh path, and two ways to get there.
 
 The V3D vertex shader places a skinned model (bones) only when every face is on one or two bones
-(src/gpu/gpu3d.c, the mesh build: "a face on two bones"). On two bones it takes the textured faces
+(core/src/gpu/gpu3d.c, the mesh build: "a face on two bones"). On two bones it takes the textured faces
 (vs_lit_tex2, bm3d 3.4) and, since bm3d 7.33, the plain colour faces that are not glossy (vs_lit2).
 One face it cannot take sends the whole model to the ARM, one triangle at a time.
 
@@ -22,7 +22,7 @@ from . import anim as A
 from . import imageio
 from .mesh import TEXTURED
 
-GLOSSY = 0x20000000             # src/bm/r3d.h: bit 29
+GLOSSY = 0x20000000             # core/src/bm/r3d.h: bit 29
 
 
 def _bones(face, vb):
@@ -30,7 +30,7 @@ def _bones(face, vb):
 
 
 def gpu_report(model, rig):
-    """the faces of a skinned model by their bones, and what the V3D does with the model (src/gpu/gpu3d.c)"""
+    """the faces of a skinned model by their bones, and what the V3D does with the model (core/src/gpu/gpu3d.c)"""
     vb = rig.vbones
     r = {"one": 0, "two_plain": 0, "two_glossy": 0, "two_textured": 0, "three": 0}
     for f in model.faces:

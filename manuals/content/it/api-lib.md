@@ -17,9 +17,9 @@ footer: manuali bm - api-lib
 
 ## Cosa sono
 
-`bmlib` è ciò che ogni gioco scriveva da sé, ora in una sola libreria scritta in Lua e tenuta nel kernel (`src/script/bmlib.lua`). Comprende: numeri e numeri casuali, collisioni, la mappa (muri, piattaforme, gravità), hitbox e hurtbox, easing, tween, timer e script, particelle, una camera, stati di gioco, testo, menu e menu di pausa, giocatori su una console, jingle, salvataggi, animazioni, colori e un costruttore di mesh 3D.
+`bmlib` è ciò che ogni gioco scriveva da sé, ora in una sola libreria scritta in Lua e tenuta nel kernel (`core/src/script/bmlib.lua`). Comprende: numeri e numeri casuali, collisioni, la mappa (muri, piattaforme, gravità), hitbox e hurtbox, easing, tween, timer e script, particelle, una camera, stati di gioco, testo, menu e menu di pausa, giocatori su una console, jingle, salvataggi, animazioni, colori e un costruttore di mesh 3D.
 
-`bmnet` è il codice di rete del gioco Overbit, messo a disposizione di ogni gioco (`src/script/bmnet.lua`). Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso un relay; una console **ospita** una partita e le altre **entrano**; si scambiano **messaggi** e, per i giochi d'azione, la partita gira in **lockstep**.
+`bmnet` è il codice di rete del gioco Overbit, messo a disposizione di ogni gioco (`core/src/script/bmnet.lua`). Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso un relay; una console **ospita** una partita e le altre **entrano**; si scambiano **messaggi** e, per i giochi d'azione, la partita gira in **lockstep**.
 
 ## Come caricarle
 
@@ -49,7 +49,7 @@ end
 
 - Chiama `net.update()` una volta in ogni `_update`: restituisce gli eventi del frame.
 - Chiama `net.close()` quando il gioco finisce, e anche da `_leave()`.
-- I pacchetti sono descritti in cima a `src/script/bmnet.lua`.
+- I pacchetti sono descritti in cima a `core/src/script/bmnet.lua`.
 - Il template *Online 2D* dell'SDK è un esempio completo di gioco in rete. Il template *Versus 2D* è un esempio completo di giocatori su una console.
 
 # Tutorial: un passo di platform con bmlib
@@ -518,7 +518,7 @@ Test dell'intera libreria: `make test-gameapi` (bmhost, `tests/gameapi/cart.lua`
 
 # bmnet: aprire la rete e la lobby
 
-Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso un relay (`tools/overbit_relay.py`: una stanza passa ogni pacchetto alle altre console, come farebbe un broadcast). Una console **ospita** la partita e le altre **entrano**.
+Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso un relay (`core/tools/overbit_relay.py`: una stanza passa ogni pacchetto alle altre console, come farebbe un broadcast). Una console **ospita** la partita e le altre **entrano**.
 
 | Funzione | Descrizione |
 |---|---|
@@ -529,7 +529,7 @@ Le console si trovano nella **LAN** (broadcast UDP) o su **internet** attraverso
 | `net.join(id)` | chiede un posto alla console `id`: l'evento `"joined"` quando dice sì, `"refused"` se è piena o già iniziata |
 | `net.peers()` | le console nella stanza o nella partita: `{id, name, seat, me}`, per posto |
 
-[DA COMPLETARE: come avviare il relay per una partita su internet; le fonti nominano solo `tools/overbit_relay.py --port N`]
+[DA COMPLETARE: come avviare il relay per una partita su internet; le fonti nominano solo `core/tools/overbit_relay.py --port N`]
 
 # bmnet: messaggi ed eventi
 
@@ -604,6 +604,6 @@ end
 
 ## Provarlo sul PC
 
-Due `bmhost` sullo stesso PC sono due console: `BMHOST_NET_ID=0` e `BMHOST_NET_ID=1`, con `--realtime`; il relay si avvia con `tools/overbit_relay.py --port N`.
+Due `bmhost` sullo stesso PC sono due console: `BMHOST_NET_ID=0` e `BMHOST_NET_ID=1`, con `--realtime`; il relay si avvia con `core/tools/overbit_relay.py --port N`.
 
 `make test-bmnet` lo fa: la lobby, messaggi sicuri con un quinto dei pacchetti perso (`loss = 0.2` in `net.open`, solo per i test), una partita lockstep uguale su entrambe le console, un giocatore che se ne va; nella LAN e attraverso il relay.

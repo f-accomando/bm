@@ -1,5 +1,5 @@
 /*
- * The kernel log (src/lib/printf.c, klog_text): 64 KB in all. When it is full the oldest lines after the
+ * The kernel log (core/src/lib/printf.c, klog_text): 64 KB in all. When it is full the oldest lines after the
  * boot go and the end stays: a report of a long run shows how the run ended (26 Oct 2026, the Pi froze after
  * 3 hours and the log had stopped in the first minutes).
  */

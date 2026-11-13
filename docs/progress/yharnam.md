@@ -1,6 +1,6 @@
 # Yharnam
 
-The game: `carts/yharnam/`. Its graphics come from `build/mkassets.py`; after a change, run it
+The game: `bm/yharnam/`. Its graphics come from `build/mkassets.py`; after a change, run it
 again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`.
 
 ---
@@ -50,7 +50,7 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
   3. Place terrain tiles and, on the `objects` layer (`l`), place placeholders (e.g. tree, house with H7 corner and roof tiles).
   4. Save with `Ctrl+S` (generates the `YHARNAM.BME` copy, ~6 MB: the sheet stays in compact `SHEET8` format).
   5. Try with `F5`: verify that the modified terrain and objects appear in the game.
-  6. Run `python3 carts/yharnam/build/mkmap.py --from` on the cartridge extracted from the SD and commit the updated CSVs.
+  6. Run `python3 bm/yharnam/build/mkmap.py --from` on the cartridge extracted from the SD and commit the updated CSVs.
 
 ### C. Graphical Glitch at Startup
 - Investigate the small visual defect present in the first frames:
@@ -101,8 +101,8 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - The light by the GPU is on by itself on the Pi (28 Oct 2026): `_init` calls `gpu3d_opt("light", true)` (the switch of the hidden key `gpu3d_light`, no `config.txt` edit). The pause menu has an entry "Light: GPU" / "Light: ARM" to change it in the run. The entry is hidden where `available` is false (the RGB30: no Mali light shader yet, the ARM lights the page). Pi Zero W autoplay with the profiler on, no config key: 31.6 -> 50.1 fps, light 14.0 -> 1.8 ms a frame, `gpu3d=on 2d=1` in the options line. `gpu3d_opt` must run before `r3d()` starts the 3D: the call in `_init` came first and left the GPU off (page not a whole screen yet), so "light" is handled before it in `l_gpu3d_opt`.
 - The pause menu entry "Give up the hunt" calls `quit()`: it closes the cartridge and returns to the menu (28 Oct 2026). Before, it started a new hunt at the title.
 - Autoplay plays Yharnam with no button pressed, for 7200 frames (2 minutes at 60 fps), then calls `quit()`. It is off by default.
-- Switch on: `yharnam_autoplay=1` in `bm/config.txt` (read with `cart_config`, no kernel change). From the bridge: `tools/pi.py --dev pizero config yharnam_autoplay=1` (or `--dev rgb30`). Switch off: `config yharnam_autoplay=0`. On the host: `YHARNAM_AUTOPLAY=1 build/host/bmplay build/carts/yharnam.bm`; `make test-yharnam-autoplay`.
-- Code: the module `autoplay` of `main.lua`. It makes a mask of buttons each frame and replaces `btn`, `btnp` and `pad`, so the game logic and the drawing run as for a person. It is the bot of `tools/bmplay/yharnam_bot.lua` with a route. Its dice have a fixed seed, so each run is the same.
+- Switch on: `yharnam_autoplay=1` in `bm/config.txt` (read with `cart_config`, no kernel change). From the bridge: `core/tools/pi.py --dev pizero config yharnam_autoplay=1` (or `--dev rgb30`). Switch off: `config yharnam_autoplay=0`. On the host: `YHARNAM_AUTOPLAY=1 build/host/bmplay build/bm/yharnam.bm`; `make test-yharnam-autoplay`.
+- Code: the module `autoplay` of `main.lua`. It makes a mask of buttons each frame and replaces `btn`, `btnp` and `pad`, so the game logic and the drawing run as for a person. It is the bot of `core/tools/bmplay/yharnam_bot.lua` with a route. Its dice have a fixed seed, so each run is the same.
 - Route: Central Yharnam. It lights the lamp of chunk (0,2) (1 lamp in the host run), walks the north streets, goes for the lamp of chunk (2,1), then crosses the squares, the cemetery and the park, and fights what it meets. If the hunter dies, it respawns and goes on. If the hunt is lost, it starts a new hunt and the route begins again. The frame cap ends the run (`AUTO_FRAMES`); the end writes one `autoplay:` line (frames, deaths, lamps, districts) with `log`.
 - `yharnam_profile=1` (with autoplay on) turns the profiler of functions on; the session report then lists the ten costliest functions of the last second of the run (Pi, 28 Oct: `draw_scene` 3.7 ms of its own, `fdiv` 2.0, `spr` 1.8, `sspr` 1.5, the iterators of `ipairs` 1.4, `blocked` 1.0). The bot's path search is in that second and adds to `fdiv`, `blocked` and the iterators: read those three as an upper bound for the game.
 - The path search of the bot is a job of many frames (`replan_job`, a coroutine that gives way every `PLAN_WORK` = 30 tiles; `plan_step` runs one slice a frame). Harm of the old one-piece search: 150 to 300 ms of Lua on the Pi every 90 frames, 94 stops over 100 ms in a run (13% of the time), which showed as a low fps. Pi, 28 Oct, with the light on the GPU: 94 stops -> 2, 56.8 fps, 7195 of 7199 pictures within 25 ms. The route is not the old one (host: 9 goals, 5 goals at `PLAN_WORK` 30; 6 and 4 districts).
@@ -115,6 +115,6 @@ again and commit `assets/sheet.png`. Never commit a sheet made with `YH_DRAFT=1`
 - The 8 hunter's lamps are at least 2 chunks apart (not even diagonal). Each lamp chunk and each boss chunk is inside one area.
 - The kinds in `art/places.py` are append only: a tile keeps its number, and the drawn map keeps its numbers.
 - A change to the plan (areas, streets, borders, lamps): run `make yharnam-map`, then `make test-yharnam` (it checks the plan and the drawn map), then rebuild the `.bm` and the `.bme`. Without a new map the game shows the old things.
-- The `.bme` is made from the `.bm`: `python3 scripts/mkbm.py --from build/carts/yharnam.bm -o carts/yharnam/yharnam.bme`. Check it with `mkmap.py --from carts/yharnam/yharnam.bme --out DIR`: the three CSV files must be the same.
+- The `.bme` is made from the `.bm`: `python3 core/scripts/mkbm.py --from build/bm/yharnam.bm -o bm/yharnam/yharnam.bme`. Check it with `mkmap.py --from bm/yharnam/yharnam.bme --out DIR`: the three CSV files must be the same.
 - Run `mkassets.py` without `YH_DRAFT`; it rewrites the atlas in `main.lua` and keeps the `--@module` lines.
 - Read the keys only with `btn()` and `btnp()`. Do not call `keyp()`. Harm: `keyp()` turns on typing, and then the keyboard is not a gamepad (Space does not start the hunt).

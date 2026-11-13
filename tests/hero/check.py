@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Hero Stress (carts/hero) in bmhost, no hardware (stage 1 of
+Hero Stress (bm/hero) in bmhost, no hardware (stage 1 of
 docs/design/hero-stress-cart-and-cel-shader.md):
 
-  1. the models: carts/hero/build/mkheroes.py --check (the 8 triangle counts);
+  1. the models: bm/hero/build/mkheroes.py --check (the 8 triangle counts);
   2. a scripted run: the printed line has its fields, `tri` rises with the hero
      count and falls from level 0 to level 3, the keys change `n` and `lod`;
   3. the sweep (Start + A): 10 table lines `sweep n=..` and the load line.
@@ -45,7 +45,7 @@ def run(host, cart, work, name, taps, seconds):
 def main():
     host, cart, work = sys.argv[1:4]
     os.makedirs(work, exist_ok=True)
-    r = subprocess.run([sys.executable, os.path.join(ROOT, "carts", "hero", "build", "mkheroes.py"), "--check"],
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "bm", "hero", "build", "mkheroes.py"), "--check"],
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     print(r.stdout.strip().splitlines()[-1])
@@ -106,7 +106,7 @@ def main():
     print("suite:", len(res), "results")
 
     # 2d. the help of the panel: one table, a text of at most two lines of 44 characters for every row
-    src = open(os.path.join(ROOT, "carts", "hero", "src", "30_options.lua"), encoding="utf-8").read()
+    src = open(os.path.join(ROOT, "bm", "hero", "core", "src", "30_options.lua"), encoding="utf-8").read()
     names = re.findall(r'(?:choice|grey|local \w+ = \{ name =) ?\(?"([^"]+)"', src) + ["Heroes"]
     help_ = {k: (a, b) for k, a, b in re.findall(r'\["([^"]+)"\] = \{ "([^"]*)", "([^"]*)" \}', src)}
     assert set(names) == set(help_), (sorted(set(names) ^ set(help_)))

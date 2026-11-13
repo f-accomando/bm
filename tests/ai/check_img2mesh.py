@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The .bm written by tools/img2mesh.py offline (make test-img2mesh): two
+"""The .bm written by core/tools/img2mesh.py offline (make test-img2mesh): two
 models from the mech script, each with its skeleton and three animations,
 the viewer's Lua, a sound header and CRC the kernel accepts."""
 import os
@@ -7,7 +7,7 @@ import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
 

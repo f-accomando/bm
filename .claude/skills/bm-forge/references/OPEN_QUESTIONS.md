@@ -8,24 +8,24 @@ header kept, `.bm` never converted to `.bme`) are not repeated.
 
 ## Format: reading stricter than the kernel
 
-1. **16-byte names** (bm3d.lua writes them without NUL, `src/script/bm3d.lua:135-138`):
+1. **16-byte names** (bm3d.lua writes them without NUL, `core/src/script/bm3d.lua:135-138`):
    read, but a write refuses them unless `keep_long_names=True` (`bm_core/binary.py`
    `name_bytes`). Should bm-forge ever rewrite them to 15 bytes (renaming a model breaks
    the rig link by name)?
 2. **UTF-8**: names and INFO must be valid UTF-8, or the file is refused (C never
    checks). Title/author are decoded with replacement and never refused (mkbm cuts the
-   title at 47 bytes and may split a character, `scripts/mkbm.py:413`).
+   title at 47 bytes and may split a character, `core/scripts/mkbm.py:413`).
 3. **Bytes after the NUL** of a char[16] name must be zero, or refused (no writer seen
    leaves garbage; a non-zero tail would not round-trip).
 4. **Reserved fields** non-zero are refused on read: MESH head u32, ANIM head u16+u32,
    rig head u16, bone u16. C ignores them. NON VERIFICATO that no tool writes there (no
    golden does).
 5. **Broken INFO / SPRITES / BOXES in a cartridge**: refused (C drops them and plays,
-   `src/bm/format.c:575-607`).
+   `core/src/bm/format.c:575-607`).
 6. **A section overlapping the header or the table**: refused (C only checks
-   `offset+size <= len`, `src/bm/format.c:568`).
+   `offset+size <= len`, `core/src/bm/format.c:568`).
 7. **A rig with no MESH model of its name**: refused. The kernel only skips it
-   (`src/bm/runtime.c:2161`). NON VERIFICATO whether a rig may legitimately move a mesh
+   (`core/src/bm/runtime.c:2161`). NON VERIFICATO whether a rig may legitimately move a mesh
    built in Lua code (`mesh()`), which would make this refusal wrong.
 8. **Rig vertex count != model vertex count**: refused (kernel skips the rig).
 9. **Empty bone or clip names**: refused (C does not check them).
@@ -38,14 +38,14 @@ header kept, `.bm` never converted to `.bme`) are not repeated.
 12. Face u16 at offset 6 (`extra`) in a model that is not lit: kept, no meaning.
 13. Quaternions are not checked to be unit length (C does not either).
 14. AUDIO bank: only the `BMAU` magic and size >= 16 are checked; the bank itself
-    (`scripts/bmaudio.py` unpack, `src/audio/player.h:169` au_parse) is not ported.
-15. `bm_rewrite_with` keeps at most 32 sections (`src/bm/format.c:879`); bm_core allows
+    (`core/scripts/bmaudio.py` unpack, `core/src/audio/player.h:169` au_parse) is not ported.
+15. `bm_rewrite_with` keeps at most 32 sections (`core/src/bm/format.c:879`); bm_core allows
     255 (the u8 count). Should the writer cap at 32 so the console can re-save?
 
 ## Editions and paths (`bm_core/container.py` `check_path`)
 
 16. **360x360 is a cartridge resolution**: `check_path` accepts it for a `.bm`, as the parser and
-    `mkbm.py --res 360x360` do (`scripts/mkbm.py:443`). The header `targets` says which kernels
+    `mkbm.py --res 360x360` do (`core/scripts/mkbm.py:443`). The header `targets` says which kernels
     the cartridge is for.
 17. **BMRES extension vs kind**: a mismatch is refused; C lets the kind win
     (`docs/RISORSE.md:133-134`).
@@ -55,13 +55,13 @@ header kept, `.bm` never converted to `.bme`) are not repeated.
 
 19. **The luahost container is a stand-in** (`tests/studio/tools3d_host.lua:49-66`
     `pack_cart`): it never sets the project bit of a `.bme` (the kernel sets it,
-    `src/bm/runtime.c:6467-6468`) and writes 640x360 for anything that is not 320x180
+    `core/src/bm/runtime.c:6467-6468`) and writes 640x360 for anything that is not 320x180
     (`studio_copy3d.bme` is the 320x180 village saved as 640x360). So the four luahost
     goldens fail `check_path` while their bytes are valid. Their MESH/ANIM bytes are the
     real tools' (`bm3d.lua`, bm Mesh); the container is not the kernel's
     `bm_rewrite_with`. A bmhost `--arg` run would give real containers (TOOLS.md §3.2).
 20. **`make test-studio` fails at 287d05f**: `build/host/test_meshcap` does not link
-    (`undefined reference to g16_to_rgb24` from `src/bm/r3d.c`, rule `Makefile:1092`).
+    (`undefined reference to g16_to_rgb24` from `core/src/bm/r3d.c`, rule `Makefile:1092`).
     The goldens were made by running the luahost steps of the rule by hand (see
     `tests/golden/README.md`). Needs a fix in the Makefile (outside this skill).
 21. `build/host/test_bm` is not a generic file checker (fixed argument positions,
@@ -75,16 +75,16 @@ header kept, `.bm` never converted to `.bme`) are not repeated.
 
 23. Names are cut to 15 **characters** like `bmmesh.glb_models`; a multi-byte name can
     still exceed 15 bytes and is then refused at encode time.
-24. Textured `.glb` without a bm Studio sheet (all `carts/kitchen/models/chef*.glb`) is
-    refused, as by bmmesh. A Meshy texture import path is `tools/meshy2mesh.py`, not ported.
+24. Textured `.glb` without a bm Studio sheet (all `bm/kitchen/models/chef*.glb`) is
+    refused, as by bmmesh. A Meshy texture import path is `core/tools/meshy2mesh.py`, not ported.
 
 ## Preview and playback (`bm_core/preview.py`, `bm_core/skin.py`, phase 1b)
 
-Playback check, `skin.py` against `src/bm/runtime.c:2198-2321` and bm Animator
-(`carts/animator/main.lua:772-812` `ease`/`sample`, `Q.slerp` `src/script/bm3d.lua:112-125`):
+Playback check, `skin.py` against `core/src/bm/runtime.c:2198-2321` and bm Animator
+(`bm/animator/main.lua:772-812` `ease`/`sample`, `Q.slerp` `core/src/script/bm3d.lua:112-125`):
 same wrap/clamp, same key search, same smoothstep, same slerp (0.9995 threshold, shorter
 way, normalised), same `M = M_parent T(head+t) R(q) T(-head)`. bm Animator draws through
-the kernel's `animate()` (`carts/animator/main.lua:223-225`), so what it shows is the C
+the kernel's `animate()` (`bm/animator/main.lua:223-225`), so what it shows is the C
 maths by construction. Differences found (none changes a pose read from a valid file):
 
 25. Lua `sample` fills missing poses with identity and uses `pb = b.pose[i] or pa`
@@ -96,7 +96,7 @@ maths by construction. Differences found (none changes a pose read from a valid 
     `pose_at` with `length > 0 ? length : 1` (`runtime.c:2232`): display only.
 28. `bone_turn()` (`runtime.c:2291-2294`) is runtime state, not file data: not modelled.
 29. r3d lights a skinned face with the normal turned by the bone of its **first**
-    vertex only (`src/bm/r3d.c:2171`); the preview does the same, so a face spanning two
+    vertex only (`core/src/bm/r3d.c:2171`); the preview does the same, so a face spanning two
     bones is lit as if it followed one.
 
 Renderer approximations (each also in the `preview.py` docstring):
@@ -115,7 +115,7 @@ Renderer approximations (each also in the `preview.py` docstring):
 35. **Camera**: the preview turns the model (yaw about y, then pitch about x) in front of
     a fixed camera and fits the camera to the bounding sphere; a game places its own
     camera (`r3d_camera`). Orthographic is a preview extra.
-36. **Drift watch**: `src/bm/runtime.c`, `src/bm/r3d.c` and `carts/animator/main.lua` are
+36. **Drift watch**: `core/src/bm/runtime.c`, `core/src/bm/r3d.c` and `bm/animator/main.lua` are
     tracked in `SYNC.json` as whole-file hashes: any edit to those files reports drift;
     line-range hashes would be finer.
 
@@ -126,8 +126,8 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 
 37. **One root only**: the format allows several bones with parent -1; skelgen refuses a
     second root as an orphan (bm Animator starts every skeleton from one root,
-    `carts/animator/main.lua:389`, but its mirror can copy a root chain).
-38. **Bone points** must be in (-1e6, 1e6) (MESH vertex range, `src/bm/format.c:157`) and
+    `bm/animator/main.lua:389`, but its mirror can copy a root chain).
+38. **Bone points** must be in (-1e6, 1e6) (MESH vertex range, `core/src/bm/format.c:157`) and
     bones at least 1e-3 long (`main.lua:423`); the ANIM check alone allows |v| < 1e9 and any
     length. Pose `move` uses the same 1e6 range; `q` must be unit within 1e-3 (the runtime
     normalises any q, `runtime.c:2201-2206`). All strict choices.
@@ -161,14 +161,14 @@ Nothing generated here was run on the kernel or opened in bm Animator: checks ar
 ## Export and the example game (phase 3)
 
 47. **bmhost-bin may be stale vs bm-core**: a prebuilt bmhost used by the opt-in test may not
-    match the current `src/bm/runtime.c`. NON VERIFICATO.
+    match the current `core/src/bm/runtime.c`. NON VERIFICATO.
 48. **RGB30 triangle cap unknown**: `TRI_BUDGET_PI = 1200` is the only budget bm-forge knows
     (`bm_core/export.py:21`). A `.bm` with `targets: rgb30` uses the same figure.
 49. **RGB30 3D path**: how the RGB30 draws 3D, and whether `forgedemo` with `targets: rgb30`
     runs there, is NON VERIFICATO (see API.md open question 2).
 50. **`stat(4)` under bmhost** is logged by the demo, not checked: NON VERIFICATO what it reports.
 51. **`cart_data` for games**: may a non-tool game call it? `l_cart_data` has no tool gate
-    (`src/bm/runtime.c:6798-6928`); Market sandbox rules NON VERIFICATO. Export never uses it.
+    (`core/src/bm/runtime.c:6798-6928`); Market sandbox rules NON VERIFICATO. Export never uses it.
 52. **Export never writes `.bme`**: `export_cart` refuses it (`export.py:191-192`),
     `export_market` refuses a folder holding `<id>.bme` (`export.py:357-360`). `make.txt`
     from `export_folder` is only a note (`export.py:287-298`); bm-forge never edits the Makefile.

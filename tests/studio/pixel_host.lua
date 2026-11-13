@@ -1,4 +1,4 @@
--- bm Pixel (carts/pixel) on the PC: stand-ins for the bm API (a folder is
+-- bm Pixel (bm/pixel) on the PC: stand-ins for the bm API (a folder is
 -- the SD card; the sheet is a table of RGB565 colours as the kernel keeps
 -- them; cart_write writes the sheet as the kernel does, SHEET8 with the
 -- palette first when it fits), keys typed into it, and checks on what it
@@ -150,14 +150,14 @@ E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui, bmlib
 E.require = function(name)
   if name == "bmlib" then                -- the layout (lib.layout): once
-    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    bmlib = bmlib or assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
   if name == "snesgfx" then              -- the SNES converters (the build puts them into the cart)
-    return assert(loadfile(ROOT .. "/carts/shared/snesgfx.lua", "t", E))()
+    return assert(loadfile(ROOT .. "/bm/shared/snesgfx.lua", "t", E))()
   end
   assert(name == "bmui", "require: only bmui, bmlib and snesgfx here")
-  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
+  bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
   return bmui
 end
 local keyhelp_list, keyhelp_title
@@ -407,7 +407,7 @@ E.doc_write = function(name, bytes)
 end
 
 -- the third argument: the built main.lua (build/pixel/main.lua, with the module as SNESGFX); none: the source
-local chunk = assert(loadfile(arg[3] or (ROOT .. "/carts/pixel/main.lua"), "t", E))
+local chunk = assert(loadfile(arg[3] or (ROOT .. "/bm/pixel/main.lua"), "t", E))
 chunk()
 
 local function screen()
@@ -439,7 +439,7 @@ local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
   return ""
 end
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 
 -- the sprite being drawn and the colour, from the panel
 local function sprite_at()
@@ -464,7 +464,7 @@ local sample0 = file("mapkit.bm")
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/testkit.bm"), "at the start: the list of the files")
+check(sees("open a cartridge") and sees("/bm/testkit.bm"), "at the start: the list of the files")
 key("down", "\n")
 check(status():find("testkit.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
       "the test kit: its sheet and the palette of its SHEET8: " .. status())

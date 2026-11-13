@@ -28,10 +28,10 @@ lessons learned). Read that skill first; do not repeat its rules here.
 3. `script.md` and `shot-list.md` first; times of the two must agree; captions in English.
 4. `input.txt` from the shot list (frame = second * 60), SD cleaned at each recording, `start.bm` = the previous output.
 5. `record.py`: `bmhost --tool --input ... --video ... --wav ...` through `video/lib/bmvideo.py`, then `verify.py`
-   (reads the saved cartridge with `scripts/bmres.py`, `scripts/bmaudio.py`, `bm_forge.py check`).
+   (reads the saved cartridge with `core/scripts/bmres.py`, `core/scripts/bmaudio.py`, `bm_forge.py check`).
 6. Cover: `python video/lib/cover.py docs/video/NN-name/cover.json -o docs/video/NN-name/cover.png`;
    real screenshots are added to `cover.json` (`screenshot`) when the video exists.
-7. Montage, then tick `STATUS.md`. Before ending: `python video/3d/check_series.py` and `python scripts/docs_audit.py score`.
+7. Montage, then tick `STATUS.md`. Before ending: `python video/3d/check_series.py` and `python core/scripts/docs_audit.py score`.
 
 ## Rules
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-render_test.py - runs build/carts/snes16.bm in bmhost and verifies the rendered frames:
+render_test.py - runs build/bm/snes16.bm in bmhost and verifies the rendered frames:
 - compiles engine.b via native_compile() + native_load() with zero errors
 - renders Mode 1 parallax + HDMA sky gradient + stone/grass ground + OAM sprites + HUD
 - toggles Mode 1 + Mode 7 via the L2+R2 menu and verifies mid-frame Mode 7 rendering

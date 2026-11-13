@@ -1,6 +1,6 @@
 # bm SNES: Super FX (GSU-1 and GSU-2)
 
-Area sheet for the Super FX co-processor of the bm SNES core. Code: `src/bm/snes_gsu.c`, `src/bm/snes_gsu.h`, the wiring in `src/bm/snes_bus.c`.
+Area sheet for the Super FX co-processor of the bm SNES core. Code: `core/src/bm/snes_gsu.c`, `core/src/bm/snes_gsu.h`, the wiring in `core/src/bm/snes_bus.c`.
 Tests: `make test-snes-gsu` (`tests/snes/gsu_test.c`), `make bench-snes-gsu`, and the local smoke test `tests/snes/superfx_roms.py`.
 Back to [snes.md](snes.md). The instruction set: [snes-superfx-isa.md](snes-superfx-isa.md). Timings of the machine: [snes-measure.md](snes-measure.md).
 
@@ -73,7 +73,7 @@ The instruction set, the fetch and the delay slot, the pixel cache, the instruct
 
 ## Status of the code
 
-Done 2026-11-11 (host only, no console test yet). Files: `src/bm/snes_gsu.c`, `snes_gsu.h`, the map and the frame loop in `snes_bus.c`, `tests/snes/gsu_test.c` (166 checks), `tests/snes/superfx_roms.py`.
+Done 2026-11-11 (host only, no console test yet). Files: `core/src/bm/snes_gsu.c`, `snes_gsu.h`, the map and the frame loop in `snes_bus.c`, `tests/snes/gsu_test.c` (166 checks), `tests/snes/superfx_roms.py`.
 
 - Every opcode of the table above is in the core. The checks cover each instruction and its flags, the delay slot, LOOP, LINK, JMP and LJMP, the RAM and ROM access, PLOT and RPIX in 2, 4 and 8 bpp with the heights 128, 160, 192 and OBJ, the dither and the transparent colour, the cache upload by the SNES, the IRQ at STOP and the mask, the memory map, the vector pattern, the RAM size and the battery rule. A golden hash of the cart RAM after a 2800 instruction program (`golden_code` in the test) stops a speed-up from changing the result.
 - Wiring: the CPU runs a whole line. The GSU runs lazily, as the sound CPU does (`gsu_sync_pos` in `snes_bus.c`). It catches up to the CPU time when the CPU reads or writes a GSU register ($3000-$34FF), reads or writes the cart RAM, or reads a vector ($FFE0 and up). A read of a register or of the RAM that finds the GSU less than `GSU_QUANT` (1364) master clocks behind does nothing: a poll loop on SFR would run the GSU in very small pieces, and each piece pushes the CPU code out of the instruction cache. A write to a register always catches up first. At the end of a line the GSU catches up when the CPU waits for an interrupt (WAI), else every `GSU_LAG_LINES` (4) lines, and at the end of the frame. The page table of the cart RAM is off while the GSU runs (`gsu_tab_update`), so the CPU reads of the RAM come to `raw_read`. This took the GSU calls from 212 to 66 in a frame in Yoshi's Island (host count).

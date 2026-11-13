@@ -1,4 +1,4 @@
-/* Host tests for src/usb/smsc95xx.c against a simulated LAN9512
+/* Host tests for core/src/usb/smsc95xx.c against a simulated LAN9512
  * (lan9512_sim.c): set-up, link and duplex, frames in both directions. */
 #include "usb/smsc95xx.h"
 #include "usb/dwc2.h"

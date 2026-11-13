@@ -137,7 +137,7 @@ Change the speed of the drums: `R.setcpm(30)` becomes `R.setcpm(40)`. Then add `
 :::
 
 ::: note
-The Sound editor's demo project `carts/sound/demo.json` has sound effects and three songs to listen to and copy.
+The Sound editor's demo project `bm/sound/demo.json` has sound effects and three songs to listen to and copy.
 :::
 
 ::: warn
@@ -208,7 +208,7 @@ These functions play a note on one voice. The waveform and the volume stay those
 | `envelope(v, a, d, s, r)` | the voice's envelope: attack, decay and release are times 0-255 (0 = instant, 255 = 2 s), sustain is a level 0-255. Default `1, 0, 255, 10` |
 | `duty(v, d)` | the width of the square wave, 0-255 (128 = 50%; 32-64 sounds more "nasal") |
 | `playing(v)` | `true` while the voice sounds (release included) or an effect / the music holds it |
-| `apu(v, reg, [value])` | reads or writes a raw register of the voice (32 bytes per voice, 0-31: `src/audio/synth.h`; register 10 is the 1/256 of Hz, from 11 the tone: filter, place, room, echo, LFO) |
+| `apu(v, reg, [value])` | reads or writes a raw register of the voice (32 bytes per voice, 0-31: `core/src/audio/synth.h`; register 10 is the 1/256 of Hz, from 11 the tone: filter, place, room, echo, LFO) |
 
 ## Caveats
 
@@ -228,7 +228,7 @@ note(3, "C4", 600, SQUARE, 90)         -- an arpeggiated major chord
 arp(3, "major", 40)
 ```
 
-Pong, Snake and Star Shooter in `carts/` use notes (a 10-line `jingle` function for the tunes; now there is `lib.jingle` in bmlib).
+Pong, Snake and Star Shooter in `bm/` use notes (a 10-line `jingle` function for the tunes; now there is `lib.jingle` in bmlib).
 
 ::: try
 Play a held note and release it: `note(0, "A4")` starts it and keeps it on, `vibrato(0, 0.3)` makes it swing, `noteoff(0)` releases it.
@@ -313,7 +313,7 @@ retro(true)                                         -- the 8-bit sound of before
 
 ## Ready-made instruments
 
-There are 50 (`src/audio/presets.c`):
+There are 50 (`core/src/audio/presets.c`):
 
 | Kind | Instruments |
 |---|---|
@@ -351,7 +351,7 @@ Call `tone(0, "epiano")` and `note(0, "E4", 400)`. Then `reverb(0.8, 0.5, 1)` an
 
 ## What it does
 
-The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`, version 2, or 3 with samples; version 1 is still read).
+The bank is the **AUDIO** section of the `.bm` (format in `core/src/audio/player.h`, version 2, or 3 with samples; version 1 is still read).
 
 ## Limits
 
@@ -369,7 +369,7 @@ The bank is made with the **Sound editor** (Dev tab), which opens a game and sav
 
 | Command | What it does |
 |---|---|
-| `scripts/bmaudio.py unpack game.bm -o sounds.json` | extracts the bank as readable JSON (the samples as WAV files beside it) |
+| `core/scripts/bmaudio.py unpack game.bm -o sounds.json` | extracts the bank as readable JSON (the samples as WAV files beside it) |
 | `mkbm.py --audio sounds.json` | puts the JSON back in a cartridge |
 | `make wav BANK=sounds.json SONG=0` | plays the bank into a WAV (`BITS=24`, `32` or `f32` for a deeper file; 16 by default) |
 | `bmhost --wav-bits 24` | records a game's sound at 24 bits |

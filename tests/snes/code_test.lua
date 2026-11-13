@@ -1,11 +1,11 @@
 -- code_test.lua: the helpers of the Code tab of bm SNES SDK, on the PC: the colours, the F1 texts, the errors in
--- plain words, the snippets and the text buffer (carts/shared/snescode.lua, carts/shared/asmbuf.lua).
+-- plain words, the snippets and the text buffer (bm/shared/snescode.lua, bm/shared/asmbuf.lua).
 --   build/host/luahost tests/snes/code_test.lua [ROOT]     (make test-snes-code)
 local ROOT = arg[1] or "."
-package.path = ROOT .. "/src/script/?.lua;" .. package.path
+package.path = ROOT .. "/core/src/script/?.lua;" .. package.path
 local A = require "snes_asm"
-local SC = assert(loadfile(ROOT .. "/carts/shared/snescode.lua"))()
-local B = assert(loadfile(ROOT .. "/carts/shared/asmbuf.lua"))()
+local SC = assert(loadfile(ROOT .. "/bm/shared/snescode.lua"))()
+local B = assert(loadfile(ROOT .. "/bm/shared/asmbuf.lua"))()
 local checks, fails = 0, 0
 local function check(ok, msg)
   checks = checks + 1

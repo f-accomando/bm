@@ -2,7 +2,7 @@
 cells 64-68 of the sheet, under Kip) and the first level, in map cells.
 
 Characters -> the 32 colours of the SDK's sprite page (PALETTE in
-carts/editor/main.lua): the number is the place in that list (1 = black).
+bm/editor/main.lua): the number is the place in that list (1 = black).
 """
 
 # char -> (place in the SDK's PALETTE, RGB)

@@ -8,7 +8,7 @@ The first play with the instruction-cache meter (SMW, Pi Zero W): the CPU part h
 
 ## What was done
 
-- `src/bm/snes_cpu_arm.S` (ARMv6 only) runs the common opcodes. `exec_op` in `snes_cpu.c` runs every other opcode, out of line, in its own section `.text.snes_cpu_cold`. The assembly calls it with the registers written back to the struct.
+- `core/src/bm/snes_cpu_arm.S` (ARMv6 only) runs the common opcodes. `exec_op` in `snes_cpu.c` runs every other opcode, out of line, in its own section `.text.snes_cpu_cold`. The assembly calls it with the registers written back to the struct.
 - Registers: r4 PC (in the high half, so an add of 0x10000 wraps in the bank), r5 PB, r6 A, r7 X, r8 Y, r9 the clock minus the limit, r10 N and Z (lazy: one `orr` after an operation), r11 P (C, I, D, X, M, V), r12 the page table. D, DB, S and E are in the stack frame.
 - An opcode has two words in the table `optab`: a mode routine (it computes the address of the operand) and an operation routine. A routine of each kind is shared by all opcodes that use it.
 - Done in assembly: LDA, STA, ORA, AND, EOR, ADC, SBC, CMP, LDX, LDY, STX, STY, STZ, CPX, CPY (immediate, direct page, absolute, long, indexed, `(dp),y`), ASL, LSR, ROL, ROR, INC and DEC (accumulator and memory), INX, INY, DEX, DEY, the transfers TAX, TAY, TXA, TYA, TXY, TYX, CLC, SEC, NOP, the 9 branches, JMP, JSR, RTS, JSL, RTL, PHA, PLA, PHX, PLX, PHY, PLY.

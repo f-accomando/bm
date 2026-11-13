@@ -35,15 +35,15 @@ clothing colours by zone, hat yes/no, palette.
 forward: the snout), `segments` [{base, front?, back?, sides {sector: key}}] (one per ring pair),
 `top_cap` {colour, apex}, `tents` [{base [[ring, sector]], at, off, colour}], `eyes`, `ears`, `hair`, `hat`,
 `arms`, `legs`, `tail`, `decals`, `bones`. Sector 3 is straight ahead, 0 is +x (.L), 6 is -x (.R).
-Built facing +z and mirrored to -z at the end (bm Studio's recipes, `src/ai/mesh_chars.c`).
+Built facing +z and mirrored to -z at the end (bm Studio's recipes, `core/src/ai/mesh_chars.c`).
 
 ## For an AI assistant
 
 - A request becomes a spec: pick the closest preset, change only the knobs above, build, `check`, `preview`.
   An assistant that edits numbers in a table is far more reliable than one that writes geometry.
-- The console's own assistant (`src/ai/mesh.c`, recipes `hero`, `robot`, `mech`, `dog`; KB entries in
-  `src/ai/kb/meshes.txt` with `gen:`) builds from separate boxes/tubes (`src/ai/mesh_script.c`): it cannot
-  express a shared-vertex skin. The continuous recipes are `biped` and `chameleon` (`src/ai/mesh_skin.c`, KB
+- The console's own assistant (`core/src/ai/mesh.c`, recipes `hero`, `robot`, `mech`, `dog`; KB entries in
+  `core/src/ai/kb/meshes.txt` with `gen:`) builds from separate boxes/tubes (`core/src/ai/mesh_script.c`): it cannot
+  express a shared-vertex skin. The continuous recipes are `biped` and `chameleon` (`core/src/ai/mesh_skin.c`, KB
   `mesh.biped`, `mesh.chameleon`, plan in `docs/design/organic-recipes.md`): the charkit shapes with fixed numbers.
 - NON VERIFICATO: none of these files was opened in bm Mesh / bm Animator or run on the console; only
   bm_core (check, preview, a walk clip) was.

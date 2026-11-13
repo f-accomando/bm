@@ -15,7 +15,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 ok_all = True
@@ -39,7 +39,7 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     out = os.path.join(HERE, "out")
     sd = args[0] if args else os.path.join(out, "sd")
-    path = os.path.join(sd, "carts", "TROPIC.BME")
+    path = os.path.join(sd, "bm", "TROPIC.BME")
     if not os.path.exists(path):
         print("no", path)
         return 1

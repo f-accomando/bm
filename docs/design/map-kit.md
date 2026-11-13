@@ -47,7 +47,7 @@ A `.bmk` is a `BMRES` file of type 6 ([RISORSE](../RISORSE.md), section 4). It u
 
 ## The objects layer and the object table
 
-- The objects layer holds an even number of 1024 or more on the even cell of a tile (`src/bm/map3d.c`).
+- The objects layer holds an even number of 1024 or more on the even cell of a tile (`core/src/bm/map3d.c`).
 - The kernel knows 1024 to 1034 (PLAYER_START, APPLE, CRATE, GOAL, LAMP, CRATE_BOUNCE). A kit uses 1040 and up.
 - For each id, INFO has a block `[object NAME]` with these keys:
 
@@ -79,7 +79,7 @@ The floor ids have no such limit: a floor id is any cell of the sheet, up to 102
 
 `island.bmk` carries a COVER (128x128) and a PREVIEW (12 frames of 96x96) of the whole island: the islet with palms,
 fire, chest, bushes, rocks and boat merged into one model that is not kept in the kit (`scene_model` in
-`scripts/bmkit.py`). `--no-preview` leaves both out and the file is 177 KB smaller. See
+`core/scripts/bmkit.py`). `--no-preview` leaves both out and the file is 177 KB smaller. See
 [RISORSE](../RISORSE.md), "The picture inside a file".
 
 ## Not a Market catalog item
@@ -103,13 +103,13 @@ It also travels with a project: `bmres.py add` puts it in a game, or the file is
   code, the cover and the sound bank of the project stay. The kit's INFO text stays in the project (`kit_info`).
 - **3D map page.** `map3d_objects` names an object of a kit `OBJ<id>` (ids 1040 and up). The 3D view reads the
   `[object NAME]` blocks of the INFO text and draws the model with the block's `scale`.
-- **Both SDKs.** `carts/editor` (Pi) and `carts/sdk_b16` (RGB30) have the same code. Not run on a device.
+- **Both SDKs.** `bm/editor` (Pi) and `bm/sdk_b16` (RGB30) have the same code. Not run on a device.
 - `bmres.py add` keeps the layers `height`, `walls` and `objects` as numbers (they hold heights and ids, not sheet tiles).
 
 ## The benchmark: Island Bench
 
-`carts/islandbench` is the benchmark made from the kit (`.bme` in `/bme`, `.bm` in `/bm`, both built by
-`make build/carts/islandbench.bm build/carts/islandbench.bme`; the kit is `carts/islandbench/assets/island.bmk`).
+`bm/islandbench` is the benchmark made from the kit (`.bme` in `/bme`, `.bm` in `/bm`, both built by
+`make build/bm/islandbench.bm build/bm/islandbench.bme`; the kit is `bm/islandbench/assets/island.bmk`).
 Manual mode: rows for the number of elements (0 to 200%), day or night (sun or moon), clear, rain, snow or fog, the
 height of the light, the campfire (a `lamp3d` light, a 2D flame in the 3D and sparks), shadows (off, dark, dither),
 texture or flat, 3D models or 2D sprites or a mix by distance, the sea, lighting, backend, AA, resolution and camera.
@@ -122,10 +122,10 @@ Test: `make test-islandbench`.
 
 ## Tools
 
-- `python scripts/bmkit.py island OUT.bmk [--quality hi|med|low] [--png PREVIEW.png]` builds the example. The
+- `python core/scripts/bmkit.py island OUT.bmk [--quality hi|med|low] [--png PREVIEW.png]` builds the example. The
   models are made hi poly first (`hi`, the default: palm 696 triangles) and cut down later (`med`, `low`: palm 140).
   The names and the map classes do not change with the quality. The map and the sprites do not change.
-- `python scripts/bmkit.py check FILE.bmk` reads a kit and checks the models, the layers and the object table.
-- To put a kit in a game or a project: `python scripts/bmres.py add GAME.bm FILE.bmk -o OUT.bm`. A model whose name is
+- `python core/scripts/bmkit.py check FILE.bmk` reads a kit and checks the models, the layers and the object table.
+- To put a kit in a game or a project: `python core/scripts/bmres.py add GAME.bm FILE.bmk -o OUT.bm`. A model whose name is
   taken gets a new name (`bush` becomes `bush2`): read the names after the merge.
 - bm Studio: `c` on the models page sets the map class of a model.

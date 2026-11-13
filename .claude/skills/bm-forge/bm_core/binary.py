@@ -4,8 +4,8 @@ import struct
 
 from .errors import ValidationError, need
 
-NAME_FIELD = 16          # BM_MODEL_NAME, src/bm/bm.h:174 (also layer/sprite/box/bone/clip names)
-NAME_MAX = 15            # bm-forge rule: 15 bytes + NUL (scripts/bmmesh.py:37 encode)
+NAME_FIELD = 16          # BM_MODEL_NAME, core/src/bm/bm.h:174 (also layer/sprite/box/bone/clip names)
+NAME_MAX = 15            # bm-forge rule: 15 bytes + NUL (core/scripts/bmmesh.py:37 encode)
 
 
 def f32(x):
@@ -14,7 +14,7 @@ def f32(x):
 
 
 def finite_in(x, limit):
-    """-limit < x < limit and not NaN (src/bm/format.c:157 for 1e6, :241 fin32 for 1e9)"""
+    """-limit < x < limit and not NaN (core/src/bm/format.c:157 for 1e6, :241 fin32 for 1e9)"""
     return isinstance(x, (int, float)) and not math.isnan(x) and -limit < x < limit
 
 
@@ -43,7 +43,7 @@ class Reader:
 
 def read_name(raw, where, what="name"):
     """a char[16] field -> str. Accepts 16 bytes with no NUL (the C reader does,
-    src/bm/format.c:347-349; bm3d.lua writes such names, src/script/bm3d.lua:135-138).
+    core/src/bm/format.c:347-349; bm3d.lua writes such names, core/src/script/bm3d.lua:135-138).
     Bytes after the first NUL must be zero (writers pad with zeros), else the
     file would not round-trip: refused. UTF-8 must be valid: refused otherwise
     (NON VERIFICATO that every tool writes valid UTF-8; strict choice, see
@@ -60,7 +60,7 @@ def read_name(raw, where, what="name"):
 
 def name_bytes(name, where, what="name", allow_full=False):
     """str -> the char[16] field. Writer rule: 1..15 bytes + NUL (bmmesh.encode
-    cuts at 15, scripts/bmmesh.py:37; bm-forge refuses instead of cutting). With
+    cuts at 15, core/scripts/bmmesh.py:37; bm-forge refuses instead of cutting). With
     allow_full a 16-byte name (no NUL) is kept, for rewriting a file a Lua tool
     wrote without changing it."""
     need(isinstance(name, str), f"{what} must be a string", where)
@@ -73,5 +73,5 @@ def name_bytes(name, where, what="name", allow_full=False):
 
 
 def pad4(n):
-    """zero bytes up to the next multiple of 4 (src/bm/format.c:939-952)"""
+    """zero bytes up to the next multiple of 4 (core/src/bm/format.c:939-952)"""
     return b"\0" * ((-n) % 4)

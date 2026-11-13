@@ -26,7 +26,7 @@ A character in bm is one of three things: a **sprite** in the sprite sheet, a se
 | bm Studio | 3D models from blocks and tiles; a model from a picture | 3D models |
 | bm Animator, pages F2 and F3 | the skeleton and the animations of a model | 3D models |
 | bm Mesh | the vertices and faces of a model; meshes built by a game's code | Meshes |
-| `scripts/bmres.py`, `tools/` | extract, add and convert resources; models from pictures, on the PC | Meshes, Pre-rendered 2D |
+| `core/scripts/bmres.py`, `core/tools/` | extract, add and convert resources; models from pictures, on the PC | Meshes, Pre-rendered 2D |
 | bm-forge | models, skeletons and previews from a command line, on the PC | 3D models |
 
 ## Good to know
@@ -58,7 +58,7 @@ The notes of the repository are clear on the limit: drawing every direction of e
 
 ## Good to know
 
-- *Titan Clash* (`carts/titan`) and *Yharnam* (`carts/yharnam`) use pre-rendered sprites.
+- *Titan Clash* (`bm/titan`) and *Yharnam* (`bm/yharnam`) use pre-rendered sprites.
 - A 3D model can feed the other two: the same model is a 3D character and, baked, a 2D one.
 
 # Sprites by hand
@@ -181,7 +181,7 @@ The game draws the frame with `sspr(..., flip)`. Each frame carries an anchor (t
 
 ## One module for all the animations
 
-*Yharnam* plays the animations of the hunter and of every creature with one small module, `ANIM` (the module `anim` in `carts/yharnam/main.lua`). Copy it into a game that has actors with directions.
+*Yharnam* plays the animations of the hunter and of every creature with one small module, `ANIM` (the module `anim` in `bm/yharnam/main.lua`). Copy it into a game that has actors with directions.
 
 An actor is a table with `anim` (the name that plays), `f` (the frame, 1 is the first), `ft` (the ticks the frame has been on screen), `newf` (true in the tick a frame began) and `rev` (true when it plays backwards). A set holds, for each name, `t` (the ticks each frame lasts), `loop` and `d` (the frames of each direction).
 
@@ -226,7 +226,7 @@ Draw one side, mirror the other at draw time: `spr`, `sspr` and `zspr` all take 
 
 ## Reusing parts of sprites
 
-*Titan Clash* draws the robot in layers over a base. The build script (`carts/titan/build/mkrobot.py`) keeps in its own layer everything that can change: armour plates, the near shoulder armour (intact or cracked), arm guns, the sword (on the back or in the hand). A layer holds only the pixels its parts show in front of the base, so base plus layers is exactly the robot with those parts.
+*Titan Clash* draws the robot in layers over a base. The build script (`bm/titan/build/mkrobot.py`) keeps in its own layer everything that can change: armour plates, the near shoulder armour (intact or cracked), arm guns, the sword (on the back or in the hand). A layer holds only the pixels its parts show in front of the base, so base plus layers is exactly the robot with those parts.
 
 The game draws a base and then its layers in a fixed order, with the same anchor:
 
@@ -243,7 +243,7 @@ end
 
 One frame and many combinations of equipment cost the frame once and each layer once.
 
-Other ways of the same kind, from the build of *Yharnam* (`carts/yharnam/build/mkassets.py`): each frame is cut to its own box and packed on the sheet, and identical frames are kept only once.
+Other ways of the same kind, from the build of *Yharnam* (`bm/yharnam/build/mkassets.py`): each frame is cut to its own box and packed on the sheet, and identical frames are kept only once.
 
 ## Palettes
 
@@ -272,7 +272,7 @@ A **stack zone** is a line of the zones file: `stack name x y w h n` for `n` sli
 
 - **bm Pixel, page F4** makes and changes `stack` zones, shows the slices one by one and shows the whole stack as it turns. A slice is drawn on F1. The chapter "F4: the stack" of the bm Pixel manual has the keys.
 - **bm Animator** keeps the slices of a zone when you bake the zone again, if the new zone still fits the sheet.
-- **From a stack to a mesh.** On the PC, `python tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` reads a stack and writes a `.bmm` file with one model. Each opaque pixel is a voxel, and voxels of one colour join into boxes. `--dir v` is for slices one under the other. The default limit is 4096 vertices; `--kernel-limits` allows 65535 for the RGB30. A stack that is too big stops with an error that gives the limit.
+- **From a stack to a mesh.** On the PC, `python core/tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` reads a stack and writes a `.bmm` file with one model. Each opaque pixel is a voxel, and voxels of one colour join into boxes. `--dir v` is for slices one under the other. The default limit is 4096 vertices; `--kernel-limits` allows 65535 for the RGB30. A stack that is too big stops with an error that gives the limit.
 
 ::: copy
 ```lua
@@ -301,8 +301,8 @@ Pre-rendering draws a 3D model, pose by pose and from each direction, into pixel
 
 ## How the games of the repository do it
 
-- *Titan Clash*: `carts/titan/build/mkrobot.py` builds a robot of simple solids hung on a skeleton, renders each pose orthographically at 1:1 pixel size and stylises it: flat facets in a few tones per material, dark outlines on the silhouette and where a part stands in front of another, glowing visor and vents. It also gives the hitboxes and hurtboxes from the bones.
-- *Yharnam*: `carts/yharnam/build/mkassets.py` renders over 5,000 frames (a few seconds each) of the hunter and the creatures, with signed distance fields, and the hunter's animations as 8-direction curves. Only the frames whose pose or model changed are drawn again.
+- *Titan Clash*: `bm/titan/build/mkrobot.py` builds a robot of simple solids hung on a skeleton, renders each pose orthographically at 1:1 pixel size and stylises it: flat facets in a few tones per material, dark outlines on the silhouette and where a part stands in front of another, glowing visor and vents. It also gives the hitboxes and hurtboxes from the bones.
+- *Yharnam*: `bm/yharnam/build/mkassets.py` renders over 5,000 frames (a few seconds each) of the hunter and the creatures, with signed distance fields, and the hunter's animations as 8-direction curves. Only the frames whose pose or model changed are drawn again.
 
 These scripts run on the PC (they need numpy and Pillow); their output (the sheet and the list of frames) is in git, so building the game needs neither.
 
@@ -356,7 +356,7 @@ The baked frames are ordinary sprites in the sheet. Open the project in bm Pixel
 
 ## Try it, step by step
 
-1. Open the **Dev** tab and start **bm Animator**. Choose a project with a rigged model (`carts/overbit` has rigged models).
+1. Open the **Dev** tab and start **bm Animator**. Choose a project with a rigged model (`bm/overbit` has rigged models).
 2. Press **F4**. Choose the animation `walk` in the first row.
 3. Set `frames` to 8, `size` to 48, `directions` to 4.
 4. Check that `hitboxes` says `from bones`.
@@ -385,12 +385,12 @@ A mesh is a 3D shape made of points (vertices) and triangles (faces). In bm ther
 An image becomes a model in three ways.
 
 - **In bm Studio, on the models page, `m`** (or *Model from picture...* in the menu): a picture from the `pics/` folder of the SD or from the SD root (`.png` or `.jpg`). **Cutout** is a thick paper figure with the picture on the front and mirrored on the back; **lathe** turns the half outline around the vertical axis (vases, towers); **meshy.ai** is an online service that needs the network and an account.
-- **On the PC, `tools/cutout2mesh.py`**: the same cutout and lathe with no network and no AI. Into a new cartridge the picture goes on the sheet; into an existing one the faces take flat colours.
-- **On the PC, `tools/img2mesh.py`**: a vision model (it needs the Anthropic API and a key outside the repository) looks at the picture, writes a script of parts, and the script is built, drawn and corrected for a few rounds. The result is a `.bm` with a model, with bones and animations if the script has them.
+- **On the PC, `core/tools/cutout2mesh.py`**: the same cutout and lathe with no network and no AI. Into a new cartridge the picture goes on the sheet; into an existing one the faces take flat colours.
+- **On the PC, `core/tools/img2mesh.py`**: a vision model (it needs the Anthropic API and a key outside the repository) looks at the picture, writes a script of parts, and the script is built, drawn and corrected for a few rounds. The result is a `.bm` with a model, with bones and animations if the script has them.
 
 ::: copy
-python3 tools/cutout2mesh.py hero.png -o hero.bm --name hero
-python3 tools/cutout2mesh.py vase.png -o vase.bm --lathe
+python3 core/tools/cutout2mesh.py hero.png -o hero.bm --name hero
+python3 core/tools/cutout2mesh.py vase.png -o vase.bm --lathe
 :::
 
 ## From a mesh to an image
@@ -442,7 +442,7 @@ Use **M** to build a symmetrical character: model half, copy it to the other sid
 
 - At most 65535 vertices and 65535 triangles in a mesh, and 256 models in a cartridge.
 - bm Mesh keeps the skeleton of a model: the bone of each new vertex is the one it comes from.
-- A sprite stack becomes a mesh with `tools/stack2mesh.py` (chapter "Sprite stacking"). A button for it in bm Studio or bm Mesh is not there yet.
+- A sprite stack becomes a mesh with `core/tools/stack2mesh.py` (chapter "Sprite stacking"). A button for it in bm Studio or bm Mesh is not there yet.
 
 # 3D models
 
@@ -474,8 +474,8 @@ The names have a use: `.L` and `.R` for the two sides; `sword`, `fist` and the l
 ## Models outside the console
 
 - **bm-forge** (`.claude/skills/bm-forge`): builds MESH models from box JSON or untextured `.glb`, skeletons and clips from JSON, and exports `.bm`. A person or character is one continuous skin with shared vertices at the joints, rigged, never loose boxes. The template `examples/charkit/` has two presets.
-- A local `.glb` from the SD card does not open in the editors yet; importing it in the suite is planned (APP-9). Today the console gets a `.glb` only from the picture-to-3D service (`picture3d`), and bm Studio then takes it as a model. On the PC, `python3 scripts/bmres.py convert IN.glb OUT.bmm` converts a `.glb` to a `.bmm`; `tools/meshy2mesh.py`, `tools/local2mesh.py` and `tools/cutout2mesh.py` make models from other sources. For a game of the repository, the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first) and puts the models in the `.bm`. `carts/village/assets` holds `models.bm`, not a `.glb`.
-- **[IN DEVELOPMENT]** Saving and opening `.bmm` model files from the console's bm Studio. Today the program saves only the project; on the PC `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one.
+- A local `.glb` from the SD card does not open in the editors yet; importing it in the suite is planned (APP-9). Today the console gets a `.glb` only from the picture-to-3D service (`picture3d`), and bm Studio then takes it as a model. On the PC, `python3 core/scripts/bmres.py convert IN.glb OUT.bmm` converts a `.glb` to a `.bmm`; `core/tools/meshy2mesh.py`, `core/tools/local2mesh.py` and `core/tools/cutout2mesh.py` make models from other sources. For a game of the repository, the build reads `assets/models.bm` or `assets/models.glb` (`models.bm` first) and puts the models in the `.bm`. `bm/village/assets` holds `models.bm`, not a `.glb`.
+- **[IN DEVELOPMENT]** Saving and opening `.bmm` model files from the console's bm Studio. Today the program saves only the project; on the PC `core/scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` makes one.
 
 ## Caveats
 
@@ -537,7 +537,7 @@ A face's colour can carry **material bits**: bit 30 `0x40000000` emissive (visor
 
 ## Shaders
 
-The V3D driver of the Pi runs QPU shaders written in `tools/qpuasm.py` and generated into `src/gpu/shaders.h`; the Mali of the RGB30 has its own bring-up (`docs/progress/graphics-mali.md`). A game does not write them: it chooses with `gpu3d()` (on, 4x anti-aliasing, where the vertex shader places the vertices) and the Settings rows. The same functions draw on the ARM when the GPU is off.
+The V3D driver of the Pi runs QPU shaders written in `core/tools/qpuasm.py` and generated into `core/src/gpu/shaders.h`; the Mali of the RGB30 has its own bring-up (`docs/progress/graphics-mali.md`). A game does not write them: it chooses with `gpu3d()` (on, 4x anti-aliasing, where the vertex shader places the vertices) and the Settings rows. The same functions draw on the ARM when the GPU is off.
 
 ::: warn
 **[IN DEVELOPMENT]** Shaders written by the game. The API documents no call to give a model a shader of its own.
@@ -566,7 +566,7 @@ function _draw()
 end
 :::
 
-The last line draws the shadow. This is the pattern of the games with rigged models, such as `carts/overbit`.
+The last line draws the shadow. This is the pattern of the games with rigged models, such as `bm/overbit`.
 
 # Optimising 3D models
 
@@ -608,8 +608,8 @@ One face that the GPU cannot take sends the whole model to the ARM. Check your m
 
 ::: copy
 cd .claude/skills/bm-forge
-python3 scripts/bm_forge.py gpuskin game.bmm
-python3 scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
+python3 core/scripts/bm_forge.py gpuskin game.bmm
+python3 core/scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
 :::
 
 For consoles with drivers before bm3D 7.33, `--palette X,Y[,W] --palette-png STRIP.png` gives the plain faces on two bones a texture: each colour becomes one texel of a strip. Put the strip in the cartridge's sheet at `X,Y`. These faces then get a grey light and no fog, as all textured faces lit by the sun.

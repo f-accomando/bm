@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live probe for bm SDK Map editor 3D view and linear level tools (AGY-06).
 
-Validates all required keys on carts/editor/main.lua (Pi edition):
+Validates all required keys on bm/editor/main.lua (Pi edition):
 - 'v': 2D / 3D preview toggle
 - arrows (left/right): orbit camera yaw
 - arrows (up/down): orbit camera zoom distance
@@ -137,8 +137,8 @@ def build_probe_script():
 
 
 def verify_editor_source():
-    """Validates that all keys and actions are bound in carts/editor/main.lua."""
-    editor_path = os.path.join(ROOT, "carts", "editor", "main.lua")
+    """Validates that all keys and actions are bound in bm/editor/main.lua."""
+    editor_path = os.path.join(ROOT, "bm", "editor", "main.lua")
     assert os.path.isfile(editor_path), f"Missing {editor_path}"
     with open(editor_path, "r", encoding="utf-8") as f:
         src = f.read()
@@ -170,7 +170,7 @@ def write_probe_md(results, live_checked=False):
     lines = [
         "# Live Validation: Map 3D Editor & Linear Tools (`PROBE.md`)",
         "",
-        "> **Modulo**: `carts/editor/main.lua` (edizione Pi, 640×360)",
+        "> **Modulo**: `bm/editor/main.lua` (edizione Pi, 640×360)",
         "> **Target consumer**: `video/3d/04-map/record.py` (Claude local)",
         f"> **Modalità di verifica**: {'Live bmhost + Pillow screenshot diff' if live_checked else 'Analisi statica, binding input.txt e AST editor'}",
         "",
@@ -231,17 +231,17 @@ def run_live_probe_if_bmhost_available():
 
     sd_dir = os.path.join(OUT_DIR, "sd")
     shutil.rmtree(sd_dir, ignore_errors=True)
-    os.makedirs(os.path.join(sd_dir, "carts"), exist_ok=True)
+    os.makedirs(os.path.join(sd_dir, "bm"), exist_ok=True)
 
     # Build editor.bm
     editor_bm = os.path.join(OUT_DIR, "editor.bm")
     cmd_build = [
         sys.executable,
-        os.path.join(ROOT, "scripts", "mkbm.py"),
+        os.path.join(ROOT, "core", "scripts", "mkbm.py"),
         "-o", editor_bm,
-        "--lua", os.path.join(ROOT, "carts", "editor", "main.lua"),
-        "--cover", os.path.join(ROOT, "carts", "editor", "icon.png"),
-        "--info", os.path.join(ROOT, "carts", "editor", "bm.info"),
+        "--lua", os.path.join(ROOT, "bm", "editor", "main.lua"),
+        "--cover", os.path.join(ROOT, "bm", "editor", "icon.png"),
+        "--info", os.path.join(ROOT, "bm", "editor", "bm.info"),
     ]
     subprocess.run(cmd_build, check=True, cwd=ROOT)
 

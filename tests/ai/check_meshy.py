@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tools/meshy2mesh.py offline (make test-img2mesh): a .glb made here (a
+"""core/tools/meshy2mesh.py offline (make test-img2mesh): a .glb made here (a
 textured box and a coloured pyramid, uint16 and uint32 indices, a node
 transform, a PNG texture) becomes a .bm with the model textured on its
 sheet, then flat in an existing cartridge, then snapped to a grid.
@@ -15,7 +15,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmmesh  # noqa: E402
 
 build = sys.argv[1]
@@ -29,7 +29,7 @@ data = glbfix.build("png")
 glb_path = os.path.join(out_dir, "test.glb")
 open(glb_path, "wb").write(data)
 
-tool = os.path.join(ROOT, "tools", "meshy2mesh.py")
+tool = os.path.join(ROOT, "core", "tools", "meshy2mesh.py")
 cart = os.path.join(out_dir, "meshy.bm")
 if os.path.exists(cart):
     os.remove(cart)
@@ -90,7 +90,7 @@ assert secs2.get(2) == secs.get(2) and secs2.get(5) == secs.get(5), "the sheet s
 reds = sum(1 for f in models2[1]["faces"] if f[3] >> 16 > 200 and f[3] & 0xFF < 50)
 blues = sum(1 for f in models2[1]["faces"] if f[3] & 0xFF > 200 and f[3] >> 16 < 50)
 assert reds >= 4 and blues >= 4, (reds, blues)              # the texture sampled: red left, blue right
-# above --max-tris: the reducer (src/bm/decimate.c), the texture kept
+# above --max-tris: the reducer (core/src/bm/decimate.c), the texture kept
 cart3 = os.path.join(out_dir, "reduced.bm")
 if os.path.exists(cart3):
     os.remove(cart3)
@@ -129,7 +129,7 @@ assert glbfix.outward(models4[0], pyr4, inside4) == 0, "a mirrored node's faces 
 print("meshy2mesh: a mirrored node ok")
 
 # bmrender draws it: the texture's red and blue on the picture
-sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, os.path.join(ROOT, "core", "tools"))
 import bmrender  # noqa: E402
 png_path = os.path.join(out_dir, "meshy.png")
 names = bmrender.render(cart, png_path, size=120)

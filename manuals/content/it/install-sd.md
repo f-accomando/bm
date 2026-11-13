@@ -61,7 +61,7 @@ sudo apt install gcc-aarch64-linux-gnu picolibc-aarch64-linux-gnu mtools dosfsto
 
 # Installare sul Pi Zero W
 
-Si crea una sola immagine disco, `dist/bm.img` (64 MB), e la si scrive sulla scheda. L'immagine ha una partizione FAT32 con etichetta `BM` che contiene i file di avvio del Pi, `config.txt`, `kernel.img`, i giochi in `carts/` e `bm/`.
+Si crea una sola immagine disco, `dist/bm.img` (64 MB), e la si scrive sulla scheda. L'immagine ha una partizione FAT32 con etichetta `BM` che contiene i file di avvio del Pi, `config.txt`, `kernel.img`, i giochi in `bm/` e `bm/`.
 
 ## Passo per passo
 
@@ -114,10 +114,10 @@ Su WSL c'è uno script che fa lo stesso con un menu. La prima volta chiede la le
 ./easy_install.sh
 :::
 
-L'opzione **4** conserva impostazioni, salvataggi e giochi se rispondi di sì quando lo chiede: copia prima `bm/` e `carts/` sul PC e poi li rimette. Esegue `make image`, formatta la scheda in FAT32 (fino a 31 GB) e ci copia i file dell'immagine; non scrive il file immagine in sé. Rifiuta una scheda dell'RGB30.
+L'opzione **4** conserva impostazioni, salvataggi e giochi se rispondi di sì quando lo chiede: copia prima `bm/` e `bm/` sul PC e poi li rimette. Esegue `make image`, formatta la scheda in FAT32 (fino a 31 GB) e ci copia i file dell'immagine; non scrive il file immagine in sé. Rifiuta una scheda dell'RGB30.
 
 ::: try
-Dopo il primo avvio, premi la tastiera o il pad e passa da una all'altra delle quattro schede del menu. Poi spegni, metti la scheda nel PC e guarda le cartelle `bm/` e `carts/`.
+Dopo il primo avvio, premi la tastiera o il pad e passa da una all'altra delle quattro schede del menu. Poi spegni, metti la scheda nel PC e guarda le cartelle `bm/` e `bm/`.
 :::
 
 # Installare sull'RGB30
@@ -179,7 +179,7 @@ Cosa c'è sulla scheda dipende dalla scheda madre. Il testo di `LEGGIMI.txt` sul
 | `config.txt` | Pi | le impostazioni del firmware del Pi: quale kernel, il modo HDMI |
 | `kernel.img` | Pi | il kernel di bm |
 | `kernel7.img` | Pi Zero 2 W | presente solo se l'immagine è stata costruita per lui (`ZERO2=1`) |
-| `carts/` | Pi | i giochi, `.bm`; `carts/nano8/` ha le ROM nano8 |
+| `bm/` | Pi | i giochi, `.bm`; `bm/nano8/` ha le ROM nano8 |
 | `kernel8.img` | RGB30 | il kernel di bm |
 | `extlinux/` | RGB30 | le istruzioni per U-Boot: non toccare |
 | `LEGGIMI.txt` | RGB30 | una nota sulla scheda |
@@ -245,7 +245,7 @@ make install SD=/mnt/d
 make TARGET=rgb30 sdcard SD=/mnt/d
 :::
 
-La prima riga è per il Pi, la seconda per l'RGB30. Sull'RGB30 lo script `scripts/copy-sd-rgb30.sh` controlla prima la scheda e dice cosa non va: non montata, in sola lettura, o non è la scheda dell'RGB30.
+La prima riga è per il Pi, la seconda per l'RGB30. Sull'RGB30 lo script `core/scripts/copy-sd-rgb30.sh` controlla prima la scheda e dice cosa non va: non montata, in sola lettura, o non è la scheda dell'RGB30.
 
 ## Dalla rete
 
@@ -280,7 +280,7 @@ Il Market è il catalogo dei giochi gratuiti. Niente account e niente pagamenti.
 4. La console controlla la firma del catalogo e lo SHA-256 di ogni file prima di scrivere qualcosa sulla scheda. Aspetta che il gioco sia scritto.
 5. Apri la scheda **Games**. Dovresti vedere il gioco; selezionalo per giocare.
 
-Sul Pi il gioco va in `carts/`. Sull'RGB30 va in `bm/`, la cartella che il suo menu elenca. Entrambi i dispositivi elencano i giochi `.bm` del Market. Un gioco fatto per l'altro dispositivo ha la copertina sbiadita.
+Sul Pi il gioco va in `bm/`. Sull'RGB30 va in `bm/`, la cartella che il suo menu elenca. Entrambi i dispositivi elencano i giochi `.bm` del Market. Un gioco fatto per l'altro dispositivo ha la copertina sbiadita.
 
 ## Dal PC
 
@@ -290,10 +290,10 @@ Sul Pi il gioco va in `carts/`. Sull'RGB30 va in `bm/`, la cartella che il suo m
 
 ::: copy
 ./easy_install.sh send game.bm
-python3 tools/bm_net.py <ip> --send game.bm
+python3 core/tools/bm_net.py <ip> --send game.bm
 :::
 
-Oppure copia il file a mano: un `.bm` in `carts/` sulla scheda del Pi, in `bm/` sulla scheda dell'RGB30.
+Oppure copia il file a mano: un `.bm` in `bm/` sulla scheda del Pi, in `bm/` sulla scheda dell'RGB30.
 
 ## Da sapere
 

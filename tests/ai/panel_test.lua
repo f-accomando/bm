@@ -1,4 +1,4 @@
--- Host tests of the assistant's panel (src/ai/assist.lua), with the real
+-- Host tests of the assistant's panel (core/src/ai/assist.lua), with the real
 -- `ai` table (tests/ai/luaai.c) and the console's drawing and input
 -- functions replaced by recorders: what the panel writes, which keys it gets.
 --   luaai build/assist.bin tests/ai/panel_test.lua
@@ -43,8 +43,8 @@ function btnp(i) return pressed[i] == true end
 
 -- the completion of the question: require "predict" and its dictionaries
 local build = arg and arg[1] or "build"
-package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
-local assist = dofile("src/ai/assist.lua")
+package.path = build .. "/?.lua;core/src/ai/?.lua;" .. package.path
+local assist = dofile("core/src/ai/assist.lua")
 
 local function frame()                  -- one frame: update and draw
   local open = assist.update()

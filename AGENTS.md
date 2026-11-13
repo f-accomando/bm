@@ -70,7 +70,7 @@ Every Work Order issued by `bm-planner` follows this schema:
 ```markdown
 ### WORK ORDER: [ID]
 - **Obiettivo**: [1 frase chiara]
-- **File/Funzioni da toccare**: [Percorsi esatti, es. src/bm/runtime.c:bm_init_cart()]
+- **File/Funzioni da toccare**: [Percorsi esatti, es. core/src/bm/runtime.c:bm_init_cart()]
 - **Modifica richiesta**: [Dettaglio univoco senza scelte di design aperte]
 - **Comando di verifica**: [Comando e return code/output atteso, es. `python tests/qemu_test.py -k titan`]
 - **Agente designato**: [bm-mechanic | bm-coder | bm-light]

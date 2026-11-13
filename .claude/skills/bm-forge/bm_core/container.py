@@ -1,8 +1,8 @@
 """The container: 128-byte header, section table, CRC-32, for `.bm` cartridges,
 `.bme` projects and `BMRES` resource files.
 
-Spec src/bm/bm.h:1-19, parser parse() src/bm/format.c:525-758, Python
-writers scripts/mkbm.py:pack, scripts/bmmesh.py:rewrite_cart, scripts/bmres.py:dump.
+Spec core/src/bm/bm.h:1-19, parser parse() core/src/bm/format.c:525-758, Python
+writers core/scripts/mkbm.py:pack, core/scripts/bmmesh.py:rewrite_cart, core/scripts/bmres.py:dump.
 Reference: references/FORMATS.md "Container", "Compatibility block", "BMRES", ".bme".
 
 Rules of bm-forge on top of the C parser (strict choices, see
@@ -24,21 +24,21 @@ from .errors import ValidationError, need
 
 HEADER_SIZE = 128                               # bm.h:139
 MAGIC_CART = b"BMCART\0\0"                      # bm.h:4-5, written by every writer
-MAGIC_OLD = b"BM33CART"                         # still read (src/bm/format.c:8-10)
-MAGIC_RES = b"BMRES\0\0\0"                      # src/bm/format.c:411-414
+MAGIC_OLD = b"BM33CART"                         # still read (core/src/bm/format.c:8-10)
+MAGIC_RES = b"BMRES\0\0\0"                      # core/src/bm/format.c:411-414
 FMT_RGB565 = 1                                  # bm.h:140
-FLAG_PROJECT = 1                                # src/bm/project.h:15
+FLAG_PROJECT = 1                                # core/src/bm/project.h:15
 FLAG_COMPAT = 16                                # flag bit 4: the compatibility block is present (docs/BM-FORMAT.md)
 COMPAT_AT = 120                                 # compatibility block: bytes 120..127
 TARGETS = {"pi": 1, "rgb30": 2}                 # byte 120, BM_TARGET_*
-RESOLUTIONS = {(640, 360), (480, 270), (320, 180), (256, 256), (360, 360)}   # src/bm/format.c:552-555
+RESOLUTIONS = {(640, 360), (480, 270), (320, 180), (256, 256), (360, 360)}   # core/src/bm/format.c:552-555
 
-# BMRES kinds, bm.h:167-168; extensions scripts/bmres.py:54
+# BMRES kinds, bm.h:167-168; extensions core/scripts/bmres.py:54
 RES_MODEL, RES_IMAGE, RES_SOUND, RES_MAP, RES_PALETTE, RES_KIT = 1, 2, 3, 4, 5, 6
 RES_EXT = {".bmm": RES_MODEL, ".bmi": RES_IMAGE, ".bms": RES_SOUND, ".bmt": RES_MAP, ".bmc": RES_PALETTE,
            ".bmk": RES_KIT}
 _SHEETS = {S.SHEET, S.SHEET8}
-RES_ALLOWED = {                                  # src/bm/format.c:450-462, scripts/bmres.py:56 ALLOWED
+RES_ALLOWED = {                                  # core/src/bm/format.c:450-462, core/scripts/bmres.py:56 ALLOWED
     RES_MODEL: {S.INFO, S.COVER, S.MESH, S.ANIM} | _SHEETS,          # COVER: a picture inside the file (2026-10-29)
     RES_IMAGE: {S.INFO, S.COVER, S.SPRITES, S.FLAGS, S.BOXES} | _SHEETS,
     RES_SOUND: {S.INFO, S.AUDIO},
@@ -49,20 +49,20 @@ RES_ALLOWED = {                                  # src/bm/format.c:450-462, scri
 
 
 def crc32(data):
-    """zlib CRC-32 (src/lib/crc32.c:27,54-57; scripts/mkbm.py:crc32)"""
+    """zlib CRC-32 (core/src/lib/crc32.c:27,54-57; core/scripts/mkbm.py:crc32)"""
     return zlib.crc32(data) & 0xFFFFFFFF
 
 
 def _cstr(raw):
     """display text of a char[N] header field; never refused (the raw header
     is kept, so no byte is lost). mkbm cuts the title at 47 bytes and may cut
-    a UTF-8 character (scripts/mkbm.py:413): decoded with replacement."""
+    a UTF-8 character (core/scripts/mkbm.py:413): decoded with replacement."""
     return raw.split(b"\0", 1)[0].decode("utf-8", errors="replace")
 
 
 def _fixed(text, n, what):
     """str -> char[n] with at least one NUL, never cutting (bmres cuts without
-    breaking UTF-8, scripts/bmres.py:122-130 _fixed; bm-forge refuses)"""
+    breaking UTF-8, core/scripts/bmres.py:122-130 _fixed; bm-forge refuses)"""
     b = text.encode("utf-8")
     need(len(b) <= n - 1 and b"\0" not in b, f"{what} {text!r} is {len(b)} bytes, at most {n - 1}", "header")
     return b.ljust(n, b"\0")
@@ -72,7 +72,7 @@ def _fixed(text, n, what):
 class Header:
     """The 128 bytes (bm.h:1-19). For a BMRES file `kind` replaces width
     (offset 12) and height is 0. `raw` keeps the bytes read: a rewrite keeps
-    every byte it does not change (like scripts/bmmesh.py:rewrite_cart)."""
+    every byte it does not change (like core/scripts/bmmesh.py:rewrite_cart)."""
     magic: bytes = MAGIC_CART
     width: int = 640
     height: int = 360
@@ -112,7 +112,7 @@ class Header:
 class Section:
     """One table entry {u32 type, u32 offset, u32 size, u32 reserved} and its
     body (unpadded). `type` is the canonical one (legacy 6-as-MESH -> 8, 7 -> 9,
-    scripts/bmmesh.py:cart_sections); `stored_type` is what the table said."""
+    core/scripts/bmmesh.py:cart_sections); `stored_type` is what the table said."""
     type: int
     body: bytes
     stored_type: Optional[int] = None
@@ -135,7 +135,7 @@ class Cart:
 
     def put(self, typ, body):
         """replace in place, or append at the end (bm_rewrite_with order,
-        src/bm/format.c:891-938)"""
+        core/src/bm/format.c:891-938)"""
         for s in self.sections:
             if s.type == typ:
                 s.body, s.stored_type = body, None
@@ -158,7 +158,7 @@ class Cart:
 
     def set_anim(self, anim, kernel_limits=False, keep_long_names=False):
         """an Anim with 0 rigs drops the section (bm-forge rule; bm Mesh writes
-        none too, carts/mesh/main.lua:468)"""
+        none too, bm/mesh/main.lua:468)"""
         if anim is None or not anim.rigs:
             self.drop(S.ANIM)
         else:
@@ -171,8 +171,8 @@ class Cart:
 # ------------------------------------------------------------------ reading
 
 def parse(data, allow_res=True, kernel_limits=False, deep=True):
-    """bytes -> Cart, checked. Port of parse() (src/bm/format.c:525-758) and
-    scripts/bmmesh.py:cart_sections. deep=False skips the per-section and
+    """bytes -> Cart, checked. Port of parse() (core/src/bm/format.c:525-758) and
+    core/scripts/bmmesh.py:cart_sections. deep=False skips the per-section and
     cross-section checks (only header, CRC, table)."""
     data = bytes(data)
     need(len(data) >= HEADER_SIZE, f"{len(data)} bytes, shorter than the {HEADER_SIZE}-byte header", "header")
@@ -205,7 +205,7 @@ def parse(data, allow_res=True, kernel_limits=False, deep=True):
         body = data[off:off + size]
         canon = typ
         if typ == S.AUDIO and not S.is_audio(body):
-            canon = S.MESH                       # legacy (src/bm/format.c:673-676)
+            canon = S.MESH                       # legacy (core/src/bm/format.c:673-676)
         elif typ == S.OLD_ANIM:
             canon = S.ANIM
         secs.append(Section(canon, body, typ, res))
@@ -216,7 +216,7 @@ def parse(data, allow_res=True, kernel_limits=False, deep=True):
 
 
 def validate(cart, kernel_limits=False):
-    """the checks of parse() after the table (src/bm/format.c:565-757) on a Cart"""
+    """the checks of parse() after the table (core/src/bm/format.c:565-757) on a Cart"""
     hd = cart.header
     kind = hd.kind if hd.is_res else 0
     seen, info = set(), {}
@@ -226,7 +226,7 @@ def validate(cart, kernel_limits=False):
             need(s.type not in seen, f"{S.sec_name(s.type)} twice (bm-forge refuses; C keeps the last)", w)
             seen.add(s.type)
         if kind and s.type in S.KNOWN:
-            need(s.type != S.LUA, "a resource file never holds code (src/bm/format.c:572)", w)
+            need(s.type != S.LUA, "a resource file never holds code (core/src/bm/format.c:572)", w)
             need(s.type in RES_ALLOWED[kind], "a section this kind of resource file does not have", w)
         if s.type == S.MESH:
             info[S.MESH] = meshmod.decode(s.body, kernel_limits)
@@ -234,33 +234,33 @@ def validate(cart, kernel_limits=False):
             info[S.ANIM] = animmod.decode(s.body, kernel_limits)
         elif s.type in S.SIMPLE:
             info[s.type] = S.SIMPLE[s.type](s.body, w)
-    need(not (S.SHEET in info and S.SHEET8 in info), "two sheets, SHEET and SHEET8 (src/bm/format.c:698)")
+    need(not (S.SHEET in info and S.SHEET8 in info), "two sheets, SHEET and SHEET8 (core/src/bm/format.c:698)")
     if S.LAYERS in info:
         lay, mp = info[S.LAYERS], info.get(S.MAP)
-        need(mp and (lay["w"], lay["h"]) == (mp["w"], mp["h"]), "LAYERS do not fit the MAP (src/bm/format.c:700)")
+        need(mp and (lay["w"], lay["h"]) == (mp["w"], mp["h"]), "LAYERS do not fit the MAP (core/src/bm/format.c:700)")
     sheet = info.get(S.SHEET) or info.get(S.SHEET8)
     zones = {}
     if S.SPRITES in info:
         sw, sh = (sheet["w"], sheet["h"]) if sheet else (0, 0)
         for z in info[S.SPRITES]["zones"]:
             need(z["x"] + z["w"] * max(z["frames"], z.get("slices", 0)) <= sw and z["y"] + z["h"] <= sh,
-                 f"sprite zone {z['name']!r} out of the sheet (src/bm/format.c:704-714)")
+                 f"sprite zone {z['name']!r} out of the sheet (core/src/bm/format.c:704-714)")
             zones[z["name"]] = z["frames"]
     if S.BOXES in info:
         for b in info[S.BOXES]["boxes"]:
             need(b["zone"] in zones and b["frame"] <= zones[b["zone"]],
-                 f"box of zone {b['zone']!r} frame {b['frame']} the sheet does not have (src/bm/format.c:716-732)")
+                 f"box of zone {b['zone']!r} frame {b['frame']} the sheet does not have (core/src/bm/format.c:716-732)")
     if S.ANIM in info:
         animmod.validate_links(info[S.ANIM], info.get(S.MESH))
     need_one = {0: (S.LUA,), RES_MODEL: (S.MESH,), RES_IMAGE: (S.SHEET, S.SHEET8), RES_SOUND: (S.AUDIO,),
                 RES_PALETTE: (S.SHEET8,), RES_KIT: (S.MESH, S.SHEET, S.SHEET8, S.AUDIO, S.MAP)}
     if kind == RES_MAP:
-        need(S.MAP in info and sheet, "a map file without MAP and its tiles (src/bm/format.c:747-749)")
+        need(S.MAP in info and sheet, "a map file without MAP and its tiles (core/src/bm/format.c:747-749)")
     else:
         need(any(t in info for t in need_one[kind]),
-             "no Lua section" if not kind else f"resource kind {kind} without its sections (src/bm/format.c:733-756)")
+             "no Lua section" if not kind else f"resource kind {kind} without its sections (core/src/bm/format.c:733-756)")
     if kind == RES_PALETTE:
-        need(info[S.SHEET8]["h"] == 1, "a palette is a SHEET8 of N x 1 pixels (src/bm/format.c:750-752)")
+        need(info[S.SHEET8]["h"] == 1, "a palette is a SHEET8 of N x 1 pixels (core/src/bm/format.c:750-752)")
     return info
 
 
@@ -269,13 +269,13 @@ def validate(cart, kernel_limits=False):
 def _header_bytes(hd, count, crc):
     """the 128 bytes: start from hd.raw (kept bytes) or zeros, then write each
     field whose value differs from what raw says (so an unchanged header stays
-    byte-identical, as in scripts/bmmesh.py:rewrite_cart)"""
+    byte-identical, as in core/scripts/bmmesh.py:rewrite_cart)"""
     out = bytearray(hd.raw if hd.raw else bytes(HEADER_SIZE))
     fresh = hd.raw is None
     need(len(out) == HEADER_SIZE, "raw header is not 128 bytes", "header")
     need(hd.magic in (MAGIC_CART, MAGIC_OLD, MAGIC_RES), f"bad magic {hd.magic!r}", "header")
     if fresh and hd.magic == MAGIC_OLD:
-        hd.magic = MAGIC_CART                   # writers always write BMCART (src/bm/format.c:953)
+        hd.magic = MAGIC_CART                   # writers always write BMCART (core/src/bm/format.c:953)
     out[0:8] = hd.magic
     if hd.is_res:
         need(RES_MODEL <= hd.kind <= RES_KIT, f"unknown resource kind {hd.kind}", "header")
@@ -302,8 +302,8 @@ def _header_bytes(hd, count, crc):
 
 def build(cart, check=True, kernel_limits=False):
     """Cart -> bytes: table then bodies one after the other, each padded with
-    zeros to 4 (src/bm/format.c:939-952, scripts/mkbm.py:400-407,
-    scripts/bmmesh.py:rewrite_cart); CRC of everything after the header.
+    zeros to 4 (core/src/bm/format.c:939-952, core/scripts/mkbm.py:400-407,
+    core/scripts/bmmesh.py:rewrite_cart); CRC of everything after the header.
     Legacy types are written as 8/9 (bm.h:77-79). check=True validates first."""
     if check:
         validate(cart, kernel_limits)
@@ -326,7 +326,7 @@ def new_cart(lua, width=640, height=360, title="", author=""):
 
 def edition_of(path):
     """'bm' (game), 'bme' (project), 'res' (BMRES) by extension
-    (src/bm/project.c:19-27)"""
+    (core/src/bm/project.c:19-27)"""
     ext = os.path.splitext(path)[1].lower()
     if ext in (".bm", ".bme"):
         return ext[1:]
@@ -359,7 +359,7 @@ def compat_block(targets, input_=0, aspect=0, needs=0, min_ram=0, min_spec=0, mi
 
 def check_path(path, cart):
     """the file name must match the bytes: .bm -> a cartridge resolution,
-    .bme -> project bit set, .bm -> bit clear (src/bm/project.c:19-27),
+    .bme -> project bit set, .bm -> bit clear (core/src/bm/project.c:19-27),
     resource extension -> its kind (bm-forge strict:
     C lets the kind win, docs/RISORSE.md:133-134)"""
     ed = edition_of(path)

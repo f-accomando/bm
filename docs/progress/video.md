@@ -5,8 +5,8 @@ Study: [video-feasibility-2026-10.md](../bench/video-feasibility-2026-10.md). PC
 ## Rules (do not break)
 * The Pi Zero W (RGB565, no 32-bit colour) is the benchmark.
 * Mali paths on the RGB30 stay untouched.
-* The first codec is MJPEG with `src/bm/jpeg.c` (baseline only). Then RLE+delta palette. MPEG-1 comes last.
-* `src/bm/jpeg.c` only decodes. The player reads the raw codecs and RLE565 (codec 4, lossless, intra only, see [BM-VIDEO.md](../BM-VIDEO.md)).
+* The first codec is MJPEG with `core/src/bm/jpeg.c` (baseline only). Then RLE+delta palette. MPEG-1 comes last.
+* `core/src/bm/jpeg.c` only decodes. The player reads the raw codecs and RLE565 (codec 4, lossless, intra only, see [BM-VIDEO.md](../BM-VIDEO.md)).
 * Any change of the RLE565 token format needs a new codec number. Keep the old one readable.
 
 The screen recorder was removed from the kernel on 2026-11-09. The full description, and the commit to build it again from, are in [video-recorder.md](../archive/video-recorder.md).
@@ -14,7 +14,7 @@ The screen recorder was removed from the kernel on 2026-11-09. The full descript
 ## Open work
 * VID-S3, VID-S4: done on the PC (see the spikes sheet).
 * VID-S1, VID-S2: done on the Pi Zero W (22 Oct, reports branch). SD write 2.50 MB/s mean, worst write 603 ms: **NO GO** for raw recording at 15 fps (needs 5.00 MB/s and 100 ms). SD read 5.14 MB/s. JPEG decode: 320x180 in 53 ms (under 66 ms: MJPEG at 15 fps is a go), 480x270 in 116 ms. The Video bench that took them was removed on 24 Oct 2026.
-* VID-FMT slice 1 is done: format [BM-VIDEO.md](../BM-VIDEO.md), reader `src/bm/vid.c`, tool `scripts/mkvid.py`, `jpeg_decode565` (RGB565 into a given buffer), `make test-vid`.
+* VID-FMT slice 1 is done: format [BM-VIDEO.md](../BM-VIDEO.md), reader `core/src/bm/vid.c`, tool `core/scripts/mkvid.py`, `jpeg_decode565` (RGB565 into a given buffer), `make test-vid`.
 * VID-FMT slice 2 is done: the Lua player ([api/video.md](../api/video.md)): `video_open`, `clip:info/frame_at/draw/close`. The clip stays whole in memory (48 MB at most) in `/bm/clips`. Test: `test_video_player`.
 * VID-FMT slice 3 is open: the clip's audio (a PCM stream voice in the mixer), clips inside the cartridge, a frame read on demand for long clips.
 * Decoder guard: `jpeg_decode565` checks the picture size against the buffer after the scan. A hostile frame that declares a huge size makes it allocate its planes first. Check the size from the SOF header before the scan.

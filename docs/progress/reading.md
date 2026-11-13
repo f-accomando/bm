@@ -8,10 +8,10 @@ A file read once in a session is not read again. Wide questions ("where is X use
 
 | File | Find | Then |
 |---|---|---|
-| `src/bm/runtime.c` | [runtime](runtime.md) | `Read` the stretch |
-| any `.c`/`.lua` file | `python scripts/cindex.py <file> [word]`: banners and functions with line | `Read` offset/limit |
-| `src/kernel/menu_ui.c`, `settings.c` | `Grep -n '"<visible text>"'` or `Grep -n '^static .*(' <file>` | ±60 lines |
-| `src/script/bm3d.lua`, `bmlib.lua`, `bmui.lua` | `Grep -n '^function\|^local function\|^P\.'` | the function |
+| `core/src/bm/runtime.c` | [runtime](runtime.md) | `Read` the stretch |
+| any `.c`/`.lua` file | `python core/scripts/cindex.py <file> [word]`: banners and functions with line | `Read` offset/limit |
+| `core/src/kernel/menu_ui.c`, `settings.c` | `Grep -n '"<visible text>"'` or `Grep -n '^static .*(' <file>` | ±60 lines |
+| `core/src/script/bm3d.lua`, `bmlib.lua`, `bmui.lua` | `Grep -n '^function\|^local function\|^P\.'` | the function |
 | any `docs/*.md`, `sdk/README.md` | `Grep -n '^#'` | the section |
 | `docs/ROADMAP.md` | `Grep -n '^## M47'` (milestone) or `'^## R'` (ideas) | the section |
 | API of a game function | `Grep -n '<name>' docs/api/` | the area file section |

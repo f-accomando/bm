@@ -17,7 +17,7 @@ Written to choose the menu resolution (M27, BareMetal UI).
   or 3 pages to draw without flicker.
 - The GPU scales that framebuffer up to the HDMI output mode, at no cost to the
   ARM.
-- The HDMI mode is in `boot/config.txt` *(D)*:
+- The HDMI mode is in `core/boot/config.txt` *(D)*:
   - `hdmi_group=1`, `hdmi_mode=16`: **1080p at 60 Hz** (1920×1080);
   - `scaling_kernel=8`: **sharp** scaling (solid pixels, no blur); `scaling_kernel=6` is the
     **soft** option, verified on the Pi;
@@ -34,7 +34,7 @@ Written to choose the menu resolution (M27, BareMetal UI).
 | `.bm` games | 640×360, 480×270 (M33) or 320×180 | 16 bit (RGB565) | 3 | 3×, 4× or 6× |
 | Square `.bm` games | 256×256 in the centre of 480×270 | 16 bit (RGB565) | 3 | 4× (1024×1024, black borders) |
 
-- The resolutions of `.bm` games are fixed by the format (`src/bm/format.c`):
+- The resolutions of `.bm` games are fixed by the format (`core/src/bm/format.c`):
   "resolution must be 640x360, 480x270, 320x180 or 256x256". 480×270 (M33) is the
   natural resolution for textured 3D in software: 2.25 times the pixels of 320×180,
   a little more than half of 640×360, and an integer scale on 1080p (4×).
@@ -117,7 +117,7 @@ the conditions of section 4.
 
 ## 6. Menu on the two systems (decision of 2026-10-04)
 
-- The menu is **a single one** (`src/kernel/menu_ui.c`) for the Pi and the RGB30: same bar, same
+- The menu is **a single one** (`core/src/kernel/menu_ui.c`) for the Pi and the RGB30: same bar, same
   covers and panels. The height is 360 for all; the width decides the columns.
 - **Pi, default** (`menu_scale=1` or no key): the 640×360 layout drawn by the ARM, enlarged by the HDMI scaler (no CPU cost).
 - **Pi, `menu_scale=2`, `3` or `4`** in `bm/config.txt` (Settings > Screen > Menu size): the GPU (V3D) draws the menu at 1280×720, 1920×1080 or (4) 640×360, 1:1, with 24x48 text at 1080p and no enlarge copy (1080p verified on Pi Zero W hardware, 24 Oct; 720p not yet). The ARM never enlarges the menu. If the GPU cannot start, the menu stays at 360p on the ARM.

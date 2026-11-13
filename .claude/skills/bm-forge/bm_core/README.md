@@ -15,8 +15,8 @@ ANIM (9) sections. Python >= 3.8, standard library only, no network. Formats:
 | `sections.py` | checks of LUA, SHEET, SHEET8, MAP, COVER, AUDIO (magic only), INFO, SPRITES, LAYERS, FLAGS, BOXES |
 | `mesh.py` | `Face`, `Model`, `Mesh`; `decode`, `encode`, `validate` (tool limits 4096/16384, `kernel_limits=True` for 65535) |
 | `anim.py` | `Bone`, `Pose`, `Key`, `Clip`, `Rig`, `Anim`; `decode`, `encode`, `validate`, `validate_links` |
-| `glb.py` | `.glb` -> `Mesh`, port of the glTF half of `scripts/bmmesh.py` |
-| `skin.py` | playback: `pose_at`, `skin` (port of `src/bm/runtime.c:2198-2321`), `playback()` -> per-frame bone matrices, posed bones, vertex bounds |
+| `glb.py` | `.glb` -> `Mesh`, port of the glTF half of `core/scripts/bmmesh.py` |
+| `skin.py` | playback: `pose_at`, `skin` (port of `core/src/bm/runtime.c:2198-2321`), `playback()` -> per-frame bone matrices, posed bones, vertex bounds |
 | `preview.py` | software rasterizer (flat light, z-buffer, back faces, SHEET/SHEET8 textures): `render_mesh`, `render_turntable`, `render_anim`, `anim_gif`, `texture_of` |
 | `gpuskin.py` | skins for the V3D mesh path: `gpu_report` (faces on 1, 2, 3 bones; plain, glossy, textured on 2), `two_bones_max` (a face on three bones -> two), `palette_joints` and `palette_image` (plain faces on two bones -> texels of a strip, for kernels before bm3d 7.33) |
 | `skelgen.py` | skeleton description (JSON) -> `Rig`: `skeleton`, `describe`; rigid binding `assign_vertices` (`nearest_bone`, `nearest_bone_part`), `bind`; `mirror_name` (bm Animator's) |
@@ -119,12 +119,12 @@ All in `export.py`; every function raises `ValidationError` on bad input.
 
 ## CLI
 
-`../scripts/bm_forge.py` wraps bm_core: subcommands `mesh`, `skel`, `anim`, `export`, `check`,
+`../core/scripts/bm_forge.py` wraps bm_core: subcommands `mesh`, `skel`, `anim`, `export`, `check`,
 `preview`, `doctor`. Usage, options and exit codes: `../references/CLI.md`.
 
 ## Tests
 
-From `.claude/skills/bm-forge` (on Windows, in WSL through `scripts/wsl-run.ps1`):
+From `.claude/skills/bm-forge` (on Windows, in WSL through `core/scripts/wsl-run.ps1`):
 
 ```sh
 python3 -m unittest discover tests/golden                  # all but the slow test
@@ -140,12 +140,12 @@ Goldens and how they were made: `../tests/golden/README.md`.
 
 bm_core is a port, so it drifts when these change:
 
-- `src/bm/bm.h` (layouts, limits, section types)
-- `src/bm/format.c` (the kernel's checks)
-- `scripts/bmmesh.py` (the Python writer bm_core mirrors)
-- `src/script/bm3d.lua` (the tools' encoders and the 4096/16384 limits)
-- `src/gpu/version3d.h` (`BM3D_VERSION`, recorded for information)
-- `src/bm/runtime.c`, `src/bm/r3d.c`, `carts/animator/main.lua` (whole-file hashes: any edit reports drift)
+- `core/src/bm/bm.h` (layouts, limits, section types)
+- `core/src/bm/format.c` (the kernel's checks)
+- `core/scripts/bmmesh.py` (the Python writer bm_core mirrors)
+- `core/src/script/bm3d.lua` (the tools' encoders and the 4096/16384 limits)
+- `core/src/gpu/version3d.h` (`BM3D_VERSION`, recorded for information)
+- `core/src/bm/runtime.c`, `core/src/bm/r3d.c`, `bm/animator/main.lua` (whole-file hashes: any edit reports drift)
 
 ```sh
 python3 -m bm_core.syncwatch check     # exit 1 + list on drift (also a test: test_syncwatch.py)

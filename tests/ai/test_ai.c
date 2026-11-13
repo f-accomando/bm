@@ -1,7 +1,7 @@
 /*
  * Host tests of the development assistant (M30): the C features and network
- * against the Python reference (scripts/mkassist.py --ref), the answers to
- * the held-out questions of src/ai/kb/tests.txt, the typo finder, and the
+ * against the Python reference (core/scripts/mkassist.py --ref), the answers to
+ * the held-out questions of core/src/ai/kb/tests.txt, the typo finder, and the
  * sprite generator.
  *
  *   test_ai build/assist.bin build/ai/ref.txt

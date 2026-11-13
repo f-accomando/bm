@@ -1,5 +1,5 @@
 /*
- * QPU programs (src/gpu/qpu.c, tools/qpuprogs.py) on the V3D emulator
+ * QPU programs (core/src/gpu/qpu.c, core/tools/qpuprogs.py) on the V3D emulator
  * (tests/gpu/v3d_emu.c): every program gives the ARM version's result
  * (particles to the bit, the fade exactly), a queue of requests runs in
  * batches, and a V3D that does not answer, or answers wrong, leaves the ARM

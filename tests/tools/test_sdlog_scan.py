@@ -1,4 +1,4 @@
-"""Tests for scripts/sdlog_scan.py."""
+"""Tests for core/scripts/sdlog_scan.py."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "sdlog_scan.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "sdlog_scan.py")
 
 CLEAN_BOOTPREV = """[0.000] boot: starting
 --- the run before ended cleanly, or the power went (no record in RAM); the last lines it printed (RAM) ---

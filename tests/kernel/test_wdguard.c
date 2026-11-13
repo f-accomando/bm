@@ -1,10 +1,10 @@
 /*
- * The main-loop guard of the watchdog (src/drivers/watchdog.h, SYS-2): the timer IRQ pets the
+ * The main-loop guard of the watchdog (core/src/drivers/watchdog.h, SYS-2): the timer IRQ pets the
  * watchdog only while the main code makes progress. The decision is watchdog_fresh(); this test
  * replays a boot and a hang with the real constant and a counter that wraps.
  */
-#include "../../src/drivers/mbox.h"
-#include "../../src/drivers/watchdog.h"
+#include "../../core/src/drivers/mbox.h"
+#include "../../core/src/drivers/watchdog.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,10 +77,10 @@ int main(void)
     /* the firmware that does not answer: one or two timeouts are not a verdict, three in a row are (6 s) */
     check(!mbox_is_dead(0) && !mbox_is_dead(1) && !mbox_is_dead(MBOX_DEAD_TIMEOUTS - 1), "one or two mailbox timeouts: alive");
     check(mbox_is_dead(MBOX_DEAD_TIMEOUTS) && mbox_is_dead(10), "three mailbox timeouts in a row: dead");
-    need_mark("src/kernel/fiber.c", "void fiber_slice(void)");
-    need_mark("src/net/net.c", "int net_wait_step(void)");
-    need_mark("src/net/netxfer.c", "static int keep_net(void)");
-    need_mark("src/wifi/wifi.c", "static int bp_mem(int write");
+    need_mark("core/src/kernel/fiber.c", "void fiber_slice(void)");
+    need_mark("core/src/net/net.c", "int net_wait_step(void)");
+    need_mark("core/src/net/netxfer.c", "static int keep_net(void)");
+    need_mark("core/src/wifi/wifi.c", "static int bp_mem(int write");
 
     printf("%d checks, %d failures\n", checks, fails);
     return fails ? 1 : 0;

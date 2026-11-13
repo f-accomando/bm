@@ -47,8 +47,8 @@ actually drawn** per frame.
 
 ## 3D Pipeline (software)
 
-The 3D is drawn by the GPU (V3D, M33: `src/gpu/gpu3d.c`) after the ARM has transformed,
-lit and clipped; the software rasterizer on the ARM (`src/bm/r3d.c`, described
+The 3D is drawn by the GPU (V3D, M33: `core/src/gpu/gpu3d.c`) after the ARM has transformed,
+lit and clipped; the software rasterizer on the ARM (`core/src/bm/r3d.c`, described
 below) remains with `gpu3d=0`, in QEMU, if the GPU does not respond and for what the GPU
 cannot do yet (shadows, 3D effects, dithering, textures with precomputed light).
 - per-vertex floating-point transform (VFP), camera with yaw/pitch and FOV;
@@ -215,7 +215,7 @@ costs almost nothing. Lua spheres now run on the GPU (193). On the ARM, compared
 ## How it ran on the Pi (removed)
 
 The kernel had a dedicated stress build (`make sdcard-stress`) and the monitor key `S`. Both were
-removed on 24 Oct 2026, with `src/bm/stress.c` and `carts/stress`. The 3D Bench (`docs/BENCH3D.md`)
+removed on 24 Oct 2026, with `core/src/bm/stress.c` and `bm/stress`. The 3D Bench (`docs/BENCH3D.md`)
 measures the same scenes now.
 
 ## The machine rows (M33)

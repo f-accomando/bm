@@ -1,4 +1,4 @@
-/* REFERENCE COPY of src/bm/snes_ppu.c before the speed work (2026-11-09). tests/snes/ppu_equiv.c checks that the fast PPU
+/* REFERENCE COPY of core/src/bm/snes_ppu.c before the speed work (2026-11-09). tests/snes/ppu_equiv.c checks that the fast PPU
  * makes the same picture. Do not edit; build with -Dppu_line=ppu_line_ref and the other renames (see the Makefile). */
 /*
  * snes_ppu.c: the picture of the Super Nintendo, a line at a time from the state of the registers at that

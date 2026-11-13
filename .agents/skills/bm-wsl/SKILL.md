@@ -1,23 +1,23 @@
 ---
 name: bm-wsl
-description: Runs bm builds, tests and host tools in WSL from Windows with a single fixed command (scripts/wsl-run.ps1), without rebuilding `wsl -e bash -c "cd /mnt/c/... && ..."` every time. Use it every time you need make, a test, build/host/*, python3 on repo files or a temporary script in WSL; from Windows it is the normal way.
+description: Runs bm builds, tests and host tools in WSL from Windows with a single fixed command (core/scripts/wsl-run.ps1), without rebuilding `wsl -e bash -c "cd /mnt/c/... && ..."` every time. Use it every time you need make, a test, build/host/*, python3 on repo files or a temporary script in WSL; from Windows it is the normal way.
 ---
 
 # bm-wsl: build and test in WSL, always the same way
 
 The repo is built and tested in WSL (Ubuntu, 8 cores). From Windows use **only**
-`scripts/wsl-run.ps1`: it enters the repo folder, converts the paths, keeps the last
+`core/scripts/wsl-run.ps1`: it enters the repo folder, converts the paths, keeps the last
 lines of output and returns the exit code of the command (not that of `tail`).
 
 ```powershell
-scripts/wsl-run.ps1 "make test-audio"                       # ultime 40 righe
-scripts/wsl-run.ps1 "make -j`$(nproc) build/kernel.img" -Tail 15
-scripts/wsl-run.ps1 "git status --short" -Tail 0            # tutto l'output
-scripts/wsl-run.ps1 "make test-riff" -Dir tests             # da una sottocartella
-scripts/wsl-run.ps1 -Script C:\percorso\scratchpad\t.sh test-riff   # script temporaneo + argomenti
+core/scripts/wsl-run.ps1 "make test-audio"                       # ultime 40 righe
+core/scripts/wsl-run.ps1 "make -j`$(nproc) build/kernel.img" -Tail 15
+core/scripts/wsl-run.ps1 "git status --short" -Tail 0            # tutto l'output
+core/scripts/wsl-run.ps1 "make test-riff" -Dir tests             # da una sottocartella
+core/scripts/wsl-run.ps1 -Script C:\percorso\scratchpad\t.sh test-riff   # script temporaneo + argomenti
 ```
 
-From the Bash tool: `powershell -NoProfile -File scripts/wsl-run.ps1 "<comando>"`.
+From the Bash tool: `powershell -NoProfile -File core/scripts/wsl-run.ps1 "<comando>"`.
 
 ## Rules (from CLAUDE.md)
 

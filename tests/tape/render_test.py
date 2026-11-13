@@ -2,9 +2,9 @@
 """
 render_test.py - the bm Tape cartridge in bmhost: pictures of the thirteen pages and the eight engines, keys, the error path.
 
-  python3 tests/tape/render_test.py build/host/bmhost-bin build/carts/tape.bm
+  python3 tests/tape/render_test.py build/host/bmhost-bin build/bm/tape.bm
 
-bmhost runs the engine (src/bm/bmnative.c emulates ARMv6 on the PC), so native_run executes here.
+bmhost runs the engine (core/src/bm/bmnative.c emulates ARMv6 on the PC), so native_run executes here.
 Checks: the run ends without a Lua error; each of the 20 pictures (thirteen pages, the other seven engines) is not blank, holds
 the four encoder colours in the inspector and shows no engine error; the pictures differ; PREVIEW is on the DJ page
 only; the pattern letter and PAT / SONG are on the status strip and change with ; ' and P; the TAPE keys T, Backspace and
@@ -275,9 +275,9 @@ def main():
         '\nlocal smp = audio_samples()\nlog("TAPE_SAMPLES " .. #smp .. " " .. (smp[1] and smp[1].name or "") .. " "'
         ' .. (smp[24] and smp[24].name or ""))\n')
     open(tmp + "/samples.lua", "w").write(lua)
-    subprocess.check_call([sys.executable, ROOT + "/scripts/mkbm.py", "-o", tmp + "/samples.bm", "--lua", tmp + "/samples.lua",
+    subprocess.check_call([sys.executable, ROOT + "/core/scripts/mkbm.py", "-o", tmp + "/samples.bm", "--lua", tmp + "/samples.lua",
                            "--sheet", ROOT + "/build/tape/sheet.png", "--sheet8", "--audio", ROOT + "/build/tape/bank.json",
-                           "--info", ROOT + "/carts/tape/bm.info"], stdout=subprocess.DEVNULL)
+                           "--info", ROOT + "/bm/tape/bm.info"], stdout=subprocess.DEVNULL)
     open(tmp + "/samples.txt", "w").write(script(key(10, MOD[0])))
     p = subprocess.run([host, tmp + "/samples.bm", "--input", tmp + "/samples.txt", "--seconds", "1"], capture_output=True, text=True)
     code, out = p.returncode, p.stdout + p.stderr
@@ -289,8 +289,8 @@ def main():
     check("error path: the test finds engine.b in main.lua", "function euclid(k: i32" in bad)
     bad = bad.replace("function euclid(k: i32", "function euclid(k: str")
     open(tmp + "/main.lua", "w").write(bad)
-    subprocess.check_call([sys.executable, ROOT + "/scripts/mkbm.py", "-o", tmp + "/bad.bm", "--lua", tmp + "/main.lua",
-                           "--sheet", ROOT + "/build/tape/sheet.png", "--sheet8", "--info", ROOT + "/carts/tape/bm.info"],
+    subprocess.check_call([sys.executable, ROOT + "/core/scripts/mkbm.py", "-o", tmp + "/bad.bm", "--lua", tmp + "/main.lua",
+                           "--sheet", ROOT + "/build/tape/sheet.png", "--sheet8", "--info", ROOT + "/bm/tape/bm.info"],
                           stdout=subprocess.DEVNULL)
     badscript = script(key(30, MOD[2]) + key(40, SPACE) + key(50, KEY_U) + ["80 shot bad"])
     code, out = run(host, tmp + "/bad.bm", badscript, tmp + "/badshots", 2)

@@ -1,6 +1,6 @@
 # Aligning the RGB30 kernel (kernel8) with the Pi kernel
 
-State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1, B2 and B3: D03, D05, D14, D15, D17, D24 and the spec folders-bm-bme; after the answers of 25 Oct, 5: D03, D05, D15, D17 and folders-bm-bme).
+State of 25 Oct 2026, checked against the code. Policy (user, 25 Oct, `docs/spec/CONSISTENCY.md`): the Pi Zero is the template. Port what the RGB30 lost. Keep what the RGB30 needs to be different (the square 360x360 screen, the pad and no keyboard, multicore multitasking). Decide each divergence one by one. The list is `docs/spec/divergences.toml`; the gate is `python3 core/scripts/consistency.py gate` (12 blockers on 25 Oct before B1; after B1, B2 and B3: D03, D05, D14, D15, D17, D24 and the spec folders-bm-bme; after the answers of 25 Oct, 5: D03, D05, D15, D17 and folders-bm-bme).
 
 Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason in `note` and use `cause = "hardware"`), DROP (gone from both), ASK (a product decision of the user).
 
@@ -8,11 +8,11 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 
 | Id | Area | Pi | RGB30 now | Class | Action | Size | Check |
 |---|---|---|---|---|---|---|---|
-| D03 | players | 4 BT pads plus USB (`src/usb/hid.c:445`, `src/kernel/input.c:225`) | all pads merge into player 1 (`src/rgb30/bm_input.c:95-103`); Settings shows "Player 1" only | ASK 1 | port the Pi slots: built-in pad is P1, BT pads P2-4 | S-M | device; host test of the merge |
-| D05 | menu pointer | mouse block in the menu (`src/kernel/carts.c`) | no pointer in `src/rgb30/ui.c`, but Settings shows the Mouse rows | ASK 2 | port the pointer block (`pointer.c` is built) or hide the rows | M / S | QEMU, device |
-| D10 | covers | background fiber job, visible covers first (`src/kernel/library.c`, shared by both menus since 25 Oct) | the same job (`lib_covers_tick`); a placeholder until the cover is read | done 25 Oct (QEMU) | the header read stays in the scan (the sort needs titles); the job stops before a game starts | M | QEMU; load time on the device |
+| D03 | players | 4 BT pads plus USB (`core/src/usb/hid.c:445`, `core/src/kernel/input.c:225`) | all pads merge into player 1 (`core/src/rgb30/bm_input.c:95-103`); Settings shows "Player 1" only | ASK 1 | port the Pi slots: built-in pad is P1, BT pads P2-4 | S-M | device; host test of the merge |
+| D05 | menu pointer | mouse block in the menu (`core/src/kernel/carts.c`) | no pointer in `core/src/rgb30/ui.c`, but Settings shows the Mouse rows | ASK 2 | port the pointer block (`pointer.c` is built) or hide the rows | M / S | QEMU, device |
+| D10 | covers | background fiber job, visible covers first (`core/src/kernel/library.c`, shared by both menus since 25 Oct) | the same job (`lib_covers_tick`); a placeholder until the cover is read | done 25 Oct (QEMU) | the header read stays in the scan (the sort needs titles); the job stops before a game starts | M | QEMU; load time on the device |
 | D14 | DMA test | Settings > System > Utilities | not built | dropped 25 Oct (removed) | note: the DMA test exercises the BCM2835 DMA engine; capability `soc-dma` in `platforms.toml` | S | `consistency.py check` |
-| D15a | Settings > System "3D driver" row | shows the bm3d version | missing | done 25 Oct (QEMU) | row from the backend text of `src/rgb30/bm_port.c` | S | QEMU screen text |
+| D15a | Settings > System "3D driver" row | shows the bm3d version | missing | done 25 Oct (QEMU) | row from the backend text of `core/src/rgb30/bm_port.c` | S | QEMU screen text |
 | D15b | CPU clock and temperature | `prop_query` | CPU name only | ASK 9 | read the RK3566 TSADC and the clock | M | device |
 | D17 | WiFi password | typed on a keyboard | `config.txt` only | PORT (blocked) | after the on-screen keyboard (R1, R2) | L | QEMU, device |
 | D23 | 3D on the GPU | V3D | `mali3d=1` path exists | done 25 Oct: closed, merged into D45 | close D23 as merged into D45 | L | device |
@@ -50,10 +50,10 @@ Classes: PORT (the RGB30 gets what the Pi has), KEEP (a need: write the reason i
 
 ## Game library (25 Oct 2026, QEMU only)
 
-The Pi menu and the RGB30 menu share one game library: `src/kernel/library.c` and `library.h` (decision D2: this place; decision D3:
+The Pi menu and the RGB30 menu share one game library: `core/src/kernel/library.c` and `library.h` (decision D2: this place; decision D3:
 the RGB30 menu behaviour may change in the merge). The functions that existed twice are now one:
 
-| Was in `carts.c` and `src/rgb30/ui.c` | Now in `library.c` |
+| Was in `carts.c` and `core/src/rgb30/ui.c` | Now in `library.c` |
 |---|---|
 | `title_cmp`, `same_text` / `same_ci` | `lib_text_cmp`, `lib_same_text`, `lib_title_cmp` |
 | `scan_dir`, `read_header` / `load_head`, the covers kept by `rescan` | `lib_scan`, `lib_add_builtin` |
@@ -96,18 +96,18 @@ launch step on the Pi); the main loops (`carts_menu` with the steps `cm_*`, `ui_
 
 Settings: `settings.c` asks the console through small functions (`home_wireless`, `home_restart`, `home_poweroff`,
 `home_poweroff_help`, `home_poweroff_detail`, `home_test_help`, `home_connect_help`, `home_controls_changed`, `home_has_battery`),
-defined in `home.c` and `src/rgb30/ui.c`. The `BM_RGB30` blocks of `settings.c`: 42 before, 31 after.
+defined in `home.c` and `core/src/rgb30/ui.c`. The `BM_RGB30` blocks of `settings.c`: 42 before, 31 after.
 
 ## Decisions of the user (one line each, recommended default in brackets)
 
 1. D03 players on the RGB30: PORT the Pi slots (built-in pad is P1, BT pads P2-4). D03 stays open. The code is a later work order.
 2. D05 menu pointer: PORT the pointer block to the RGB30 menu. D05 stays open. The code is a later work order.
-3. D22, D48, D54 monitor: after v1.0.0. The cause stays `hardware` for now. The shared command core is `src/kernel/monitor_cmd.c`.
-4. D14 DMA test: REMOVE it from the Pi too. The driver `src/drivers/dma.c` stays (the framebuffer, the audio and the runtime use it). D14 closes as dropped. Done 25 Oct 2026. The code removed: `src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs.
+3. D22, D48, D54 monitor: after v1.0.0. The cause stays `hardware` for now. The shared command core is `core/src/kernel/monitor_cmd.c`.
+4. D14 DMA test: REMOVE it from the Pi too. The driver `core/src/drivers/dma.c` stays (the framebuffer, the audio and the runtime use it). D14 closes as dropped. Done 25 Oct 2026. The code removed: `core/src/kernel/dmatest.c` and `dmatest.h`, the Settings > System > Utilities row, the Monitor `bench dma` (`D`) command, the QEMU test `test_dma`, the docs.
 5. D24 Overbit: removed from the divergences. It is in the game backlog (`docs/progress/graphics-mali.md`, `docs/progress/overbit.md`).
 6. D11 Publish on the RGB30: stays off (owner decision of 22 Oct). D11 is accepted.
 7. Utility cartridges: in the Dev tab on both kernels.
-8. `/carts` folder: both kernels stop scanning `/carts` now (done 25 Oct: `carts.c`, `src/rgb30/ui.c`, and every writer of games moved to `/bm`). `/glb` and `/bmm` move to APP-9: they stay `/glb` and `/bmm`, the folders APP-9 defines (`docs/progress/tools.md`); the menus never listed them.
+8. `/carts` folder: both kernels stop scanning `/carts` now (done 25 Oct: `carts.c`, `core/src/rgb30/ui.c`, and every writer of games moved to `/bm`). `/glb` and `/bmm` move to APP-9: they stay `/glb` and `/bmm`, the folders APP-9 defines (`docs/progress/tools.md`); the menus never listed them.
 9. D15b CPU clock and temperature on the RGB30: PORT (the RK3566 TSADC and the clock readback, device-tested; a later work order).
 10. D17 WiFi password typing: wait for the on-screen keyboard (R1, R2).
 

@@ -1,9 +1,9 @@
-"""Tests for scripts/ledger_add.py: runs the script as a subprocess on a temp ledger."""
+"""Tests for core/scripts/ledger_add.py: runs the script as a subprocess on a temp ledger."""
 import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-ADD = os.path.join(ROOT, "scripts", "ledger_add.py")
-AUDIT = os.path.join(ROOT, "scripts", "agent_audit.py")
+ADD = os.path.join(ROOT, "core", "scripts", "ledger_add.py")
+AUDIT = os.path.join(ROOT, "core", "scripts", "agent_audit.py")
 HEADER = "# date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs"
 BASE = ["--agent", "general-purpose", "--model", "sonnet", "--task", "review X",
         "--area", "sync", "--tokens", "100", "--tools", "7", "--secs", "66",
@@ -130,7 +130,7 @@ class LedgerAddTest(unittest.TestCase):
             fh.write(text)
         return rp
 
-    REPORT = ("DONE\nrow:\n`python scripts/ledger_add.py --agent bm-runner --model sonnet "
+    REPORT = ("DONE\nrow:\n`python core/scripts/ledger_add.py --agent bm-runner --model sonnet "
               "--task \"fix a b\" --area tools --outcome DONE --tokens 0 --tools 3 --secs 9 --no-write`\n")
 
     def test_from_report_with_measured_counts_override(self):

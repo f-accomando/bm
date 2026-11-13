@@ -9,7 +9,7 @@ CPU, not the time on the Pi.
     tests/bm/count_insns.py [SCENE ...]      default: the main scenes
     tests/bm/count_insns.py --hot SCENE      the 30 busiest instructions
 
-A scene named SCENE+gpu is drawn by the GPU backend (src/gpu/gpu3d.c) on
+A scene named SCENE+gpu is drawn by the GPU backend (core/src/gpu/gpu3d.c) on
 the V3D emulator (tests/gpu/v3d_emu.c, not counted): the ARM's share of
 the 3D with the GPU; SCENE+vs with the vertex shader placing every model
 (bm3d 3.0). Its counts are those of a second frame (two frames minus one), when
@@ -60,16 +60,16 @@ int main(void)
 
 def build(tmp, gpu):
     exe = os.path.join(tmp, "bench3d.arm")
-    src = [os.path.join(ROOT, p) for p in ("tests/bm/bench3d.c", "src/bm/gfx16.c", "src/bm/r3d.c")]
-    inc = ["-I" + os.path.join(ROOT, "src"), "-I" + os.path.join(ROOT, "tests/gpu")]
+    src = [os.path.join(ROOT, p) for p in ("tests/bm/bench3d.c", "core/src/bm/gfx16.c", "core/src/bm/r3d.c")]
+    inc = ["-I" + os.path.join(ROOT, "core", "src"), "-I" + os.path.join(ROOT, "tests/gpu")]
     subprocess.run([CC, *CFLAGS, *inc, "-o", exe, *src, "-lm"], check=True)
     if not gpu:
         return exe, build_hist(tmp)
     # with the GPU backend: its memory from the emulator's arena, as in make test-gpu3d
     gobj = os.path.join(tmp, "gpu3d.o")
     subprocess.run([CC, *CFLAGS, *inc, "-Daligned_alloc=test_aligned_alloc", "-Dfree=test_free", "-c",
-                    os.path.join(ROOT, "src/gpu/gpu3d.c"), "-o", gobj], check=True)
-    gsrc = src + [os.path.join(ROOT, p) for p in ("tests/gpu/v3d_emu.c", "src/gpu/v3d_cl.c")]
+                    os.path.join(ROOT, "core/src/gpu/gpu3d.c"), "-o", gobj], check=True)
+    gsrc = src + [os.path.join(ROOT, p) for p in ("tests/gpu/v3d_emu.c", "core/src/gpu/v3d_cl.c")]
     subprocess.run([CC, *CFLAGS, *inc, "-DBENCH_GPU", "-o", exe + "-gpu", *gsrc, gobj, "-lm"], check=True)
     return exe, build_hist(tmp)
 

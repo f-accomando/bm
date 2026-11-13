@@ -30,7 +30,7 @@ make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): the SD ima
 
 - Compiler: `aarch64-linux-gnu-gcc` (Ubuntu's) with **picolibc** instead of newlib
   (Ubuntu has no newlib for aarch64). Ubuntu's "Linux" options (PIE, stack protector,
-  fortify, branch protection, outline atomics) are turned off in `rgb30.mk`.
+  fortify, branch protection, outline atomics) are turned off in `core/rgb30.mk`.
 - `PLAT=rk3566` (default) is the console; `PLAT=virt` is QEMU (`-M virt,gic-version=3 -cpu
   cortex-a55`, PL011 serial, ramfb screen, SD as a RAM disk). The two builds differ only
   in the `plat_*.c` / `rk_*.c` files and in the link address.
@@ -45,7 +45,7 @@ make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): the SD ima
      and Rockchip's BL31. It is the same bootloader the console already uses with ROCKNIX;
    - the Bluetooth firmware `rtl8821cs_fw.bin` / `rtl8821cs_config.bin` from linux-firmware.
 
-   Every file is checked against its SHA-256 (`scripts/fetch-rgb30.sh`).
+   Every file is checked against its SHA-256 (`core/scripts/fetch-rgb30.sh`).
 2. `make TARGET=rgb30 image` creates `dist/rgb30/bm-rgb30.img` (256 MB; 1.1 MB compressed): MBR with
    one 16 MB FAT32 partition "BM", active, containing `extlinux/extlinux.conf`,
    `kernel8.img`, `LEGGIMI.txt` and `bm/` with the Bluetooth firmware.
@@ -56,7 +56,7 @@ make TARGET=rgb30 image        # dist/rgb30/bm-rgb30.img (+ .img.gz): the SD ima
    U-Boot shuts down again).
 5. Updating bm: Windows sees the "BM" partition as a drive with that name; just copy
    `dist/rgb30/sd/` onto it (`make TARGET=rgb30 sdcard`). From WSL `make TARGET=rgb30 sdcard
-   SD=/mnt/<letter>` copies by itself (`scripts/copy-sd-rgb30.sh`) and, if it cannot, says why:
+   SD=/mnt/<letter>` copies by itself (`core/scripts/copy-sd-rgb30.sh`) and, if it cannot, says why:
    drive not mounted in WSL (with the `mount -t drvfs` command to mount it), mounted for
    root only, SD adapter locked, or it is not the RGB30's card. `bm/config.txt` on the card
    stays as it is (it is replaced only with `RGB30_CONFIG=file`).
@@ -67,7 +67,7 @@ Do not format or repartition the card: the bootloader sits before the partition.
 
 Boot ROM → `idbloader.img` (DDR, SPL) → `u-boot.itb` (BL31, U-Boot) → `bootflow scan` →
 `/extlinux/extlinux.conf` on the first partition of the SD in TF1 → `booti kernel8.img`. The
-kernel has the arm64 Image header (`src/rgb30/start.S`): U-Boot loads it at
+kernel has the arm64 Image header (`core/src/rgb30/start.S`): U-Boot loads it at
 0x02000000 and starts it at **EL2**, MMU and caches off, `x0` = device tree. `start.S` moves itself to
 its link address (0x10000000), drops to EL1 and calls `kernel_main`.
 
@@ -76,12 +76,12 @@ its link address (0x10000000), drops to EL1 and calls `kernel_main`.
 | LED | Meaning |
 |---|---|
 | red on | booting (stuck like this: the kernel hung early) |
-| solid green | bm is running and nothing is wrong (since 2026-10-04: `src/kernel/ledstate.c`) |
+| solid green | bm is running and nothing is wrong (since 2026-10-04: `core/src/kernel/ledstate.c`) |
 | green blinking slowly (1 s on, 1 s off) | something else: boot not finished, the SD is missing or unreadable, the battery is low (below 3.50 V at rest, without charger), a kernel is arriving or an update is being installed |
 | solid red + green blinking | the screen had problems: read `bm/bootlog.txt` |
 | red blinking N times, pause | fatal exception N (1 synchronous, 4 SError, 9 panic) |
 
-At boot the screen shows the bm logo (`src/kernel/splash.c`); what the kernel writes
+At boot the screen shows the bm logo (`core/src/kernel/splash.c`); what the kernel writes
 goes to the console (behind), the serial port, `bm/bootlog.txt` and *Settings > System > Log since
 boot*.
 
@@ -125,7 +125,7 @@ RGB, no sound). Unplug it: the external output stops and the panel comes back. T
 cable pin every 250 ms and acts after two equal reads. At boot, a cable already plugged in makes the
 external screen the first one (`display: HDMI starting`, then `HDMI on` or `HDMI failed`). A cable
 that fails to start is not tried again until it is unplugged; the panel stays on in that case.
-Code: `src/rgb30/rk_hdmi.c` (the transmitter and its PHY), `src/rgb30/rk_display.c` (the video
+Code: `core/src/rgb30/rk_hdmi.c` (the transmitter and its PHY), `core/src/rgb30/rk_display.c` (the video
 controller port VP0, the pixel clock, the switch).
 Keys of `bm/config.txt`: `hdmi=0` keeps the panel and ignores the cable. If the external image has
 wrong colours (red and green swapped), set `hdmi_swap=1`. If it is shifted, set `hdmi_origin=1`.
@@ -179,14 +179,14 @@ was powered on again `bootprev.txt` has the log of the black boot.
   press the button in the same position (the DS4's cross is B, the keyboard's space too).
 - SD: SDMMC0 controller (DesignWare MSHC) in PIO, 4 bit, 12 MHz; FAT from the Pi code.
 - RK817 PMIC on I2C0: power-off, battery voltage, charge status.
-- Video modes ready for the GPU (`src/rgb30/display.h`): every framebuffer has the shape the
+- Video modes ready for the GPU (`core/src/rgb30/display.h`): every framebuffer has the shape the
   Mali-G52 GPU wants in order to draw into it (rows aligned to 64 bytes, height in 16-pixel tiles,
   pages on 64 KB boundaries, up to 3 pages) in video and GPU memory, with its physical
   address (`fb->bus`). The video controller scales the image onto the panel: a game can
   draw at 720×720 or at 360×360 shown ×2 (a quarter of the pixels for the GPU), sharp or
   smoothed; the menu is 360×360 ×2. **Display** page in the menu: the modes one after another
   with a test image (borders, tile grid, colour bars).
-- **Mali-G52 GPU, first step of the driver** (bm3d 6.0; `src/rgb30/mali.c`; the *Dev > GPU test* page was removed on 24 Oct 2026,
+- **Mali-G52 GPU, first step of the driver** (bm3d 6.0; `core/src/rgb30/mali.c`; the *Dev > GPU test* page was removed on 24 Oct 2026,
   `mali3d=1` runs the same probe):
   only when asked for (boot does not touch the GPU), one step at a time: vdd_gpu on (RK817 DCDC2, otherwise it stops at once), clocks of the
   PD_GPU domain (CRU) and domain on (PMU, like Linux's domains), GPU_ID and present parts, reset,
@@ -197,7 +197,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   draws that clears a 64×64 surface (checked pixel by pixel) and a **green square
   at the top right** of the screen: if it shows, the GPU wrote the pixels. After the clear the test also tries a **triangle** (a Vertex,
   a Tiler and a Fragment job into a 96×96 square under the green one, with Bifrost shaders made by
-  Mesa's compiler, `tools/mali/`): written, not yet run on the console; its lines in the report say
+  Mesa's compiler, `core/tools/mali/`): written, not yet run on the console; its lines in the report say
   what the vertex job wrote and the pixels inside and outside the triangle. On the 21 Oct run the jobs
   failed with `JS_STATUS 58`; if the base jobs fail, the test now tries 8 variants and logs `mali: variant N <name>: ok`
   or its status (see `docs/progress/graphics-mali.md`). **Tested on the PC**
@@ -206,23 +206,23 @@ was powered on again `bootprev.txt` has the log of the black boot.
   **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
-- **bm SDK (RGB30)** (`carts/sdk_b16`): the SDK's own version for 360×360 and the pad
-  ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`rgb30.mk`,
-  `src/rgb30/bm_embed.S`, about 164 KB), not in the Market. The **Dev** tab opens it as a tool
-  (the Pi's tool session, `src/kernel/devtool.c`), and a game's options (X) have **Open in bm
+- **bm SDK (RGB30)** (`bm/sdk_b16`): the SDK's own version for 360×360 and the pad
+  ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`core/rgb30.mk`,
+  `core/src/rgb30/bm_embed.S`, about 164 KB), not in the Market. The **Dev** tab opens it as a tool
+  (the Pi's tool session, `core/src/kernel/devtool.c`), and a game's options (X) have **Open in bm
   SDK**: it saves its projects where they are (a game: the console asks and makes its editable
   copy next to it), builds a project's game next to it and tries it (F5: the game plays, Start +
   Select leaves it, the SDK comes back with the run's numbers). The Pi's other tools are not in
   this kernel and it does not offer them. Tests: `make test-sdk-b16` (PC), `test_sdk_tool`
   (QEMU); **to be tested on the console.**
 - 360×360 menu scaled ×2 (fills the panel): since 2026-10-04 it is **the same as the Pi's**
-  (`src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
+  (`core/src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
   row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off
   screen to the left until it is the current tab: the same Market as the Pi, but only the
   catalogue's games; B asks and downloads, the game goes into `bm/` and is played from there, X the details:
   play, download again, delete), **Games** (the `.bm` games, with their
   cover; **X** opens a game's options, the Pi's C: play, open in bm SDK, send to a nearby console, type, size, author, save data and deleting it, deleting the file), **Dev** (the bm SDK, then the installed tools: the cartridges whose header says type app or utility, which start with no splash; the 3D Bench is in Settings > Screen and the Render bench in Settings > System > Utilities; the Lua prompt is on the serial port) and **Settings**, the last, a page of its own:
-  since 2026-10-04 the same sections as the Pi (`src/kernel/settings.c`): Controllers
+  since 2026-10-04 the same sections as the Pi (`core/src/kernel/settings.c`): Controllers
   (Bluetooth, pairing pads, keyboards and mice, button test, *Confirm button*, keyboard
   layout, icons), WiFi and network (saved network, address, network console, connecting,
   *Test the connection*), Screen (the screen modes, the
@@ -231,7 +231,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   the covers and rows, **B** opens and **A** goes back (`confirm=a` swaps them, in the
   hints too). The button icons, in the menu, in the hints, in the system dialogs and in
   apps (`prompt()`), are the console's (2026-10-10): a dark button with the letter in its
-  colour, A green, B blue, X red, Y yellow (`PROMPT_RGB30_*` in `src/kernel/prompts.c`; from Lua
+  colour, A green, B blue, X red, Y yellow (`PROMPT_RGB30_*` in `core/src/kernel/prompts.c`; from Lua
   also `"RGB30_A"`…`"RGB30_Y"`). The icon of the confirm button is that of the physical button
   (B, or A with `confirm=a`); after a Bluetooth pad the apps show its own. On the right of the bar only the network and the **battery** (since 2026-10-05; no icons
   for controllers, mice and keyboards, user decision): four
@@ -241,31 +241,31 @@ was powered on again `bootprev.txt` has the log of the black boot.
   also shown in *Settings > System > Battery*. Off the charger, 30 s at 0% switch the console off
   (about 3.3 V under 700 mA, never in the middle of a write to the card). On the charger the
   percentage is only an indication. The lightning bolt follows the cable at once (2026-10-10: the RK817
-  bit read 4 times a second, `src/rgb30/battery.c`; before, everything every 10 s). At 20% or
+  bit read 4 times a second, `core/src/rgb30/battery.c`; before, everything every 10 s). At 20% or
   less, off the charger, a small red battery also appears over games and tools
   (top right; *Settings > Screen > Low battery icon* turns it off); in Lua
   `battery()` and `battery_low()`. The lines that do work (pairing, connecting, updating, bench, log) still write
   to the text console.
-- **Lock screen** (*Settings > Screen > Lock screen*, `lock_screen=1`, off by default; `src/rgb30/ui.c`): in the menu only,
+- **Lock screen** (*Settings > Screen > Lock screen*, `lock_screen=1`, off by default; `core/src/rgb30/ui.c`): in the menu only,
   never in a game or an application. After 60 s without a button, or at once with the power key, the backlight goes out
   (the battery saver). Any button pressed 3 times unlocks it: the same button, each press within 6 s of the one before.
   A press or the power key lights the screen at 25% for 6 s: the bm logo, "Press a button three times to unlock" and three
   places that fill with the chips of the buttons pressed. The power key is bit 7 of the RK817 register 0xf0 (low while held).
-- **3D Bench** (Dev tab, `src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
-  (`src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM; with `mali3d=1` the GPU
+- **3D Bench** (Dev tab, `core/src/rgb30/b3d_rgb30.c`): the same test bench as the Pi
+  (`core/src/bm/b3d.c`), at 640×360 scaled onto the panel; all 3D tests drawn by the ARM; with `mali3d=1` the GPU
   profile runs flat-colour scenes on the Mali (written, not verified on hardware), the other rows stay empty, the Cortex-A55 counters
   (instructions, L1 data cache misses, cycles; `start.S` leaves them to EL1 with `MDCR_EL2.HPMN`), the
   report in `bm/bench/3dnnnn.txt` on the SD and on the serial port. Left/right page through the
   result pages, the back button (A) returns to the menu. In QEMU it takes about 40 s
   (`test_bench3d`).
-- Bluetooth: RTL8821CS on UART1, H5 protocol (`src/bt/h5.c`) and Realtek firmware
-  (`src/bt/rtlbt.c`), then the same stack as the Pi (controllers and keyboards). H5 and firmware **tested
+- Bluetooth: RTL8821CS on UART1, H5 protocol (`core/src/bt/h5.c`) and Realtek firmware
+  (`core/src/bt/rtlbt.c`), then the same stack as the Pi (controllers and keyboards). H5 and firmware **tested
   on the PC** against a simulated chip (`make TARGET=rgb30 test-bt`); **to be tested on the console.**
 - WiFi (RTL8821CS over SDIO, port of rtw88): power-up, firmware, MAC from the efuse, MAC/BB/RF tables,
   channels and power, IQK calibration; **scan** (probe requests and listening on channels 1-13; on
   screen the packets per channel and the replies to our MAC, which prove transmission);
   **connection** to open and WPA2-PSK networks (authentication, association, 4-way handshake and
-  group key renewal in software, `src/rgb30/wpa.c`; the keys in the chip's CAM, which
+  group key renewal in software, `core/src/rgb30/wpa.c`; the keys in the chip's CAM, which
   encrypts and decrypts in CCMP); 802.11 ↔ Ethernet data for **lwIP** (DHCP, network console, sending
   files: the same as M18); the connection is monitored through beacons (8 s without: lost) and
   deauths. 2.4 GHz, up to 54 Mbit/s (no 802.11n for now). **Tested on the PC** with a simulated chip and two
@@ -276,8 +276,8 @@ was powered on again `bootprev.txt` has the log of the black boot.
 
 Since 2026-10-05 (branch `claude/rgb30-audio`, verified on the console and merged on 2026-10-06) the
 RGB30 plays like the Pi: the same 8-voice
-synthesiser, the games' banks, music, effects and nano8 (`src/audio/audio.c`). The output is
-`src/rgb30/rk_audio.c`: the RK3566's I2S1 sends 48 kHz 16-bit to the codec inside the RK817 (the
+synthesiser, the games' banks, music, effects and nano8 (`core/src/audio/audio.c`). The output is
+`core/src/rgb30/rk_audio.c`: the RK3566's I2S1 sends 48 kHz 16-bit to the codec inside the RK817 (the
 battery chip), which plays through the **headphones** or the **speaker**: when the headphones
 are plugged in the console switches to them by itself, and the headphones are mono. The values come from Linux
 (device tree `rk3566-powkiddy-rk2023.dtsi`, drivers `rockchip_i2s_tdm.c` and `rk817_codec.c`).
@@ -299,10 +299,10 @@ are plugged in the console switches to them by itself, and the headphones are mo
 
 The Games tab lists the
 `.bm` cartridges in `bm/` and **launches** them. The **Market** lists one entry per game id (a `.bm`). A cartridge not made for the RGB30 shows a faded cover (colour change and vignette, drawing kept). Play asks "This edition is for the Pi" with OK and Cancel (`docs/spec/compat-policy.toml`; the header `targets` tells the kernel). A tool
-installed from Market > Apps (`sdk_b16.bm`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`src/bm`), the same code compiled for
-64 bit; what the Pi has and this does not is replaced by `src/rgb30/bm_port.c` (3D drawn
-by the ARM, no DMA) and `src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
-`nnet()` (`src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is
+installed from Market > Apps (`sdk_b16.bm`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`core/src/bm`), the same code compiled for
+64 bit; what the Pi has and this does not is replaced by `core/src/rgb30/bm_port.c` (3D drawn
+by the ARM, no DMA) and `core/src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
+`nnet()` (`core/src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is
 **Yharnam** (360×360 since 2026-10-10, before 256×256; from the `claude/yharnam` branch).
 
 - Screen: the cartridge draws at its resolution and the video controller scales it up to
@@ -329,7 +329,7 @@ file as `bm/config.txt` (keep it outside the repository: it contains the passwor
 
 In the menu, *WiFi*: **B** scans for networks (list with signal, channel, security), **X** joins the
 `wifi_ssid` network; then DHCP and the IP address on screen, with the password of the network
-console (`python3 tools/bm_net.py <ip>`: the w/a/s/d keys, Enter, Esc reach the menu as from the
+console (`python3 core/tools/bm_net.py <ip>`: the w/a/s/d keys, Enter, Esc reach the menu as from the
 serial port). At boot the console joins the saved network by itself, like the Pi (`wifi_boot=0` turns it
 off, also from *Settings > WiFi and network*). Supported networks: open and WPA2-PSK (also
 mixed WPA2/WPA3); not WPA3 only, WPA1, WEP, enterprise.
@@ -349,14 +349,14 @@ branch and board: `reports/<branch>/<data>_<tipo>_rgb30_<kernel>.txt`.
   checks everything before writing, keeps the previous kernel in `bm/backup/kernel8.img`,
   writes `kernel8.img` last and restarts. `update_url=sd:/cartella/` in `bm/config.txt` for
   a release copied onto the SD (testing).
-- **From the network**: `python3 tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (the password is
+- **From the network**: `python3 core/tools/bm_net.py <ip> --kernel build/rgb30/kernel8.img` (the password is
   the one *WiFi* shows when the console joins the network), or `./easy_install.sh`, item
   1 ([NET] update kernel), with an RGB30 board profile.
 - **From the PC**: copy `kernel8.img` onto the SD.
 
 ## Games from the network
 
-`python3 tools/bm_net.py <ip> --send gioco.bm` (or `./easy_install.sh`, item 5): a `.bm`
+`python3 core/tools/bm_net.py <ip> --send gioco.bm` (or `./easy_install.sh`, item 5): a `.bm`
 for `/carts` (the default) ends up in `bm/`, the folder the menu lists. The console
 replies as soon as the file has arrived whole (`QD`) and writes it to the SD from the menu, one chunk per
 frame in a fiber: the game has the *Updating* label and does not start until it is written; the
@@ -365,8 +365,8 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
 
 ## Files
 
-- `rgb30.mk` — the build (included by the Makefile with `TARGET=rgb30`).
-- `src/rgb30/` — everything specific: `start.S`, `vectors.S`, `mmu.c`, `cache.c`, `gic.c`,
+- `core/rgb30.mk` — the build (included by the Makefile with `TARGET=rgb30`).
+- `core/src/rgb30/` — everything specific: `start.S`, `vectors.S`, `mmu.c`, `cache.c`, `gic.c`,
   `timer.c`, `exc.c`, `syscalls.c` (picolibc), `fb.c`, `glue.c` (the Pi driver APIs),
   `pad.c` (controls, also from the serial port), `ui.c` (menu), `main.c`;
   `plat_virt.c` + `sd_virt.c` (QEMU); `plat_rk3566.c`, `rk_gpio.c`, `rk_input.c`, `rk_board.c`
@@ -386,8 +386,8 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
 - `tests/rgb30/mali_test.c` — the Mali probe on a simulated Mali-G52, CRU and PMU (page
   tables walked as the GPU does, jobs executed, variants that do not add up):
   `make TARGET=rgb30 test-mali`.
-- `boot/rgb30/` — the card's `extlinux.conf` and `LEGGIMI.txt`.
-- `scripts/fetch-rgb30.sh` — bootloader and firmware; `scripts/mksd.py --start-mib --raw --active`.
+- `core/boot/rgb30/` — the card's `extlinux.conf` and `LEGGIMI.txt`.
+- `core/scripts/fetch-rgb30.sh` — bootloader and firmware; `core/scripts/mksd.py --start-mib --raw --active`.
 
 ## Memory map (RK3566)
 
@@ -408,7 +408,7 @@ on return to the menu. A second file while the first is waiting: `BY` (busy), re
   rkbin licence (redistribution allowed, no reverse engineering).
 - Realtek firmware: `LICENCE.rtlwifi_firmware.txt` (redistributable without modification), copied
   into `bm/` on the card.
-- The WiFi driver (`src/rgb30/rtw*.c`, tables in `rtw8821c_table.c`) is a port of Linux's rtw88,
+- The WiFi driver (`core/src/rgb30/rtw*.c`, tables in `rtw8821c_table.c`) is a port of Linux's rtw88,
   GPL-2.0 OR BSD-3-Clause, used under the BSD-3-Clause licence (Copyright Realtek Corporation).
 
 None of these files is in the repository: `make TARGET=rgb30 firmware` downloads them.

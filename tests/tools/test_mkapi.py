@@ -1,4 +1,4 @@
-"""Tests for scripts/mkapi.py and runtime vs docs API comparison."""
+"""Tests for core/scripts/mkapi.py and runtime vs docs API comparison."""
 import io
 import os
 import re
@@ -8,9 +8,9 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "mkapi.py")
-RUNTIME_C = os.path.join(ROOT, "src", "bm", "runtime.c")
-API_TSV = os.path.join(ROOT, "src", "ai", "api.tsv")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "mkapi.py")
+RUNTIME_C = os.path.join(ROOT, "core", "src", "bm", "runtime.c")
+API_TSV = os.path.join(ROOT, "core", "src", "ai", "api.tsv")
 
 UNDOCUMENTED = set()
 NOT_IN_RUNTIME = {"a", "instrument", "instruments", "nnet"}
@@ -18,7 +18,7 @@ NOT_IN_RUNTIME = {"a", "instrument", "instruments", "nnet"}
 
 class MkapiTest(unittest.TestCase):
     def test_fixture_parser(self):
-        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
         import mkapi
 
         with tempfile.TemporaryDirectory() as tmp:

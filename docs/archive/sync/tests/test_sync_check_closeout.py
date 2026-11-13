@@ -1,4 +1,4 @@
-"""tools/sync_check.py --closeout: the closing state of each operator (sync/wo/CLOSEOUT.md 2b) and the
+"""core/tools/sync_check.py --closeout: the closing state of each operator (sync/wo/CLOSEOUT.md 2b) and the
 CLOSEOUT-READY / CLOSEOUT-END / CLOSEOUT-NOT-READY last line."""
 import contextlib
 import datetime
@@ -10,7 +10,7 @@ import unittest
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import sync_check as sc  # noqa: E402
 
 HEAD = "| Timestamp | Operatore | Branch / Commit | Azione | Messaggio |\n|---|---|---|---|---|\n"

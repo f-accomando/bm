@@ -1,5 +1,5 @@
 /* game_run.c: a host harness that plays a SNES ROM for N frames with a scripted pad, saves pictures and logs the DSP DR traffic (built with -DSNES_TRACE).
- *   gcc -O1 -DSNES_TRACE -Isrc/bm -o game_run tests/snes/game_run.c src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp}.c
+ *   gcc -O1 -DSNES_TRACE -Icore/src/bm -o game_run tests/snes/game_run.c core/src/bm/snes_{bus,gsu,dsp77,cpu,ppu,spc,dsp}.c
  *   game_run rom fw|- frames script outprefix [dsplog]   script lines: "first last padhex" (frames); pictures at the frames listed after "shot" lines: "shot f"
  * Script: one line "first last padhex" holds the pad for those frames (pad bits as in snes.h: START 1000, A 0080, UP 0800); "shot f" saves picture f (PPM) and, with DUMPSTATE set, the OAM, CGRAM and WRAM of that frame.
  * Environment (all optional; the harness writes vram.bin, wram.bin, cgram.bin, oam.bin at the end and prints the PPU and DMA state):

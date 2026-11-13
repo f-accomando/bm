@@ -19,10 +19,10 @@ import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 from qemu_test import read_ppm, screen_text, pixel, free_port  # noqa: E402
 import bm_load  # noqa: E402
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mksd  # noqa: E402
 import mkbm  # noqa: E402
 import bmaudio  # noqa: E402
@@ -46,12 +46,12 @@ def rm_tmps():
 SCREEN = 360           # the menu (made as big as the 720x720 panel on the console)
 
 
-RAMDISK = 0x50000000    # src/rgb30/sd_virt.c
+RAMDISK = 0x50000000    # core/src/rgb30/sd_virt.c
 
 
 class Qemu:
     def __init__(self, image, machine="virt,gic-version=3", extra=(), sd=None):
-        """sd: an SD card image (scripts/mksd.py), loaded as a RAM disk."""
+        """sd: an SD card image (core/scripts/mksd.py), loaded as a RAM disk."""
         self.tmp = mktmp(prefix="bm64-")
         if sd:
             extra = (*extra, "-device", f"loader,file={sd},addr={RAMDISK:#x},force-raw=on")
@@ -173,7 +173,7 @@ def declare_both(data):
 
 
 def make_sd(tmp, files, declare=True):
-    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and carts/ are made
+    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and bm/ are made
     for both kernels (declare_both), so the menu starts them with no question; False leaves them as they are."""
     src = []
     for i, (dest, data) in enumerate(files.items()):
@@ -429,7 +429,7 @@ def test_bootlog_on_sd(b, opts):
 
 
 def test_update_from_sd(b, opts):
-    """Settings > Updates, as on the Pi (src/kernel/update.c): a release copied
+    """Settings > Updates, as on the Pi (core/src/kernel/update.c): a release copied
     on the card (update_url=sd:/release/), signed with a key the card adds
     (bm/release.pem); the RGB30's manifest (manifest-rgb30: kernel8.img,
     bm/ca.pem), what changes, then A installs: the old kernel kept in
@@ -442,9 +442,9 @@ def test_update_from_sd(b, opts):
                     "-out", key], check=True, capture_output=True)
     subprocess.run(["openssl", "pkey", "-in", key, "-pubout", "-out", pub], check=True, capture_output=True)
     new_kernel = os.path.join(b, "kernel8.img")             # an arm64 Image, "ARM\x64" at +56
-    ca = os.path.join(HERE, "..", "..", "boot", "ca.pem")
+    ca = os.path.join(HERE, "..", "..", "core", "boot", "ca.pem")
     rel = os.path.join(tmp, "release")
-    subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "mkrelease.py"), rel,
+    subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "core", "scripts", "mkrelease.py"), rel,
                     "--manifest", "manifest-rgb30", "--version", "v9.9.9", "--commit", "abc1234",
                     "--key", key, "--pub", pub, "--file", f"{new_kernel}:/kernel8.img",
                     "--file", f"{ca}:/bm/ca.pem"], check=True, capture_output=True)
@@ -503,7 +503,7 @@ def test_crash_report(b, opts):
     """A crash becomes a report, as on the Pi (tests/qemu_test.py): the red
     screen, after 60 s (and 20 s of uptime) the board restarts with its RAM
     kept, and the next boot files the crash as a report with the lines
-    printed before it (src/kernel/crumbs.c). crash() on the serial prompt
+    printed before it (core/src/kernel/crumbs.c). crash() on the serial prompt
     is a BRK. The kernel starts from kernel8.img: QEMU's ELF loader writes
     zeros over .noinit (NOBITS inside the one PT_LOAD) at every reset and the
     crash record would be lost; the raw Image leaves it. So QEMU does not prove
@@ -890,7 +890,7 @@ def market_sd(tmp, extra=b""):
         with open(os.path.join(games, gid, "info.txt"), "w") as f:
             f.write("version: 1.0\nlicense: MIT\nabout: A game for the test.\n")
     site = os.path.join(tmp, "site")
-    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "scripts", "mkmarket.py"), games,
+    r = subprocess.run([sys.executable, os.path.join(HERE, "..", "..", "core", "scripts", "mkmarket.py"), games,
                         "-o", site, "--key", key, "--serial", "20261005120000"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     files = {"bm/config.txt": b"market_url=sd:/market/\nmarket_delay=100\n" + extra, "bm/market.pem": open(pub, "rb").read()}
@@ -935,7 +935,7 @@ function _draw() cls(1) print("try me", 8, 8, 7) end
 
 def test_game_send(b, opts):
     """A game's options (X) have "Send to a nearby console" (D11, as the Pi): it
-    opens the list of the consoles nearby, the shared code of src/kernel/market.c;
+    opens the list of the consoles nearby, the shared code of core/src/kernel/market.c;
     with no network the list says so; back returns to the options."""
     tmp = mktmp(prefix="bm64send-")
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
@@ -977,7 +977,7 @@ def test_games_in_bm_only(b, opts):
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": tryme_b16,
                        "bm/built.bm": built_bm,
-                       "carts/old.bm": old_bm})
+                       "bm/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -1287,7 +1287,7 @@ def test_riff(b, opts):
         q.close()
 
 
-# nnet() (src/ai/net.c): a network of two layers (3 inputs, 4 hidden with
+# nnet() (core/src/ai/net.c): a network of two layers (3 inputs, 4 hidden with
 # relu, 3 outputs), integer weights so the reference below is exact
 NNET_LAYERS = [
     # outputs x inputs, biases, relu, shift, mult
@@ -1298,7 +1298,7 @@ NNET_INPUTS = [(1, 2, 3), (-4, 5, 0), (7, -3, 2), (0, 0, 0), (-2, -6, 9), (30, 4
 
 
 def nnet_blob(layers, nin, in_scale=1.0, out_scale=0.5):
-    """the "BMNN" blob of src/ai/net.h"""
+    """the "BMNN" blob of core/src/ai/net.h"""
     import struct
     b = b"BMNN" + struct.pack("<BBHff", 1, len(layers), nin, in_scale, out_scale)
     width = nin
@@ -1313,7 +1313,7 @@ def nnet_blob(layers, nin, in_scale=1.0, out_scale=0.5):
 
 
 def nnet_ref(layers, x, out_scale=0.5):
-    """the outputs and pick (1-based, the first of the largest) of src/ai/net.c
+    """the outputs and pick (1-based, the first of the largest) of core/src/ai/net.c
     for integer inputs (input scale 1)"""
     v = [max(-127, min(127, a)) for a in x]
     for w, bias, relu, shift, mult in layers:

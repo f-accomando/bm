@@ -6,7 +6,7 @@ Part of the game API. Index and basics: [API.md](../API.md).
 
 `local lib = require "bmlib"` (R10, 2026-10-04): what every game wrote again by itself
 (found in 5–10 cartridges of the repository) in a single library, in Lua, in the kernel
-(`src/script/bmlib.lua`). It does not touch the global variables and hides no function of
+(`core/src/script/bmlib.lua`). It does not touch the global variables and hides no function of
 the console. Units: **times in seconds**, positions in pixels, speeds in **pixels per
 frame**. Objects (particles, camera, states, menu, pause, 3D builder) are used with a
 colon: `cam:follow(x, y)`.

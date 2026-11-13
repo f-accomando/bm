@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test for 3D map view and linear level tools in bm SDK RGB30 edition (AGY-04).
 
-Verifies that carts/sdk_b16/main.lua contains:
+Verifies that bm/sdk_b16/main.lua contains:
 1. 'v' toggle and L1/R1 orbit camera mapping for pad
 2. Placeholder colors for 1032 and 1034 (OBJ_COL)
 3. Layer rename action ('r' / 'R') via D.ask and mlayers()
@@ -15,7 +15,7 @@ import os
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-SDK_B16_LUA = os.path.join(ROOT, "carts", "sdk_b16", "main.lua")
+SDK_B16_LUA = os.path.join(ROOT, "bm", "sdk_b16", "main.lua")
 
 def check_sdk_b16_source():
     assert os.path.isfile(SDK_B16_LUA), f"Missing {SDK_B16_LUA}"

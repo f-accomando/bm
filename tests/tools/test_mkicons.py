@@ -1,10 +1,10 @@
-"""Tests for scripts/mkicons.py: inside() and carts icons."""
+"""Tests for core/scripts/mkicons.py: inside() and carts icons."""
 import os
 import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 
 try:
     import mkicons
@@ -27,7 +27,7 @@ class MkiconsTest(unittest.TestCase):
     def test_cart_icons_exist(self):
         self.assertEqual(len(mkicons.ICONS), 7)
         for name in mkicons.ICONS:
-            path = os.path.join(ROOT, "carts", name, "icon.png")
+            path = os.path.join(ROOT, "bm", name, "icon.png")
             self.assertTrue(os.path.isfile(path), f"Missing icon: {path}")
 
     def test_border_points_moved_inward(self):

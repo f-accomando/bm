@@ -8,15 +8,15 @@ Finally, it proposes a **standard unified structure** to simplify the production
 
 ## 1. Analysis of the Games Produced So Far
 
-The cartridge catalog (`carts/` and `video/`) shows several technological and structural archetypes:
+The cartridge catalog (`bm/` and `video/`) shows several technological and structural archetypes:
 
 | Game / Project | Genre | Resolution & Style | Code Architecture | Graphics Pipeline & Animations |
 |---|---|---|---|---|
-| **Titan Clash** (`carts/titan`) | 2D Versus fighter | 640×360 (and 360×360) | Modular multi-file (11 Lua files concatenated via `build.py`) | Orthographic 3D pre-rendering with solids and skeleton (`mkrobot.py`), automatic hitbox/hurtbox computation from bones |
-| **Yharnam** (`carts/yharnam`) | Gothic 3/4 Action RPG | 360×360 (RGB30 panel) | Procedural monolith (5573 lines in `main.lua`) | Procedural SDF 3D pre-rendering (`mkassets.py`), over 5000 frames across 8 directions, Hermite curves, chunked CSV map streaming |
+| **Titan Clash** (`bm/titan`) | 2D Versus fighter | 640×360 (and 360×360) | Modular multi-file (11 Lua files concatenated via `build.py`) | Orthographic 3D pre-rendering with solids and skeleton (`mkrobot.py`), automatic hitbox/hurtbox computation from bones |
+| **Yharnam** (`bm/yharnam`) | Gothic 3/4 Action RPG | 360×360 (RGB30 panel) | Procedural monolith (5573 lines in `main.lua`) | Procedural SDF 3D pre-rendering (`mkassets.py`), over 5000 frames across 8 directions, Hermite curves, chunked CSV map streaming |
 | **Skyvale World** (`video/`) | 16-bit 2D Platformer | 640×360 | Sequential, tutorial-style (`lib.tiles`, `lib.step`) | Hand-made pixel art in bm Pixel (`skyvale.bm`), tiles and multi-layer maps in the SDK, collision flags |
-| **Star Shooter** (`carts/shooter`) | Wave-based shmup | 640×360 | Monolith (339 lines) | Inline procedural: sprites generated at runtime from text strings with `sset()`, no PNG |
-| **Astro Wing** (`carts/astrowing`) | Flat 3D space simulator | 640×360 | Monolith (643 lines) | 3D meshes procedurally generated in code (mathematical `builder()`, tetrahedra and cuboids) |
+| **Star Shooter** (`bm/shooter`) | Wave-based shmup | 640×360 | Monolith (339 lines) | Inline procedural: sprites generated at runtime from text strings with `sset()`, no PNG |
+| **Astro Wing** (`bm/astrowing`) | Flat 3D space simulator | 640×360 | Monolith (643 lines) | 3D meshes procedurally generated in code (mathematical `builder()`, tetrahedra and cuboids) |
 
 ---
 
@@ -40,7 +40,7 @@ end
 Entities (player, enemies, projectiles, particles) share a unified table structure:
 - **Position & Physics**: `x, y, vx, vy, w, h, ground, facing`
 - **Animation & Timers**: `anim, frame, tick, anim_speed, loop`
-  - *Yharnam* plays these fields with one module, `ANIM` (`play`, `step`, `frame`), for the hunter and for every creature (`carts/yharnam/main.lua`, module `anim`; manual *characters*). Copy it into a game with actors that have directions.
+  - *Yharnam* plays these fields with one module, `ANIM` (`play`, `step`, `frame`), for the hunter and for every creature (`bm/yharnam/main.lua`, module `anim`; manual *characters*). Copy it into a game with actors that have directions.
 - **Combat & Hit Points**: `hp, max_hp, invuln, state, swing, team`
 - **Collisions**: bounding box and lists of hurtboxes/hitboxes for the current frame.
 
@@ -196,7 +196,7 @@ Cost: `W:update()` and `W:draw()` make no table. `W:fight()` compares each attac
 target (n times m, no table); a game with hundreds of bullets and hundreds of targets splits
 its entities in two worlds or checks fewer pairs. Not measured on the Pi Zero W.
 
-Pong (`carts/pong`) runs on the kit: the two paddles and the ball are `lib.world` entities and
+Pong (`bm/pong`) runs on the kit: the two paddles and the ball are `lib.world` entities and
 all its notes and tunes are `lib.sounds` events. `make test-game-trace` plays it with a script of
 presses and compares a digest of every frame (what it draws, plays and saves) with the digest
 made before the move (`tests/gamekit/pong1.golden`, `pong2.golden`). They are equal. The same
@@ -217,7 +217,7 @@ The engine gives a native path without writing C in the kernel:
 4. Store flat entity coordinates in `vm_buf("i32", n)` userdata buffers.
 5. Call the native function once per frame with `native_run(mod, "fn", ...)`.
 
-The bridge in `src/bm/api_vm.c` passes the underlying C memory pointers directly to ARM registers `r0-r3` and stack with zero copy.
+The bridge in `core/src/bm/api_vm.c` passes the underlying C memory pointers directly to ARM registers `r0-r3` and stack with zero copy.
 
 ### Rules for Native Crossings
 

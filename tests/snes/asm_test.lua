@@ -1,6 +1,6 @@
--- asm_test.lua: the tests of the 65C816 assembler and the ROM builder (src/script/snes_asm.lua).
+-- asm_test.lua: the tests of the 65C816 assembler and the ROM builder (core/src/script/snes_asm.lua).
 -- Run from the repository root:  build/host/luahost tests/snes/asm_test.lua   (make test-snes-asm)
-package.path = "src/script/?.lua;" .. package.path
+package.path = "core/src/script/?.lua;" .. package.path
 local A = require("snes_asm")
 
 local fails, count = 0, 0

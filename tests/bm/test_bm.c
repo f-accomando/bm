@@ -1982,7 +1982,7 @@ int main(int argc, char **argv)
     test_3d();
     test_pfx();
     test_colour_only();
-    test_format(argc > 1 ? argv[1] : "build/carts/mapkit.bm");
+    test_format(argc > 1 ? argv[1] : "build/bm/mapkit.bm");
     test_cover_peek();
     test_type_bits();
     test_compat();

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""make test-bml: verifies stages 1, 2, 3, and 4 of the language of bm (tools/bml/bml.py).
+"""make test-bml: verifies stages 1, 2, 3, and 4 of the language of bm (core/tools/bml/bml.py).
 
   run.py LUAHOST BUILD_DIR
 
 1. Stage 1 (Front end): lexer, parser, AST, and type checker reject invalid programs and name the exact line.
 2. Stage 2 (StackVM): sum(10) == 55, sum(-5..100), features.b (347 calls), and 200 random programs match Lua.
-3. Stage 3 (Kernel bmvm): compiles sum, features, and 200 random programs to BMV1 blobs and runs them in C (src/bm/bmvm.c).
+3. Stage 3 (Kernel bmvm): compiles sum, features, and 200 random programs to BMV1 blobs and runs them in C (core/src/bm/bmvm.c).
 4. Stage 4 (ARMv6 A32 back end): compiles sum (both 9-word leaf and general), features, and 200 random programs to
    32-bit ARMv6 machine words and executes them on an emulated ARM1176 CPU in qemu-system-arm against Lua.
 """
@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "tools", "bml"))
+sys.path.insert(0, os.path.join(ROOT, "core", "tools", "bml"))
 import bml  # noqa: E402
 
 LUAHOST = sys.argv[1]
@@ -418,7 +418,7 @@ if lua_rand_out != vm_rand_out:
             fail(f"random program mismatch at call #{idx}: Lua={lv}, VM={vv}")
             break
 
-# ---------------------------------------------------------------- 5. Stage 3: Kernel bmvm (src/bm/bmvm.c) against Lua
+# ---------------------------------------------------------------- 5. Stage 3: Kernel bmvm (core/src/bm/bmvm.c) against Lua
 sum_bmv = os.path.join(BUILD, "sum.bmv")
 feat_bmv = os.path.join(BUILD, "features.bmv")
 open(sum_bmv, "wb").write(bml.compile_bmvm(sum_src))
@@ -492,8 +492,8 @@ bmvm_host_c_path = os.path.join(BUILD, "bmvm_host.c")
 bmvm_host_bin = os.path.join(BUILD, "bmvm_host")
 open(bmvm_host_c_path, "w", encoding="utf-8").write(BMVM_HOST_C)
 subprocess.run(
-    ["cc", "-O2", "-Wall", f"-I{os.path.join(ROOT, 'src', 'bm')}",
-     "-o", bmvm_host_bin, bmvm_host_c_path, os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"],
+    ["cc", "-O2", "-Wall", f"-I{os.path.join(ROOT, 'core', 'src', 'bm')}",
+     "-o", bmvm_host_bin, bmvm_host_c_path, os.path.join(ROOT, "core", "src", "bm", "bmvm.c"), "-lm"],
     check=True,
 )
 
@@ -704,7 +704,7 @@ for p, data in (
     with open(p, "wb") as f:
         f.write(data)
 
-# 7a. Host Lua C API test: native_load, native_fn, native_run (src/bm/bmnative.c + src/bm/api_vm.c)
+# 7a. Host Lua C API test: native_load, native_fn, native_run (core/src/bm/bmnative.c + core/src/bm/api_vm.c)
 NATIVE_LUAHOST_C = """\
 #include <stdio.h>
 #include <stdlib.h>
@@ -756,7 +756,7 @@ native_luahost_bin = os.path.join(BUILD, "native_luahost")
 with open(native_luahost_c, "w", encoding="utf-8") as f:
     f.write(NATIVE_LUAHOST_C)
 
-lua_dir = os.path.join(ROOT, "third_party", "lua")
+lua_dir = os.path.join(ROOT, "core", "third_party", "lua")
 lua_c_files = [
     os.path.join(lua_dir, fn)
     for fn in sorted(os.listdir(lua_dir))
@@ -765,15 +765,15 @@ lua_c_files = [
 subprocess.run(
     [
         "gcc", "-O2", "-std=c11", "-DLUA_USE_POSIX",
-        f"-I{os.path.join(ROOT, 'src')}",
-        f"-I{os.path.join(ROOT, 'src', 'bm')}",
+        f"-I{os.path.join(ROOT, 'core', 'src')}",
+        f"-I{os.path.join(ROOT, 'core', 'src', 'bm')}",
         f"-I{lua_dir}",
         "-o", native_luahost_bin,
         native_luahost_c,
-        os.path.join(ROOT, "src", "bm", "bmlc.c"),
-        os.path.join(ROOT, "src", "bm", "bmnative.c"),
-        os.path.join(ROOT, "src", "bm", "api_vm.c"),
-        os.path.join(ROOT, "src", "bm", "bmvm.c"),
+        os.path.join(ROOT, "core", "src", "bm", "bmlc.c"),
+        os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+        os.path.join(ROOT, "core", "src", "bm", "api_vm.c"),
+        os.path.join(ROOT, "core", "src", "bm", "bmvm.c"),
         *lua_c_files,
         "-lm",
     ],
@@ -977,12 +977,12 @@ void _start(void)
     subprocess.run(
         [
             arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
-            f"-I{os.path.join(ROOT, 'src')}",
-            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            f"-I{os.path.join(ROOT, 'core', 'src')}",
+            f"-I{os.path.join(ROOT, 'core', 'src', 'arch')}",
             "-T", qemu_ld, "-o", qemu_s5_elf,
             qemu_s5_c,
-            os.path.join(ROOT, "src", "bm", "bmnative.c"),
-            os.path.join(ROOT, "src", "arch", "cache.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "core", "src", "arch", "cache.c"),
             "-lgcc",
         ],
         check=True,
@@ -1527,12 +1527,12 @@ void _start(void)
     subprocess.run(
         [
             arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
-            f"-I{os.path.join(ROOT, 'src')}",
-            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            f"-I{os.path.join(ROOT, 'core', 'src')}",
+            f"-I{os.path.join(ROOT, 'core', 'src', 'arch')}",
             "-T", qemu_ld, "-o", qemu_s6_elf,
             qemu_s6_c,
-            os.path.join(ROOT, "src", "bm", "bmnative.c"),
-            os.path.join(ROOT, "src", "arch", "cache.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "core", "src", "arch", "cache.c"),
             "-lgcc",
         ],
         check=True,
@@ -1861,12 +1861,12 @@ void _start(void)
     subprocess.run(
         [
             arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
-            f"-I{os.path.join(ROOT, 'src')}",
-            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            f"-I{os.path.join(ROOT, 'core', 'src')}",
+            f"-I{os.path.join(ROOT, 'core', 'src', 'arch')}",
             "-T", qemu_ld, "-o", qemu_s7_elf,
             qemu_s7_c,
-            os.path.join(ROOT, "src", "bm", "bmnative.c"),
-            os.path.join(ROOT, "src", "arch", "cache.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "core", "src", "arch", "cache.c"),
             "-lgcc",
         ],
         check=True,
@@ -2219,12 +2219,12 @@ void _start(void)
     subprocess.run(
         [
             arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-ffreestanding", "-nostdlib",
-            f"-I{os.path.join(ROOT, 'src')}",
-            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            f"-I{os.path.join(ROOT, 'core', 'src')}",
+            f"-I{os.path.join(ROOT, 'core', 'src', 'arch')}",
             "-T", qemu_ld, "-o", qemu_s8_elf,
             qemu_s8_c,
-            os.path.join(ROOT, "src", "bm", "bmnative.c"),
-            os.path.join(ROOT, "src", "arch", "cache.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "core", "src", "arch", "cache.c"),
             "-lgcc",
         ],
         check=True,
@@ -2239,7 +2239,7 @@ void _start(void)
     if qemu_s8_out != lua_s8_out:
         fail(f"Stage 8 Dark Night ARM1176 VFPv2 QEMU output differs: {qemu_s8_out} vs {lua_s8_out}")
 
-# ---------------------------------------------------------------- 11. Stage 9: On-console compiler in C (src/bm/bmlc.c / native_compile)
+# ---------------------------------------------------------------- 11. Stage 9: On-console compiler in C (core/src/bm/bmlc.c / native_compile)
 s9_luahost_script = os.path.join(BUILD, "stage9_luahost.lua")
 with open(s9_luahost_script, "w", encoding="utf-8") as f:
     f.write(f"""\
@@ -2867,13 +2867,13 @@ void _start(void)
         [
             arm_gcc, "-O2", "-mcpu=arm1176jzf-s", "-marm", "-mfpu=vfpv2", "-mfloat-abi=softfp",
             "-ffreestanding", "-nostdlib",
-            f"-I{os.path.join(ROOT, 'src')}",
-            f"-I{os.path.join(ROOT, 'src', 'arch')}",
+            f"-I{os.path.join(ROOT, 'core', 'src')}",
+            f"-I{os.path.join(ROOT, 'core', 'src', 'arch')}",
             "-T", qemu_ld, "-o", qemu_s9_elf,
             qemu_s9_c,
-            os.path.join(ROOT, "src", "bm", "bmlc.c"),
-            os.path.join(ROOT, "src", "bm", "bmnative.c"),
-            os.path.join(ROOT, "src", "arch", "cache.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmlc.c"),
+            os.path.join(ROOT, "core", "src", "bm", "bmnative.c"),
+            os.path.join(ROOT, "core", "src", "arch", "cache.c"),
             "-lgcc",
         ],
         check=True,

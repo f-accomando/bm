@@ -7,17 +7,17 @@ description: Tidies CLAUDE.md, docs/progress.md and docs/progress/*.md with a Ka
 
 Linked to the **crab-ledger** mod: it reads its report (`~/.claude/crab-ledger-report.json`,
 written at every update of the `/ledger` panel) to know which files are reread the most.
-Measure = `python scripts/docs_audit.py score` (lower is better): always-loaded tokens
+Measure = `python core/scripts/docs_audit.py score` (lower is better): always-loaded tokens
 (CLAUDE.md + progress.md) + average tokens of the area file + penalties (orphans, broken links, files
 over ~120 lines, duplicate lines, CLAUDE.md without the pointer to the index).
 
 ## 1. Baseline
 
 ```bash
-python scripts/docs_audit.py score
-python scripts/docs_audit.py rereads      # costo delle riletture, 7 giorni (crab-ledger)
-python scripts/docs_audit.py repeats 30   # prompt e comandi ripetuti in ≥3 sessioni
-python scripts/docs_audit.py best         # ultimo punteggio tenuto
+python core/scripts/docs_audit.py score
+python core/scripts/docs_audit.py rereads      # costo delle riletture, 7 giorni (crab-ledger)
+python core/scripts/docs_audit.py repeats 30   # prompt e comandi ripetuti in ≥3 sessioni
+python core/scripts/docs_audit.py best         # ultimo punteggio tenuto
 ```
 
 If `rereads` says "no report": open `/ledger` once and retry.
@@ -39,8 +39,8 @@ For each round:
 1. copy the files you touch into `.claude/docs-loop/backup/` (no `git reset`: the tree has a lot
    staged);
 2. modify; reread the diff: the information is **moved, not lost**;
-3. `python scripts/docs_audit.py score`;
-4. score dropped and no information lost → `python scripts/docs_audit.py log <score> keep "<cosa>"`;
+3. `python core/scripts/docs_audit.py score`;
+4. score dropped and no information lost → `python core/scripts/docs_audit.py log <score> keep "<cosa>"`;
    otherwise restore from the backup and `log <score> discard "<cosa>"`.
 
 Stop at 8 rounds, or after 2 discards in a row, or when there are no more hypotheses.
@@ -57,7 +57,7 @@ way of working on the repo.
 ## 4. Rules
 
 - A single index: `docs/progress.md`; CLAUDE.md points there and does not list other docs.
-- Search with `Grep -n` / `python scripts/cindex.py <file> [parola]`, then `Read` offset/limit.
+- Search with `Grep -n` / `python core/scripts/cindex.py <file> [parola]`, then `Read` offset/limit.
   Commands per file: `docs/progress/reading.md`; `runtime.c`: `docs/progress/runtime.md`.
 - State, not chronicle; short lines; each topic in a single file. Communication in English
   (CLAUDE.md in Italian). Do not touch `*-IT.md`, `OLD*`, the historical docs.

@@ -1,7 +1,7 @@
 # API: the PlayStation 1 machine
 
-Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`src/bm/psx_*.c`, entry
-points in `src/bm/api_psx.c`); the cartridge `carts/psx` is its user interface. See
+Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`core/src/bm/psx_*.c`, entry
+points in `core/src/bm/api_psx.c`); the cartridge `bm/psx` is its user interface. See
 [progress/psx.md](../progress/psx.md). The files are read in C from the `/psx` folder of the SD card (the app needs
 the documents permission). A disc image is never loaded whole.
 

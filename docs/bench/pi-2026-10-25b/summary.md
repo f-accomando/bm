@@ -19,9 +19,9 @@ Exact kernel string: `bm kernel v0.2.5-1654-ga2e63306 - Raspberry Pi Zero W (BCM
 - **P1.b (Key chips functionality)**: **OK**  
   Key chips (A, B, X, Y, Monitor) respond correctly across all screens.
 - **P1.c (Error notice on network drop)**: **NON VERIFICABILE**  
-  Remote session over WiFi without serial prevents cutting network connection. Code path in `src/kernel/market.c:799` verified (`notice_fail` displays "No network" for 4000 ms).
+  Remote session over WiFi without serial prevents cutting network connection. Code path in `core/src/kernel/market.c:799` verified (`notice_fail` displays "No network" for 4000 ms).
 - **P1.d (Error notice on missing SD card file)**: **NON VERIFICABILE**  
-  Cannot safely remove file remotely during active menu loop. Code path in `src/kernel/carts.c:778` verified (`notice_fail` displays "... is not on the SD card").
+  Cannot safely remove file remotely during active menu loop. Code path in `core/src/kernel/carts.c:778` verified (`notice_fail` displays "... is not on the SD card").
 - **P1.e (Pong launch and return)**: **OK**  
   Pong started and ran 1,321 frames at 59.8 fps. Exited cleanly back to menu on Ctrl-Esc (`0x1c`).
 
@@ -51,7 +51,7 @@ Exact kernel string: `bm kernel v0.2.5-1654-ga2e63306 - Raspberry Pi Zero W (BCM
 ---
 
 ### P3: Multitasking Web Benchmark
-- Cartridge built: `python3 scripts/mkbm.py -o build/webbench.bm --lua tests/web/pi_bench.lua --title "Web bench" --author bm --res 640x360`
+- Cartridge built: `python3 core/scripts/mkbm.py -o build/webbench.bm --lua tests/web/pi_bench.lua --title "Web bench" --author bm --res 640x360`
 - Target URL: `https://github.com/f-accomando/bm/releases/download/v0.2.5/kernel.img` (4,040,264 bytes)
 - Execution log (`docs/bench/pi-2026-10-25b/WEBBENCH.TXT`):
   - Synchronous write (2048 KB): 656 ms (`true`).

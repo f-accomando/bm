@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tropic Trail, video 5: bm Sound. The six sound effects (APPLE CRATE JUMP STEP SPIN HIT) and the song JUNGLE, made with the
-console's own editor (carts/sound/main.lua) run by bmhost --tool on a clean SD that holds the cartridge of the chain.
+console's own editor (bm/sound/main.lua) run by bmhost --tool on a clean SD that holds the cartridge of the chain.
 
   python3 video/3d/05-sound/record.py [--start forge|chain] [--build-only] [--stage N] [--no-video] [--log] [--cart FILE]
 
@@ -22,7 +22,7 @@ bmhost with a timeout). The chain (video/3d/chain/) keeps both files:
 --start chain (default when video/3d/chain/03-animator.bm exists) starts from that file; --start forge from the reference
 assets (video/3d/out/assets/tropic_assets.bm, made by `python video/3d/assets/build.py` when missing): the sound does not
 depend on the models or on the map.
-The editor cartridge is built here from carts/sound (out/sound.bm, scripts/mkbm.py): build/sound.bm is NOT used because the
+The editor cartridge is built here from bm/sound (out/sound.bm, core/scripts/mkbm.py): build/sound.bm is NOT used because the
 Makefile rule passes bm.info as --lua (`$<` is the first prerequisite of the rule), which gives
 "main.lua:1: unexpected symbol near '#'" in bmhost.
 Cursors: the editor starts on sound 0, WAVE (reset_view). The keys that move on the SOUNDS page are planned here by a shortest
@@ -47,7 +47,7 @@ OUT = os.path.join(HERE, "out")
 SD = os.path.join(OUT, "sd")
 SHOTS = os.path.join(OUT, "shots")
 WAV = os.path.join(OUT, "sound.wav")
-CARTS = os.path.join(SD, "carts")
+CARTS = os.path.join(SD, "bm")
 BME = os.path.join(CARTS, "TROPIC.BME")
 TITLE = "TROPIC TRAIL  ·  5  ·  bm Sound"
 SUBTITLE = "bm · the bare-metal fantasy console"
@@ -56,7 +56,7 @@ CHAIN_OUT = "05-sound.bm"
 FORGE = os.path.join(ROOT, "video", "3d", "out", "assets", "tropic_assets.bm")
 
 # ----------------------------------------------------------------------------------------------------- the SOUNDS page
-# SGROUPS of carts/sound/main.lua: GROUPS[group][column] = the rows
+# SGROUPS of bm/sound/main.lua: GROUPS[group][column] = the rows
 GROUPS = [
     [["WAVE", "DUTY", "VOLUME", "DETUNE"], ["ATTACK", "DECAY", "SUSTAIN", "RELEASE"],
      ["BEND FROM", "BEND TIME", "VIBRATO", "VIB SPEED"]],
@@ -69,7 +69,7 @@ WHERE = {nm: (g, c, r) for g, grp in enumerate(GROUPS, 1) for c, col in enumerat
 
 
 def sound_move(st, d):
-    """`move(dx, dy)` of P[1] in carts/sound/main.lua on the state (group, column, row; row 0 is the name)."""
+    """`move(dx, dy)` of P[1] in bm/sound/main.lua on the state (group, column, row; row 0 is the name)."""
     g, c, r = st
     dx, dy = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}[d]
     if dy:
@@ -701,11 +701,11 @@ def build():
 
 # --------------------------------------------------------------------------------------------------------------- run
 def make_cart(src_lua=None):
-    """The bm Sound cartridge: made here from carts/sound (build/sound.bm has a wrong Lua, see the docstring)."""
+    """The bm Sound cartridge: made here from bm/sound (build/sound.bm has a wrong Lua, see the docstring)."""
     os.makedirs(OUT, exist_ok=True)
-    src = os.path.join(ROOT, "carts", "sound")
+    src = os.path.join(ROOT, "bm", "sound")
     out = os.path.join(OUT, "sound.bm")
-    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", out, "--lua",
+    subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", out, "--lua",
                     src_lua or os.path.join(src, "main.lua"), "--cover", os.path.join(src, "icon.png"),
                     "--audio", os.path.join(src, "demo.json"), "--info", os.path.join(src, "bm.info")],
                    check=True, cwd=ROOT, stdout=subprocess.DEVNULL)

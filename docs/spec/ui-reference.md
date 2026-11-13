@@ -11,17 +11,17 @@ This document is the fixed reference for device-specific input controls, menu be
 | Default game resolution | 360×360 shown ×2 (or 720×720 native); `screen()` offers 360×360 and 720×720 | `docs/RGB30.md:14,175`, `docs/spec/divergences.toml:344` | implemented |
 | Scaling rule | Video controller (VOP2) hardware scaling ×2 (`bm_scale`, `bm_smooth`), sharp or smoothed | `docs/RGB30.md:175-176`, `docs/spec/divergences.toml:344` | implemented |
 | Confirm button | B = OK / confirm (bottom button); `confirm=a` in `bm/config.txt` swaps to A | `docs/RGB30.md:166-167,220`, `docs/progress/platforms.md:35`, `docs/spec/divergences.toml:355` | implemented |
-| Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (set by hand; no Settings page since 28 Oct 2026) | user decision 2026-10-19; `src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |
+| Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (set by hand; no Settings page since 28 Oct 2026) | user decision 2026-10-19; `core/src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |
 | X button | Opens cartridge options in menu (play, open in bm SDK, send to a nearby console, type, size, author, save data, delete) | `docs/RGB30.md:210,212`, `docs/progress/platforms.md:36` | implemented |
-| Y button | Cancel / back in menus, prompts and dialogs; on the top level of the Market tab it switches Apps and Games | user decision 2026-10-19; `src/rgb30/pad.c`, `src/rgb30/ui.c` | implemented |
+| Y button | Cancel / back in menus, prompts and dialogs; on the top level of the Market tab it switches Apps and Games | user decision 2026-10-19; `core/src/rgb30/pad.c`, `core/src/rgb30/ui.c` | implemented |
 | L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) without wrapping | `docs/RGB30.md:219`, `docs/progress/platforms.md:36` | implemented |
 | D-pad | Navigate covers, menu items, and settings rows | `docs/RGB30.md:219-220`, `docs/progress/platforms.md:35` | implemented |
 | Analog sticks | Dual analog sticks (SARADC channel 3 with switch) for in-game movement and camera | `docs/RGB30.md:163-165`, `docs/progress/platforms.md:35` | implemented |
 | System shortcuts | Start+Select leaves game / app; Select held 3 s takes screenshot (`bm/shots/`) | `docs/RGB30.md:202`, `docs/spec/divergences.toml:377` | implemented |
 | Button prompts | Colored button glyphs: A green, B blue, X red, Y yellow (`PROMPT_RGB30_*`) | `docs/RGB30.md:222-224`, `docs/progress/platforms.md:36-38` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/progress/platforms.md:36`, `docs/spec/divergences.toml:360` | implemented |
-| Menu bottom bar | The key chips only (A, X, Y, Back; no Monitor chip). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
-| Monitor | None by design (no USB host, no keyboard): the Menu has no Monitor chip. The command core `src/kernel/monitor_cmd.c` has no hardware dependency, so a terminal monitor can use it when D22 is decided | `docs/spec/divergences.toml` D22, D48 | implemented |
+| Menu bottom bar | The key chips only (A, X, Y, Back; no Monitor chip). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `core/src/kernel/menu_ui.c` (bottom bar), `core/src/kernel/notice.c` (`notice_fail`), `core/src/kernel/settings.c` (`home_report`) | implemented |
+| Monitor | None by design (no USB host, no keyboard): the Menu has no Monitor chip. The command core `core/src/kernel/monitor_cmd.c` has no hardware dependency, so a terminal monitor can use it when D22 is decided | `docs/spec/divergences.toml` D22, D48 | implemented |
 
 ## Raspberry Pi Zero W
 
@@ -31,19 +31,19 @@ This document is the fixed reference for device-specific input controls, menu be
 | Menu resolution | 640×360 native layout, 6 covers per row | `docs/spec/divergences.toml:332` | implemented |
 | Default game resolution | 640×360 16:9; square cartridges (e.g. 360×360) are boxed in 16:9 black | `docs/spec/divergences.toml:343` | implemented |
 | Scaling rule | 720p (1280x720) drawn by the V3D by default; `menu_scale` in `bm/config.txt` (Settings > Screen > Menu size) sets 3 (1080p), 4 (360p on the GPU) or 1 (360p on the ARM, enlarged by the HDMI scaler); if the GPU cannot, 360p on the ARM | `docs/spec/divergences.toml:332` | implemented |
-| Confirm button | A confirms (action in menu, gamepad button 0 / DS4 Cross, USB keyboard Enter/Space) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| Back button | B cancels / goes back (gamepad button 1 / DS4 Circle, USB keyboard Esc/Backspace) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1386` | implemented |
+| Confirm button | A confirms (action in menu, gamepad button 0 / DS4 Cross, USB keyboard Enter/Space) | `docs/spec/divergences.toml:354`, `core/src/kernel/settings.c:427` | implemented |
+| Back button | B cancels / goes back (gamepad button 1 / DS4 Circle, USB keyboard Esc/Backspace) | `docs/spec/divergences.toml:354`, `core/src/kernel/settings.c:427` | implemented |
+| X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `core/src/kernel/menu_ui.c:722`, `core/src/kernel/carts.c:1386` | implemented |
 | Y button | Role in menus / apps: to decide (in games face button by position on DS4 / gamepad) | `docs/spec/divergences.toml:365` | to decide |
-| L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) | `src/kernel/carts.c:1392,1394` | implemented |
-| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1366-1381` | implemented |
+| L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) | `core/src/kernel/carts.c:1392,1394` | implemented |
+| D-pad | Navigate grid covers, list rows, and options | `core/src/kernel/input.h:14`, `core/src/kernel/carts.c:1366-1381` | implemented |
 | Keyboard & mouse | Full USB and Bluetooth keyboard and mouse support (Italian/US layouts) | `docs/spec/divergences.toml:387`, `docs/progress/platforms.md:16` | implemented |
 | System shortcuts | F11 (audio log), F12 (held: key list), Print Screen (screenshot), Ctrl+Esc (leave game) | `docs/spec/divergences.toml:376` | implemented |
-| Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `src/kernel/settings.c:434-436`, `src/kernel/prompts.h:46` | implemented |
+| Button prompts | Lettered glyphs or DS4 glyphs depending on active input device | `core/src/kernel/settings.c:434-436`, `core/src/kernel/prompts.h:46` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` for confirm / cancel actions | `docs/spec/divergences.toml:360` | implemented |
-| Menu bottom bar | The key chips only (A, X, Y, Refresh, Monitor, Back). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `src/kernel/menu_ui.c` (bottom bar), `src/kernel/notice.c` (`notice_fail`), `src/kernel/settings.c` (`home_report`) | implemented |
-| Monitor | The text console after the menu (Ctrl+Shift+Esc, or Settings > System). It opens the bm shell: a menu at the left, with submenus (System, Network) to its right (w, s or Up, Down move; Enter, d or Right open or run; a, Left or Esc go back; Esc in the main menu opens the cartridge menu; `:` takes one line of commands). Its first item is `bm menu gui` (the cartridge menu); `Command line` opens the `bm:` prompt and is selected at start; the screen shows no hint line and no `>`; System > Info is a box with the main facts, where a typed word runs a command (`exit`, Esc or Ctrl-D leave). The prompt has a history of 16 lines (Up, Down), Tab completion of commands, subcommands and `set` keys, and line editing (Left, Right, Home, End, Backspace, Del, Ctrl-U, Ctrl-C). It works on the serial line, on a USB keyboard and on the network console. `:` and a line runs that line once (the PC tools use it). The help (`h`) is made from the command table | `src/kernel/monitor.c` (`commands`), `src/kernel/monitor_cmd.c`, `tests/qemu_test.py:test_monitor_prompt` | implemented |
-| Editor top bar | The app name (bm Code, bm SDK, bm Studio, bm Animator, bm Mesh, bm Pixel) is the first item at the left; the page tabs follow; the file name is at the right and loses its start when the room is short (`U.bar_title`, `U.bar_file`) | `src/script/bmui.lua` | implemented |
+| Menu bottom bar | The key chips only (A, X, Y, Refresh, Monitor, Back). No details line, no last-game note, no status text. A failed action shows its reason in the notice box; any other message goes to the console log | `core/src/kernel/menu_ui.c` (bottom bar), `core/src/kernel/notice.c` (`notice_fail`), `core/src/kernel/settings.c` (`home_report`) | implemented |
+| Monitor | The text console after the menu (Ctrl+Shift+Esc, or Settings > System). It opens the bm shell: a menu at the left, with submenus (System, Network) to its right (w, s or Up, Down move; Enter, d or Right open or run; a, Left or Esc go back; Esc in the main menu opens the cartridge menu; `:` takes one line of commands). Its first item is `bm menu gui` (the cartridge menu); `Command line` opens the `bm:` prompt and is selected at start; the screen shows no hint line and no `>`; System > Info is a box with the main facts, where a typed word runs a command (`exit`, Esc or Ctrl-D leave). The prompt has a history of 16 lines (Up, Down), Tab completion of commands, subcommands and `set` keys, and line editing (Left, Right, Home, End, Backspace, Del, Ctrl-U, Ctrl-C). It works on the serial line, on a USB keyboard and on the network console. `:` and a line runs that line once (the PC tools use it). The help (`h`) is made from the command table | `core/src/kernel/monitor.c` (`commands`), `core/src/kernel/monitor_cmd.c`, `tests/qemu_test.py:test_monitor_prompt` | implemented |
+| Editor top bar | The app name (bm Code, bm SDK, bm Studio, bm Animator, bm Mesh, bm Pixel) is the first item at the left; the page tabs follow; the file name is at the right and loses its start when the room is short (`U.bar_title`, `U.bar_file`) | `core/src/script/bmui.lua` | implemented |
 
 ## Raspberry Pi 1 (A, B, A+, B+, CM1)
 
@@ -53,14 +53,14 @@ This document is the fixed reference for device-specific input controls, menu be
 | Menu resolution | 640×360 native layout, 6 covers per row | `docs/spec/divergences.toml:332` | implemented |
 | Default game resolution | 640×360 16:9; square cartridges boxed in 16:9 black | `docs/spec/divergences.toml:343` | implemented |
 | Scaling rule | Scaled to HDMI resolution via `menu_scale` in `bm/config.txt` | `docs/spec/divergences.toml:332` | implemented |
-| Confirm button | A confirms (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| Back button | B cancels / goes back (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `src/kernel/settings.c:427` | implemented |
-| X button | Opens cartridge options / details (identical to Pi Zero W) | `src/kernel/menu_ui.c:722`, `src/kernel/carts.c:1386` | implemented |
+| Confirm button | A confirms (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `core/src/kernel/settings.c:427` | implemented |
+| Back button | B cancels / goes back (identical to Pi Zero W) | `docs/spec/divergences.toml:354`, `core/src/kernel/settings.c:427` | implemented |
+| X button | Opens cartridge options / details (identical to Pi Zero W) | `core/src/kernel/menu_ui.c:722`, `core/src/kernel/carts.c:1386` | implemented |
 | Y button | Role in menus / apps: to decide (identical to Pi Zero W) | `docs/spec/divergences.toml:365` | to decide |
-| L1 / R1 | Move between menu tabs (identical to Pi Zero W) | `src/kernel/carts.c:1392,1394` | implemented |
-| D-pad | Navigate grid covers, list rows, and options | `src/kernel/input.h:14`, `src/kernel/carts.c:1366-1381` | implemented |
+| L1 / R1 | Move between menu tabs (identical to Pi Zero W) | `core/src/kernel/carts.c:1392,1394` | implemented |
+| D-pad | Navigate grid covers, list rows, and options | `core/src/kernel/input.h:14`, `core/src/kernel/carts.c:1366-1381` | implemented |
 | System shortcuts | Identical system keys (F11, F12, Print Screen, Ctrl+Esc) | `docs/spec/divergences.toml:376` | implemented |
-| Monitor | Same as the Pi Zero W (the Ethernet commands need a Pi 1 B / B+) | `src/kernel/monitor.c`, `src/kernel/monitor_cmd.c` | implemented |
+| Monitor | Same as the Pi Zero W (the Ethernet commands need a Pi 1 B / B+) | `core/src/kernel/monitor.c`, `core/src/kernel/monitor_cmd.c` | implemented |
 | Code abstraction | Kernel code uses `pad_ok` and `pad_back` | `docs/spec/divergences.toml:360` | implemented |
 
 ## Open decisions

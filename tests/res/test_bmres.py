@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resource files (scripts/bmres.py, docs/RISORSE.md): the container, INFO
+"""Resource files (core/scripts/bmres.py, docs/RISORSE.md): the container, INFO
 and SPRITES, extraction and integration (the same sections back in an
 empty project; the same pixels under every face, zone and tile in a full
 one), conversions, broken files.
@@ -13,7 +13,7 @@ import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmaudio  # noqa: E402
 import bmres  # noqa: E402
 import mkbm  # noqa: E402
@@ -194,7 +194,7 @@ def test_models(kit, sample, out):
     check([n for n, _ in bmres.mesh_parse(house.get(bmres.SEC_MESH))[1]] == ["house", "walker"], "two models")
     check(house.get(bmres.SEC_ANIM) is not None, "the skeleton goes with its model")
     bmres.write(os.path.join(out, "HOUSE.bmm"), house)
-    # a picture inside the file (COVER and PREVIEW, scripts/bmpreview.py): the kernel's parser reads it (test_res)
+    # a picture inside the file (COVER and PREVIEW, core/scripts/bmpreview.py): the kernel's parser reads it (test_res)
     import bmpreview  # noqa: E402
     shown = bmpreview.embed(roundtrip(bmres.extract_models(kit, ["house"])), cover=32, size=24, frames=6)
     shown.kind = bmres.KIT
@@ -464,14 +464,14 @@ def test_cli(kit_path, out):
     check(open(game, "rb").read() == mkbm.pack(b"-- cli", title="cli"), "the game stays as it was")
     check(struct.unpack_from("<H", open(cart, "rb").read(), 18)[0] & 1 == 1, "the copy is a project (.bme)")
     check("well" in dict(bmres.mesh_parse(bmres.read(cart).get(bmres.SEC_MESH))[1]), "the model in the cartridge")
-    # a game in the carts/ or bm/ folder of an SD card: its copy goes to bme/ beside it (projects live in /bme)
+    # a game in the bm/ or bm/ folder of an SD card: its copy goes to bme/ beside it (projects live in /bme)
     sd = os.path.join(out, "sdcard")
-    os.makedirs(os.path.join(sd, "carts"), exist_ok=True)
-    sdgame = os.path.join(sd, "carts", "sd.bm")
+    os.makedirs(os.path.join(sd, "bm"), exist_ok=True)
+    sdgame = os.path.join(sd, "bm", "sd.bm")
     open(sdgame, "wb").write(mkbm.pack(b"-- sd", title="sd"))
     check(bmres.main(["add", sdgame, bmm]) == 0, "bmres add on a game of the SD layout")
-    check(os.path.isfile(os.path.join(sd, "bme", "sd.bme")) and not os.path.exists(os.path.join(sd, "carts", "sd.bme")),
-          "the copy of a game in carts/ is in bme/")
+    check(os.path.isfile(os.path.join(sd, "bme", "sd.bme")) and not os.path.exists(os.path.join(sd, "bm", "sd.bme")),
+          "the copy of a game in bm/ is in bme/")
     origin = hashlib.sha256(open(bmm, "rb").read()).hexdigest()
     it = bmres.info_item(bmres.info_of(bmres.read(cart)), "model", "well")
     check(it and bmres.kv_get(it[2], "origin") == origin and bmres.kv_get(it[2], "license") == "CC0-1.0",

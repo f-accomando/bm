@@ -1,5 +1,5 @@
 /*
- * Host tool for the WebP decoder (src/bm/webp.c).
+ * Host tool for the WebP decoder (core/src/bm/webp.c).
  *   test_webp info FILE          prints "W H"
  *   test_webp dec FILE OUT       writes the picture as raw RGB565 (little endian)
  *   test_webp crop FILE          decodes a cut of the picture into a padded buffer and checks it

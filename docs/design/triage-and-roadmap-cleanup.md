@@ -1,10 +1,10 @@
 # Triage of failing tests and roadmap cleanup list
 
-> Removed 25 Oct: `carts/stages3d` and its tests, named below, were deleted (user decision). The body is history.
+> Removed 25 Oct: `bm/stages3d` and its tests, named below, were deleted (user decision). The body is history.
 
 Date: 2026-10-22. Base: `origin/bm-core` at 993ae1f7. Documents only. No code was built or changed.
 Data comes from `gh run view --log-failed`, `gh pr view`, `gh pr diff` and from reading
-`tests/qemu_test.py`, `tests/rgb30/qemu_test.py`, `Makefile` and `src/kernel/config.c`.
+`tests/qemu_test.py`, `tests/rgb30/qemu_test.py`, `Makefile` and `core/src/kernel/config.c`.
 Every claim below is from logs or code. Nothing was reproduced locally. Nothing is verified on hardware.
 
 Part 1 feeds stage 0 of the multitasking study (PR 100, `docs/design/multitasking-alternatives.md`,
@@ -27,7 +27,7 @@ in `sync/NEXT.md` (branch `sync/protocollo-ottobre`) gives it the two tests `tes
 | `test_usb_mouse` | Race in the test. The wait condition is too weak. The wait ends when "Open in the SDK" is absent, so it can end on a blank or half-drawn frame. The next assert needs the title `MOUSE_TITLES[1]`. | `assert "Open in the SDK" not in text and MOUSE_TITLES[1] in text` at `tests/qemu_test.py:4071`. The wait before it tests only the absence of one string (`:4068`). CI run 39712033065 (PR 87, 22 Oct, the dump is a blank frame). Runs 39395150503 and 39404685787 (20 Oct) failed with "a mouse icon before the mouse did anything". | Not in PR 92. Queue item 1 of `sync/NEXT.md`. | Add the title to the wait predicate. Whole test. |
 | `monitor_line` | Real test bug, already fixed in `bm-core`. The test waited for the line `back to the monitor`, which the `b3d` line never prints. The branches that failed were older than the fix. | Failures 19 and 20 Oct at `test_monitor_line:5155` (`q.expect("back to the monitor", timeout=10)`), runs 39225505000 and 39430508818. Fix 9fe1f325 reached `bm-core` with PR 24 (16 Oct). `git merge-base --is-ancestor 9fe1f325 <sha>` says the failing shas 0615871a (`claude/beta1-c4-diag-run`) and 81e5c8e1 do not contain it. The current test (`tests/qemu_test.py:5266-5273`) has no such wait. | 9fe1f325 (in `bm-core`). PR 92 also adds `wait_menu()` at the start of the test. | Nothing, if the old branches rebase. Not a regression. |
 | `test_update` (Pi; not in the task list) | Real regression in PR 87. The new Controls row shifted the key count in Settings. | `AssertionError: want ['Settings > Updates', 'Version']` at `tests/qemu_test.py:3543`. The screen shows `Settings > Screen`. Runs 39688065336 and 39712033065. | PR 87 fix commit (`sync/NEXT.md`: "`test_update` key count after the new Controls row"). | Check CI of PR 87 after the fix. |
-| `make test-net`: link failure in `test_config` | Stale note or local environment. I found no missing symbol. | Rule: `Makefile:875-877`, objects `tests/kernel/test_config.c src/kernel/config.c src/lib/printf.c`. Every external function that `config.c` calls has a stub in `tests/kernel/test_config.c` (`hid_*`, `bm_*perf`, `bm_*via_ram`, `audio_*`, `pointer_*`, `fat_*`, `uart_putc`) or is in `printf.c`. The CI log of run 39712033065 shows `cc -O1 ... -o build/host/test_config ...` and then `build/host/test_config`, with no link error. The note was written in c880a334 (11 Oct 16:04). Commit 71292301 (11 Oct 16:07) changed `config.c` and `test_config.c` (the `perf` overlay). | Nobody needed. | Not built here (rule: no `make`). Run `make test-net` once in WSL. If it passes, delete the bullet. |
+| `make test-net`: link failure in `test_config` | Stale note or local environment. I found no missing symbol. | Rule: `Makefile:875-877`, objects `tests/kernel/test_config.c core/src/kernel/config.c core/src/lib/printf.c`. Every external function that `config.c` calls has a stub in `tests/kernel/test_config.c` (`hid_*`, `bm_*perf`, `bm_*via_ram`, `audio_*`, `pointer_*`, `fat_*`, `uart_putc`) or is in `printf.c`. The CI log of run 39712033065 shows `cc -O1 ... -o build/host/test_config ...` and then `build/host/test_config`, with no link error. The note was written in c880a334 (11 Oct 16:04). Commit 71292301 (11 Oct 16:07) changed `config.c` and `test_config.c` (the `perf` overlay). | Nobody needed. | Not built here (rule: no `make`). Run `make test-net` once in WSL. If it passes, delete the bullet. |
 
 Not regressions: all rows except `test_update`. Environment: none confirmed. The `host` job of PR 87 and
 PR 98 also fails in `test-docs` (Makefile:1186 and 1194). That is a separate item and not in this list.
@@ -83,11 +83,11 @@ PR 82 (video spikes, base `bm-core`, includes PR 80)
 PR 83 (`.bmv` format, VID-FMT slice 1, base `claude/video-spikes`)
 - [ ] ROADMAP: none.
 - [ ] Open work `video.md`, DONE: "Decoder: `jpeg_decode` allocates a 24-bit picture on each call. The player needs a call that writes RGB565 into a given buffer". `jpeg_decode565` does this. The PR does not edit `video.md`, so delete the bullet.
-- [ ] Open work `video.md`, PARTIAL: "VID-FMT: container and player API". Slice 1 is done (`BM-VIDEO.md`, `src/bm/vid.c`, `scripts/mkvid.py`, `make test-vid`). Keep: the Lua API (slice 2) and the memory decision.
+- [ ] Open work `video.md`, PARTIAL: "VID-FMT: container and player API". Slice 1 is done (`BM-VIDEO.md`, `core/src/bm/vid.c`, `core/scripts/mkvid.py`, `make test-vid`). Keep: the Lua API (slice 2) and the memory decision.
 - [ ] NEXT: merge order item 5 (81, 82, 83).
 
 PR 84 (audit tools)
-- [ ] ROADMAP SYS-4 (`ledger and agent_audit.py with baseline; work order scope checked by script`), PARTIAL. The baseline is in (`agent_audit.py` baseline options, `docs/agents/baseline.txt`). The scope check is open: `tools/sync_perimeter.py` was skipped because sync was retired. Cut the requirement to "work order scope checked by script".
+- [ ] ROADMAP SYS-4 (`ledger and agent_audit.py with baseline; work order scope checked by script`), PARTIAL. The baseline is in (`agent_audit.py` baseline options, `docs/agents/baseline.txt`). The scope check is open: `core/tools/sync_perimeter.py` was skipped because sync was retired. Cut the requirement to "work order scope checked by script".
 - [ ] Open work: none. `tools.md` has no open bullet for these tools. The PR adds two lines under "How it is today".
 - [ ] NEXT: delete the item "PRs waiting for review and the user's merge: 84 (...)". After the merge, delete by name `agy/sync-perimeter-quarantine`, `claude/translate-skill`, `agy/agent-audit-baseline`, `claude/docs-audit-check` (the user's go is needed).
 
@@ -98,7 +98,7 @@ PR 85 (bridge and net tools)
 
 PR 86 (games input standard, GAME-INPUT-1)
 - [ ] ROADMAP: none. GAME-3 is related (kit), but its requirement ("a test game uses the kit without duplicated code") is not met.
-- [ ] Open work `lua.md` GAME-INPUT-1: PARTIAL. Removed by the PR: "document `lib.input` in `API.md`, `API-IT.md`, `GAME-GUIDE.md`, `GUIDA-GIOCHI.md` and `src/ai/kb`". Open: "migrate the existing games one by one" and the open decisions in section 7 of the standard.
+- [ ] Open work `lua.md` GAME-INPUT-1: PARTIAL. Removed by the PR: "document `lib.input` in `API.md`, `API-IT.md`, `GAME-GUIDE.md`, `GUIDA-GIOCHI.md` and `core/src/ai/kb`". Open: "migrate the existing games one by one" and the open decisions in section 7 of the standard.
 - [ ] NEXT: delete from the "In progress" integrate list: `claude/games-input-standard` and `claude/pad-y-cancel` (PAD-Y-1 is in PR 87). Merge order item 2.
 
 PR 87 (controls remap, CONTROLS-1, Y back button; stacked on 86)
@@ -108,7 +108,7 @@ PR 87 (controls remap, CONTROLS-1, Y back button; stacked on 86)
 - [ ] NEXT: delete `claude/controls-remap` from the integrate list. Delete the line "PR 87 got CI fixes (`test_update` key count ...)" when PR 87 is green. For `test_usb_mouse` in the CI notes, see part 1.
 
 PR 88 (web player mock, WEB-MOCK-1)
-- [ ] ROADMAP WEB-1 (`bm in the browser ...`), PARTIAL. The mock is a static UI with no kernel code. The first step (the feasibility work order on `src/bm/runtime.c`) and the WebAssembly build are open. Add "UI mock done (PR 88)" and keep the row.
+- [ ] ROADMAP WEB-1 (`bm in the browser ...`), PARTIAL. The mock is a static UI with no kernel code. The first step (the feasibility work order on `core/src/bm/runtime.c`) and the WebAssembly build are open. Add "UI mock done (PR 88)" and keep the row.
 - [ ] Open work `tools.md`: none removed. The PR adds a "How it is today" line.
 - [ ] NEXT: delete `claude/web-mock-1` from the integrate list. Merge order item 1.
 
@@ -151,7 +151,7 @@ PR 95 (Stages 3D port, frame budget and quality governor)
 - [ ] NEXT: in "Useful commits", delete the line for `claude/stages3d-qemu-test` and `claude/stages3d-budget`. Delete both branches by name after the merge (go needed). Merge order item 4.
 
 PR 96 (manuals refresh)
-- [ ] ROADMAP BETA-7 (`Manuals up to date ... python scripts/manuals.py status shows no open item`), PARTIAL. boot-os (en, it) is done. The PR does not say that `manuals.py status` is clean. Check it before the edit.
+- [ ] ROADMAP BETA-7 (`Manuals up to date ... python core/scripts/manuals.py status shows no open item`), PARTIAL. boot-os (en, it) is done. The PR does not say that `manuals.py status` is clean. Check it before the edit.
 - [ ] ROADMAP APP-3 (`EN/IT manuals aligned`), PARTIAL for the same reason.
 - [ ] Open work `tools.md` "PDF manuals": rewritten by the PR. Keep the rest (pictures to take, the Assistant manual).
 - [ ] NEXT: none. Merge order item 1.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The .glb reader of the console (src/bm/glb.c, through build/host/test_glb)
+The .glb reader of the console (core/src/bm/glb.c, through build/host/test_glb)
 on the test .glb of tests/ai/glbfix.py: the box textured (red left, blue
 right on the sheet, the texture corners on the faces), the pyramid's
 vertex colours, every face showing from outside, a mirrored node, the
@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 sys.path.insert(0, os.path.join(HERE, "..", "ai"))
 import bmmesh  # noqa: E402
 import glbfix  # noqa: E402

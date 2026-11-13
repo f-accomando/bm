@@ -300,7 +300,7 @@ Il costruttore legge sempre il layer chiamato `objects` per i segnaposto. Non ri
 - Per un gioco che vive nel repository, la build prende dei file: `mkbm.py --sheet sheet.png --map map.csv`, e un layer in più per ogni `--map nome=file.csv` (fino a 8, nell'ordine dato).
 
 ::: copy
-python3 scripts/mkbm.py --sheet sheet.png --map map.csv --map front=map_front.csv --flags flags.csv --sprites zones.txt
+python3 core/scripts/mkbm.py --sheet sheet.png --map map.csv --map front=map_front.csv --flags flags.csv --sprites zones.txt
 :::
 
 ## I file nella cartella di un gioco

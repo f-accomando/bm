@@ -61,7 +61,7 @@ sudo apt install gcc-aarch64-linux-gnu picolibc-aarch64-linux-gnu mtools dosfsto
 
 # Installing on the Pi Zero W
 
-You make one disk image, `dist/bm.img` (64 MB), and write it to the card. The image has one FAT32 partition labelled `BM` with the Pi's boot files, `config.txt`, `kernel.img`, the games in `carts/` and `bm/`.
+You make one disk image, `dist/bm.img` (64 MB), and write it to the card. The image has one FAT32 partition labelled `BM` with the Pi's boot files, `config.txt`, `kernel.img`, the games in `bm/` and `bm/`.
 
 ## Step by step
 
@@ -114,10 +114,10 @@ On WSL there is a script that does the same with a menu. The first time it asks 
 ./easy_install.sh
 :::
 
-Option **4** keeps your settings, saves and games if you say yes when it asks: it copies `bm/` and `carts/` to the PC first and puts them back. It runs `make image`, formats the card FAT32 (up to 31 GB) and copies the image's files onto it; it does not write the image file itself. It refuses an RGB30 card.
+Option **4** keeps your settings, saves and games if you say yes when it asks: it copies `bm/` and `bm/` to the PC first and puts them back. It runs `make image`, formats the card FAT32 (up to 31 GB) and copies the image's files onto it; it does not write the image file itself. It refuses an RGB30 card.
 
 ::: try
-After the first boot, press the keyboard or the pad and move through the four tabs of the menu. Then switch off, put the card in the PC and look at the folders `bm/` and `carts/`.
+After the first boot, press the keyboard or the pad and move through the four tabs of the menu. Then switch off, put the card in the PC and look at the folders `bm/` and `bm/`.
 :::
 
 # Installing on the RGB30
@@ -179,7 +179,7 @@ What is on the card depends on the board. The text in `LEGGIMI.txt` on the RGB30
 | `config.txt` | Pi | the Pi firmware's settings: which kernel, the HDMI mode |
 | `kernel.img` | Pi | the bm kernel |
 | `kernel7.img` | Pi Zero 2 W | present only if the image was built for it (`ZERO2=1`) |
-| `carts/` | Pi | the games, `.bm`; `carts/nano8/` has the nano8 ROMs |
+| `bm/` | Pi | the games, `.bm`; `bm/nano8/` has the nano8 ROMs |
 | `kernel8.img` | RGB30 | the bm kernel |
 | `extlinux/` | RGB30 | the instructions for U-Boot: do not touch |
 | `LEGGIMI.txt` | RGB30 | a note about the card |
@@ -245,7 +245,7 @@ make install SD=/mnt/d
 make TARGET=rgb30 sdcard SD=/mnt/d
 :::
 
-The first line is for the Pi, the second for the RGB30. On the RGB30 the script `scripts/copy-sd-rgb30.sh` checks the card first and says what is wrong: not mounted, read-only, or not the RGB30's card.
+The first line is for the Pi, the second for the RGB30. On the RGB30 the script `core/scripts/copy-sd-rgb30.sh` checks the card first and says what is wrong: not mounted, read-only, or not the RGB30's card.
 
 ## From the network
 
@@ -280,7 +280,7 @@ The Market is the catalogue of free games. There are no accounts and no payments
 4. The console checks the signature of the catalogue and the SHA-256 of each file before it writes anything to the card. Wait until the game is written.
 5. Open the **Games** tab. You should see the game; select it to play.
 
-On the Pi the game goes to `carts/`. On the RGB30 it goes to `bm/`, the folder its menu lists. Both devices list the `.bm` games of the Market. A game made for the other device shows a faded cover.
+On the Pi the game goes to `bm/`. On the RGB30 it goes to `bm/`, the folder its menu lists. Both devices list the `.bm` games of the Market. A game made for the other device shows a faded cover.
 
 ## From the PC
 
@@ -290,10 +290,10 @@ On the Pi the game goes to `carts/`. On the RGB30 it goes to `bm/`, the folder i
 
 ::: copy
 ./easy_install.sh send game.bm
-python3 tools/bm_net.py <ip> --send game.bm
+python3 core/tools/bm_net.py <ip> --send game.bm
 :::
 
-Or copy the file by hand: a `.bm` into `carts/` on the Pi's card, into `bm/` on the RGB30's card.
+Or copy the file by hand: a `.bm` into `bm/` on the Pi's card, into `bm/` on the RGB30's card.
 
 ## Good to know
 

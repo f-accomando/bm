@@ -2,7 +2,7 @@
 """Cover generator for Tropic Trail YouTube video series.
 
 Builds a deterministic 1280x720 PNG cover from a JSON descriptor.
-Uses exclusively the Terminus console font from src/gfx/font8x16.c
+Uses exclusively the Terminus console font from core/src/gfx/font8x16.c
 and Pillow.
 """
 import argparse
@@ -17,12 +17,12 @@ WIDTH = 1280
 HEIGHT = 720
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-FONT_PATH = os.path.join(ROOT, "src", "gfx", "font8x16.c")
+FONT_PATH = os.path.join(ROOT, "core", "src", "gfx", "font8x16.c")
 SHEET_PATH = os.path.join(ROOT, "art", "brand", "bm-suite.png")
 
 
 def load_font():
-    """Loads 256 8x16 bitmap glyphs from src/gfx/font8x16.c."""
+    """Loads 256 8x16 bitmap glyphs from core/src/gfx/font8x16.c."""
     if not os.path.isfile(FONT_PATH):
         raise FileNotFoundError(f"Font file not found: {FONT_PATH}")
     with open(FONT_PATH, "r", encoding="utf-8") as f:
@@ -249,7 +249,7 @@ def get_bm_logo():
     if os.path.isfile(SHEET_PATH):
         try:
             sheet = Image.open(SHEET_PATH).convert("RGB")
-            # Logo box from scripts/mklogo.py
+            # Logo box from core/scripts/mklogo.py
             logo_crop = sheet.crop((316, 72, 566, 222))
             # Transparent background by thresholding darkest corner
             px = logo_crop.load()

@@ -54,7 +54,7 @@ Il repo registra questi clock da un Pi Zero W reale (fonte: `docs/bench/20261005
 | SDRAM | 400 |
 
 - Il clock del core può arrivare al massimo a 400 MHz (fonte: `docs/STRESS.md`).
-- `enable_uart=1` in `boot/config.txt` tiene il core a 250 MHz; anche il V3D è stato visto a 250 MHz (fonte: `docs/BENCH3D.md`).
+- `enable_uart=1` in `core/boot/config.txt` tiene il core a 250 MHz; anche il V3D è stato visto a 250 MHz (fonte: `docs/BENCH3D.md`).
 - `v3d_clock=max` in `bm/config.txt` chiede al firmware il massimo all'avvio. È una prova, spenta di default (fonte: `docs/BENCH3D.md`).
 - [DA COMPLETARE: l'effetto di `force_turbo=1` o del core a 400 MHz sul 3D Bench; `docs/STRESS.md` dice "da provare"]
 
@@ -144,7 +144,7 @@ QEMU va circa 2 volte più piano del Pi negli sprite (2133 contro 4482 a 60 fps)
 - Tutto il 2D è codice C sull'ARM; Lua dà solo la logica (fonte: `docs/progress/graphics.md`).
 - Le cartucce disegnano in RGB565 (16 bit). La console e il menu usano 32 bit (fonte: `docs/HARDWARE.md`). L'RGB565 dimezza i byte per pixel; a 32 bit il tempo di copia di un frame raddoppia, da circa 6,5 ms a circa 13 ms con la CPU (fonte: `docs/PERFORMANCE.md`).
 - Il framebuffer viene dalla mailbox del firmware. La sua altezza è l'altezza dello schermo per il numero di pagine (da 1 a 3). Il cambio di pagina modifica l'offset virtuale (fonte: `docs/progress/graphics.md`).
-- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). La chiave `draw` di `bm/config.txt` (`direct` o `ram`) e il monitor lo cambiano; Settings non ha una riga (fonte: `src/kernel/settings.c`).
+- Di default le cartucce disegnano direttamente nella memoria video, perché copiare dalla RAM rilegge la lenta SDRAM: 8,58 ms diretto contro 11,85 ms via RAM (fonte: `docs/PERFORMANCE.md`). La chiave `draw` di `bm/config.txt` (`direct` o `ram`) e il monitor lo cambiano; Settings non ha una riga (fonte: `core/src/kernel/settings.c`).
 - bm usa il triplo buffer, che ha eliminato lo strappo nella metà bassa del menu (fonte: `docs/PERFORMANCE.md`).
 - La griglia di luce 4x4, bilineare e con dither, è usata dai giochi con luci dinamiche, a 320x180 (fonte: `docs/PERFORMANCE.md`).
 
@@ -164,7 +164,7 @@ Lo scaler HVS ingrandisce l'immagine fino alla TV. `scaling_kernel` in `config.t
 
 ## Che cosa offre gfx16
 
-La libreria 2D è `src/bm/gfx16.h`. Ogni chiamata è ritagliata nel rettangolo di clip e spostata dalla camera (fonte: `src/bm/gfx16.h`):
+La libreria 2D è `core/src/bm/gfx16.h`. Ogni chiamata è ritagliata nel rettangolo di clip e spostata dalla camera (fonte: `core/src/bm/gfx16.h`):
 
 | Gruppo | Chiamate (nome C; l'API Lua è in `docs/api/draw.md`) |
 |---|---|
@@ -177,7 +177,7 @@ La libreria 2D è `src/bm/gfx16.h`. Ogni chiamata è ritagliata nel rettangolo d
 
 Gli sprite sheet arrivano a 4096x4096 pixel. Uno sheet con al massimo 256 colori può essere salvato come SHEET8 (palette + sequenze), molto più piccolo nella cartuccia (fonti: `docs/api/draw.md`, `docs/PERFORMANCE.md`).
 
-Le primitive a 32 bit della console sono in `src/gfx/draw.h`: `gfx_clear`, `gfx_rect`, `gfx_sprite16` (16x16, un bit) e `gfx_text`. Disegnano sul framebuffer, e i giochi non le usano.
+Le primitive a 32 bit della console sono in `core/src/gfx/draw.h`: `gfx_clear`, `gfx_rect`, `gfx_sprite16` (16x16, un bit) e `gfx_text`. Disegnano sul framebuffer, e i giochi non le usano.
 
 ## DMA
 
@@ -188,7 +188,7 @@ Le primitive a 32 bit della console sono in `src/gfx/draw.h`: `gfx_clear`, `gfx_
 
 ## 2D disegnato dalla GPU
 
-Con `gpu3d_2d=1` (spento se la chiave manca) la GPU disegna il 2D che viene dopo il 3D nello stesso job: `rect`, `pset`, linee orizzontali e verticali, `spr`, `sspr` (anche specchiati e con zoom intero), le celle di `map()` e il testo di `print`. I pixel sono gli stessi dell'ARM. Cerchi, linee oblique, triangoli, `prompt` e uno zoom non intero chiudono il job, e l'ARM li disegna come prima (fonti: `docs/DRIVERS.md`, `src/kernel/settings.c`).
+Con `gpu3d_2d=1` (spento se la chiave manca) la GPU disegna il 2D che viene dopo il 3D nello stesso job: `rect`, `pset`, linee orizzontali e verticali, `spr`, `sspr` (anche specchiati e con zoom intero), le celle di `map()` e il testo di `print`. I pixel sono gli stessi dell'ARM. Cerchi, linee oblique, triangoli, `prompt` e uno zoom non intero chiudono il job, e l'ARM li disegna come prima (fonti: `docs/DRIVERS.md`, `core/src/kernel/settings.c`).
 
 Misurato sul Pi: il 2D sulla GPU costa 9,5 ns per pixel, 19,6 ms a 1080p (fonte: `docs/progress/v3d.md`).
 
@@ -198,7 +198,7 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 
 ## Il renderer ARM (r3d)
 
-`src/bm/r3d.c` gira sull'ARM. Trasforma, illumina, scarta e taglia con float VFP e rasterizza in virgola fissa in uno z-buffer a 16 bit (1/z). Offre (fonte: `docs/progress/graphics.md`):
+`core/src/bm/r3d.c` gira sull'ARM. Trasforma, illumina, scarta e taglia con float VFP e rasterizza in virgola fissa in uno z-buffer a 16 bit (1/z). Offre (fonte: `docs/progress/graphics.md`):
 
 - ombreggiatura piatta e Gouraud (con dither 4x4), texture con prospettiva corretta dallo sheet, taglio sul piano vicino;
 - luce del sole e del cielo/terreno, speculare, rim, fino a 4 lampade puntiformi, nebbia;
@@ -210,11 +210,11 @@ bm ha due modi di disegnare il 3D, dietro le stesse funzioni. La tua cartuccia n
 
 ## Il percorso V3D (gpu3d)
 
-`src/gpu/gpu3d.c` è un backend di r3d. L'ARM trasforma, illumina e taglia ancora; il V3D riempie i pixel (fonte: `src/gpu/gpu3d.h`, `docs/GPU-BENCHMARK-REPORT.md`).
+`core/src/gpu/gpu3d.c` è un backend di r3d. L'ARM trasforma, illumina e taglia ancora; il V3D riempie i pixel (fonte: `core/src/gpu/gpu3d.h`, `docs/GPU-BENCHMARK-REPORT.md`).
 
-- Il V3D disegna a tile di 64x64 pixel: una lista di binning smista i triangoli per tile, poi ogni tile viene disegnata sul chip (colore, profondità a 24 bit) e salvata (fonte: `src/gpu/v3d.h`).
+- Il V3D disegna a tile di 64x64 pixel: una lista di binning smista i triangoli per tile, poi ogni tile viene disegnata sul chip (colore, profondità a 24 bit) e salvata (fonte: `core/src/gpu/v3d.h`).
 - r3d raccoglie i triangoli in un solo job GPU per frame, dove possibile. Le tile sono caricate dalla pagina, quindi il 2D disegnato prima del 3D resta sotto.
-- Gli shader sono piccoli programmi per le QPU scritti in `tools/qpuasm.py` e generati in `src/gpu/shaders.h`.
+- Gli shader sono piccoli programmi per le QPU scritti in `core/tools/qpuasm.py` e generati in `core/src/gpu/shaders.h`.
 - Differenze dal renderer ARM: Gouraud liscio senza rumore di dither, profondità a 24 bit invece di 1/z a 16 bit, nessun bisogno di `zclear()` per il buffer di profondità (parte da zero a ogni frame) (fonti: `docs/GPU-BENCHMARK-REPORT.md`, `docs/api/light3d.md`).
 - Un vertex shader (attivo di default) può piazzare i vertici di intere mesh sulla GPU, così l'ARM manda solo matrici e luci.
 - I pixel coincidono con quelli del renderer ARM entro lo 0,1% nei test sull'emulatore (fonte: `docs/GPU-BENCHMARK-REPORT.md`).
@@ -237,7 +237,7 @@ Le funzioni opzionali sono provate all'avvio. La prova controlla che la GPU dise
 
 ## Opzioni
 
-Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga in *Settings > Screen*. Le altre chiavi sono nascoste: la console le legge dal file. Il predefinito è quello che vale quando la chiave manca (fonte: `src/kernel/settings.c`, `docs/DRIVERS.md`).
+Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga in *Settings > Screen*. Le altre chiavi sono nascoste: la console le legge dal file. Il predefinito è quello che vale quando la chiave manca (fonte: `core/src/kernel/settings.c`, `docs/DRIVERS.md`).
 
 | Chiave | Che cosa fa | Predefinito |
 |---|---|---|
@@ -259,7 +259,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `r3d_fast` | renderer ARM: una matrice e la luce nello spazio del modello (i pixel non sono più identici bit a bit) | `r3d_fast=1` per attivarlo |
 | `r3d_impostor` | modelli lontani come un solo quad (da 2 a 64 pixel di uno schermo di 1080 righe) | spento |
 
-Nelle Settings le righe grafiche sono *Menu size* (e, sul Pi 1, le righe CRT, video e GPIO screen) (fonte: `src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
+Nelle Settings le righe grafiche sono *Menu size* (e, sul Pi 1, le righe CRT, video e GPIO screen) (fonte: `core/src/kernel/settings.c`). Le altre chiavi `gpu3d_*` non hanno una riga. Il manuale 3D (volume 3, *Le chiavi grafiche della console*) dà per ogni chiave cosa fa, quanto costa e il risultato sul Pi.
 
 La luce cel di `cel3d` (vedi il volume 3D) gira anche sulla GPU del Pi: con `gpu3d_vs=2` i programmi dei vertici con luce dividono la luce nelle stesse fasce. Il gioco disegna la stessa immagine con la luce ARM quando `gpu3d_vs` è 0 o 1, o quando il test all'avvio vede fallire i programmi cel.
 
@@ -321,7 +321,7 @@ La GPU riduce le istruzioni ARM per frame dal 23% al 32% in questi preset. A 108
 
 ## Un nome, due driver
 
-Il 3D passa per **r3d** (scena, trasformazioni, luce, il rasterizzatore ARM) e **gpu3d** (il backend V3D con i suoi shader). Condividono una sola versione, **bm3d X.Y**. L'attuale è bm3d 7.3 (fonte: `src/gpu/version3d.h`). La vedi in *Settings > System > 3D driver*, nel log quando parte un gioco, nel 3D Bench e come quarto valore di `gpu3d()` (fonte: `docs/DRIVERS.md`).
+Il 3D passa per **r3d** (scena, trasformazioni, luce, il rasterizzatore ARM) e **gpu3d** (il backend V3D con i suoi shader). Condividono una sola versione, **bm3d X.Y**. L'attuale è bm3d 7.3 (fonte: `core/src/gpu/version3d.h`). La vedi in *Settings > System > 3D driver*, nel log quando parte un gioco, nel 3D Bench e come quarto valore di `gpu3d()` (fonte: `docs/DRIVERS.md`).
 
 ## Le versioni che contano
 

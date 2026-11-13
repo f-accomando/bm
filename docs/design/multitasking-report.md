@@ -13,18 +13,18 @@ Related files:
 ## 1. What bm has today
 
 Mechanisms, with the file that holds each one:
-- **Cooperative fibers.** `src/kernel/fiber.c`. One fiber runs at a time, inside `fiber_resume`. Only the menu loop runs them. A `fiber_share_t` table gives each job a percent of the menu's free time (`menu_jobs` in `src/kernel/carts.c`). The contexts `FIBER_GAME` and `FIBER_TOOL` exist, but their shares are 0 and nothing calls them.
-- **The SD writer lock.** `src/fs/sdlock.c`. One writer at a time. A pausable writer (netxfer, queued `file_write`) stops when another writer begins.
+- **Cooperative fibers.** `core/src/kernel/fiber.c`. One fiber runs at a time, inside `fiber_resume`. Only the menu loop runs them. A `fiber_share_t` table gives each job a percent of the menu's free time (`menu_jobs` in `core/src/kernel/carts.c`). The contexts `FIBER_GAME` and `FIBER_TOOL` exist, but their shares are 0 and nothing calls them.
+- **The SD writer lock.** `core/src/fs/sdlock.c`. One writer at a time. A pausable writer (netxfer, queued `file_write`) stops when another writer begins.
 - **Pause hooks.** `fat_load_tick` and `fat_write_tick` call `fiber_slice` between pieces. `background_stop()` stops the fibers before an app, a rescan or a delete.
 - **Keep-alive and Range resume.** `http.c`, `webget.c`. One kept connection per host. A part file in `bm/web/NAME.PRT` lets a download restart at byte N.
 - **The GPU job queue.** `gpu3d_queue`, `gpu3d_set_queue(2)`. The ARM works while the V3D draws.
 - **QPU programs.** `gpu3d_qpu=1`. Particles, fade, block audio. Opt-in, default off.
-- **IRQ parts.** A 1 kHz timer tick (it sets `fiber_over`), and the HDMI audio DMA with its own IRQ (`src/audio/hdmi_audio.c`).
+- **IRQ parts.** A 1 kHz timer tick (it sets `fiber_over`), and the HDMI audio DMA with its own IRQ (`core/src/audio/hdmi_audio.c`).
 - **Lockstep netplay.** Overbit and bmnet. They own the machine. No background work may run.
 
 Facts that shape every workload:
-- The SD card is read and written by **polled PIO** on both Pi drivers (`src/drivers/sdhost.c`: a 16-word FIFO; `sd_emmc.c`). Nothing uses DMA for the card. The CPU spins during a card busy wait.
-- The USB mouse and keys are **polled** from the input loops (`usb_poll` in `src/kernel/input.c`). The network is polled too (`net_poll`). The WiFi chip is on SDIO and is polled.
+- The SD card is read and written by **polled PIO** on both Pi drivers (`core/src/drivers/sdhost.c`: a 16-word FIFO; `sd_emmc.c`). Nothing uses DMA for the card. The CPU spins during a card busy wait.
+- The USB mouse and keys are **polled** from the input loops (`usb_poll` in `core/src/kernel/input.c`). The network is polled too (`net_poll`). The WiFi chip is on SDIO and is polled.
 - A fiber yields only at a tick it owns. A TLS handshake, an ECDSA verify, a cover decode and an SD timeout do not yield.
 - `fiber_job_stop` is **synchronous**: it cancels the fiber and runs it until it yields (`fiber.c:189`). A job inside a stall holds the caller for that whole stall.
 - Games get `web_get`, `web_poll` and a queued `file_write` (`docs/api/system.md`). One `web_poll` costs about 4 ms. A game gets no Market download and no background job.
@@ -163,7 +163,7 @@ What a game **cannot** do: start a Market download, share a TLS handshake, or wr
 - **Stop in two steps.** Raise the cancel flag when the user selects a game, not when the start begins. The fibers then end while the splash draws. About 10 lines. It is menu code.
 - **Free the job stacks at the stop.** `fiber_job_stop` can release the stack of a stopped job. Gain: RAM for the game.
 - **Load in slices behind the splash.** The start is the splash, `bm_parse`, the assets, the state. Each step can call `loading_tick`. It does. A worker core (RGB30) could decode assets while core 0 draws the splash.
-- **DMA copy of assets.** `src/drivers/dma.c` exists. A memcpy of a large sheet could use it. The gain is **not measured**. Poor value until the load profile exists.
+- **DMA copy of assets.** `core/src/drivers/dma.c` exists. A memcpy of a large sheet could use it. The gain is **not measured**. Poor value until the load profile exists.
 - **Hardware timer slicing.** No gain here.
 
 ### Ranking
@@ -177,7 +177,7 @@ What a game **cannot** do: start a Market download, share a TLS handshake, or wr
 Another runner is fixing this bug. This report does not touch the menu code. These are the findings from the multitasking side. They are **not verified on the Pi**.
 
 Chain of cause, with the lines:
-1. `pointer_update` (`src/kernel/pointer.c:90`) takes the mouse motion that piled up since the last call (`hid_mouse_take`, `src/usb/hid.c:1093`). It takes it **once per menu frame**.
+1. `pointer_update` (`core/src/kernel/pointer.c:90`) takes the mouse motion that piled up since the last call (`hid_mouse_take`, `core/src/usb/hid.c:1093`). It takes it **once per menu frame**.
 2. `accel()` (`pointer.c:82`) turns the size of that sum into a gain from 0.4 to 1.2. The gain depends on the **size of the sum**, not on the speed.
 3. The mouse is polled by `usb_poll`, called from the input loops. A cover read, a decode, a handshake and an SD timeout do not call it (`sd_tick`, `carts.c:294`).
 4. A stall of one read (about 9 ms, derived), of a decode, or of a **500 ms sdhost timeout** makes the next frame take the motion of the whole stall in one call. The sum is large, so the gain is high. The pointer jumps far.
@@ -227,7 +227,7 @@ Only another core can:
 
 What it costs:
 - The heap (`malloc`) is not thread safe. lwIP, the FAT, mbedTLS and the SD driver are not reentrant.
-- The cores need the MMU on with the same page tables, and the caches coherent. The current map is flat (`src/rgb30/mmu.c`).
+- The cores need the MMU on with the same page tables, and the caches coherent. The current map is flat (`core/src/rgb30/mmu.c`).
 - A bug here is a race. QEMU does not show races reliably.
 
 Safe model (a hybrid):

@@ -1,4 +1,4 @@
-"""bm_core against the repo's own Python readers (scripts/bmmesh.py), imported
+"""bm_core against the repo's own Python readers (core/scripts/bmmesh.py), imported
 by path for the comparison only. Every golden must decode to the same models
 and rigs; village/models.bm is the reference case asked for."""
 import json
@@ -13,7 +13,7 @@ bmmesh = C.import_script("bmmesh")
 
 
 def as_bmmesh_models(m):
-    """bm_core Mesh -> the (models, inset) of scripts/bmmesh.py:decode"""
+    """bm_core Mesh -> the (models, inset) of core/scripts/bmmesh.py:decode"""
     out = []
     for x in m.models:
         faces = [(f.a, f.b, f.c, f.colour, tuple(t / 8 for t in f.uv8)) for f in x.faces]
@@ -22,7 +22,7 @@ def as_bmmesh_models(m):
 
 
 def as_bmmesh_rigs(a):
-    """bm_core Anim -> the list of scripts/bmmesh.py:decode_anim"""
+    """bm_core Anim -> the list of core/scripts/bmmesh.py:decode_anim"""
     out = []
     for r in a.rigs:
         bones = [{"name": b.name, "parent": b.parent, "head": tuple(b.head), "tail": tuple(b.tail)} for b in r.bones]
@@ -53,7 +53,7 @@ class CrossCheck(unittest.TestCase):
                 self.check(name)
 
     def test_bmmesh_encode_equals(self):
-        """scripts/bmmesh.py:encode of bmmesh's own decode == bm_core.encode, for
+        """core/scripts/bmmesh.py:encode of bmmesh's own decode == bm_core.encode, for
         the goldens whose faces carry no light/extra (bmmesh.decode drops `extra`
         and the lit flag, so lit files are excluded: bmmesh_lit.bm)"""
         for name in C.FILES:
@@ -66,7 +66,7 @@ class CrossCheck(unittest.TestCase):
 
 
 class Glb(unittest.TestCase):
-    """bm_core.glb is a port of the glTF half of scripts/bmmesh.py: same models"""
+    """bm_core.glb is a port of the glTF half of core/scripts/bmmesh.py: same models"""
 
     def same(self, data):
         """bmmesh and bm_core agree on `data`: same models, or both refuse it"""
@@ -90,14 +90,14 @@ class Glb(unittest.TestCase):
         bm_core must refuse them too"""
         found = 0
         for k in range(1, 5):
-            p = os.path.join(C.REPO, "carts", "kitchen", "models", f"chef{k}.glb")
+            p = os.path.join(C.REPO, "bm", "kitchen", "models", f"chef{k}.glb")
             if not os.path.exists(p):
                 continue
             found += 1
             with open(p, "rb") as f, self.subTest(p):
                 self.same(f.read())
         if not found:
-            self.skipTest("no carts/kitchen/models/chef*.glb in this checkout")
+            self.skipTest("no bm/kitchen/models/chef*.glb in this checkout")
 
     def test_synthetic_glb(self):
         """a small untextured glTF: a quad under a rotated, scaled node (z flip,

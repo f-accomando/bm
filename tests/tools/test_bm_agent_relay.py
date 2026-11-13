@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tools/bm_agent_relay.py: a certificate, the token and the API over real TLS, with a fake program
+"""core/tools/bm_agent_relay.py: a certificate, the token and the API over real TLS, with a fake program
 as the backend (no provider is called). Needs the openssl program.
 
   python3 tests/tools/test_bm_agent_relay.py
@@ -17,7 +17,7 @@ import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-RELAY = os.path.join(ROOT, "tools", "bm_agent_relay.py")
+RELAY = os.path.join(ROOT, "core", "tools", "bm_agent_relay.py")
 
 FAKE = r'''
 import sys

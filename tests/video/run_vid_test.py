@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The .bmv tool and reader: test_vid dump makes the frames, scripts/mkvid.py packs them,
+"""The .bmv tool and reader: test_vid dump makes the frames, core/scripts/mkvid.py packs them,
 test_vid check reads the clip back. Also the refusals of mkvid.py.
 
   run_vid_test.py BUILD/host/test_vid WORKDIR
@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-mkvid = os.path.join(root, "scripts", "mkvid.py")
+mkvid = os.path.join(root, "core", "scripts", "mkvid.py")
 
 
 def run(*a, ok=True):

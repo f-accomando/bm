@@ -1,4 +1,4 @@
-"""Tests for scripts/ci_audit.py: the script runs as a subprocess on fake workflow files.
+"""Tests for core/scripts/ci_audit.py: the script runs as a subprocess on fake workflow files.
 
 Only the `PROBLEM [ci]` lines are looked at, and only their identifiers (job name, timeout-minutes,
 branches-ignore), so the tests do not depend on the language of the messages. The other checks of the
@@ -12,7 +12,7 @@ except ImportError:
     sys.exit(0)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "ci_audit.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "ci_audit.py")
 
 VALID = """\
 name: ci

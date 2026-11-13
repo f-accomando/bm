@@ -2,7 +2,7 @@
 
 Goal: raise the number of triangles on screen at 60 fps on the Pi Zero W (V3D 250/300 MHz, ARM1176 1 GHz, RGB565, 640x360). This file is an investigation and a log. It ranks the options and gives a plan of PRs. Stages 2 and 3 are built (23 Oct, bm3d 7.6, section 8); their Pi numbers are pending.
 
-Sources: [v3d](../progress/v3d.md), [v3d-notes](../progress/v3d-notes.md), [BENCH3D](../BENCH3D.md), [PERFORMANCE](../PERFORMANCE.md), [DRIVERS](../DRIVERS.md), `src/gpu/gpu3d.c`, `src/gpu/v3d.c`, `src/bm/r3d.c`. Old branches: `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02), `v3d-async-proposal` (2c383089, 69ef8453, 23b9c7bf), `claude/bench-vs-etc1` (72710c09), `claude/perf-3d-budget-table` (e0afc683), `claude/v3d-closeout` (4123405b, f15ff570), `claude/stages3d-budget` (PR 95: frame budget and quality governor).
+Sources: [v3d](../progress/v3d.md), [v3d-notes](../progress/v3d-notes.md), [BENCH3D](../BENCH3D.md), [PERFORMANCE](../PERFORMANCE.md), [DRIVERS](../DRIVERS.md), `core/src/gpu/gpu3d.c`, `core/src/gpu/v3d.c`, `core/src/bm/r3d.c`. Old branches: `claude/v3d-compact-tex-attrs` (b8f01430, 1ced7d02), `v3d-async-proposal` (2c383089, 69ef8453, 23b9c7bf), `claude/bench-vs-etc1` (72710c09), `claude/perf-3d-budget-table` (e0afc683), `claude/v3d-closeout` (4123405b, f15ff570), `claude/stages3d-budget` (PR 95: frame budget and quality governor).
 
 Rules for this file: *(M)* = measured on the Pi. *(E)* = estimate from a formula written next to it. `not verified` = nobody checked.
 
@@ -80,7 +80,7 @@ Gain = more triangles at 60 fps in the tests the option helps. Ranges are *E* un
 - Mechanism: `gpu3d_attr=1` packs colour and light bytes: 28% fewer attribute words. The GPU reads and the ARM writes fewer words. Stage 2b: lit textured faces (`GV_LIT_TEX`, the hero shader) also: uv as 16-bit fixed (the sheets are at most 512 and sampled nearest) and normals or light as bytes.
 - Helps: GPU-bound mesh tests (`big`, `match`, `heroes`); ARM side a little (fewer uncached writes).
 - Gain *(M)*, A8 against GPU+VS+FS2 at 60 fps: spheres +3.5%, heroes +7%, match +15% (n60 35.3 against 30.8 in the first run, 34.0 against 32.1 in the last), big +23% (9.2 to 11.3 models; the triangle counts differ). Textured heroes: 0 today. Stage 2b *(E)*: `GV_LIT_TEX` 12 to 10 words (-17%). Taking the heroes' ratio (-28% words gave -14% GPU job time): -17% words gives -8% GPU time, so **+3% to +6%** in `heroes_tex`, `mix`.
-- Cost: 0 RAM (less). Stage 2a: about 5 lines (default on if the probe passes). Stage 2b: about 100-150 lines (shader in `tools/qpuasm.py`, `put_mesh_corner`, emulator unpack), `JOB_CODE` 40 to 48 KB.
+- Cost: 0 RAM (less). Stage 2a: about 5 lines (default on if the probe passes). Stage 2b: about 100-150 lines (shader in `core/tools/qpuasm.py`, `put_mesh_corner`, emulator unpack), `JOB_CODE` 40 to 48 KB.
 - Risk: pixel mismatch (the reason 1ced7d02 dropped half-uv). Medium. The probe `probe_attr` keeps the path only if pixels match.
 - Built (23 Oct, bm3d 7.6): stage 2a. Measured on the Pi (23 Oct): no gain, so `gpu3d_attr` is off by default again; `gpu3d_attr=1` turns it on (where `probe_attr` passes). Stage 2b (lit textured faces) is not built and is not worth it while the frame is ARM-bound.
 - QEMU: `make test-gpu3d` (same pixels, fewer words). Pi: bench GPU+VS+A8 against GPU+VS+FS2 in `heroes_tex`, `mix`, the new scene; Overbit session with `attr=1`. The decision is the user's (v3d.md).
@@ -171,7 +171,7 @@ Opt 1 and 2 stack. If the gains multiply (*E*): `mix` 78 k, with queue +34% and 
 
 ## 4. Bench scene: hero + map at 60 fps
 
-Name: `herotris` (test id), unit "triangles". Code in a later PR: `src/bm/b3d.c` (scene and `tests[]` row), `src/kernel/b3dpi.c` (profile list, report), `tests/bm/b3d_host.c` (host run).
+Name: `herotris` (test id), unit "triangles". Code in a later PR: `core/src/bm/b3d.c` (scene and `tests[]` row), `core/src/kernel/b3dpi.c` (profile list, report), `tests/bm/b3d_host.c` (host run).
 
 Scene, every frame:
 

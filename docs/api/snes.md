@@ -1,7 +1,7 @@
 # API: the SNES machine
 
-Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`src/bm/snes_*.c`, entry
-points in `src/bm/api_snes.c`); the cartridge `carts/snes` is its user interface. See
+Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`core/src/bm/snes_*.c`, entry
+points in `core/src/bm/api_snes.c`); the cartridge `bm/snes` is its user interface. See
 [progress/snes.md](../progress/snes.md).
 
 | Function | Description |

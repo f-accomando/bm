@@ -1,7 +1,7 @@
 /*
- * core_test.c: tests of the NES core (src/bm/nes.c) on small programs made in this file. No ROM of a game is used.
+ * core_test.c: tests of the NES core (core/src/bm/nes.c) on small programs made in this file. No ROM of a game is used.
  *
- *   cc -O1 -Wall -Wextra -Isrc/bm -o build/host/nes_core_test tests/nes/core_test.c src/bm/nes.c
+ *   cc -O1 -Wall -Wextra -Icore/src/bm -o build/host/nes_core_test tests/nes/core_test.c core/src/bm/nes.c
  *   build/host/nes_core_test [nestest.nes nestest.log]
  *
  * With the two files of the public test ROM nestest (not in the repository) it also compares the CPU, instruction by

@@ -1,4 +1,4 @@
--- bm Studio and bm Animator on the console (carts/studio, carts/animator)
+-- bm Studio and bm Animator on the console (bm/studio, bm/animator)
 -- on the PC: stand-ins for the bm API (a folder is the SD card, the
 -- sections are strings, nothing is drawn but the text is kept), keys typed
 -- into them, and checks on what they show and write. bm Studio builds and
@@ -8,7 +8,7 @@
 --
 --   luahost tests/studio/tools3d_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/testkit.bm must be there (a copy of build/carts/testkit.bm).
+-- SDDIR/carts/testkit.bm must be there (a copy of build/bm/testkit.bm).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/studio3d-sd"
 local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
@@ -522,7 +522,7 @@ local function new_env(arg_path)
     if moved then return true, path end
     return true
   end
-  -- the assistant's panel (src/ai/assist.lua) with a stand-in for the
+  -- the assistant's panel (core/src/ai/assist.lua) with a stand-in for the
   -- kernel's `ai`: one 3D recipe, a cube on one bone with one animation
   E.font = function() return 8, 16 end
   E.rect, E.line, E.zclear, E.light3d = function() end, function() end, function() end, function() end
@@ -552,16 +552,16 @@ local function new_env(arg_path)
   local bmui, bmlib
   E.require = function(name)
   if name == "bmlib" then                -- the layout (lib.layout): once
-    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    bmlib = bmlib or assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
-    if name == "assist" then return assert(loadfile(ROOT .. "/src/ai/assist.lua", "t", E))() end
+    if name == "assist" then return assert(loadfile(ROOT .. "/core/src/ai/assist.lua", "t", E))() end
     if name == "bmui" then                 -- the mouse: once (it takes keyp over)
-      bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()
+      bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()
       return bmui
     end
     assert(name == "bm3d", "require: only bm3d, bmui, bmlib and assist here")
-    BM3D = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+    BM3D = assert(loadfile(ROOT .. "/core/src/script/bm3d.lua", "t", E))()
     return BM3D
   end
 end
@@ -660,12 +660,12 @@ end
 
 ----------------------------------------------------------------- bm Studio
 
-local STUDIO, EXIT_S = "/carts/studio/main.lua", "Exit bm Studio"
+local STUDIO, EXIT_S = "/bm/studio/main.lua", "Exit bm Studio"
 run_cart(STUDIO)
 E._init()
 frames(2)
 check(sees("open a cartridge"), "at the start: the list of the files")
-check(sees("/carts/testkit.bm"), "the test kit is in the list")
+check(sees("/bm/testkit.bm"), "the test kit is in the list")
 
 -- open the test kit: 8 models; the models page lists them
 open_file("testkit.bm")
@@ -786,7 +786,7 @@ local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
-for _, s in ipairs(sections_of(read_file(SD .. "/carts/testkit.bm"))) do vil[s[1]] = s[2] end
+for _, s in ipairs(sections_of(read_file(SD .. "/bm/testkit.bm"))) do vil[s[1]] = s[2] end
 check(got[8] == orig8 and got[9] == orig9, "a copy with no edits keeps MESH and ANIM as they were")
 check(got[5] == vil[5] and got[1] == vil[1] and got[4] == vil[4], "and the sheet, the code and the cover (cart_write)")
 
@@ -1056,7 +1056,7 @@ check(tooled and tooled[1] == "animator" and tooled[2]:lower() == "/bme/blocks.b
 
 ----------------------------------------------------------------- bm Animator
 
-local ANIMATOR, EXIT_A = "/carts/animator/main.lua", "Exit bm Animator"
+local ANIMATOR, EXIT_A = "/bm/animator/main.lua", "Exit bm Animator"
 run_cart(ANIMATOR, "/bme/blocks.bme")
 E._init()
 frames(2)
@@ -1312,10 +1312,10 @@ check(sees("mixed with wave: 25%"), "b: mixed with the next one")
 key("f3")
 check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the walker's animations")
 menu_pick("Open in bm Studio", EXIT_A)
-check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/testkit.bm", "Open in bm Studio: cart_tool")
+check(tooled and tooled[1] == "studio" and tooled[2] == "/bm/testkit.bm", "Open in bm Studio: cart_tool")
 
 -- (a fresh bm Animator: the first one leaves the page when it opens bm Studio)
-run_cart(ANIMATOR, "/carts/testkit.bm")
+run_cart(ANIMATOR, "/bm/testkit.bm")
 E._init()
 frames(3)
 for _ = 2, vi do key("down") end
@@ -1506,7 +1506,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_cart("/carts/studio/main.lua", "/carts/testkit.bm")
+run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
 E._init()
 frames(3)
 local mx, my = at("models", nil, 0)
@@ -1557,7 +1557,7 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "models", go = function() key("f2") end },
   } }
 
-run_cart("/carts/animator/main.lua", "/carts/testkit.bm")
+run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
 E._init()
 frames(3)
 mx, my = at("walker", 16)
@@ -1635,7 +1635,7 @@ do
   end
   local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
 
-  run_cart("/carts/studio/main.lua", "/carts/testkit.bm")
+  run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
   E._init()
   frames(3)
   local n0 = #cur_models()
@@ -1722,7 +1722,7 @@ do
   key("f2", "del", "del")
 
   -- bm Animator: the same list, a model with a skeleton opens on its page
-  run_cart("/carts/animator/main.lua", "/carts/testkit.bm")
+  run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
   E._init()
   frames(3)
   local a0 = #cur_models()
@@ -1863,7 +1863,7 @@ end
 
 -- the format limit: 65535 vertices and 65535 triangles (the u16 counts of the MESH record)
 do
-  local B = assert(loadfile(ROOT .. "/src/script/bm3d.lua", "t", E))()
+  local B = assert(loadfile(ROOT .. "/core/src/script/bm3d.lua", "t", E))()
   check(B.LIMIT_V == 65535 and B.LIMIT_T == 65535, "limits: the u16 format limit")
   local function quads(n)               -- n quads on their own corners: 4n vertices, 2n triangles
     local faces = {}

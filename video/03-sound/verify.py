@@ -13,11 +13,11 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmaudio  # noqa: E402
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out")
-path = os.path.join(out, "sd", "carts", "SKYVALE.BM")
+path = os.path.join(out, "sd", "bm", "SKYVALE.BM")
 bad = 0
 
 

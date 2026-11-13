@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""tools/pi_bridge.py run() per board, no hardware: subprocess.run is replaced and records the bm_net.py command it would start."""
+"""core/tools/pi_bridge.py run() per board, no hardware: subprocess.run is replaced and records the bm_net.py command it would start."""
 import os
 import shutil
 import sys
 import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 import pi_bridge  # noqa: E402
 
 fails = 0

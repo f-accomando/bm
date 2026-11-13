@@ -73,7 +73,7 @@ end
 | `envelope(v, a, d, s, r)` | the voice's envelope: attack, decay and release are times 0–255 (0 = instant, 255 = 2 s), sustain is a level 0–255. Default `1, 0, 255, 10` |
 | `duty(v, d)` | the width of the square wave, 0–255 (128 = 50%; 32–64 sounds more "nasal") |
 | `playing(v)` | `true` while the voice sounds (release included) or an effect / the music holds it |
-| `apu(v, reg, [value])` | reads or writes a raw register of the voice (32 bytes per voice, 0–31: `src/audio/synth.h`; register 10 is the 1/256 of Hz, from 11 the tone: filter, place, room, echo, LFO) |
+| `apu(v, reg, [value])` | reads or writes a raw register of the voice (32 bytes per voice, 0–31: `core/src/audio/synth.h`; register 10 is the 1/256 of Hz, from 11 the tone: filter, place, room, echo, LFO) |
 
 Waveform and volume stay those of the voice's last note, so giving them once is enough. At
 the start and at the end of the cartridge the voices go off and back to their defaults.
@@ -91,9 +91,9 @@ note(3, "C4", 600, SQUARE, 90)         -- an arpeggiated major chord
 arp(3, "major", 40)
 ```
 
-Pong, Snake and Star Shooter in `carts/` use notes (a 10-line `jingle` function for the
+Pong, Snake and Star Shooter in `bm/` use notes (a 10-line `jingle` function for the
 tunes; now there is `lib.jingle` in bmlib); the Sound editor's demo project
-(`carts/sound/demo.json`) has sound effects and three songs to listen to and copy (HIFI
+(`bm/sound/demo.json`) has sound effects and three songs to listen to and copy (HIFI
 uses the new voices).
 
 #### Instruments, tone, room
@@ -166,7 +166,7 @@ chorus(0.5, 4, 1)                                   -- a slower, wider chorus
 retro(true)                                         -- the 8-bit sound of before
 ```
 
-**Ready-made instruments** (`src/audio/presets.c`, 50): drums `kick`, `punch`, `snare`, `clap`,
+**Ready-made instruments** (`core/src/audio/presets.c`, 50): drums `kick`, `punch`, `snare`, `clap`,
 `hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (and `chipkick`, `chipsnr`,
 `chiphat` in 8 bits), `kit` (the kit's drums as samples: `"kit:0"`…`"kit:7"`), `pump` (the
 kit's kick ducking the rest: a sidechain pump); basses `bass`, `acid`, `sub`, `fmbass`,
@@ -186,7 +186,7 @@ drums (8 bits, the nearest frame).
 
 #### The bank: format and tools
 
-The bank is the **AUDIO** section of the `.bm` (format in `src/audio/player.h`, version 2,
+The bank is the **AUDIO** section of the `.bm` (format in `core/src/audio/player.h`, version 2,
 or 3 with samples; version 1 is still read): up to 32 sounds (instruments, each with its
 tone: filter, place, room, echo, LFO, effects), 64 sound effects, 64 patterns, 8 songs (each
 with the echo on the beat, in steps, and the room's size) and up to 64 **samples** (8, 16,
@@ -195,7 +195,7 @@ ping-pong; 16 MB a bank, about 174 s of mono at 48 kHz). It is made with the
 **Sound editor** (Dev tab), which opens a game and saves its sounds right inside it; its
 menu's *Samples...* lists the bank's samples and the kit's with their length and peak and
 puts one into the sound (the SAMPLE wave, with SAMPLE and START among its settings), and the
-menu's footer shows the output's depth (`output 24-bit`). On the PC: `scripts/bmaudio.py
+menu's footer shows the output's depth (`output 24-bit`). On the PC: `core/scripts/bmaudio.py
 unpack game.bm -o sounds.json` extracts it as readable JSON (the samples as WAV files beside
 it), `mkbm.py --audio sounds.json` puts it back in a cartridge, `make wav BANK=sounds.json
 SONG=0` plays it into a WAV (`BITS=24`, `32` or `f32` for a deeper file; 16 by default). A

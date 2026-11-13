@@ -1,5 +1,5 @@
 /*
- * The games' loading screen (src/bm/loading.c, 2026-10-04) on the PC: the
+ * The games' loading screen (core/src/bm/loading.c, 2026-10-04) on the PC: the
  * retro intro on a console page (32 bits a pixel), then on the game's page
  * (RGB565): the logo falls and lands at its place, the jingle's notes come
  * at the landing and on time, no title (the system's splash), a circle of

@@ -13,7 +13,7 @@ end
 
 SCREEN_W, SCREEN_H = 640, 360
 function font() return 8, 16 end
-local assist = dofile("src/ai/assist.lua")
+local assist = dofile("core/src/ai/assist.lua")
 
 local function lines_of(s)
   local t = {}

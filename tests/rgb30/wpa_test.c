@@ -1,5 +1,5 @@
 /*
- * WPA2-PSK on the PC (src/rgb30/wpa.c): the published vectors of PBKDF2
+ * WPA2-PSK on the PC (core/src/rgb30/wpa.c): the published vectors of PBKDF2
  * (IEEE 802.11 annex J), the PRF and AES key unwrap (RFC 3394), then a
  * whole 4-way handshake and a group rekey from an AP computed apart from
  * wpa.c (tests/rgb30/wpa_vectors.py): our messages 2 and 4 and group 2 must

@@ -29,7 +29,7 @@ A song for a game is a few lines, not a file of notes. You can write it and hear
 
 ## Good to know
 
-- RIFF is a library of the kernel (`src/script/riff.lua`, like bmlib). You load it with `require "riff"`. It runs in `.bm` files, on the Pi and on the RGB30, and in bmhost on the PC.
+- RIFF is a library of the kernel (`core/src/script/riff.lua`, like bmlib). You load it with `require "riff"`. It runs in `.bm` files, on the Pi and on the RGB30, and in bmhost on the PC.
 - Time is counted in **cycles**. A cycle is a bar of four beats: 2 seconds at 120 BPM (`setcps(0.5)`, the initial value).
 - A pattern says which events fall in an interval of cycles. Every frame, `R.update()` queues the notes of the next moments (about 0.2 s ahead) with `play_at()`. The sound interrupt starts them on time, whatever the frame rate of the game.
 - Notes wait in a queue of up to 160. RIFF never takes the voices of a bank song or of a sound effect.

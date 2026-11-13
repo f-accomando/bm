@@ -1,6 +1,6 @@
 /*
  * G2 in the kernel shape (docs/progress/snes-gpu.md): the SNES PPU with the V3D helper on, on the V3D emulator.
- * snes_ppu.c keeps the lines of BG1 Mode 7 and src/gpu/qpu_snes.c draws them with qp_snes_mode7; every frame must be
+ * snes_ppu.c keeps the lines of BG1 Mode 7 and core/src/gpu/qpu_snes.c draws them with qp_snes_mode7; every frame must be
  * the picture of the reference PPU (tests/snes/ppu_ref.c) byte for byte, also when the registers, the palette, the
  * video RAM or the screen change in the middle of the frame (the lines the GPU does not take go to the ARM, G8).
  *

@@ -1,17 +1,17 @@
 # Dark Night
 
-A new, independent game: the Hunter in the Clinic of a Victorian, dystopian town (a fan study). The cartridge is `carts/darknight/`.
-The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `build/carts/darknight.bm`.
+A new, independent game: the Hunter in the Clinic of a Victorian, dystopian town (a fan study). The cartridge is `bm/darknight/`.
+The project (`.bme`) is `bm/darknight/darknight.bme`. The game (`.bm`) is `build/bm/darknight.bm`.
 
 ## How it is today (first slice)
 
-- Build: `make build/carts/darknight.bm build/carts/darknight.bme` (rule in the Makefile, like Island Bench). The code is one file,
-  `carts/darknight/main.lua`. The map is `art/maps/clinic.bmk` ([map kit](../design/map-kit.md), builder and checks in
+- Build: `make build/bm/darknight.bm build/bm/darknight.bme` (rule in the Makefile, like Island Bench). The code is one file,
+  `bm/darknight/main.lua`. The map is `art/maps/clinic.bmk` ([map kit](../design/map-kit.md), builder and checks in
   `art/maps/clinic/`). The Hunter is `art/models/dnhunter.bmm` (and the enemies `art/models/dnenemy.bmm`): models `hunter_c` (saw closed) and `hunter_o` (saw open), each with the
   saw in the right hand, the pistol in the left, and the 17 clips (made by `art/models/hunter/armed.py --game`; the saw is on its own bone `grip.R` and the pistol on `grip.L`, children of the hands, so bm Animator turns a weapon as one part; low poly, about 1300
   triangles). `bmres.py add` merges both files into the cartridge.
-- The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/carts/darknight.bme`, then
-  `cp build/carts/darknight.bme carts/darknight/darknight.bme`. The `.bm` is the same bytes with bit 0 of the u16 at 18 cleared (`mkbm.py --from`).
+- The `.bme` is kept in the repository. To change it: edit `main.lua` or a resource, run `make build/bm/darknight.bme`, then
+  `cp build/bm/darknight.bme bm/darknight/darknight.bme`. The `.bm` is the same bytes with bit 0 of the u16 at 18 cleared (`mkbm.py --from`).
 - `bm.info` declares the compatibility block: `targets: pi,rgb30`, `input: keyboard,pad`, `aspect: wide`, `needs: 3d,audio` (the header bytes 122 and 123 of the `.bm` and the `.bme` hold 1 and 3). `min_ram`, `min_spec` and `min_width` are not set: no measure of them yet.
 - Screen: `screen(640, 360)` at the start, as the header says (the Resolution row of the menu goes to 1280x720). The HUD scales with the screen.
 - Keys (`rawkeys` and `keydown`, a pad has the same moves): W A S D move (relative to the camera; locked on, around the target);
@@ -36,7 +36,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   leaf in the way first tilts the view down a little, then brings the camera closer. F9 and a new start put the camera behind the Hunter.
 - The night: a low ambient, a cold sky (`sky3d`), a near fog and a moon high up (`light3d`), so all the shadows fall the same way. The shadows
   lie on the floor height (`map_height`). The three nearest lamps or lanterns are warm, flickering point lights (`lamp3d`).
-- Sound: the bank `carts/darknight/art/sounds.py` makes the samples (saw, steps, cloth, pistol, enemies, bells) and two songs in D minor
+- Sound: the bank `bm/darknight/art/sounds.py` makes the samples (saw, steps, cloth, pistol, enemies, bells) and two songs in D minor
   (`CLINIC` for the walk, `HUNT` for a fight). `make` builds it into `build/darknight/sounds.json` and `mkbm.py --audio` packs it.
 - Draw cost: the fog is whole at `FAR` (22). `map3d_draw(world, 0, FAR + 1)` skips the map pieces beyond it, and the objects and enemies beyond
   it are not drawn. A shadow (a second draw) is drawn only within `SHADOW` (11) of the camera. Models of 12 pixels or less are impostors
@@ -50,7 +50,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
   `idle_o`, `walk_o` and `run_o` (the long blade low and back, off the floor). The closed saw has a long handle and the blade folded along it.
 - The walls of the map repeat their 16x16 texture in bands (`map3d_build{ wall_tile = 1.0 }`). The tile textures have soft stains, no loose pixels.
 - The HUD has no help lines. It shows health, stamina, and a silhouette of the saw in its form (`SAW_ICON`), which flashes at a change.
-- The cover is `carts/darknight/cover.png` (made by `carts/darknight/art/cover.py` from a bmhost screenshot).
+- The cover is `bm/darknight/cover.png` (made by `bm/darknight/art/cover.py` from a bmhost screenshot).
 - The enemies are the models of `art/models/dnenemy.bmm` ([enemies](../../art/models/enemies/README.md)): villagers in the clinic, then huntsmen and
   dogs in turn in the courtyard, dogs in the alley (`enemy_kind`). They wait, chase within their sight, strike when the attack clip reaches its hit time and stagger when hit (`TYPES` has health, speed and, for each
   attack, the clip, the hit time, the damage, the reach and how often it is chosen). The villager and the huntsman have two attacks (a chop or an axe
@@ -98,7 +98,7 @@ The project (`.bme`) is `carts/darknight/darknight.bme`. The game (`.bm`) is `bu
 - Take the hurtboxes of the enemies from their skeleton with `hit3d`, after `animate` of that enemy; do not keep a second set of boxes.
 - Keep the Hunter's clips in place (the game moves the body); the clips carry no net travel.
 - Write a game event as one line `darknight: ...` (`ev()`), because the test reads them.
-- Keep the `SFX` table of `main.lua` in the order of the effects of `carts/darknight/art/sounds.py`. An effect is played by its index.
+- Keep the `SFX` table of `main.lua` in the order of the effects of `bm/darknight/art/sounds.py`. An effect is played by its index.
 - Draw a shadow (`draw3d` flag 8) on the floor height under the figure, not on the figure's own height.
 - Keep the skin of a character continuous (faces across a joint share its vertices). A split to one bone a face opens seams when the joint bends.
 - Export the characters with no face on three bones (`gpuskin.two_bones_max`) and no glossy face on two bones. Such a face sends the whole model to the ARM.

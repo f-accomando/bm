@@ -59,7 +59,7 @@ class RoundTrip(unittest.TestCase):
     def test_replace_keeps_header(self):
         """set_mesh/set_anim on a parsed cart: header bytes kept (title, author,
         resolution, flags, 104..127) except count and CRC, like
-        scripts/bmmesh.py:rewrite_cart"""
+        core/scripts/bmmesh.py:rewrite_cart"""
         data = C.load("village_models.bm")
         cart = container.parse(data)
         m = cart.mesh()
@@ -72,7 +72,7 @@ class RoundTrip(unittest.TestCase):
         self.assertEqual(container.parse(out).mesh().models[0].verts[0][1], m.models[0].verts[0][1])
 
     def test_same_as_bmmesh_rewrite(self):
-        """bm_core's rewrite of new MESH bytes equals scripts/bmmesh.py:rewrite_cart"""
+        """bm_core's rewrite of new MESH bytes equals core/scripts/bmmesh.py:rewrite_cart"""
         bmmesh = C.import_script("bmmesh")
         data = C.load("village_models.bm")
         cart = container.parse(data)

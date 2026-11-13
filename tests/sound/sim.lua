@@ -1,11 +1,11 @@
--- Host tests of the Sound editor (carts/sound): the cartridge runs in a fake
+-- Host tests of the Sound editor (bm/sound): the cartridge runs in a fake
 -- bm (the same API, no pixels, an SD card in memory) with scripted and
 -- random input. It checks that the bank the editor writes is byte for byte
--- the format of the console (the demo bank, packed by scripts/bmaudio.py,
+-- the format of the console (the demo bank, packed by core/scripts/bmaudio.py,
 -- comes back identical), that editing, saving into a game, importing and
 -- the menus work, and that random input never stops it with an error.
 --
---   luahost tests/sound/sim.lua carts/sound/main.lua demo.bmau
+--   luahost tests/sound/sim.lua bm/sound/main.lua demo.bmau
 
 local SRC, DEMO = arg[1], arg[2]
 local function readfile(p) local f = assert(io.open(p, "rb")); local d = f:read("a"); f:close(); return d end
@@ -139,7 +139,7 @@ env.audio_play = function(v, s, n, vol, fx, ms)
 end
 local mutes = {}
 env.mute = function(t, on) mutes[t] = on end
--- two of the instruments (src/audio/presets.c), as instruments() and instrument() give them
+-- two of the instruments (core/src/audio/presets.c), as instruments() and instrument() give them
 local INSTR = {
   epiano = { name = "epiano", kind = "keys", about = "electric piano (FM)", wave = 6, duty = 128, vol = 130,
              a = 0, d = 150, s = 70, r = 60, pitch = 0, ptime = 0, vdepth = 0, vrate = 0, detune = 0,
@@ -152,8 +152,8 @@ env.instruments = function() return { INSTR.kick, INSTR.epiano } end
 env.instrument = function(n) return INSTR[n] end
 local plays = 0
 env.play = function(v, name, note) assert(INSTR[name], "play: an instrument"); plays = plays + 1; return v end
--- the music assistant: ai.music's pieces (src/ai/lua_music.c) and a panel
--- that hands one over at once, after its preview (src/ai/assist.lua)
+-- the music assistant: ai.music's pieces (core/src/ai/lua_music.c) and a panel
+-- that hands one over at once, after its preview (core/src/ai/assist.lua)
 local function word(n, i, v, fx) return n | i << 8 | v << 16 | (fx or 0) << 24 end
 local PIECES = {
   base = { gen = "base.pop", name = "pop backing", kind = "base", bpm = 110, swing = 0, key = 7, minor = false,
@@ -189,11 +189,11 @@ local bmui, bmlib
 env.require = function(name)
   if name == "assist" then return fake_assist end
   if name == "bmui" then                   -- the mouse, the real one (it takes keyp over)
-    bmui = bmui or assert(loadfile((SRC:match("^(.-)carts/") or "./") .. "src/script/bmui.lua", "t", env))()
+    bmui = bmui or assert(loadfile((SRC:match("^(.-)bm/") or "./") .. "core/src/script/bmui.lua", "t", env))()
     return bmui
   end
   if name == "bmlib" then
-    bmlib = bmlib or assert(loadfile((SRC:match("^(.-)carts/") or "./") .. "src/script/bmlib.lua", "t", env))()
+    bmlib = bmlib or assert(loadfile((SRC:match("^(.-)bm/") or "./") .. "core/src/script/bmlib.lua", "t", env))()
     return bmlib
   end
   error("no module " .. name)
@@ -310,7 +310,7 @@ env._init()
 run(2)
 
 -- 1. the demo bank comes back byte for byte
-check(last_bank == demo, "the demo bank is packed back exactly as scripts/bmaudio.py made it")
+check(last_bank == demo, "the demo bank is packed back exactly as core/scripts/bmaudio.py made it")
 
 -- 2. every page draws, with the pad and the keyboard
 for page = 1, 4 do
@@ -640,7 +640,7 @@ do   -- the roll with the mouse: a click puts a note at the pitch under the poin
   type_keys("f")
 end
 
--- 9c. a bank with samples (version 3, src/audio/player.h): opened, played and
+-- 9c. a bank with samples (version 3, core/src/audio/player.h): opened, played and
 -- written back byte for byte; the menu's Samples... puts the kit's kick into
 -- the sound, which then shows its sample in place of the wave
 do

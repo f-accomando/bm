@@ -1,4 +1,4 @@
--- update_parts of Yharnam (carts/yharnam/main.lua) in the typed subset, on arrays that C owns (one array for each field).
+-- update_parts of Yharnam (bm/yharnam/main.lua) in the typed subset, on arrays that C owns (one array for each field).
 -- Same moves, same order, same removal (the last particle takes the place of the one that dies). Not in HOST_TESTS of the game.
 
 -- n particles; jit has the 64 numbers of JIT at 1..64; k0 is JIT.k after this frame's step; returns the new n

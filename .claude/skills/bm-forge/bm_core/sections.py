@@ -1,11 +1,11 @@
 """Checks of the simple sections (everything but MESH and ANIM).
 
 Each `check_<name>(body, where)` raises ValidationError or returns a small
-parsed view (dict). They are ports of the C checks in src/bm/format.c; the
+parsed view (dict). They are ports of the C checks in core/src/bm/format.c; the
 bodies stay raw bytes in a Cart (a rewrite copies them unchanged).
-Not checked deeper: LUA (any bytes, like the C parser, src/bm/format.c:608-611)
-and the AUDIO bank (only the "BMAU" magic and size >= 16, src/bm/format.c:668;
-the full bank is scripts/bmaudio.py unpack, not ported: NON VERIFICATO beyond
+Not checked deeper: LUA (any bytes, like the C parser, core/src/bm/format.c:608-611)
+and the AUDIO bank (only the "BMAU" magic and size >= 16, core/src/bm/format.c:668;
+the full bank is core/scripts/bmaudio.py unpack, not ported: NON VERIFICATO beyond
 the magic).
 """
 import struct
@@ -13,7 +13,7 @@ import struct
 from .binary import read_name
 from .errors import ValidationError, need
 
-# section types, src/bm/bm.h:143-156
+# section types, core/src/bm/bm.h:143-156
 LUA, SHEET, MAP, COVER, SHEET8, AUDIO, OLD_ANIM, MESH, ANIM = 1, 2, 3, 4, 5, 6, 7, 8, 9
 INFO, SPRITES, LAYERS, FLAGS, BOXES = 10, 11, 12, 13, 14
 NAMES = {LUA: "LUA", SHEET: "SHEET", MAP: "MAP", COVER: "COVER", SHEET8: "SHEET8", AUDIO: "AUDIO",
@@ -30,7 +30,7 @@ BOX_SIZE = 28               # bm.h:164
 LAYERS_MAX = 8              # bm.h:157
 LAYER_NAME = 16             # bm.h:158
 SHEET_MAX = 4096            # bm.h:169
-COVER_MAX = 512             # src/bm/format.c:662
+COVER_MAX = 512             # core/src/bm/format.c:662
 
 
 def sec_name(t):
@@ -43,7 +43,7 @@ def _wh(body, where, what):
 
 
 def check_info(body, where="INFO"):
-    """INFO (10): UTF-8 text <= 16 KB (src/bm/format.c:577-585, bm.h:80-86).
+    """INFO (10): UTF-8 text <= 16 KB (core/src/bm/format.c:577-585, bm.h:80-86).
     C does not check UTF-8; bm-forge refuses invalid UTF-8 (strict choice).
     -> {"text": str}"""
     need(len(body) <= INFO_MAX, f"INFO is {len(body)} bytes, at most {INFO_MAX}", where)
@@ -54,7 +54,7 @@ def check_info(body, where="INFO"):
 
 
 def check_sprites(body, where="SPRITES"):
-    """SPRITES (11): port of sprites_check (src/bm/format.c:469-485), layout
+    """SPRITES (11): port of sprites_check (core/src/bm/format.c:469-485), layout
     bm.h:87-91. -> {"zones": [{name, x, y, w, h, frames, fps[, slices]}]}"""
     need(len(body) >= 4, "SPRITES shorter than its head", where)
     n, pad = struct.unpack_from("<HH", body, 0)
@@ -79,7 +79,7 @@ def check_sprites(body, where="SPRITES"):
 
 
 def check_boxes(body, where="BOXES"):
-    """BOXES (14): port of boxes_check (src/bm/format.c:489-502), layout bm.h:103-109.
+    """BOXES (14): port of boxes_check (core/src/bm/format.c:489-502), layout bm.h:103-109.
     -> {"boxes": [{zone, frame, kind, x, y, w, h}]}"""
     need(len(body) >= 4, "BOXES shorter than its head", where)
     n = struct.unpack_from("<H", body, 0)[0]
@@ -99,7 +99,7 @@ def check_boxes(body, where="BOXES"):
 
 
 def check_layers(body, where="LAYERS"):
-    """LAYERS (12): port of layers_check (src/bm/format.c:506-523), layout
+    """LAYERS (12): port of layers_check (core/src/bm/format.c:506-523), layout
     bm.h:92-97. The MAP size match is checked by the container.
     -> {"w", "h", "names"}"""
     need(len(body) >= 8, "LAYERS shorter than its head", where)
@@ -119,7 +119,7 @@ def check_layers(body, where="LAYERS"):
 
 
 def check_flags(body, where="FLAGS"):
-    """FLAGS (13): src/bm/format.c:651-657, layout bm.h:98-102. -> {"per_row", "rows"}"""
+    """FLAGS (13): core/src/bm/format.c:651-657, layout bm.h:98-102. -> {"per_row", "rows"}"""
     per_row, rows = _wh(body, where, "FLAGS")
     need(per_row >= 1, "FLAGS with 0 cells per row", where)
     need(len(body) == 4 + per_row * rows, f"FLAGS size {len(body)} != 4 + {per_row} x {rows}", where)
@@ -127,7 +127,7 @@ def check_flags(body, where="FLAGS"):
 
 
 def check_sheet(body, where="SHEET"):
-    """SHEET (2): src/bm/format.c:612-620. -> {"w", "h"}"""
+    """SHEET (2): core/src/bm/format.c:612-620. -> {"w", "h"}"""
     w, h = _wh(body, where, "SHEET")
     need(1 <= w <= SHEET_MAX and 1 <= h <= SHEET_MAX, f"sheet {w}x{h}, 1..{SHEET_MAX}", where)
     need(len(body) == 4 + w * h * 4, f"SHEET size {len(body)} != 4 + {w}x{h}x4", where)
@@ -135,7 +135,7 @@ def check_sheet(body, where="SHEET"):
 
 
 def check_sheet8(body, where="SHEET8"):
-    """SHEET8 (5): port of sheet8_walk without drawing (src/bm/format.c:37-63,
+    """SHEET8 (5): port of sheet8_walk without drawing (core/src/bm/format.c:37-63,
     621-634). -> {"w", "h", "ncol"}"""
     need(len(body) >= 12, "SHEET8 shorter than 12 bytes", where)
     w, h, ncol = struct.unpack_from("<HHH", body, 0)
@@ -159,7 +159,7 @@ def check_sheet8(body, where="SHEET8"):
 
 
 def check_map(body, where="MAP"):
-    """MAP (3): src/bm/format.c:635-642. -> {"w", "h"}"""
+    """MAP (3): core/src/bm/format.c:635-642. -> {"w", "h"}"""
     w, h = _wh(body, where, "MAP")
     need(w and h, "MAP of size 0", where)
     need(len(body) == 4 + w * h * 2, f"MAP size {len(body)} != 4 + {w}x{h}x2", where)
@@ -167,7 +167,7 @@ def check_map(body, where="MAP"):
 
 
 def check_cover(body, where="COVER"):
-    """COVER (4): src/bm/format.c:658-666. -> {"w", "h"}"""
+    """COVER (4): core/src/bm/format.c:658-666. -> {"w", "h"}"""
     w, h = _wh(body, where, "COVER")
     need(1 <= w <= COVER_MAX and 1 <= h <= COVER_MAX, f"cover {w}x{h}, 1..{COVER_MAX}", where)
     need(len(body) == 4 + w * h * 4, f"COVER size {len(body)} != 4 + {w}x{h}x4", where)
@@ -176,8 +176,8 @@ def check_cover(body, where="COVER"):
 
 def is_audio(body):
     """a type-6 body is a sound bank only with "BMAU" and >= 16 bytes
-    (src/bm/format.c:668); otherwise it is the MESH of the first bm Studio
-    files (src/bm/format.c:673-676, scripts/bmmesh.py:188-191 cart_sections)"""
+    (core/src/bm/format.c:668); otherwise it is the MESH of the first bm Studio
+    files (core/src/bm/format.c:673-676, core/scripts/bmmesh.py:188-191 cart_sections)"""
     return len(body) >= 16 and body[:4] == b"BMAU"
 
 
@@ -188,7 +188,7 @@ def check_audio(body, where="AUDIO"):
 
 
 def check_lua(body, where="LUA"):
-    """LUA (1): any bytes (src/bm/format.c:608-611)"""
+    """LUA (1): any bytes (core/src/bm/format.c:608-611)"""
     return {"size": len(body)}
 
 

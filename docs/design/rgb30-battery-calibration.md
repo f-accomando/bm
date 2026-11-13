@@ -12,11 +12,11 @@ Status: plan, no measurement yet (2026-10-26). The console was in use by another
 
 | Part | State | File |
 |---|---|---|
-| Percent | Voltage only, from a fixed table (3450 mV = 0%, 4180 mV = 100%). The table is an open-circuit curve. Under load the voltage sags, so the percent reads low. | `battery_percent()` in `src/rgb30/plat.h` |
-| Voltage | RK817 ADC, two-point calibration at first read (registers 0x93, 0x95 against 2300 and 4025 mV). Read every 10 s. | `rk817_battery_mv()` in `src/rgb30/rk_pmic.c` |
+| Percent | Voltage only, from a fixed table (3450 mV = 0%, 4180 mV = 100%). The table is an open-circuit curve. Under load the voltage sags, so the percent reads low. | `battery_percent()` in `core/src/rgb30/plat.h` |
+| Voltage | RK817 ADC, two-point calibration at first read (registers 0x93, 0x95 against 2300 and 4025 mV). Read every 10 s. | `rk817_battery_mv()` in `core/src/rgb30/rk_pmic.c` |
 | Coulomb counter | Not used. The RK817 fuel gauge (current, charge counter) is not read. | - |
 | CPU clock | Not changed by bm. No DVFS. Run frequency is the one the loader leaves. To check. | - |
-| Idle | The main loop has no `wfi` (grep of `src/rgb30`). The secondary cores park with `wfe`. To check on the main loop. | `src/rgb30/smp.c` |
+| Idle | The main loop has no `wfi` (grep of `core/src/rgb30`). The secondary cores park with `wfe`. To check on the main loop. | `core/src/rgb30/smp.c` |
 | Backlight | PWM4, a percent value. Default level to check. | `rk_display.c:231` |
 | Radios | WiFi and BT modules are on only when used. To check. | `rk_wlbt.c` |
 
@@ -47,8 +47,8 @@ The console reports numbers to the `reports` branch without a serial line. Use t
 
 ## Done (2026-10-26, built, not yet run on the console)
 
-- `rk817_battery_ma()` and `rk817_charge_uah()` in `src/rgb30/rk_pmic.c` (registers 0x7a/0x7b current, 0x74 to 0x77 charge counter; scale 172 uA per count, from the public Linux driver). `RK817_SENSE_DIV` is 1; it must be 2 if the board has a 20 mOhm sense resistor. Check it on the console: the current must be near 0 mA at idle with the screen off, and the counter after a full run-down must be near 4100 mAh.
-- Battery log: `battery_log=1` in `bm/config.txt` writes `bm/bat00.csv` (first free name) once a minute: `sec,mV,mA,mAh,plug,charge`. Code in `src/rgb30/battery.c`. The log has no backlight column yet.
+- `rk817_battery_ma()` and `rk817_charge_uah()` in `core/src/rgb30/rk_pmic.c` (registers 0x7a/0x7b current, 0x74 to 0x77 charge counter; scale 172 uA per count, from the public Linux driver). `RK817_SENSE_DIV` is 1; it must be 2 if the board has a 20 mOhm sense resistor. Check it on the console: the current must be near 0 mA at idle with the screen off, and the counter after a full run-down must be near 4100 mAh.
+- Battery log: `battery_log=1` in `bm/config.txt` writes `bm/bat00.csv` (first free name) once a minute: `sec,mV,mA,mAh,plug,charge`. Code in `core/src/rgb30/battery.c`. The log has no backlight column yet.
 - The current offset calibration of the PMIC is not done (read only). A small constant offset in mA at idle is expected.
 
 ## First run (2026-10-26)
@@ -110,7 +110,7 @@ The console ran from the full charge (4212 mV, charge ended at 241 mA, counter 1
 
 ## Built (2026-10-27, not tried on the console)
 
-- `src/rgb30/battery_curve.h`: rest voltage = voltage - mA x 0.126 (mA negative on the battery), and the table of the run-down. `battery_percent(mv, ma)` in `plat.h` uses it. The bars keep 75/50/25/10%.
+- `core/src/rgb30/battery_curve.h`: rest voltage = voltage - mA x 0.126 (mA negative on the battery), and the table of the run-down. `battery_percent(mv, ma)` in `plat.h` uses it. The bars keep 75/50/25/10%.
 - `battery.c`: the current is read with the voltage (every 10 s). The LED lights below 3500 mV at rest. Off the charger, 3 reads in a row below 3400 mV at rest and no write to the card: `plat_poweroff()`. If the gauge cannot be read the count stays at 0.
 - Tests: `make test-battery-curve` (rows of bat09, 22 checks) and `tests/rgb30/qemu_test.py -k battery` (the QEMU values changed: 3880 mV is 66%, 3500 mV is red, 3650 mV is 17%).
 - To check on the console: the bars at the same load, the LED, and the switch-off (a second run-down, with `battery_log=1`).

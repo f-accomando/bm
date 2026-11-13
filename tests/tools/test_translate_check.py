@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for scripts/translate_check.py (python3 tests/tools/test_translate_check.py)."""
+"""Unit tests for core/scripts/translate_check.py (python3 tests/tools/test_translate_check.py)."""
 import contextlib
 import io
 import os
@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import translate_check  # noqa: E402
 
 SRC = """# Titolo

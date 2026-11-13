@@ -7,7 +7,7 @@ folder layout of a game is in [PROJECT-LAYOUT.md](PROJECT-LAYOUT.md).
 
 ## 1. One runtime for everything
 
-Games, tools and `bmhost` (the PC host) all run through the same runtime, `bm_run` (`src/bm/runtime.c:9188`).
+Games, tools and `bmhost` (the PC host) all run through the same runtime, `bm_run` (`core/src/bm/runtime.c:9188`).
 A program is a cartridge: a Lua chunk with optional assets, no native code.
 
 ```
@@ -49,12 +49,12 @@ menu / RGB30 ui / monitor / bmhost
 | `tool_mode` | 0 | 1 |
 | Writing | only **new** `.bm`/`.bme` files in `/carts` (and the ones made in this run); asks for net/docs/report | any path; may `cart_build`, `cart_run`, `cart_tool`; never asked |
 
-**How a tool is embedded** (`Makefile:101-103,131-174`, `src/script/embed.S`, `src/kernel/carts.c:49-55,449-460`):
-`mkbm.py --lua carts/<t>/main.lua --cover icon.png --title "bm X"` builds `build/<t>.bm`; `embed.S` `.incbin`s it as
+**How a tool is embedded** (`Makefile:101-103,131-174`, `core/src/script/embed.S`, `core/src/kernel/carts.c:49-55,449-460`):
+`mkbm.py --lua bm/<t>/main.lua --cover icon.png --title "bm X"` builds `build/<t>.bm`; `embed.S` `.incbin`s it as
 `bm_<t>_cart`; `carts.c` lists it in the Dev tab; `tool_id_of` maps the symbol or an SD file name to a tool id. A
 `CLEAN_KERNEL=1` build leaves them out. The kernel that ships (`make sdcard`, `image`, `release`) is a clean build in `build-clean/`; `SHIP_KERNEL=build/kernel.img` ships the complete one. The RGB30 kernel embeds only `sdk_b16`.
 
-**The tool session** (`src/kernel/devtool.c:53-128`): look for an SD copy of the tool (`/carts/<name>.bm`, or `/bm/...` on
+**The tool session** (`core/src/kernel/devtool.c:53-128`): look for an SD copy of the tool (`/carts/<name>.bm`, or `/bm/...` on
 the RGB30), which **replaces the embedded one**; `bm_set_tool(1)`; `bm_play`; `bm_set_tool(0)`. Then, in a loop:
 
 1. `cart_tool(name, path)` asked: start the other tool; `cart_arg().from` says which tool called it.
@@ -74,26 +74,26 @@ copy** (`.bme`, after the question "Save an editable copy?"); `cart_build` copie
 
 ## 3. Shared libraries
 
-`require` loads only the **built-in** libraries (`src/bm/require.c:24-37`, embedded with `.incbin` from `src/script` and
-`src/ai`); any other name is an error listing them. A library is loaded once per cartridge state.
+`require` loads only the **built-in** libraries (`core/src/bm/require.c:24-37`, embedded with `.incbin` from `core/src/script` and
+`core/src/ai`); any other name is an error listing them. A library is loaded once per cartridge state.
 
 | Name | File | Used by |
 |---|---|---|
-| `bmlib` | `src/script/bmlib.lua` | games (maths, collisions, tweens, states, saves, menus, particles), SDK templates |
-| `bmnet` | `src/script/bmnet.lua` | online games |
-| `bm3d` | `src/script/bm3d.lua` | Studio, Animator, SDK |
-| `bmui` | `src/script/bmui.lua` | the editors (mouse, menus) |
-| `riff` | `src/script/riff.lua` | Code (Ctrl+Enter), Sound, games with music |
-| `assist`, `predict`, `padtype` | `src/ai/*.lua` | the assistant, completion, typing with the pad |
+| `bmlib` | `core/src/script/bmlib.lua` | games (maths, collisions, tweens, states, saves, menus, particles), SDK templates |
+| `bmnet` | `core/src/script/bmnet.lua` | online games |
+| `bm3d` | `core/src/script/bm3d.lua` | Studio, Animator, SDK |
+| `bmui` | `core/src/script/bmui.lua` | the editors (mouse, menus) |
+| `riff` | `core/src/script/riff.lua` | Code (Ctrl+Enter), Sound, games with music |
+| `assist`, `predict`, `padtype` | `core/src/ai/*.lua` | the assistant, completion, typing with the pad |
 | `words` | `build/words.lua` (generated; in the clean kernel it is read from the Assistant app) | dictionaries |
 
 A game **cannot `require` its own files**: there is no module system for cartridges (nothing like `package`).
 
 ## 4. Games made of several files
 
-- Single-file games: `carts/<id>/main.lua` + assets; the generic Makefile rule calls `mkbm.py` with `--info bm.info` (3 games
+- Single-file games: `bm/<id>/main.lua` + assets; the generic Makefile rule calls `mkbm.py` with `--info bm.info` (3 games
   migrated) or the `title_<id>`/`res_<id>` variables.
-- Several files (titan, titan_ex, kitchen, overbit, nano8, sdk_b16): one `build.py` **per game** joins `src/*.lua` in name order
+- Several files (titan, titan_ex, kitchen, overbit, nano8, sdk_b16): one `build.py` **per game** joins `core/src/*.lua` in name order
   into a single `main.lua`: `00_*.lua` stays at the top level and declares the shared locals; every other file goes into
   `do -- name ... end` (so its locals do not count against Lua's 200 limit); an `OUT.map` file maps `main.lua:LINE` back to a
   source file. titan and overbit append a build tag (SHA-1 of the sources); overbit also has `--minify`, `--start`, `--hero`...
@@ -103,7 +103,7 @@ A game **cannot `require` its own files**: there is no module system for cartrid
 ## 5. Resources and metadata
 
 - Game parts go into sections by `mkbm.py` flags (`--sheet --map --flags --sprites --models --audio --cover`). Resource files
-  (`BMRES`) are made and merged by `scripts/bmres.py`; no cartridge in `carts/` uses them and the game has no API to read
+  (`BMRES`) are made and merged by `core/scripts/bmres.py`; no cartridge in `bm/` uses them and the game has no API to read
   them ([FORMATS-AUDIT.md](FORMATS-AUDIT.md) section 3).
 - Metadata: the **header** (title, author, resolution) is what the menu shows; the **INFO** section (`bm.info`) holds
   `name desc author license version tags date` and is read by the runtime only for its `spec` key (`bm_info_get`).
@@ -111,8 +111,8 @@ A game **cannot `require` its own files**: there is no module system for cartrid
 ## 6. The pieces and what crosses between them
 
 ```
-carts/<id>/ (main.lua, assets/, bm.info)  --mkbm.py-->  build/carts/X.bm  --copy-->  /carts/X.BM on the SD --> bm_run
-carts/<tool>/main.lua                      --mkbm.py-->  build/<t>.bm      --embed.S--> kernel.img (Dev tab)
+bm/<id>/ (main.lua, assets/, bm.info)  --mkbm.py-->  build/bm/X.bm  --copy-->  /carts/X.BM on the SD --> bm_run
+bm/<tool>/main.lua                      --mkbm.py-->  build/<t>.bm      --embed.S--> kernel.img (Dev tab)
 
 tool (tool_mode)  --cart_load/save/write/data/audio--> .bme on the SD   (editable copy of a game: bm_make_copy)
 .bme  --cart_build-->  X.BM
@@ -121,10 +121,10 @@ tool  --cart_tool(name, path)--> another tool (cart_arg().from = the caller)
 
 resource files  <--bmres.py extract/add/convert-->  .bm/.bme       the editors open them
 Market: repo bm-market  games/<id>/{id.bm, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
-        console: verifies the signature (keys/market-pub.pem) then each file's SHA-256, then writes /carts or /bm
+        console: verifies the signature (core/keys/market-pub.pem) then each file's SHA-256, then writes /carts or /bm
         Apps page: installs tools on the SD, which override the embedded ones (load_sd_tool)
 monitor (UART/keyboard): play NAME, set key=value (bm/config.txt)
-chainloader + tools/bm_load.py (serial) and tools/bm_net.py (network): kernel.img, .bm, config to a console
+chainloader + core/tools/bm_load.py (serial) and core/tools/bm_net.py (network): kernel.img, .bm, config to a console
 bmhost (PC): the same runtime with stubs: --tool, --sd DIR, --input, --shots, --video (tests, reels, screenshots)
 files on the card: /carts, /bm (config.txt, save, shots, lib, sounds), /docs
 ```
@@ -157,16 +157,16 @@ Other points:
 
 | Id | Problem | Option | Breaks? |
 |---|---|---|---|
-| A2 | The list of apps and tools was in 7 places; since 2026-10-13 the **file names of the tools are one list**, `src/kernel/toolnames.h` (used by the Pi's menu, the RGB30's and `reserved_tool_name`); still apart: the Market's two lists (`catalog.c`, `mkmarket.py`), `EMBED_TOOLS` and `embed.S`, all checked against it by `scripts/consistency.py` | generate the Market's lists from the same table | no |
+| A2 | The list of apps and tools was in 7 places; since 2026-10-13 the **file names of the tools are one list**, `core/src/kernel/toolnames.h` (used by the Pi's menu, the RGB30's and `reserved_tool_name`); still apart: the Market's two lists (`catalog.c`, `mkmarket.py`), `EMBED_TOOLS` and `embed.S`, all checked against it by `core/scripts/consistency.py` | generate the Market's lists from the same table | no |
 | A3 | `devtool_session` finds the tool by comparing the display string (`"SDK"` on the Pi, `"bm SDK"` on the RGB30): rename the string and the SD override stops silently | pass the tool id | no |
-| A4 | Six near-identical `build.py` (kitchen, titan, titan_ex, overbit, nano8, sdk_b16) with different features | one `scripts/joinlua.py`; or the SDK joins the project's files itself from `bm.info` | no |
+| A4 | Six near-identical `build.py` (kitchen, titan, titan_ex, overbit, nano8, sdk_b16) with different features | one `core/scripts/joinlua.py`; or the SDK joins the project's files itself from `bm.info` | no |
 | A5 | No module system for the game's own files (only a convention of `do ... end` blocks) | keep it; a runtime module system would need several LUA sections | yes, for old kernels |
 | A6 | `bm.info` adopted by 3 games of ~13; INFO is stored but the menu does not read it | migrate the rest; read `name` from INFO in the Market | no |
 | A7 | Save identity is CRC32(title, author), checked only for Market games (`mkmarket.py:253`) | add an `id` key to INFO and use it for new saves, falling back to the CRC | no (old saves keep working) |
 | A8 | The tools do not agree on their libraries: Code requires `assist`, `predict`, `padtype`, `bmui` without `pcall` (it fails to start if one is missing); SDK, Mesh, sdk_b16 wrap them | one pattern for the optional ones | no |
 | A9 | Suspend only for menu-started games; a game tried from a tool is not suspendable; one global slot | document it; a second slot is a design change | no |
 | A10 | `cart_load` and others read any `.bm` a game can name, so a Market game could read other cartridges' Lua (UNVERIFIED how `fat_find` restricts the path) | check, then restrict reads to the game's own file for `tool_mode` 0 | possibly |
-| A11 | Docs: `GAME-GUIDE.md` §2 names `carts/ball/main.lua`, which does not exist; `games-architecture.md:168-173` links `docs/progress/suite-*.md`, the files are in `docs/design/` | fix | no |
+| A11 | Docs: `GAME-GUIDE.md` §2 names `bm/ball/main.lua`, which does not exist; `games-architecture.md:168-173` links `docs/progress/suite-*.md`, the files are in `docs/design/` | fix | no |
 
 **Suggested order:** S1a now (security, trivial); A3, A11, A6; then A2 and A4; S1b/S1c and A10 need a decision.
 
@@ -174,4 +174,4 @@ Other points:
 
 How Market ids become file names and whether a Market game called `studio` is blocked; the `tool_mode` checks of
 `cart_read`, `cart_audio`, `cart_sheet`; the contents of `docs/design/suite-*.md` and the lifecycle sections of
-`GAME-GUIDE.md` (not read in full); `sdk_b16/build.py` and `nano8/build.py` internals; `scripts/market.sh`, `mksd.py`, `mkrelease.py`.
+`GAME-GUIDE.md` (not read in full); `sdk_b16/build.py` and `nano8/build.py` internals; `core/scripts/market.sh`, `mksd.py`, `mkrelease.py`.

@@ -5,7 +5,7 @@
 
 PROJECT defaults to video/3d/chain/03-animator.bme (else out/sd/carts/TROPIC.BME). START is the cartridge the episode began with
 (default: chain/02-pixel.bm when it exists, else the stand-in video/3d/out/assets/models.bm): the MESH must be the same.
-Reads with scripts/bmres.py and bm_core (bm-forge), runs `bm_forge.py check` and compares the key poses with the reference
+Reads with core/scripts/bmres.py and bm_core (bm-forge), runs `bm_forge.py check` and compares the key poses with the reference
 clips of video/3d/assets (tropic_assets.bm, the output of video/3d/assets/build.py).
 Exit 0 only if everything passes. The numbers of the checks are the answers of docs/video/03-animator/*: PIANO.md section 2
 (the nine bones, the five clips, 300 triangles), the lengths of the clips (12 frames a second), loop on in idle and run only.
@@ -17,12 +17,12 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, os.path.join(ROOT, ".claude", "skills", "bm-forge"))
 import bmres  # noqa: E402
 from bm_core import container  # noqa: E402
 
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
 CHAIN = os.path.join(ROOT, "video", "3d", "chain")
 ASSETS = os.path.join(ROOT, "video", "3d", "out", "assets", "tropic_assets.bm")
 
@@ -118,7 +118,7 @@ def main():
         del args[i:i + 2]
     path = args[0] if args else None
     if path is None:
-        for c in (os.path.join(CHAIN, "03-animator.bme"), os.path.join(HERE, "out", "sd", "carts", "TROPIC.BME")):
+        for c in (os.path.join(CHAIN, "03-animator.bme"), os.path.join(HERE, "out", "sd", "bm", "TROPIC.BME")):
             if os.path.exists(c):
                 path = c
                 break

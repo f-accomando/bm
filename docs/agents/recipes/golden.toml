@@ -1,19 +1,19 @@
-# Golden questions for the lookup recipes (area lua). Run: python scripts/recipe_bench.py bench --area lua
+# Golden questions for the lookup recipes (area lua). Run: python core/scripts/recipe_bench.py bench --area lua
 # answer = substring the recipe output must contain; commands run from the repo root without a shell.
 
 [[entry]]
-question = "Which C function in src/bm/runtime.c implements the Lua rgb()?"
+question = "Which C function in core/src/bm/runtime.c implements the Lua rgb()?"
 area = "lua"
 answer = "l_rgb"
-baseline = "python -c \"print(open('src/bm/runtime.c',encoding='utf8').read())\""
-recipe = "python scripts/cindex.py src/bm/runtime.c l_rgb"
+baseline = "python -c \"print(open('core/src/bm/runtime.c',encoding='utf8').read())\""
+recipe = "python core/scripts/cindex.py core/src/bm/runtime.c l_rgb"
 
 [[entry]]
-question = "Which C function in src/bm/runtime.c implements the Lua stick()?"
+question = "Which C function in core/src/bm/runtime.c implements the Lua stick()?"
 area = "lua"
 answer = "l_stick"
-baseline = "python -c \"print(open('src/bm/runtime.c',encoding='utf8').read())\""
-recipe = "python scripts/cindex.py src/bm/runtime.c l_stick"
+baseline = "python -c \"print(open('core/src/bm/runtime.c',encoding='utf8').read())\""
+recipe = "python core/scripts/cindex.py core/src/bm/runtime.c l_stick"
 
 [[entry]]
 question = "What does mget() return outside the map?"

@@ -5,7 +5,7 @@ Pelvis, waist, ribcage, neck and head are one loft of rings (a column). The arms
 vertices at the shoulder, the legs from the two halves of the pelvis ring, and run on without a break to the hands
 and the feet (mitten hands with a pyramid thumb, a foot made of horizontal slices): every joint is a ring shared by
 the two segments, so nothing is detached and a bent joint stretches the skin. The same technique as charkit.
-Skinning is the format's own, one bone per vertex (src/bm/format.c:266-269); a ring shared by two segments belongs to
+Skinning is the format's own, one bone per vertex (core/src/bm/format.c:266-269); a ring shared by two segments belongs to
 the distal bone. Radii follow smooth curves through a few anatomical stations; `detail` raises the sides of the column
 (4 * round(4 * detail), at least 12) and the rings along it. Built facing +z, mirrored to -z at the end, .L on +x.
 

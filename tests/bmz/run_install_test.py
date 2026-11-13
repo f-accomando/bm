@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-The console's extraction of /bmz (src/kernel/bmz_install.c) on a FAT image: good files go to /bm, /bme, /bmk and are
+The console's extraction of /bmz (core/src/kernel/bmz_install.c) on a FAT image: good files go to /bm, /bme, /bmk and are
 deleted from /bmz; broken files stay; a file of the same name is replaced. Checked with fsck.vfat and mtools.
 
   python3 tests/bmz/run_install_test.py build/host/test_install
@@ -12,7 +12,7 @@ import tempfile
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmz  # noqa: E402
 import mksd  # noqa: E402
 

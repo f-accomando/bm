@@ -15,9 +15,9 @@ Kirby Super Star, Kirby's Dream Land 3, Jikkyou Oshaberi Parodius, others.
 
 | File | What it holds |
 |---|---|
-| `src/bm/snes_sa1.c`, `snes_sa1.h` | the chip: registers, I-RAM, BW-RAM access rules, ROM mapper, DMA, math, bit processor, timer, interrupts, the bus of the SA-1 CPU, the S-CPU side of the map |
-| `src/bm/snes_sa1_cpu.c` | the second 65C816: `snes_cpu.c` included again with the global names changed (`sa1c_run`, `sa1_rtab`, `sa1_clk`, `sa1_s`). C loop only |
-| `src/bm/snes_bus.c` | the hooks: `raw_read`, `raw_write`, `map_ptr`, the IRQ line (`$4211`, `$4200`), the line loop (`sa1_line_end`), the header, the reset |
+| `core/src/bm/snes_sa1.c`, `snes_sa1.h` | the chip: registers, I-RAM, BW-RAM access rules, ROM mapper, DMA, math, bit processor, timer, interrupts, the bus of the SA-1 CPU, the S-CPU side of the map |
+| `core/src/bm/snes_sa1_cpu.c` | the second 65C816: `snes_cpu.c` included again with the global names changed (`sa1c_run`, `sa1_rtab`, `sa1_clk`, `sa1_s`). C loop only |
+| `core/src/bm/snes_bus.c` | the hooks: `raw_read`, `raw_write`, `map_ptr`, the IRQ line (`$4211`, `$4200`), the line loop (`sa1_line_end`), the header, the reset |
 | `tests/snes/sa1_test.c` | `make test-snes-sa1`: a made-up ROM, an S-CPU program that releases the SA-1, an SA-1 program (math, bit processor, DMA, bitmap window, messages, IRQ both ways) |
 
 ## Memory map

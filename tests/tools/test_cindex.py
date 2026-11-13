@@ -1,8 +1,8 @@
-"""Tests for scripts/cindex.py: the script runs as a subprocess on temporary C and Lua files."""
+"""Tests for core/scripts/cindex.py: the script runs as a subprocess on temporary C and Lua files."""
 import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "cindex.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "cindex.py")
 
 C_SRC = """\
 #include <stdio.h>

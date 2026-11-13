@@ -11,7 +11,7 @@ import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmres  # noqa: E402
 import importlib.util  # noqa: E402
 
@@ -27,7 +27,7 @@ art = load("art2", os.path.join(HERE, "art.py"))
 kip = load("kip", os.path.join(HERE, "..", "01-pixel", "art.py"))
 
 sd = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out", "sd")
-path = os.path.join(sd, "carts", "SKYVALE.BM")
+path = os.path.join(sd, "bm", "SKYVALE.BM")
 if not os.path.exists(path):
     print("no", path)
     sys.exit(1)

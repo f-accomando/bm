@@ -1,7 +1,7 @@
 # The `.bm` container: the format as implemented
 
-Reference of what the code accepts today (audit of 2026-10-13, branch `pdf-manuals`; `src/bm/bm.h` has the
-original comments, `src/bm/format.c` the parser). Where the header comment of `bm.h` and the code
+Reference of what the code accepts today (audit of 2026-10-13, branch `pdf-manuals`; `core/src/bm/bm.h` has the
+original comments, `core/src/bm/format.c` the parser). Where the header comment of `bm.h` and the code
 disagree, this page follows the code and says so. The problems found and what to do about them are in
 [FORMATS-AUDIT.md](FORMATS-AUDIT.md). Items the audit could not confirm are marked **UNVERIFIED**.
 
@@ -54,13 +54,13 @@ The menus (Pi, RGB30) act on the block: `bm_compat_classify` applies `docs/spec/
 
 Writing: `mkbm.py --targets pi,rgb30 [--input ..] [--aspect ..] [--needs ..] [--min-ram MB] [--min-spec N] [--min-width PX]`
 (or the INFO keys `targets`, `input`, `aspect`, `needs`, `min_ram`, `min_spec` and `min_width` of `bm.info`, with the same syntax; a flag wins),
-and `bm_compat_write`. The SDK build of a `.bme` (`bm_build`, `src/bm/project.c`) reads the same INFO keys (`bm_compat_from_info`, `src/bm/format.c`) and writes the block of the `.bm`; a project whose INFO has no `targets` keeps the bytes it has. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
+and `bm_compat_write`. The SDK build of a `.bme` (`bm_build`, `core/src/bm/project.c`) reads the same INFO keys (`bm_compat_from_info`, `core/src/bm/format.c`) and writes the block of the `.bm`; a project whose INFO has no `targets` keeps the bytes it has. Every writer keeps the block: `bm_rewrite_with` copies it from the old file, `project.c` clears only
 bytes 104..119 (`bm_set_built_from`), `mkbm.py --from` clears only bytes 104..119, `bmres.py` and `bmmesh.py` copy the header.
 
 ## File size
 
 The kernel has no cartridge size limit of its own. It reads the whole file into RAM and checks the CRC in 64 KB pieces.
-The hard ceiling is the Market: 100 MB a file (`CATALOG_MAX_FILE`, `src/net/catalog.h`), which GitHub also enforces.
+The hard ceiling is the Market: 100 MB a file (`CATALOG_MAX_FILE`, `core/src/net/catalog.h`), which GitHub also enforces.
 A cartridge of 100 MB must fit in the heap of the device. Load time on the Pi Zero W is `not verified`.
 The sound bank holds at most 8,388,608 PCM values (`AU_PCM_MAX`, 16 MB decoded).
 
@@ -118,8 +118,8 @@ A `.bmz` is a zlib-compressed copy of one `.bm`, `.bme` or resource file, for th
 [design/compressed-sections](design/compressed-sections.md)). It is not a cartridge: the menu does not list it and no
 game opens it. The `.bmz` files wait in `/bmz` on the SD card. At every start the console extracts each one into the
 folder of its kind and deletes it from `/bmz`. The monitor command `bmz` does the same at any time. The file on the card
-is the normal raw file, so the load time of a game does not change. Code: `src/bm/bmz.c` (the reader, shared with the
-host test), `src/kernel/bmz_install.c` (the extraction), `scripts/bmz.py` (pack, unpack, list).
+is the normal raw file, so the load time of a game does not change. Code: `core/src/bm/bmz.c` (the reader, shared with the
+host test), `core/src/kernel/bmz_install.c` (the extraction), `core/scripts/bmz.py` (pack, unpack, list).
 
 All numbers are little endian. The header is 32 bytes, then the zlib stream to the end of the file.
 
@@ -148,7 +148,7 @@ file (a file of the same name is replaced), finds it again on the card with the 
 `.bmz`. A file that fails stays in `/bmz` and the log (`bmz: PATH: REASON`) says why. One pass takes at most 32 files.
 The `.bm` inside is not parsed here: the usual checks run when the game loads.
 
-The compression happens on the PC (`scripts/bmz.py pack`, output in `bmz/`). When the console makes a `.bmz` itself is a
+The compression happens on the PC (`core/scripts/bmz.py pack`, output in `bmz/`). When the console makes a `.bmz` itself is a
 later decision. The bridge accepts `send FILE.bmz to=/bmz`.
 
 ## Limits found only in the code

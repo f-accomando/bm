@@ -1,7 +1,7 @@
 # bm SNES
 
-An emulator of the Super Nintendo. The machine is written in C and is part of the kernel (`src/bm/snes_*.c`, one
-global machine). The cartridge `carts/snes/` is its user interface in Lua: it lists the ROMs, passes the pads and
+An emulator of the Super Nintendo. The machine is written in C and is part of the kernel (`core/src/bm/snes_*.c`, one
+global machine). The cartridge `bm/snes/` is its user interface in Lua: it lists the ROMs, passes the pads and
 draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-08): Super Mario World plays on the Pi Zero W with the backgrounds, the overworld map and sound (the user's ROM,
 checked with the bridge; the sound is heard by the user). The picture is drawn at 25 to 50 frames a second and the game logic runs at
 about 60 updates a second. The C core passes its tests (`make test-snes`, 175 checks). A first version in Lua ran at 2 fps, so the
@@ -31,7 +31,7 @@ machine was written again in C. The RGB30 is not measured.
    in the menu and at exit.
 6. A game that keeps the screen off shows the orange debug lines at the bottom after 3 seconds (the PC of the CPU, the last registers it
    read, and the state of the sound CPU) only when the menu item "FPS" is on. The default is off. Switch it on and send the lines when a game stays black. The test build (`SNES_TEST=1`) shows the long debug lines (`fps`, `blank`, `tm`, the sound CPU).
-7. The logger (default on; the menu item "Log" switches it): one line a second in the kernel log, no text on the screen. Fields: `upd` (emulated frames), `drw` (pictures drawn), `fps`, `pic 1/N`, `umax` and `uavg` (longest and mean update, ms), `dmax` and `davg` (the draw), `gap` (longest time between two draws, ms), `late` (draws more than 40 ms after the last), `lua`, then the machine's times (`us frame ppu spc cpu dma hdma ins`: see C1 in [snes-cpu.md](snes-cpu.md); and the PPU parts as sums of the timed frames since the last read; the machine times one frame in 7; `ppu` is the cost of a drawn frame; refreshed twice a second). Read it with `python3 tools/pi.py --dev pizero line log` (a report on the `reports` branch). A build that plays by itself: `SNES_PLAY=1 python3 carts/snes/build/build.py build/snes-play` (opens the first ROM of /snes, plays, logs).
+7. The logger (default on; the menu item "Log" switches it): one line a second in the kernel log, no text on the screen. Fields: `upd` (emulated frames), `drw` (pictures drawn), `fps`, `pic 1/N`, `umax` and `uavg` (longest and mean update, ms), `dmax` and `davg` (the draw), `gap` (longest time between two draws, ms), `late` (draws more than 40 ms after the last), `lua`, then the machine's times (`us frame ppu spc cpu dma hdma ins`: see C1 in [snes-cpu.md](snes-cpu.md); and the PPU parts as sums of the timed frames since the last read; the machine times one frame in 7; `ppu` is the cost of a drawn frame; refreshed twice a second). Read it with `python3 core/tools/pi.py --dev pizero line log` (a report on the `reports` branch). A build that plays by itself: `SNES_PLAY=1 python3 bm/snes/build/build.py build/snes-play` (opens the first ROM of /snes, plays, logs).
 8. Sprites for bm Pixel: menu > "Export sprites to /docs" writes `/docs/sprN.png` (128 x 256, 16 tiles a row, the second name table below the first, transparent where no sprite
    uses a tile) with the tiles the OAM sprites on the screen use, each with the palette of the sprite that uses it (`snes_tiles` decodes the 4 bpp tiles from the video RAM and the colour RAM,
    `sheet_png` and `doc_write` write the PNG; the cart's sheet is 256 x 512, the tiles go below the picture). In bm Pixel, Sheet page > Tab > "Import a PNG from /docs..." puts it at the top left
@@ -41,22 +41,22 @@ machine was written again in C. The RGB30 is not measured.
 
 | File | Content |
 |---|---|
-| `src/bm/snes.h` | the public calls of the core and the pad bits |
-| `src/bm/snes_int.h` | the machine state (`snes_t S`) shared by the files |
-| `src/bm/snes_cpu.c` | the 65C816: all 256 opcodes, emulation and native mode, decimal mode, interrupts, WAI, STP |
-| `src/bm/snes_bus.c` | the memory map (LoROM, HiROM, WRAM, battery RAM), the PPU and CPU registers, joypads, DMA and HDMA, the frame clock (262 lines of 1364 master clocks), IRQ and NMI, the ROM loader |
-| `src/bm/snes_ppu.c` | the picture, a line at a time: BG modes 0-4 and 7, sprites, windows, colour math, brightness |
-| `src/bm/snes_spc.c` | the SPC700 (all opcodes, three timers, four ports) and the boot ROM protocol as a state machine |
-| `src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, Gaussian interpolation, ADSR and GAIN, noise, volumes), the echo, a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `src/audio/audio.c`) |
-| `src/bm/snes_ppu_arm.S` | the colour mix with a sub screen for the ARM1176 (Pi): the same result as the C loop in `snes_ppu.c`, check on the console |
-| `src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
-| `carts/snes/src/main.lua` | the user interface; `carts/snes/build/build.py` packs it (`make build/carts/snes.bm`) |
+| `core/src/bm/snes.h` | the public calls of the core and the pad bits |
+| `core/src/bm/snes_int.h` | the machine state (`snes_t S`) shared by the files |
+| `core/src/bm/snes_cpu.c` | the 65C816: all 256 opcodes, emulation and native mode, decimal mode, interrupts, WAI, STP |
+| `core/src/bm/snes_bus.c` | the memory map (LoROM, HiROM, WRAM, battery RAM), the PPU and CPU registers, joypads, DMA and HDMA, the frame clock (262 lines of 1364 master clocks), IRQ and NMI, the ROM loader |
+| `core/src/bm/snes_ppu.c` | the picture, a line at a time: BG modes 0-4 and 7, sprites, windows, colour math, brightness |
+| `core/src/bm/snes_spc.c` | the SPC700 (all opcodes, three timers, four ports) and the boot ROM protocol as a state machine |
+| `core/src/bm/snes_dsp.c` | the S-DSP: 8 voices (BRR, pitch, pitch modulation, Gaussian interpolation, ADSR and GAIN, noise, volumes), the echo, a ring of 32 kHz samples, and `snes_audio_mix`, which the console's output calls (`audio_set_ext` in `core/src/audio/audio.c`) |
+| `core/src/bm/snes_ppu_arm.S` | the colour mix with a sub screen for the ARM1176 (Pi): the same result as the C loop in `snes_ppu.c`, check on the console |
+| `core/src/bm/api_snes.c` | the Lua calls (`snes_load`, `snes_frame`, `snes_draw`, ...): [api/snes.md](../api/snes.md) |
+| `bm/snes/src/main.lua` | the user interface; `bm/snes/build/build.py` packs it (`make build/bm/snes.bm`) |
 | `tests/snes/core_test.c` | 92 checks: the CPU on small programs, DMA, the SPC700 and its boot protocol |
 | `tests/snes/dsp_golden.c` | the S-DSP on random voices: the output of `snes_audio_mix` and the registers hashed, against the table of the model that equals ares, plus small synthetic checks (KON delay, echo write, KOFF, SPC700 cycles) (`make test-snes-dsp`, `make bench-snes-dsp`); `tests/snes/dsp_ref.cpp` and `tests/snes/spc_ref.cpp` compare with ares (`make test-snes-audio-ref ARES=...`, skipped without ARES) |
 | `tests/snes/cpu_golden.c` | the CPU and the memory map on random programs (LoROM and HiROM, ROMs of odd sizes, with and without battery RAM): a hash of the registers, the clock and the memories after each frame, against the table of the code before the speed work (`make test-snes-cpu`) |
 | `tests/snes/ppu_equiv.c`, `ppu_ref.c` | the fast PPU against the reference copy of the old one: random states, every line equal (`make test-snes-ppu`); `make bench-snes-ppu` times both |
 | `tests/snes/render_test.py` | the cartridge in bmhost with a test ROM made by `make_testrom.py`: the picture, the sprite, the HDMA bands |
-| `tests/snes/pic_due_test.lua` | `pic_due` (`carts/snes/src/pic.lua`): which frames get a picture, with an even gap broken so that a sprite that flickers on every other frame is not lost |
+| `tests/snes/pic_due_test.lua` | `pic_due` (`bm/snes/src/pic.lua`): which frames get a picture, with an even gap broken so that a sprite that flickers on every other frame is not lost |
 | `tests/snes/game_run.c` | a host harness (built with `-DSNES_TRACE`) that plays a ROM from the disk with a scripted pad, saves pictures, pokes the work RAM, logs the PPU, DMA, DSP and CPU events and can lock-step a trace with another core; the header lists the options. It holds no game data |
 
 ## Rules (do not break)
@@ -81,7 +81,7 @@ machine was written again in C. The RGB30 is not measured.
 - The BG scroll registers ($210D to $2114) keep the 16 bits of the write; the picture uses the low 10 bits. The second write of a pair takes bits 0 to 2 from the first one (`bgofs_latch`, bits 8 to 10 of the old value). A mask to 10 bits at the first write loses bit 2: the map was then up to 4 pixels off from the sprites (Mario not centred on the house of the SMW overworld). `core_test.c` checks all 1024 values.
 - Every write to the video RAM goes through `vwrite` in `snes_bus.c`, which calls `ppu_vram_dirty`: the PPU keeps decoded tiles. A new way to write the video RAM must call it too (a test that fills `S.vram` calls `ppu_vram_dirty_all`). `ppu_equiv.c` writes the video RAM through the registers in the middle of a case to check it.
 - The lane helpers of `snes_ppu.c` (`nz_mask`, `lane_uqadd`, ...) use the ARMv6 SIMD32 instructions on the console and plain C on the host. Keep the C version in step: `make test-snes-ppu` runs only the C one, so check an ARM change on the console (the test build with `SNES_NOHUD=1` stops at frame 3200: compare two screenshots byte for byte).
-- The keyboard keys are the table `KB` in `carts/snes/src/main.lua` (the list is in "How to use it", point 4). Keep them when you change the cart: the user set them and they were lost in earlier releases. After a cart change, copy `build/snes/snes.bme` to `carts/snes/snes.bme` (`build/carts/snes.bme` is an old copy).
+- The keyboard keys are the table `KB` in `bm/snes/src/main.lua` (the list is in "How to use it", point 4). Keep them when you change the cart: the user set them and they were lost in earlier releases. After a cart change, copy `build/snes/snes.bme` to `bm/snes/snes.bme` (`build/bm/snes.bme` is an old copy).
 - The PPU reads and writes its line buffers a 32-bit word at a time from arrays aligned to 4 bytes (`_Alignas(4)`); keep every access aligned (the ARM1176 kernel).
 
 ## Open work
@@ -101,7 +101,7 @@ machine was written again in C. The RGB30 is not measured.
   The cart took the whole debug table of the machine at every draw (strings, the sprite table, a map of the video RAM): now twice a second (a few ms a draw less; not measured in play).
 - Speed: the PPU is done in C with ARMv6 SIMD (the layers merged 4 pixels at a time with UADD8 and SEL, the colour math of the three channels in one
   UQADD8, UQSUB8 or UHADD8, a table of mixed colours for the fixed colour, shifts in place of the divides: the ARM1176 has no divide), the colour mix with
-  a sub screen is a hand-written loop (`src/bm/snes_ppu_arm.S`, 28 instructions a pixel), and the tiles are decoded once: a cache of chunky pixels for each
+  a sub screen is a hand-written loop (`core/src/bm/snes_ppu_arm.S`, 28 instructions a pixel), and the tiles are decoded once: a cache of chunky pixels for each
   depth (450 KB of bss), dropped by `ppu_vram_dirty` when the video RAM is written, a row of a tile is two loads. Pi One, Super Mario World, the test build
   draws every frame from 600 to 3200 and sums the parts: the PPU costs 19162 us a drawn frame with the code of before, 16863 with the SIMD in C, 16152 with
   the loop in assembly, 14804 with the tile cache (-23%); each timer read costs about 6 us, so the real figures are 12100, 9800, 9100 and 7700 us (-36%).
@@ -116,7 +116,7 @@ machine was written again in C. The RGB30 is not measured.
   a test build with a one-line readout: fps, updates a second, the interval).
   On a PC the PPU is 3 times faster than the first C version (`make bench-snes-ppu`). Next: the mix (about 3950 us a frame), the sprites and the layer
   merge, the CPU's instruction decode (the flags as bits in one byte, a table of opcodes). Measure on the RGB30. The draw of the picture is 5.7 ms at 1x (copy 1.0, blit 4.6).
-- A test build: `SNES_TEST=1 python3 carts/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /snes by
+- A test build: `SNES_TEST=1 python3 bm/snes/build/build.py build/snes-test` makes a cartridge that opens the first ROM of /snes by
   itself and shows the FPS, the times of the parts of a frame, the PPU registers and the first sprites; it draws every frame from 600 to 3200, sums the PPU parts
   (the line `PPU n fr`) and stops at frame 3200 (`SNES_NOHUD=1`: no text, for a picture to compare). With the bridge (`pi.py play`, `pi.py shot`) it runs a ROM and reads the
   screen with no key press.
@@ -128,7 +128,7 @@ machine was written again in C. The RGB30 is not measured.
   Add the exact costs and the DMA and HDMA stalls.
 - Cartridge chips still to build (roadmap, in this order of use): S-DD1 (graphics decompression, Star Ocean, Street Fighter Alpha 2), SPC7110 (decompression and data ROM, Far East of Eden Zero, Momotaro Dentetsu Happy), Cx4 (wireframe and trigonometry, Mega Man X2 and X3), OBC-1 (sprite helper, Metal Combat), S-RTC (real-time clock, Daikaijuu Monogatari II). The SA-1 is built and tested with made-up programs, not yet with a game: [snes-sa1.md](snes-sa1.md). Each one needs a header detection, a port map and a test like the DSP-1 to 4 and the Super FX. The others are small.
 - Super Mario Kart (host, 2026-11-12, firmware dumps from the ares repository, kept outside this repository): the race draws right after the V-IRQ fix (the track, the karts, the map); before it the track was garbage. Check on the Pi Zero W and the RGB30: the race of Mario Circuit, 1 and 2 players. Not done: the 40 clocks of DRAM refresh a line, and the HDMA and DMA stalls as the console has them (the timing item below). A routine that has little time left before the NMI can still race on a slow core, so a wrong picture in another game that starts an IRQ routine near the NMI is the first thing to look at.
-- Zelda: A Link to the Past (host, 2026-11-12): when Link is hurt the game hides his sprites on every other frame (code at `$0D:AA46`, `$031F` counts down: hidden on the even values from 4 up; the OAM high table gets X bit 8 set). The machine does it right: nothing is wrong in the OAM, the palette or the DMA. The cart took a picture every `every` frames (1 to 4) and with an even `every` all pictures had the same parity, so Link was in none of them. `pic_due` (`carts/snes/src/pic.lua`) now makes gaps `ev`, `ev`, `ev + 1` for an even `ev`; the pictures of one parity last three pictures, then the other parity. The picture rate is 1 in 3 * ev + 1 frames lower for an even `ev`. Not seen on the Pi yet. If the real console shows a white flash in place of the gaps, the game does a palette change that I did not find (the CGRAM does not change in those frames on the host).
+- Zelda: A Link to the Past (host, 2026-11-12): when Link is hurt the game hides his sprites on every other frame (code at `$0D:AA46`, `$031F` counts down: hidden on the even values from 4 up; the OAM high table gets X bit 8 set). The machine does it right: nothing is wrong in the OAM, the palette or the DMA. The cart took a picture every `every` frames (1 to 4) and with an even `every` all pictures had the same parity, so Link was in none of them. `pic_due` (`bm/snes/src/pic.lua`) now makes gaps `ev`, `ev`, `ev + 1` for an even `ev`; the pictures of one parity last three pictures, then the other parity. The picture rate is 1 in 3 * ev + 1 frames lower for an even `ev`. Not seen on the Pi yet. If the real console shows a white flash in place of the gaps, the game does a palette change that I did not find (the CGRAM does not change in those frames on the host).
 - Super Mario Kart on the Pi Zero W (2026-11-12, the track is not drawn and the karts are misplaced): not reproduced off the console. With a real DSP-1 firmware (`dsp1b.rom` and `dsp1.rom` give the same pictures) `tests/snes/game_run.c` plays from the menu to the race (a script that presses A every 45 frames) and the track, the karts and the 2-player split are right at frames 2000 and 2500. The same run on the ARM1176 in QEMU (`tests/snes/game_run_arm.c`: the CPU assembly, the SIMD PPU, the tile cache) gives the same pictures byte for byte, and so does a run that draws only every 3rd or 7th frame (`RENDER_EVERY=n`, the cart's frameskip). So the C core, the ARM loops and the frameskip are cleared; look next at the cart side and the console: the log line `snes dsp1 firmware ...` (is the firmware loaded, and which file), the ROM file on the SD card (size, a different dump), and the GPU picture path in `main.lua`. A frame dump from the console (`SNES_NOHUD=1` test build) of the race would show what is wrong.
 - Cartridge chips built: the DSP-1, DSP-2, DSP-3 and DSP-4 (uPD77C25) are in the core and need the firmware files of the chip in `/snes` (not in the repository); Super Mario Kart runs with real DSP-1 firmware on the host (2026-11-12): [snes-dsp.md](snes-dsp.md). The Super FX (GSU) runs Star Fox, Yoshi's Island and Doom (first level, 3D view incomplete) on the host: Open work and Rules of the chip are in [snes-superfx.md](snes-superfx.md). ExHiROM and interleaved ROMs are not detected.
 - Input: player 2 reads `btn(name, 2)`. The multitap, the mouse and the light gun are not emulated. The viewer of tiles, sprites and colours of the Lua version is gone. Add `snes_vram()` and friends to bring it back.

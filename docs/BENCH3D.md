@@ -3,7 +3,7 @@
 
 
 bm's single benchmark of its 3D capabilities: *Settings > System > Utilities* on the Pi (the Dev tab on the RGB30), or the `j` key of the
-monitor. Code: `src/bm/b3d.c` (portable), `src/kernel/b3dpi.c` (the Pi),
+monitor. Code: `core/src/bm/b3d.c` (portable), `core/src/kernel/b3dpi.c` (the Pi),
 `tests/bm/b3d_host.c` (the PC, `make test-b3d`).
 
 ## What it does
@@ -93,7 +93,7 @@ fps, triangles drawn, vertices set up by the ARM, pixels (of the ARM), GPU ms
 (binning + rendering), GPU jobs, **ARM instructions** per frame without those
 spent waiting for the GPU (and those separately), instructions per triangle and per element,
 data **cache misses**. The instructions and the misses come from the ARM1176 counters
-(`src/kernel/pmu.c`), only on the real Pi (QEMU does not have them).
+(`core/src/kernel/pmu.c`), only on the real Pi (QEMU does not have them).
 
 ## The pixel check (RGB30)
 
@@ -141,7 +141,7 @@ clock of the core and of the V3D (`GET_CLOCK_RATE_MEASURED`, outside the step's 
 lines have them at the end (`core_mhz`, `gpu_mhz`, of the step at 60 fps), as do the `b3d` lines of the log.
 They help understand why the quads of the GPU profile sometimes run at half speed or less in the same
 run (`quad_flat` 175 in one run, 91 or 70 in another, with the same drivers). On the Pi Zero W
-`enable_uart=1` in `boot/config.txt` keeps the core at 250 MHz (the serial port), and the V3D has also been
+`enable_uart=1` in `core/boot/config.txt` keeps the core at 250 MHz (the serial port), and the V3D has also been
 seen at 250; `v3d_clock=max` in `bm/config.txt` asks for the firmware maximum at boot (a
 trial, off by default).
 
@@ -225,7 +225,7 @@ names (`GPU+FS2`) or the short ones of the summary (`FS2`); without them, everyt
 reboot (to try a game), `save` keeps it.
 
 The line can also be typed in the menu: the `:` takes it to the monitor. From the PC: `./easy_install.sh line
-"b3d; send"` (or `tools/bm_net.py IP --line "..."`) sends it and shows what the console
+"b3d; send"` (or `core/tools/bm_net.py IP --line "..."`) sends it and shows what the console
 writes until it says `the line is done`; in the easy_install monitor (6) paste `:b3d;
 send` and Enter. The console tells the PC where the keys go (the menu, which does not repeat them, or the
 monitor).
@@ -258,7 +258,7 @@ in every row, so compare rows of the same test only.
 
 ## The fade on the QPU
 
-The profile `QPU` is a column of the `fade` test only. It draws the same frame as `ARM`, but the full-screen fade goes through the hook of `dark_end()` (`qpu_fade_hook`, `src/gpu/qpu.h`). The hook runs the fade on the QPUs in blocks of 32 pixels and falls back to the ARM version when a QPU run fails. The profile is **opt-in**: it runs only with `tests=fade`, and it is not in the score.
+The profile `QPU` is a column of the `fade` test only. It draws the same frame as `ARM`, but the full-screen fade goes through the hook of `dark_end()` (`qpu_fade_hook`, `core/src/gpu/qpu.h`). The hook runs the fade on the QPUs in blocks of 32 pixels and falls back to the ARM version when a QPU run fails. The profile is **opt-in**: it runs only with `tests=fade`, and it is not in the score.
 
 The QPU path is on only with the config key `gpu3d_qpu=1` (default off). Without the key, the `QPU` profile runs the ARM fade and says so. The report has one extra line after the `qpu row` line:
 
@@ -375,7 +375,7 @@ columns C,profile,n,tris,lit,cel,lit_nd,cel_nd,outline,cel_over_lit,cel_nd_over_
 ```
 
 Not developed here: `stackv` and the 3D particles. Their scenes wait for their code in `bm-core`.
-The hook is the comment at the top of the block "the 2D scenes" in `src/bm/b3d.c`.
+The hook is the comment at the top of the block "the 2D scenes" in `core/src/bm/b3d.c`.
 The test of the triangle count is a different work (`docs/design/triangle-throughput.md`).
 
 On the PC, `make test-b3d` runs them (`herotris`, `cel` and `stress`) for a few frames and checks that the fields, the `H` lines, the `C` lines and the `T` lines exist.
@@ -481,9 +481,9 @@ each: the PC's ms do not count) and checks report, profiles, score, comparison a
 
 ## Lua edition
 
-The Lua edition is the cartridge `carts/bench3d` (title "3D Bench", a `.bm` app for the Market). The C bench in the kernel stays as it is. The Lua edition has its own numbers: they are not comparable with `docs/PERF-BUDGET.md` or with the C bench's reports (decision of 25 Oct 2026). It measures bm3D 7.7 only, and it is light: the default run is short (decision of 25 Oct 2026, second part).
+The Lua edition is the cartridge `bm/bench3d` (title "3D Bench", a `.bm` app for the Market). The C bench in the kernel stays as it is. The Lua edition has its own numbers: they are not comparable with `docs/PERF-BUDGET.md` or with the C bench's reports (decision of 25 Oct 2026). It measures bm3D 7.7 only, and it is light: the default run is short (decision of 25 Oct 2026, second part).
 
-The cartridge ports the ramp of `src/bm/b3d.c` as a state machine over `_draw` frames. Each test runs on each profile with a load `n` of 1, 2, 3, 4, then +50% a step. A step is one warm frame and 3 measured frames. The ramp ends when the median frame is over 40 ms, after 10 s or at the test's maximum. The loads at 60 and 30 frames a second come from the median ms of the steps (`b3d_load_at`). The cost of a pixel comes from the slope over the steps (`b3d_slope`).
+The cartridge ports the ramp of `core/src/bm/b3d.c` as a state machine over `_draw` frames. Each test runs on each profile with a load `n` of 1, 2, 3, 4, then +50% a step. A step is one warm frame and 3 measured frames. The ramp ends when the median frame is over 40 ms, after 10 s or at the test's maximum. The loads at 60 and 30 frames a second come from the median ms of the steps (`b3d_load_at`). The cost of a pixel comes from the slope over the steps (`b3d_slope`).
 
 - **Frame time**: `stat(1)` of the next frame (`_update` + `_draw` with the GPU's 3D). The C bench also adds the copy to the screen. The overlay line is inside the measured frame.
 - **Profiles** (set with `gpu3d()` and `gpu3d_opt()`; short name in brackets):
@@ -497,7 +497,7 @@ The cartridge ports the ramp of `src/bm/b3d.c` as a state machine over `_draw` f
 - **Log**: one line a step, as `b3d.c`: `b3d spheres ARM n=8 0.35 ms worst 0.45, 289 tri, 448 vtx, 0 instr, GPU 0.00 ms, 0 jobs, 0 meshes, core 0 GPU 0 MHz`.
 - **Report**: the C bench's text (header lines, `columns R,...`, the R lines, the P lines of the pixel cost, the H lines of `herotris`, the C lines of the cel tests, the T lines of `stress`, `total`) sent with `report("bench3d", text)`. The `options` line at the start comes from `gpu3d_stats().options`. There is no score line.
 - **Summary page** (640x360): the load at 60 frames a second for each test and profile. Esc or B leaves.
-- **Models and sheet**: `carts/bench3d/build/mkassets.py` makes, at build time (`make`; no binary in the repository), a `models.bm` with the hero (16 bones, 1536 faces, the clip `walk` is the `pose()` of `b3d.c`), its textured and skin variants, the map pieces with baked light and the sprite sheet (384 x 160: the three 128 x 128 sheets of `b3d.c` side by side and the three 64 x 32 sheets of `herotris` below), and the 8 map layers of `map8`. The cartridge uses `model()`, `animate()`, `mesh()`, `mesh_sphere()`, `mesh_cube()`, `map()`, `sspr()`, `stack()`, `fades()`, `dark_begin()`, `light_begin()`.
+- **Models and sheet**: `bm/bench3d/build/mkassets.py` makes, at build time (`make`; no binary in the repository), a `models.bm` with the hero (16 bones, 1536 faces, the clip `walk` is the `pose()` of `b3d.c`), its textured and skin variants, the map pieces with baked light and the sprite sheet (384 x 160: the three 128 x 128 sheets of `b3d.c` side by side and the three 64 x 32 sheets of `herotris` below), and the 8 map layers of `map8`. The cartridge uses `model()`, `animate()`, `mesh()`, `mesh_sphere()`, `mesh_cube()`, `map()`, `sspr()`, `stack()`, `fades()`, `dark_begin()`, `light_begin()`.
 
 ### Tests
 

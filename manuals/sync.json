@@ -366,8 +366,8 @@
   "sources": {
    "docs/design/bml-manual.md": "d4d4d615ff33",
    "docs/progress/typed.md": "142463925d53",
-   "src/bm/bmvm.h": "ba119d71aa28",
-   "tools/bml/bml.py": "c3a6cada7afa"
+   "core/src/bm/bmvm.h": "ba119d71aa28",
+   "core/tools/bml/bml.py": "c3a6cada7afa"
   }
  },
  "boot-os": {
@@ -443,7 +443,7 @@
    "chainloader": "810ae5eb2ec6",
    "docs/HARDWARE.md": "6bfcdeee8616",
    "docs/progress/system.md": "b44ab6ae4cd6",
-   "src/kernel/syskeys.c": "249cf5144149"
+   "core/src/kernel/syskeys.c": "249cf5144149"
   }
  },
  "characters": {
@@ -520,12 +520,12 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "c0848d2b54a3",
-   "carts/mesh/main.lua": "2f96f4c4d132",
-   "carts/pixel/main.lua": "ff4d7d19619e",
-   "carts/studio/main.lua": "a445dc610bdc",
-   "carts/titan/build/mkrobot.py": "72c7aff21afd",
-   "carts/yharnam/build/mkassets.py": "86bfe9f06612",
+   "bm/animator/main.lua": "c0848d2b54a3",
+   "bm/mesh/main.lua": "2f96f4c4d132",
+   "bm/pixel/main.lua": "ff4d7d19619e",
+   "bm/studio/main.lua": "a445dc610bdc",
+   "bm/titan/build/mkrobot.py": "72c7aff21afd",
+   "bm/yharnam/build/mkassets.py": "86bfe9f06612",
    "docs/api/draw.md": "45c6e61a67be",
    "docs/api/light3d.md": "5ef4a3fd4193",
    "docs/design/games-architecture.md": "171234de457d",
@@ -534,8 +534,8 @@
    "docs/progress/graphics.md": "48a8c75083b2",
    "docs/progress/tools.md": "66ee167893d7",
    "docs/progress/yharnam.md": "98213d6bc581",
-   "tools/cutout2mesh.py": "a2a57f9737c1",
-   "tools/img2mesh.py": "db3364221d4a"
+   "core/tools/cutout2mesh.py": "a2a57f9737c1",
+   "core/tools/img2mesh.py": "db3364221d4a"
   }
  },
  "editor-animator": {
@@ -592,7 +592,7 @@
    }
   },
   "sources": {
-   "carts/animator/main.lua": "c0848d2b54a3",
+   "bm/animator/main.lua": "c0848d2b54a3",
    "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-animator.md": "be49ad9d4cf9",
    "docs/progress/tools.md": "66ee167893d7",
@@ -653,7 +653,7 @@
    }
   },
   "sources": {
-   "carts/code/main.lua": "c2a20d7b7590",
+   "bm/code/main.lua": "c2a20d7b7590",
    "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-code.md": "d03fa1579401",
    "docs/progress/tools.md": "a4a7fa37fea3",
@@ -704,7 +704,7 @@
    }
   },
   "sources": {
-   "carts/mesh/main.lua": "2f96f4c4d132",
+   "bm/mesh/main.lua": "2f96f4c4d132",
    "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-studio-mesh.md": "fb92e52de055",
    "docs/progress/tools.md": "66ee167893d7",
@@ -775,7 +775,7 @@
    }
   },
   "sources": {
-   "carts/pixel/main.lua": "ff4d7d19619e",
+   "bm/pixel/main.lua": "ff4d7d19619e",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-pixel.md": "bbfd8d899dda",
    "docs/progress/tools.md": "59fa40bbade7",
@@ -831,7 +831,7 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "2d8b69f38f9b",
+   "bm/editor/main.lua": "2d8b69f38f9b",
    "docs/RISORSE.md": "69354ea59894",
    "docs/design/suite-sdk.md": "7ad5c8c9fcc0",
    "docs/progress/tools.md": "59fa40bbade7",
@@ -877,7 +877,7 @@
    }
   },
   "sources": {
-   "carts/sound/main.lua": "0ea5b7f0a04f",
+   "bm/sound/main.lua": "0ea5b7f0a04f",
    "docs/RISORSE.md": "46d80064fc62",
    "docs/design/suite-sound.md": "c2059f0520b0",
    "docs/progress/tools.md": "87bdbfd88948",
@@ -938,7 +938,7 @@
    }
   },
   "sources": {
-   "carts/studio/main.lua": "a445dc610bdc",
+   "bm/studio/main.lua": "a445dc610bdc",
    "docs/RISORSE.md": "2efaa037e033",
    "docs/design/suite-studio-mesh.md": "fb92e52de055",
    "docs/progress/tools.md": "66ee167893d7",
@@ -984,7 +984,7 @@
    }
   },
   "sources": {
-   "carts/write/main.lua": "7acfe5a9c0db",
+   "bm/write/main.lua": "7acfe5a9c0db",
    "docs/RISORSE.md": "46d80064fc62",
    "docs/progress/tools.md": "87bdbfd88948",
    "sdk/README.md": "92eb56a84487"
@@ -1100,8 +1100,8 @@
    "docs/RGB30.md": "b2c40e2dd765",
    "docs/progress/platforms.md": "d3fa20322e57",
    "easy_install.sh": "f36554fc78cc",
-   "scripts/copy-sd-rgb30.sh": "38f59e3439e0",
-   "scripts/mksd.py": "d149ff6c9295"
+   "core/scripts/copy-sd-rgb30.sh": "38f59e3439e0",
+   "core/scripts/mksd.py": "d149ff6c9295"
   }
  },
  "levels": {
@@ -1158,7 +1158,7 @@
    }
   },
   "sources": {
-   "carts/editor/main.lua": "2d8b69f38f9b",
+   "bm/editor/main.lua": "2d8b69f38f9b",
    "docs/GAME-GUIDE.md": "64ef243e68cb",
    "docs/ROADMAP.md": "12404fa28b16",
    "docs/api/bmlib.md": "6556c00f9b36",
@@ -1169,7 +1169,7 @@
    "docs/progress/graphics.md": "5cc49dae1257",
    "docs/progress/tools.md": "59fa40bbade7",
    "docs/progress/v3d.md": "20081adc0057",
-   "src/bm/map3d.c": "83e5e8666802"
+   "core/src/bm/map3d.c": "83e5e8666802"
   }
  },
  "pi-zero-w": {
@@ -1317,10 +1317,10 @@
    }
   },
   "sources": {
-   "carts/smw/build/build.py": "d1275707cddf",
-   "carts/smw/build/sprites.py": "b3b81909be57",
-   "carts/smw/src/game.lua": "8aa9a97bd662",
-   "carts/smw/src/physics.lua": "113cafbf10ca",
+   "bm/smw/build/build.py": "d1275707cddf",
+   "bm/smw/build/sprites.py": "b3b81909be57",
+   "bm/smw/src/game.lua": "8aa9a97bd662",
+   "bm/smw/src/physics.lua": "113cafbf10ca",
    "docs/progress/smw.md": "b4d570ea2323"
   }
  }

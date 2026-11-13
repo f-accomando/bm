@@ -40,7 +40,7 @@ def main():
     for d in ("wasm", "native", "sd", "nsd"):
         os.makedirs(os.path.join(work, d))
     cart = os.path.join(work, "cart.bm")
-    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", cart,
+    subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", cart,
                     "--lua", os.path.join(HERE, "cart.lua"), "--title", "web test", "--author", "tests",
                     "--res", "360x360"], check=True, stdout=subprocess.DEVNULL)
     args = [cart, "--quiet", "--seconds", "5", "--input", os.path.join(HERE, "input.txt")]
@@ -79,7 +79,7 @@ def main():
     if not os.path.exists(os.path.join(build, "web", "player", "bmweb.js")):
         print("test-wasm: skipped the browser runner (make web-player)")
         return 0
-    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", os.path.join(work, "play.bm"),
+    subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", os.path.join(work, "play.bm"),
                     "--lua", os.path.join(HERE, "play.lua"), "--title", "play test", "--author", "tests",
                     "--res", "360x360"], check=True, stdout=subprocess.DEVNULL)
     r = subprocess.run([node, os.path.join(HERE, "test_bmweb.js"), build], capture_output=True, text=True)

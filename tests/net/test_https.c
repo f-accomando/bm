@@ -85,9 +85,9 @@ int main(int argc, char **argv)
     free(d);
 
     size_t pl;
-    char *pem = slurp("boot/ca.pem", &pl);
+    char *pem = slurp("core/boot/ca.pem", &pl);
     int nb = pem ? tls_set_roots(pem, pl) : -1;
-    check(nb == 21, "boot/ca.pem: all 21 roots readable by mbedTLS");
+    check(nb == 21, "core/boot/ca.pem: all 21 roots readable by mbedTLS");
     free(pem);
 
     pem = slurp(ca, &pl);
@@ -144,17 +144,17 @@ int main(int argc, char **argv)
     check(st == 200 && n == 10 && strstr(info.url, "https://localhost"), "redirect between https servers");
     free(d);
 
-    /* the agent relay: its CA added at the end of boot/ca.pem (as the user does on the SD card), then
+    /* the agent relay: its CA added at the end of core/boot/ca.pem (as the user does on the SD card), then
      * ai_ask's POST to its address (an IP in the certificate) with the token */
     if (argc >= 10) {
         size_t al;
         char *relay_ca = slurp(argv[7], &al);
-        pem = slurp("boot/ca.pem", &pl);
+        pem = slurp("core/boot/ca.pem", &pl);
         char *both = malloc(pl + al + 2);
         memcpy(both, pem, pl);
         both[pl] = '\n';
         memcpy(both + pl + 1, relay_ca, al);
-        check(tls_set_roots(both, pl + al + 1) == 22, "boot/ca.pem with the relay's CA at the end: 22 roots");
+        check(tls_set_roots(both, pl + al + 1) == 22, "core/boot/ca.pem with the relay's CA at the end: 22 roots");
         free(both);
         free(pem);
         free(relay_ca);

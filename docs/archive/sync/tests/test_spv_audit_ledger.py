@@ -1,4 +1,4 @@
-"""tools/spv_audit.py credits ledger rows to an operator: from the `operator` field (`OP-<ID>`) or, when the row has none, from
+"""core/tools/spv_audit.py credits ledger rows to an operator: from the `operator` field (`OP-<ID>`) or, when the row has none, from
 the file name `sync/<ID>.ledger.jsonl` (SYNC-EN-0-fix); `IDLE` is no longer a state of sync_hdr."""
 import json
 import os
@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOLS = os.path.join(HERE, "..", "..", "tools")
+TOOLS = os.path.join(HERE, "..", "..", "core", "tools")
 sys.path.insert(0, TOOLS)
 import sync_hdr  # noqa: E402
 

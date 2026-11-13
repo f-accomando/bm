@@ -18,12 +18,12 @@ import wave
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres    # noqa: E402
 import bmaudio  # noqa: E402
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out")
-cart = os.path.join(out, "sd", "carts", "SKYVALE.BM")
+cart = os.path.join(out, "sd", "bm", "SKYVALE.BM")
 bad = 0
 
 
@@ -64,8 +64,8 @@ do
 end
 ''').encode())
 sd = os.path.join(out, "sd-verify")
-os.makedirs(os.path.join(sd, "carts"), exist_ok=True)
-dpath = os.path.join(sd, "carts", "DBG.BM")
+os.makedirs(os.path.join(sd, "bm"), exist_ok=True)
+dpath = os.path.join(sd, "bm", "DBG.BM")
 bmres.write(dpath, dbg)
 r = subprocess.run([os.path.join(ROOT, "build", "host", "bmhost-bin"), dpath, "--sd", sd, "--seconds", "10", "--input",
                     os.path.join(out, "game.txt")], capture_output=True, text=True)

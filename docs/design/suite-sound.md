@@ -1,6 +1,6 @@
 # Development Proposals: bm Sound (Audio Suite and Sequencer)
 
-This document analyzes what **bm Sound** (`carts/sound`) lacks to integrate transparently with game gameplay, avoid duplicating audio code in Lua, and eliminate acoustic fatigue in action titles.
+This document analyzes what **bm Sound** (`bm/sound`) lacks to integrate transparently with game gameplay, avoid duplicating audio code in Lua, and eliminate acoustic fatigue in action titles.
 
 ---
 

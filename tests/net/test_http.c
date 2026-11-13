@@ -1,5 +1,5 @@
 /*
- * Host test of the HTTP client (src/net/http.c) over POSIX sockets,
+ * Host test of the HTTP client (core/src/net/http.c) over POSIX sockets,
  * against tests/net/http_server.py (started by run_http_test.py):
  * Content-Length and chunked bodies, redirects, 404, a big body, PUT.
  */

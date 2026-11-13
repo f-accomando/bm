@@ -18,11 +18,11 @@ Same script -> same video (to the frame, give or take a frame at a key).
 
   from qemurec import Recorder
   r = Recorder("out", kernel="build/kernel.img")
-  r.boot(sd_files=[("build/x.bm", "carts/x.bm")], config={"layout": "us"})
+  r.boot(sd_files=[("build/x.bm", "bm/x.bm")], config={"layout": "us"})
   r.record(input_lines, frames=3600, out="out/console.mkv")
   r.close()
 
-Needs qemu-system-arm, Xvfb, ffmpeg, mkfs.vfat and mtools (scripts/mksd.py).
+Needs qemu-system-arm, Xvfb, ffmpeg, mkfs.vfat and mtools (core/scripts/mksd.py).
 """
 import json
 import os
@@ -35,7 +35,7 @@ import threading
 import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 
 FPS = 60
@@ -102,7 +102,7 @@ SERIAL_KEY = {"\xf0": "\x1b[A", "\xf1": "\x1b[B", "\xf2": "\x1b[D", "\xf3": "\x1
 
 
 def serial_bytes(codes):
-    """The text of a `type` line as the kernel's serial terminal wants it (src/bm/runtime.c serial_text): the same key codes
+    """The text of a `type` line as the kernel's serial terminal wants it (core/src/bm/runtime.c serial_text): the same key codes
     as bmhost's typed keys, arrows and F-keys as ANSI sequences, Esc alone followed by a newline (which the terminal
     ignores) so that it is not held back waiting for the next byte. None for what the serial line cannot say (Ctrl+Shift)."""
     s = bytes(codes, "latin-1").decode("unicode_escape").encode("latin-1").decode("latin-1") if "\\" in codes else codes
@@ -447,7 +447,7 @@ def extract_sd(img, dest):
     os.makedirs(dest)
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     subprocess.run(["mcopy", "-s", "-n", "-i", part, "::/", dest], check=True, env=env)
-    for name in os.listdir(dest):                       # FAT names come back in capitals: carts/, TROPIC.BME as the tools wrote them
+    for name in os.listdir(dest):                       # FAT names come back in capitals: bm/, TROPIC.BME as the tools wrote them
         if name != name.lower() and os.path.isdir(os.path.join(dest, name)):
             os.rename(os.path.join(dest, name), os.path.join(dest, name.lower()))
     os.remove(part)

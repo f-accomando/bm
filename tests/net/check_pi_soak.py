@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tools/pi_soak.py against a fake bridge (a Unix socket in a thread): the verdicts, the exit codes, the requests it makes.
+"""core/tools/pi_soak.py against a fake bridge (a Unix socket in a thread): the verdicts, the exit codes, the requests it makes.
 Needs Unix sockets: run it in WSL."""
 import contextlib
 import io
@@ -11,7 +11,7 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "tools"))
 
 fails = 0
 

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL = os.path.join(HERE, "..", "..", "tools", "spv_brief.py")
+TOOL = os.path.join(HERE, "..", "..", "core", "tools", "spv_brief.py")
 HEAD = "| Timestamp | Operatore | Branch / Commit | Azione | Messaggio |\n|---|---|---|---|---|\n"
 
 

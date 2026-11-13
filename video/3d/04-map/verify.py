@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 ok_all = True
@@ -35,7 +35,7 @@ def check(cond, msg):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     sd = args[0] if args else os.path.join(HERE, "out", "sd")
-    path = os.path.join(sd, "carts", "TROPIC.BME")
+    path = os.path.join(sd, "bm", "TROPIC.BME")
     if not os.path.exists(path):
         print("no", path)
         return 1
@@ -84,14 +84,14 @@ def main():
     for sec, name in ((bmres.SEC_MESH, "MESH"), (bmres.SEC_ANIM, "ANIM")):
         check(f.get(sec) is not None, "section %s kept from episode 3" % name)
     check(f.get(bmres.SEC_SHEET) is not None or f.get(bmres.SEC_SHEET8) is not None, "the sheet is kept from episode 3")
-    bm = os.path.join(sd, "carts", "TROPIC.BM")
+    bm = os.path.join(sd, "bm", "TROPIC.BM")
     if os.path.exists(bm):
         g = bmres.read(bm)
         check(g.header[18] & 1 == 0, "TROPIC.BM is a game (project flag clear)")
         check(g.get(bmres.SEC_LAYERS) == f.get(bmres.SEC_LAYERS) and g.get(bmres.SEC_MAP) == f.get(bmres.SEC_MAP), "TROPIC.BM has the same map layers")
     else:
         check(False, "TROPIC.BM built by Ctrl+B")
-    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py"), "check", path,
+    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py"), "check", path,
                         "--no-sync", "--json"], capture_output=True, text=True)
     try:
         fl_ = json.loads(r.stdout)["files"][0]

@@ -4,7 +4,7 @@ timing_test.py - the exit test of phase 2: the sequencer of bm Tape keeps time w
 
   python3 tests/tape/timing_test.py build/host/bmhost-bin TEST_BM_60FPS TEST_BM_20FPS TEST_BM_7FPS
 
-The three cartridges are test builds (TAPE_TEST=1, 3, 8 in carts/tape/build/build.py). They log every note the sequencer
+The three cartridges are test builds (TAPE_TEST=1, 3, 8 in bm/tape/build/build.py). They log every note the sequencer
 queues with play_at: "TAPE_AT time track note velocity tick", the time in seconds from the transport start.
 bmhost has no frame rate option: it runs a frame every 1/60 s of virtual time. The test builds update the sequencer every
 N-th frame instead, which is the same as frames of N/60 s: 60, 20 and 7.5 frames a second (a frame of 133 ms is shorter

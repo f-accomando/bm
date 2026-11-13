@@ -84,7 +84,7 @@ Cause of the slowdown: the fix did not add work to the hot loop (the extra IRQ t
 
 Key response: the core is not late. The pad that `snes_frame` gets is copied at the start of the V-blank (auto-read), and the NMI handler of the ROM reads it in the same frame (test `pad_latency_tests` in `core_test.c`). Doom reads `$4218` at `7E:2818` at line 23 or 24, 3 frames in 4. A key shows in the ROM at the next poll, 1 to 2 frames later, then the game acts on it at its own tick (6 to 10 game frames a second by design). So a key is seen after 150 to 300 ms on a console that holds 60 frames a second, and slower when the Pi falls behind. The cart reads the keys in each `_update` and passes them to `snes_frame` in the same call, so it adds no frame.
 
-Cart fix: `frame_ms` (the predictor of the picture rate in `carts/snes/src/main.lua`) did not count the Super FX time (`us_cpu` leaves it out). For Doom it saw a cheap frame and stepped to a finer picture, which cost more time and slowed the game more. It now adds the `gsu` field of the `us` line.
+Cart fix: `frame_ms` (the predictor of the picture rate in `bm/snes/src/main.lua`) did not count the Super FX time (`us_cpu` leaves it out). For Doom it saw a cheap frame and stepped to a finer picture, which cost more time and slowed the game more. It now adds the `gsu` field of the `us` line.
 
 ## Keys that worked only with B held (fixed 2026-11-13, Pi test of kernel 123)
 
@@ -106,7 +106,7 @@ Pi numbers (log `pi_doom_130`, scene `m3/13/10` while the Super FX draws the vie
 
 Host profile of the Super FX in play (3600 frames, a counter in a copy of the C loop, not committed): the opcode mix is flat. PLOT 4.9%, ALT1 4.0%, COLOR 3.2%, BEQ 2.7%, FROM R4 2.7%, ALT3 2.6%, ALT2 2.4%, GETB 1.9%, LOOP 1.7%, then 1% to 1.6% each for about 30 more opcodes (151 million instructions). So no loop or opcode is worth an assembly fast path alone: PLOT, COLOR, GETB and GETC (the four that call C, 11% of the instructions) are about 20% of the Super FX time; making all four 40% faster gives about 0.5 ms. The ARM1176 does not predict `ldr pc` jumps, so a flat mix costs one pipeline flush for each Super FX instruction (about 46 cycles an instruction against 22 to 28 ARM instructions). The way to gain more is fewer dispatches: fuse prefix and operand pairs (ALT1/2/3 + opcode are 9% of the instructions; FROM/TO/WITH + opcode more). That is a change of the ARM loop and of `gsu_ref.c`; do it with the Yoshi's Island session that owns those files.
 
-What changed here: the cart may now go to `pic 1/5` and `1/6` when the machine is over budget (`MAX_EVERY` in `carts/snes/src/main.lua`): at 1/6 the picture costs 1.5 ms a frame instead of 2.2, and the sheet conversion and blit are made less often. `pic_due` is tested up to 1/6.
+What changed here: the cart may now go to `pic 1/5` and `1/6` when the machine is over budget (`MAX_EVERY` in `bm/snes/src/main.lua`): at 1/6 the picture costs 1.5 ms a frame instead of 2.2, and the sheet conversion and blit are made less often. `pic_due` is tested up to 1/6.
 
 ## Open work
 

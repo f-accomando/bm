@@ -1,5 +1,5 @@
 /*
- * Lua 5.4 for the PC with the assistant's `ai` table (src/ai/lua_ai.c), for
+ * Lua 5.4 for the PC with the assistant's `ai` table (core/src/ai/lua_ai.c), for
  * the host tests of the panel (tests/ai/panel_test.lua).
  *
  *   luaai assist.bin script.lua [args...]

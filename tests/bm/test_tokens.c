@@ -1,4 +1,4 @@
-/* The token counter of the dev kit (src/bm/tokens.c) on the PC: the rules
+/* The token counter of the dev kit (core/src/bm/tokens.c) on the PC: the rules
  * of tokens.h on small pieces of code, then a whole cartridge if given.
  *
  *   test_tokens [main.lua ...]          (make test-bm)

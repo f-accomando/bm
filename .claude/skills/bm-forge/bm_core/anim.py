@@ -1,9 +1,9 @@
 """ANIM section (type 9): skeletons and clips of bm Animator.
 
-Layout: src/bm/bm.h:61-76, limits bm.h:179-183; checker rig_walk /
-bm_anim_check (src/bm/format.c:245-320). Reference: references/FORMATS.md
+Layout: core/src/bm/bm.h:61-76, limits bm.h:179-183; checker rig_walk /
+bm_anim_check (core/src/bm/format.c:245-320). Reference: references/FORMATS.md
 "ANIM section". Semantics (playback) are not ported here: runtime.c pose_at /
-skin (src/bm/runtime.c:2230-2321).
+skin (core/src/bm/runtime.c:2230-2321).
 """
 import struct
 from dataclasses import dataclass, field
@@ -18,19 +18,19 @@ CLIPS_MAX = 255         # bm.h:180
 KEYS_MAX = 1024         # bm.h:181
 BONE_SIZE = 44          # bm.h:182
 POSE_SIZE = 28          # bm.h:183
-HEAD = 8                # u16 rigs, u16 0, u32 0 (src/bm/format.c:237)
+HEAD = 8                # u16 rigs, u16 0, u32 0 (core/src/bm/format.c:237)
 RIG_HEAD = NAME_FIELD + 8
 CLIP_HEAD = NAME_FIELD + 8
-MODES = {0: "linear", 1: "smooth", 2: "step", 3: "ease-in", 4: "ease-out"}      # src/bm/format.c:277, bm.h:61-76
+MODES = {0: "linear", 1: "smooth", 2: "step", 3: "ease-in", 4: "ease-out"}      # core/src/bm/format.c:277, bm.h:61-76
 LOOP = 1                # clip flags bit 0
-FIN = 1e9               # fin32, src/bm/format.c:241
-LENGTH_MAX = 1e6        # src/bm/format.c:277
+FIN = 1e9               # fin32, core/src/bm/format.c:241
+LENGTH_MAX = 1e6        # core/src/bm/format.c:277
 
 
 @dataclass
 class Bone:
     """44 bytes: name, parent (-1 or an earlier index), u16 0, head[3], tail[3]
-    (rest pose) (src/bm/format.c:255-263)."""
+    (rest pose) (core/src/bm/format.c:255-263)."""
     name: str
     parent: int = -1
     head: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
@@ -61,7 +61,7 @@ class Pose:
 
 @dataclass
 class Key:
-    """f32 time (s) then one Pose per bone (src/bm/format.c:286-296)"""
+    """f32 time (s) then one Pose per bone (core/src/bm/format.c:286-296)"""
     time: float
     pose: List[Pose] = field(default_factory=list)
 
@@ -76,7 +76,7 @@ class Key:
 @dataclass
 class Clip:
     """head 24 B: name, u16 keys, u8 mode (0 linear, 1 smooth, 2 step, 3 ease-in, 4 ease-out), u8 flags
-    (bit 0 loop; other bits kept), f32 length (src/bm/format.c:275-278)."""
+    (bit 0 loop; other bits kept), f32 length (core/src/bm/format.c:275-278)."""
     name: str
     length: float
     keys: List[Key] = field(default_factory=list)
@@ -101,7 +101,7 @@ class Clip:
 @dataclass
 class Rig:
     """a skeleton for the MESH model of the same name: bones, the bone of each
-    vertex (len == the model's nverts, src/bm/runtime.c:2161), clips."""
+    vertex (len == the model's nverts, core/src/bm/runtime.c:2161), clips."""
     model: str
     bones: List[Bone] = field(default_factory=list)
     vbones: List[int] = field(default_factory=list)
@@ -144,7 +144,7 @@ def _unique(names, what, where):
 
 
 def validate_rig(rig, kernel_limits=False, keep_long_names=False):
-    """the checks of rig_walk (src/bm/format.c:245-299, deep) plus bm-forge rules:
+    """the checks of rig_walk (core/src/bm/format.c:245-299, deep) plus bm-forge rules:
     unique bone and clip names, bone/clip names not empty (C does not check
     them: strict choice), names <= 15 bytes on write, vertex count within the
     tool limits by default."""
@@ -159,7 +159,7 @@ def validate_rig(rig, kernel_limits=False, keep_long_names=False):
         bw = f"{w} bone {i}"
         name_bytes(b.name, bw, "bone name", allow_full=keep_long_names)
         need(isinstance(b.parent, int) and -1 <= b.parent < i,
-             f"parent {b.parent}: -1 or an earlier bone (src/bm/format.c:257-259)", bw)
+             f"parent {b.parent}: -1 or an earlier bone (core/src/bm/format.c:257-259)", bw)
         need(len(b.head) == 3 and len(b.tail) == 3, "head and tail are 3 floats", bw)
         need(all(finite_in(x, FIN) for x in list(b.head) + list(b.tail)), "head/tail not finite (|v| < 1e9)", bw)
     _unique([b.name for b in rig.bones], "bone", w)
@@ -177,7 +177,7 @@ def validate_rig(rig, kernel_limits=False, keep_long_names=False):
         for ki, k in enumerate(c.keys):
             t = f32(k.time) if finite_in(k.time, FIN) else float("nan")
             need(prev <= t <= top, f"key {ki} time {k.time}: not decreasing, 0..length "
-                 "(src/bm/format.c:290)", cw)
+                 "(core/src/bm/format.c:290)", cw)
             prev = t
             need(len(k.pose) == nb, f"key {ki} has {len(k.pose)} poses, the rig has {nb} bones", cw)
             for p in k.pose:
@@ -188,7 +188,7 @@ def validate_rig(rig, kernel_limits=False, keep_long_names=False):
 
 def validate(anim, kernel_limits=False, keep_long_names=False):
     """every rig, rig model names unique in the section (strict: C takes the
-    first match, src/bm/format.c:346-350)"""
+    first match, core/src/bm/format.c:346-350)"""
     need(len(anim.rigs) <= 0xFFFF, "too many rigs", "ANIM")
     for r in anim.rigs:
         validate_rig(r, kernel_limits, keep_long_names)
@@ -197,7 +197,7 @@ def validate(anim, kernel_limits=False, keep_long_names=False):
 
 def validate_links(anim, mesh):
     """each rig must move a MESH model of its name with as many vertices
-    (src/bm/runtime.c:2161; the kernel skips a rig that does not fit, bm-forge
+    (core/src/bm/runtime.c:2161; the kernel skips a rig that does not fit, bm-forge
     refuses it). A rig with no MESH model is refused too (strict; NON VERIFICATO
     whether a rig may move a mesh built in Lua code)."""
     for r in anim.rigs:
@@ -205,11 +205,11 @@ def validate_links(anim, mesh):
         m = mesh.get(r.model) if mesh else None
         need(m is not None, "no MESH model of this name", w)
         need(len(r.vbones) == len(m.verts),
-             f"rig has {len(r.vbones)} vertices, model has {len(m.verts)} (src/bm/runtime.c:2161)", w)
+             f"rig has {len(r.vbones)} vertices, model has {len(m.verts)} (core/src/bm/runtime.c:2161)", w)
 
 
 def encode(anim, kernel_limits=False, keep_long_names=False):
-    """Anim -> ANIM section body. Port of scripts/bmmesh.py:encode_anim (same
+    """Anim -> ANIM section body. Port of core/scripts/bmmesh.py:encode_anim (same
     layout: "<HHI", rig "<HHHH", bone "<hH6f", u8 per vertex padded with zeros
     to 4, clip "<HBBf", keys "<f" + "<7f" per bone), but every pose must be
     given (bmmesh fills missing ones with identity) and nothing is cut."""
@@ -233,19 +233,19 @@ def encode(anim, kernel_limits=False, keep_long_names=False):
 
 
 def decode(body, kernel_limits=False):
-    """ANIM section body -> Anim, checked. Port of scripts/bmmesh.py:decode_anim
-    with the checks of rig_walk / bm_anim_check (src/bm/format.c:245-320):
+    """ANIM section body -> Anim, checked. Port of core/scripts/bmmesh.py:decode_anim
+    with the checks of rig_walk / bm_anim_check (core/src/bm/format.c:245-320):
     exact size, counts, parents, finite numbers, key times. Extra bm-forge
     checks: reserved fields 0 (head u16+u32, rig u16, bone u16; strict), unique
     names, tool limits unless kernel_limits. Zero rigs is valid (C has no lower
-    bound, src/bm/format.c:306-320)."""
+    bound, core/src/bm/format.c:306-320)."""
     r = Reader(body, "ANIM")
     n, z16, z32 = r.unpack("HHI", "ANIM head")
     need(z16 == 0 and z32 == 0, "reserved fields of the ANIM head are not 0", "ANIM")
     rigs = []
     for ri in range(n):
         raw = r.take(NAME_FIELD, f"rig {ri} name")
-        need(raw[0] != 0, "empty rig model name (src/bm/format.c:247)", f"ANIM rig {ri}")
+        need(raw[0] != 0, "empty rig model name (core/src/bm/format.c:247)", f"ANIM rig {ri}")
         name = read_name(raw, f"ANIM rig {ri}", "rig model name")
         w = f"ANIM rig {name!r}"
         nb, nc, nv, res = r.unpack("HHHH", "rig head")
@@ -276,7 +276,7 @@ def decode(body, kernel_limits=False):
                                     for k in range(0, nb * 7, 7)]))
             clips.append(Clip(cname, length, keys, mode, flags))
         rigs.append(Rig(name, bones, vb, clips))
-    need(r.left() == 0, f"{r.left()} bytes after the last rig (src/bm/format.c:319)", "ANIM")
+    need(r.left() == 0, f"{r.left()} bytes after the last rig (core/src/bm/format.c:319)", "ANIM")
     anim = Anim(rigs)
     validate(anim, kernel_limits, keep_long_names=True)
     return anim

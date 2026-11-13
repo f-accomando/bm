@@ -1,6 +1,6 @@
 # Development Proposals: bm Animator (3D/2D Rigging and Animation Suite)
 
-This document analyzes what **bm Animator** (`carts/animator`) lacks to close the gap with the advanced procedural pipelines used for *Titan Clash* and *Yharnam*, and to turn it into the definitive tool for producing complete pre-rendered 3D and 2D animation kits.
+This document analyzes what **bm Animator** (`bm/animator`) lacks to close the gap with the advanced procedural pipelines used for *Titan Clash* and *Yharnam*, and to turn it into the definitive tool for producing complete pre-rendered 3D and 2D animation kits.
 
 ---
 
@@ -16,7 +16,7 @@ This document analyzes what **bm Animator** (`carts/animator`) lacks to close th
 
 ## 2. Why Did Titan Clash and Yharnam Use Python Instead of bm Animator?
 
-Despite the F4 Sprites mode, the flagship titles developed complex external generators in Python ([`carts/titan/mkrobot.py`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/titan/mkrobot.py) and [`carts/yharnam/art/`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/yharnam/art/)). The technical reasons lie in specific shortcomings of the on-console editor:
+Despite the F4 Sprites mode, the flagship titles developed complex external generators in Python ([`bm/titan/mkrobot.py`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/titan/mkrobot.py) and [`bm/yharnam/art/`](file:///C:/Users/ROCKET/Documents/GitHub/bm/carts/yharnam/art/)). The technical reasons lie in specific shortcomings of the on-console editor:
 
 ### A. No Event Markers on the Timeline (Active Frames, Sounds, Shots)
 - In a slash animation (e.g. 6 frames), damage does not occur for the whole duration: frames 1–2 are windup, frame 3 is the impact with the hitbox active, frames 4–6 are recovery.

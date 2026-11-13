@@ -60,18 +60,18 @@ Cato chain, not the real Cloudflare chain. So the certificate chain and the issu
 - Protocol TLS 1.3 by default (`TLS_AES_256_GCM_SHA384`).
 - With `-tls1_2` the server accepted `ECDHE-RSA-AES128-GCM-SHA256` and `ECDHE-RSA-AES256-GCM-SHA384`.
 
-The bm side (`src/net/bm_mbedtls.h`, `src/net/tls.c`):
+The bm side (`core/src/net/bm_mbedtls.h`, `core/src/net/tls.c`):
 
 - TLS **1.2 only** (`MBEDTLS_SSL_PROTO_TLS1_2`). No TLS 1.3.
 - ECDHE with RSA or ECDSA certificates, curves P-256, P-384, X25519, AES-GCM and ChaCha20-Poly1305,
   SHA-256/384/512, SNI, extended master secret. `MBEDTLS_SSL_VERIFY_REQUIRED`: the chain must end
-  at a root in `bm/ca.pem` (on the SD card, built by `scripts/make-ca.sh`) and the name must match.
+  at a root in `bm/ca.pem` (on the SD card, built by `core/scripts/make-ca.sh`) and the name must match.
 - A failed check gives the text `certificate not trusted: no root in bm/ca.pem for <issuer>`.
 
 Verdict: **compatible, with one condition.** Cloudflare accepts TLS 1.2 with ECDHE and AES-GCM, so
 the handshake should work. The condition is the root CA. Cloudflare sites use roots such as
 Google Trust Services or DigiCert, depending on the certificate. The cart must find the real
-issuer from a machine without the proxy, and `boot/ca.pem` must hold that root. Run
+issuer from a machine without the proxy, and `core/boot/ca.pem` must hold that root. Run
 `openssl s_client -showcerts` outside the proxy, or run the cart once on the Pi and read the error
 text. Both are `not verified`. TLS 1.2 is a risk only if Cloudflare drops it (not announced).
 
@@ -79,18 +79,18 @@ text. Both are `not verified`. TLS 1.2 is a risk only if Cloudflare drops it (no
 
 | Need | Today | Gap |
 |---|---|---|
-| HTTP/HTTPS from Lua | **No generic fetch.** `src/net/http.c` is a C client (GET/PUT/POST, redirects, chunked bodies, a body sink, https through `tls.c`). Lua reaches it only through `picture3d`, Market and update code. A cart has UDP (`udp_open`, `net_resolve`) and bmnet. | **Kernel work.** A new Lua API is the first stage that touches the kernel (stage 2a). |
+| HTTP/HTTPS from Lua | **No generic fetch.** `core/src/net/http.c` is a C client (GET/PUT/POST, redirects, chunked bodies, a body sink, https through `tls.c`). Lua reaches it only through `picture3d`, Market and update code. A cart has UDP (`udp_open`, `net_resolve`) and bmnet. | **Kernel work.** A new Lua API is the first stage that touches the kernel (stage 2a). |
 | TLS | mbedTLS 1.2, see 1.2. Handshake blocks the cart (a loop with `net_wait_step`). | Cost of one handshake on the Pi: `not measured`. `multitasking-alternatives.md` item b lists it. |
-| JPEG | `src/bm/jpeg.c`: baseline only, progressive refused. | Progressive JPEG on the web is common. |
-| PNG | `src/bm/png.c`: `png_rgba`, inflate, RGBA output in one malloc. | A 1220x720 RGBA image needs 3.5 MB. Needs downscale on decode. |
-| WebP | `src/bm/webp.c`: `webp_decode565`, lossy (VP8) and lossless (VP8L), no Lua call yet ([webp-decoder.md](webp-decoder.md)). | The site's cards are lossy WebP. Stage 0 is the Lua call `image_load`. |
+| JPEG | `core/src/bm/jpeg.c`: baseline only, progressive refused. | Progressive JPEG on the web is common. |
+| PNG | `core/src/bm/png.c`: `png_rgba`, inflate, RGBA output in one malloc. | A 1220x720 RGBA image needs 3.5 MB. Needs downscale on decode. |
+| WebP | `core/src/bm/webp.c`: `webp_decode565`, lossy (VP8) and lossless (VP8L), no Lua call yet ([webp-decoder.md](webp-decoder.md)). | The site's cards are lossy WebP. Stage 0 is the Lua call `image_load`. |
 | Pixels from Lua | `sset(x, y, c)` and the sprite sheet (up to 4096x4096), `sspr` with zoom. No "draw this RGB buffer" call. | Per pixel `sset` from Lua is slow. Add `image_load(bytes, maxw, maxh)` that decodes and writes into a sheet area. |
 | Text | Three bitmap fonts: 8x16, 8x14, 6x12, 256 glyphs in code page 437. No Unicode, no proportional font. | The cart maps UTF-8 to CP437 and uses `?` for the rest. Layout is on a fixed grid. |
 | Screen | `screen(w,h)`: 320x180 up to 960x540 (16:9). 640x360 with `font("6x12")` gives 106 columns by 30 rows. | Few lines of text per screen: use the small font. |
 | Input | Pad buttons, stick, `keyp()` for typed text, `mouse()` with `mousep()` (a cart must call `mouse(true)`). Same API on Pi and RGB30. | None. The RGB30 has no keyboard: an on-screen keyboard is needed for the URL bar. |
 | Lua memory | `stat(0)` reports Lua KB. The kernel's own state has `LUA_MEM_LIMIT` 64 MB (`docs/progress/lua.md`). The cart limit: `not verified`. | Measure on the Pi before stage 2. |
 | Write to SD | `save(t, slot)` (a table, 32 KB, 8 slots). `cart_save`, `cart_write`, `cart_data` (project files). No "write bytes to a path". | A `.glb` needs a raw file write. New API `file_write(path, bytes)` limited to `bm/web/`. |
-| 3D import | C: `src/bm/glb.c` `glb_to_model` (positions welded, winding fixed, PNG or JPEG base colour texture shrunk to 256x256, model framed, decimated to `faces` triangles). Used by `picture3d("take")`. Python: `scripts/meshy2mesh.py`, bm-forge `mesh` for untextured `.glb`. | Lua cannot call `glb_to_model` on a file from the SD card. Add `glb_import(path, opts)`. The poly.pizza GLB checked has no texture: colours come from material factors (`not verified` that `glb.c` reads them). |
+| 3D import | C: `core/src/bm/glb.c` `glb_to_model` (positions welded, winding fixed, PNG or JPEG base colour texture shrunk to 256x256, model framed, decimated to `faces` triangles). Used by `picture3d("take")`. Python: `core/scripts/meshy2mesh.py`, bm-forge `mesh` for untextured `.glb`. | Lua cannot call `glb_to_model` on a file from the SD card. Add `glb_import(path, opts)`. The poly.pizza GLB checked has no texture: colours come from material factors (`not verified` that `glb.c` reads them). |
 | Multitasking | Fibers are cooperative. `fiber_slice()` yields when a slice ends. SD reads and FAT writes yield. `net_wait_step()` always yields. `timeslice(co, k)` limits Lua. A cart's `_update` runs at 60 Hz. | The work-budget steps (alternative A of the study on `origin/claude/multitasking-alternatives`) are not in `bm-core`. |
 
 Note on PR 88 (`claude/web-mock-pr`): it adds a static React mock page under `web/` (a launcher
@@ -101,9 +101,9 @@ that, not PR 88.
 ## 3. Design of the browser cart
 
 Name: **`bmweb`**, title "bm Web". The name is general, because the cart is not tied to one site. Sources:
-`carts/bmweb/` with `main.lua`, `bm.info` and `src/*.lua` (as `carts/kitchen`). The rule in
-`CLAUDE.md` says "change only `.bme` projects". Existing cart sources in `carts/` are plain
-`main.lua` folders. The user must confirm that `carts/bmweb/` is the right form (question Q1).
+`bm/bmweb/` with `main.lua`, `bm.info` and `core/src/*.lua` (as `bm/kitchen`). The rule in
+`CLAUDE.md` says "change only `.bme` projects". Existing cart sources in `bm/` are plain
+`main.lua` folders. The user must confirm that `bm/bmweb/` is the right form (question Q1).
 The pure parts (tokenizer, parser, layout) are plain Lua modules with no draw calls. They run
 under host Lua in `tests/web/`.
 
@@ -221,7 +221,7 @@ On the PC, `bm-forge` (`mesh` command) is the reference for the same `.glb` file
 
 | Stage | Content | Test | Lines (est.) | Lua RAM (est.) |
 |---|---|---|---|---|
-| 1 | `carts/bmweb/src/html.lua` (tokenizer, tree), `css.lua`, `layout.lua`, `url.lua` and a host-Lua runner. Draw to a text dump: lines with runs, links, image boxes. No network, no kernel. | `tests/web/run.py` with `tests/web/fixtures/*.html` (a simple page, tables, lists, bad nesting, entities, a trimmed copy of the poly.pizza search page, an oversize page) and expected dumps. Runs in the host Lua already used by tests. | 1 200 Lua + 300 test | 100-300 KB for a 300 KB page |
+| 1 | `bm/bmweb/src/html.lua` (tokenizer, tree), `css.lua`, `layout.lua`, `url.lua` and a host-Lua runner. Draw to a text dump: lines with runs, links, image boxes. No network, no kernel. | `tests/web/run.py` with `tests/web/fixtures/*.html` (a simple page, tables, lists, bad nesting, entities, a trimmed copy of the poly.pizza search page, an oversize page) and expected dumps. Runs in the host Lua already used by tests. | 1 200 Lua + 300 test | 100-300 KB for a 300 KB page |
 | 2a | Kernel: Lua `web_get(url, opts)` with `web_poll`, `web_cancel`, `web_info` (status, final URL, type, error). Wraps `http_request` in a fiber. Respects the rules in 3.2 (scheme, redirects, caps). | QEMU test with the `http.server` mock of `tests/net/run_http_test.py`: 200, 301 loop, 404, chunked, 2 MB body, timeout. | 350 C | 64 KB buffer ring |
 | 2b | Cart: URL bar, fetch, render, scroll, link focus, history, error pages, cert error text. | QEMU: the cart loads `/index.html` from the mock, a scripted key sequence follows a link, goes back, and a screenshot (`shot`) matches a reference (`tests/shot/`). | 700 Lua | up to 3 MB with the page |
 | 3 | Kernel `image_load(bytes, maxw, maxh)` (PNG, JPEG, banded decode, shrink) and WebP VP8 decoder (own PR if large). Cart image loader and cache. | Host test of the decoder on fixtures (PNG, baseline JPEG, lossy WebP from poly.pizza `t.webp`); QEMU page with 4 images. | 250 Lua + 150 C glue (+ 1 200 C for WebP) | 4 MB cap on decoded images |
@@ -243,7 +243,7 @@ stage 1b, optional).
 | Risk | Effect | Answer |
 |---|---|---|
 | Site terms bar bots | Takedown or ban of the cart's traffic | Human pace, `robots.txt`, honest UA, ask the owner (1.1). |
-| Root CA missing in `bm/ca.pem` | Every https page fails | Find the root off-proxy, add to `boot/ca.pem`, show the error text. |
+| Root CA missing in `bm/ca.pem` | Every https page fails | Find the root off-proxy, add to `core/boot/ca.pem`, show the error text. |
 | TLS 1.2 dropped by a site | Page fails | Document. A TLS 1.3 port is a separate large task. |
 | WebP only previews | No pictures on cards | PNG on model pages works; WebP decoder in stage 3 or text cards. |
 | Pi RAM and speed | Page of 300 KB too slow | Streaming layout, line cap 5 000, "page cut" notice. Measure in stage 1b. |
@@ -255,7 +255,7 @@ stage 1b, optional).
 
 ## 6. Decisions of the user (22 Oct 2026)
 
-- Q1. Decided: the source is a `.bme` project (Dev tab). Stage 1 Lua modules stay in `carts/bmweb/` until the project exists; port them into the project at stage 2b.
+- Q1. Decided: the source is a `.bme` project (Dev tab). Stage 1 Lua modules stay in `bm/bmweb/` until the project exists; port them into the project at stage 2b.
 - Q2. Decided: bmweb is a generic web browser. Do not name poly.pizza in the cart, the Market text or the code. Use an honest User-Agent, human pace (one request per user action), `robots.txt` respected, https only by default. poly.pizza stays a test target by hand.
 - Q3. Decided: develop the kernel API: `web_get`, `image_load`, `file_write` (new Lua API, with docs and specs).
 - Q4. Decided: develop the WebP decoder (about 1 200 lines of C, host-tested).
@@ -270,14 +270,14 @@ stage 1b, optional).
 - Parsing with Python: link and image counts, the JSON state, WebP header (VP8 lossy 709x418), PNG
   header of the `.jpg` (1220x720 RGBA), GLB header (version 2, 70 188 bytes).
 - `openssl s_client` (proxy chain, TLS 1.3 and forced 1.2).
-- Code read: `src/net/bm_mbedtls.h`, `tls.c`, `tls.h`, `http.h`, `src/bm/jpeg.h`, `png.h`, `glb.h`,
+- Code read: `core/src/net/bm_mbedtls.h`, `tls.c`, `tls.h`, `http.h`, `core/src/bm/jpeg.h`, `png.h`, `glb.h`,
   `docs/api/*.md`, `tests/net/run_http_test.py`, the multitasking study and PR 88 file list.
 - Not done: any build, any QEMU or hardware run, any API call, any login.
 
 ## 8. What is built (stages 2b to 5)
 
-The cart is the `.bme` project `carts/bmweb/` (`main.lua`, `src/*.lua`, `bm.info`). `carts/bmweb/build/build.py`
-joins the modules into one script (a cartridge has one). `make build/carts/bmweb.bme` (and `.bm`) builds it.
+The cart is the `.bme` project `bm/bmweb/` (`main.lua`, `core/src/*.lua`, `bm.info`). `bm/bmweb/build/build.py`
+joins the modules into one script (a cartridge has one). `make build/bm/bmweb.bme` (and `.bm`) builds it.
 It is a generic browser: no site name is in the code. The user types or picks an address.
 
 | Module | Job |

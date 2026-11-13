@@ -1,5 +1,5 @@
 /* ophist.c: a host program that plays a ROM and counts the 65816 opcodes (build with -DSNES_TRACE and the C CPU loop):
- *   gcc -O2 -DSNES_TRACE -DSNES_CPU_C -Isrc/bm -o ophist tests/snes/ophist.c src/bm/snes_{bus,sa1,sa1_cpu,gsu,dsp77,cpu,ppu,spc,dsp}.c -lm
+ *   gcc -O2 -DSNES_TRACE -DSNES_CPU_C -Icore/src/bm -o ophist tests/snes/ophist.c core/src/bm/snes_{bus,sa1,sa1_cpu,gsu,dsp77,cpu,ppu,spc,dsp}.c -lm
  *   ophist rom frames padscript     (padscript: lines "first last padhex")
  * It prints the opcodes by count. Used to choose what the assembly loop handles (docs/progress/snes-cpu.md, "I-cache work"). The ROM is read from your disk. */
 #include "snes_int.h"

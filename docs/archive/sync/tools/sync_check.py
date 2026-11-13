@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Objective check of the sync (SYNC.md section 3c): who is alive, who has read what, what breaks the protocol.
 
-  python3 tools/sync_check.py [--strict] [--closeout] [--now <ISO>]
+  python3 core/tools/sync_check.py [--strict] [--closeout] [--now <ISO>]
 
 For every operator of sync/operators.toml (active ones) it reads the status block of sync/<ID>.md and prints:
   age of `updated`, `eta`, `ack` (the last Log row of SYNC.md it declares read), the Log rows addressed to it after that `ack`
@@ -246,7 +246,7 @@ WO_ID = re.compile(r"(?<![\w-])[A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+(?![\w-])")
 
 def leftovers(log, ops):
     """what must not be lost at the closing hand-off (CLOSEOUT.md 2c) and the branch and worktree list (2e), one entry per
-    line prefixed `  > `. `ops` is toml_ops(). The DELIVERED-without-REVIEW items need tools/spv_brief.py (missing on bm-core)."""
+    line prefixed `  > `. `ops` is toml_ops(). The DELIVERED-without-REVIEW items need core/tools/spv_brief.py (missing on bm-core)."""
     out = []
     active = [oid for oid, on in ops if on]
     texts = {}
@@ -282,7 +282,7 @@ def leftovers(log, ops):
             for wo, sha in spv_brief.pending(text, reviews):
                 out.append("%s: DELIVERED %s@%s without REVIEW" % (oid, wo, sha[:8]))
     except ImportError:
-        out.append("DELIVERED without REVIEW: n/d (tools/spv_brief.py missing)")
+        out.append("DELIVERED without REVIEW: n/d (core/tools/spv_brief.py missing)")
     for oid, text in texts.items():                             # CLOSED lines with open items
         for m in re.finditer(r"^[-*]?\s*CLOSED\b.*?(?:open|aperti):\s*(.+?)\s*·", text, re.M):
             if m.group(1).strip().lower() not in ("none", "nessuno"):
@@ -324,7 +324,7 @@ def closeout_permission_list(log):
     return found[-1][len("PERMISSIONS"):].lstrip(": ") if found else None
 
 
-BLOCKS = ("RUOLO", "REGOLE", "VINCOLI", "STRUMENTI", "STATO", "IN SOSPESO", "LEZIONI")     # scripts/ctx_guard.py, blocks 1-7
+BLOCKS = ("RUOLO", "REGOLE", "VINCOLI", "STRUMENTI", "STATO", "IN SOSPESO", "LEZIONI")     # core/scripts/ctx_guard.py, blocks 1-7
 
 
 def closeout_phase_checks(now):
@@ -418,11 +418,11 @@ def main():
             if not (mu and ms):
                 print("%-5s %-8s %5s %-17s %-17s %6s %5s  %s%s" % (oid, "-", "-", "-", "-", "-", "-", "%-13s " % "NO-STATUS" if co else "", "no status"))
                 co_states[oid] = "NO-STATUS"
-                problems.append("%s: no status block and no old-style lines (write it with tools/sync_hdr.py)" % oid)
+                problems.append("%s: no status block and no old-style lines (write it with core/tools/sync_hdr.py)" % oid)
                 continue
             z = mu.group(3) or now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
             h = {"state": ms.group(1), "updated": "%sT%s%s" % (mu.group(1), mu.group(2), z if ":" in z else z[:3] + ":" + z[3:])}
-            problems.append("%s: old status format, no block (use tools/sync_hdr.py)" % oid)
+            problems.append("%s: old status format, no block (use core/tools/sync_hdr.py)" % oid)
             notes.append("old format")
         state = h.get("state", "")
         if state not in STATES:

@@ -3,7 +3,7 @@
 
 It is what bm Studio's "New project" + the models of video 1 would leave: the reference models PICO, APPLE, CRATE
 (flat colours, from video/3d/assets) on a 256x256 sheet that carries the starter tiles of bm Studio (rows 0-47,
-copied from build/studio.bm, as Studio's new_project does). Built with scripts/bmres.py.
+copied from build/studio.bm, as Studio's new_project does). Built with core/scripts/bmres.py.
 
   python3 video/3d/02-pixel/standin.py [OUT.bme]       default: video/3d/out/standin/TROPIC.BME
 Needs video/3d/out/assets/tropic_assets.bm (python3 video/3d/assets/build.py). The skeleton/clips of the assets are
@@ -15,7 +15,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 ASSETS = os.path.join(ROOT, "video", "3d", "out", "assets", "tropic_assets.bm")

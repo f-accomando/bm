@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test for 3D map view in bm SDK editor (AGY-02).
 
-Verifies that carts/editor/main.lua contains:
+Verifies that bm/editor/main.lua contains:
 1. 'v' toggle for 2D/3D map preview with orbital camera
 2. Placeholder colors for 1032 and 1034 (OBJ_COL)
 3. Layer rename action ('r' / 'R') via D.ask and mlayers()
@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-EDITOR_LUA = os.path.join(ROOT, "carts", "editor", "main.lua")
+EDITOR_LUA = os.path.join(ROOT, "bm", "editor", "main.lua")
 
 def check_editor_source():
     assert os.path.isfile(EDITOR_LUA), f"Missing {EDITOR_LUA}"
@@ -60,7 +60,7 @@ def check_runtime_if_available():
     if bmhost:
         print(f"Testing with bmhost binary: {bmhost}")
         # Run test with virtual clock
-        # bmhost --tool carts/editor/main.lua
+        # bmhost --tool bm/editor/main.lua
         # Passes test
     else:
         print("bmhost binary not present in local build directory (host test will run on Linux build machine)")

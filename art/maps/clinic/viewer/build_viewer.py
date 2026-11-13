@@ -14,7 +14,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, os.path.join(HERE, ".."))
 import build_clinic as B  # noqa: E402
 
@@ -106,9 +106,9 @@ def main():
     lua_path = os.path.join(a.out, "main.lua")
     open(lua_path, "w").write(lua)
     cart = os.path.join(a.out, "viewer.bm")
-    subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", cart, "--lua", lua_path,
+    subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", cart, "--lua", lua_path,
                            "--res", "640x360", "--title", "clinic viewer"])
-    subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "bmres.py"), "add", cart, a.kit, "-o", cart])
+    subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "bmres.py"), "add", cart, a.kit, "-o", cart])
     print("wrote", cart, "views:", ", ".join(v[0] for v in VIEWS))
 
 

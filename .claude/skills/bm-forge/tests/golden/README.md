@@ -3,14 +3,14 @@
 Files written by the **real** tools of the repo, never by bm_core. All made at commit
 `287d05f43e8be6ace62443dfa7ba8e3759596c22` (`git rev-parse HEAD`, branch
 `claude/bm-forge`) in WSL (Python 3.14.4, `build/host/luahost` = Lua 5.4 of
-`third_party/lua`). Tests: `python3 -m unittest discover tests/golden` from
+`core/third_party/lua`). Tests: `python3 -m unittest discover tests/golden` from
 `.claude/skills/bm-forge`.
 
 ## How each file was made
 
 Note (25 Oct): the test fixture `tests/fixtures/village` (Studio Village) is removed. The
 commands below are the history of these files and cannot run as written (`village.bm` is
-gone; the studio tests now open `build/carts/testkit.bm`, made by
+gone; the studio tests now open `build/bm/testkit.bm`, made by
 `tests/fixtures/mktestkit.py`). The goldens are frozen: do not regenerate them, their tests
 (`test_schema.py`, `test_preview.py`) hold the numbers of the old data.
 
@@ -19,30 +19,30 @@ link (`undefined reference to g16_to_rgb24`, `Makefile:1092`), before any luahos
 So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, without
 `test_meshcap`, into `build/forge-gold/`:
 
-(Historical record. `carts/stages3d` was removed on 25 Oct; the host sample with a map is now `build/carts/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
+(Historical record. `bm/stages3d` was removed on 25 Oct; the host sample with a map is now `build/bm/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
 
 ```sh
-make -j$(nproc) build/host/luahost build/host/test_bm build/carts/village.bm build/carts/astrowing.bm build/carts/stages3d.bm
+make -j$(nproc) build/host/luahost build/host/test_bm build/bm/village.bm build/bm/astrowing.bm build/bm/stages3d.bm
 O=build/forge-gold; rm -rf $O; mkdir -p $O
-mkdir -p $O/studio3d-sd/carts && cp build/carts/village.bm $O/studio3d-sd/carts/
+mkdir -p $O/studio3d-sd/carts && cp build/bm/village.bm $O/studio3d-sd/carts/
 build/host/luahost tests/studio/tools3d_host.lua . $O/studio3d-sd      # 171/171 checks passed
-mkdir -p $O/mesh-sd/carts && cp build/carts/village.bm build/carts/astrowing.bm $O/mesh-sd/carts/
+mkdir -p $O/mesh-sd/carts && cp build/bm/village.bm build/bm/astrowing.bm $O/mesh-sd/carts/
 build/host/luahost tests/studio/mesh_host.lua . $O/mesh-sd             # 78/78 checks passed
-mkdir -p $O/pixel-sd/carts && cp build/carts/village.bm build/carts/stages3d.bm $O/pixel-sd/carts/
+mkdir -p $O/pixel-sd/carts && cp build/bm/village.bm build/bm/stages3d.bm $O/pixel-sd/carts/
 build/host/luahost tests/studio/pixel_host.lua . $O/pixel-sd           # 68/68 checks passed
 python3 tests/studio/anim_figure.py $O/anim-figure.bm
-python3 tests/studio/check_files.py $O/studio3d-sd $O/mesh-sd $O/pixel-sd build/carts/village.bm   # 62/62
-build/host/test_bm build/carts/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
+python3 tests/studio/check_files.py $O/studio3d-sd $O/mesh-sd $O/pixel-sd build/bm/village.bm   # 62/62
+build/host/test_bm build/bm/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
 ```
 
 | Golden | Copied from | Writer |
 |---|---|---|
 | `village_models.bm` | the former `tests/fixtures/village/models.bm` (last changed in `14718bb`; removed, this is the only copy) | bm Studio / bmmesh history; reference file |
-| `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `scripts/mkbm.py` `pack` |
-| `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `scripts/bmmesh.py` `encode`/`encode_anim` + `scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
-| `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`carts/studio`, `carts/animator`, `src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
+| `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `core/scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `core/scripts/mkbm.py` `pack` |
+| `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `core/scripts/bmmesh.py` `encode`/`encode_anim` + `core/scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
+| `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`bm/studio`, `bm/animator`, `core/src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
 | `studio_copy3d.bme` | `$O/studio3d-sd/carts/copy3d.bme` | bm Studio under luahost: the village saved with no edits |
-| `mesh_village.bme` | `$O/mesh-sd/carts/village.bme` | bm Mesh (`carts/mesh/main.lua`) under luahost: villager edited with its skeleton (`meshcopy.bme` is byte-identical, not copied) |
+| `mesh_village.bme` | `$O/mesh-sd/carts/village.bme` | bm Mesh (`bm/mesh/main.lua`) under luahost: villager edited with its skeleton (`meshcopy.bme` is byte-identical, not copied) |
 | `mesh_astrowin.bme` | `$O/mesh-sd/carts/astrowin.bme` | bm Mesh under luahost: Astro Wing models from the game's meshes |
 
 SHA-256 at copy time: `village_models.bm 696fd1b2…`, `anim_figure.bm ae8faf77…`,
@@ -63,13 +63,13 @@ see `references/OPEN_QUESTIONS.md` items 19-22.
 
 - `test_roundtrip.py`: parse -> build byte-identical for every golden; MESH and ANIM
   decode -> encode byte-identical; JSON `to_dict`/`from_dict` round trip; a rewrite equals
-  `scripts/bmmesh.py:rewrite_cart`.
+  `core/scripts/bmmesh.py:rewrite_cart`.
 - `test_schema.py`: header, sections, models, rigs of each golden; edition/path checks.
 - `test_negative.py`: truncated, bad magic/CRC/version/resolution, section out of bounds or
   over the table, duplicate sections, 65 bones, 256 clips, 1025 keys, vertex mismatch, rig
   without model, duplicate names, oversized models, bad floats, editions never converted,
   BMRES kinds. All assert `ValidationError`.
-- `test_crosscheck.py`: bm_core decoding == `scripts/bmmesh.py` decoding on every golden
+- `test_crosscheck.py`: bm_core decoding == `core/scripts/bmmesh.py` decoding on every golden
   (village included); bm_core encode == bmmesh encode; glb port == `bmmesh.glb_models`.
 - `test_skelanim.py` (phase 2): skeletons from `examples/humanoid.json` (= the villager's
   layout), orphan/cycle/root/name/limit refusals, vertex binding; clips idle/walk/jump:

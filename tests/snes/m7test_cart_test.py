@@ -14,7 +14,7 @@ import hashlib, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-BUILD = os.path.join(ROOT, "carts", "snes", "build", "build.py")
+BUILD = os.path.join(ROOT, "bm", "snes", "build", "build.py")
 
 
 def build(out, flag):

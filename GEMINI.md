@@ -10,10 +10,10 @@ Read files in small slices (`grep`, or targeted reads with line ranges or `offse
 |---|---|
 | What is left to do in an area | `grep -n -A 15 '^## \(Open work\|To do\)' docs/progress/<area>.md` |
 | Binding rules of an area | `grep -n -A 20 '^## Rules' docs/progress/<area>.md` |
-| Code in `runtime.c` (350 KB) | `python scripts/cindex.py src/bm/runtime.c <symbol>` |
+| Code in `runtime.c` (350 KB) | `python core/scripts/cindex.py core/src/bm/runtime.c <symbol>` |
 | Game API | `grep -n -C 2 '<function>' docs/api/<area>.md` (index: `docs/API.md`) |
 | Game architecture and patterns | `docs/design/games-architecture.md` |
-| Cartridge format and section numbers | `docs/BM-FORMAT.md`; constants: `grep -n 'BM_SEC_' src/bm/bm.h` |
+| Cartridge format and section numbers | `docs/BM-FORMAT.md`; constants: `grep -n 'BM_SEC_' core/src/bm/bm.h` |
 | Tile flags | `grep -n -A 5 'The tiles. flags' docs/api/draw.md` |
 | Keys, menus, and screen rules per device | `docs/spec/ui-reference.md` |
 
@@ -50,12 +50,12 @@ Before you declare a task complete, do these steps:
 
 1. Update the status. Remove the completed items and update the partial items in `## Open work` of the area file `docs/progress/<area>.md`.
 2. Update the rules. If you add or change an architectural constraint, record it in `## Rules (do not break)` of the same file.
-3. Check integrity. Run `python scripts/docs_audit.py score`. Fix each broken link and each orphan file that the command reports.
+3. Check integrity. Run `python core/scripts/docs_audit.py score`. Fix each broken link and each orphan file that the command reports.
 4. Check consistency. If you change formats, APIs, `config.txt` keys, the menu, Settings, or the behavior of one kernel (Pi or RGB30):
-   - Run `python scripts/consistency.py check`.
+   - Run `python core/scripts/consistency.py check`.
    - Update `docs/spec/` (`specs.toml`, `config-keys.toml`, `divergences.toml`). The rules are in `docs/spec/CONSISTENCY.md`.
-   - Before version 1.0.0, `python scripts/consistency.py gate` must pass.
-5. Check CI. If you change `.github/workflows/` or test timeouts, run `python scripts/ci_audit.py`.
+   - Before version 1.0.0, `python core/scripts/consistency.py gate` must pass.
+5. Check CI. If you change `.github/workflows/` or test timeouts, run `python core/scripts/ci_audit.py`.
 
 ## Glossary
 

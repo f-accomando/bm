@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""make test-typed: the prototype of the typed subset (scripts/bmt.py).
+"""make test-typed: the prototype of the typed subset (core/scripts/bmt.py).
 
   run.py LUAHOST BUILD_DIR
 
@@ -16,7 +16,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmt  # noqa: E402
 
 LUAHOST = sys.argv[1]
@@ -242,9 +242,9 @@ else:
 
 # ---------------------------------------------------------------- 3. the time
 bind = os.path.join(BUILD, "bindhost")
-subprocess.run(["gcc", "-O2", "-w", "-I", os.path.join(ROOT, "third_party", "lua"), "-I", BUILD, "-o", bind,
+subprocess.run(["gcc", "-O2", "-w", "-I", os.path.join(ROOT, "core", "third_party", "lua"), "-I", BUILD, "-o", bind,
                 os.path.join(HERE, "bindhost.c")] + sorted(
-                    os.path.join(ROOT, "third_party", "lua", f) for f in os.listdir(os.path.join(ROOT, "third_party", "lua"))
+                    os.path.join(ROOT, "core", "third_party", "lua", f) for f in os.listdir(os.path.join(ROOT, "core", "third_party", "lua"))
                     if f.endswith(".c")) + ["-lm"], check=True)
 b_out, _ = run([bind, os.path.join(BUILD, "main.lua"), lua_file, data, "1", "show", "c"])
 if b_out != l_out:
@@ -402,8 +402,8 @@ int main(int argc, char **argv)
 }
 ''')
 open(os.path.join(BUILD, "vm_main.c"), "w").write(vm_c)
-subprocess.run(["gcc", "-O2", "-Wall", "-Wextra", "-I", os.path.join(ROOT, "src", "bm"), "-o", os.path.join(BUILD, "vm_c"),
-                os.path.join(BUILD, "vm_main.c"), os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"], check=True)
+subprocess.run(["gcc", "-O2", "-Wall", "-Wextra", "-I", os.path.join(ROOT, "core", "src", "bm"), "-o", os.path.join(BUILD, "vm_c"),
+                os.path.join(BUILD, "vm_main.c"), os.path.join(ROOT, "core", "src", "bm", "bmvm.c"), "-lm"], check=True)
 vo, _ = run([os.path.join(BUILD, "vm_c"), vm_blob])
 if vo != yl:
     a, b = vo.splitlines(), yl.splitlines()
@@ -420,9 +420,9 @@ print("typed: bmvm %s (a PC, x86)" % vm_err.strip())
 cm_lua, cm_c = os.path.join(BUILD, "collmap.lua"), os.path.join(BUILD, "collmap.c")
 if bmt.main([os.path.join(HERE, "collmap.bmt"), "--lua", cm_lua, "--c", cm_c]) != 0:
     sys.exit(1)
-gen2 = os.path.join(ROOT, "src", "bm", "typed_collmap_gen.h")
+gen2 = os.path.join(ROOT, "core", "src", "bm", "typed_collmap_gen.h")
 if not os.path.exists(gen2) or open(gen2, newline="").read().replace("\r\n", "\n") != open(cm_c).read():
-    print("typed: FAIL src/bm/typed_collmap_gen.h is not what bmt.py makes from tests/typed/collmap.bmt")
+    print("typed: FAIL core/src/bm/typed_collmap_gen.h is not what bmt.py makes from tests/typed/collmap.bmt")
     failed += 1
 GEOMS = [
     # name, map w, h, chunk tiles, tile px, max obstacles, foot x0 y0 x1 y1, margin, pad x y, (world: the same as Yharnam's)
@@ -489,8 +489,8 @@ failed += 1 if cm_fail else 0
 # ---------------------------------------------------------------- 9. the bmvm machine against changed blobs (a fuzz)
 fz = os.path.join(BUILD, "vmfuzz")
 san = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"]
-cmd = ["gcc", "-std=gnu11", "-O1", "-g", "-I", os.path.join(ROOT, "src", "bm"), "-o", fz, os.path.join(HERE, "vmfuzz.c"),
-       os.path.join(ROOT, "src", "bm", "bmvm.c"), "-lm"]
+cmd = ["gcc", "-std=gnu11", "-O1", "-g", "-I", os.path.join(ROOT, "core", "src", "bm"), "-o", fz, os.path.join(HERE, "vmfuzz.c"),
+       os.path.join(ROOT, "core", "src", "bm", "bmvm.c"), "-lm"]
 if subprocess.run(cmd + san, capture_output=True).returncode:          # a gcc without the sanitizers: the run still looks for a crash
     subprocess.run(cmd, check=True)
     san = []

@@ -4,9 +4,9 @@ on the cartridge episode 2 saved (start.bm).
 
   python3 video/03-sound/record.py [--build-only] [--no-record]
 
-bmhost --tool runs carts/sound/main.lua on a clean SD that holds start.bm; the
+bmhost --tool runs bm/sound/main.lua on a clean SD that holds start.bm; the
 sound the editor plays goes to a .wav and into the video. verify.py reads the
-saved bank (scripts/bmaudio.py) and checks that the sound is not silent.
+saved bank (core/scripts/bmaudio.py) and checks that the sound is not silent.
 Needs build/host/bmhost-bin and build/sound.bm (make bmhost build/sound.bm).
 """
 import os
@@ -213,8 +213,8 @@ def main():
     wav = os.path.join(OUT, "sound.wav")
     if "--no-record" not in sys.argv:
         shutil.rmtree(SD, ignore_errors=True)
-        os.makedirs(os.path.join(SD, "carts"))
-        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "carts", "SKYVALE.BM"))
+        os.makedirs(os.path.join(SD, "bm"))
+        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "bm", "SKYVALE.BM"))
         raw = os.path.join(OUT, "raw.rgb")
         call([BMHOST, SOUND, "--tool", "--sd", SD, "--seconds", str(total / FPS), "--input",
               os.path.join(OUT, "input.txt"), "--video", raw, "--wav", wav, "--quiet"])

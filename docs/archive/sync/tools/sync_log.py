@@ -5,12 +5,12 @@ The timestamp is always the real local time of the machine (never passed by
 hand), formatted YYYY-MM-DDTHH:MM+HH:MM.
 
 Examples:
-  python tools/sync_log.py log --who SPV --branch sync/protocollo-ottobre \
+  python core/tools/sync_log.py log --who SPV --branch sync/protocollo-ottobre \
       --action RULE --text "Nuova regola" [--commit abc123] [--file SYNC.md] [--push]
-  python tools/sync_log.py inbox --id AGY --line "Leggi WO AGY-9" \
+  python core/tools/sync_log.py inbox --id AGY --line "Leggi WO AGY-9" \
       --line "Poi consegna" [--file-dir sync/inbox] [--append] [--push] [--verbose]
 
-  python tools/sync_log.py assign --id NET --wo W1 --wo W2 --branch B [--who SPV] [--push]
+  python core/tools/sync_log.py assign --id NET --wo W1 --wo W2 --branch B [--who SPV] [--push]
       one ASSIGNED Log row plus one inbox line per WO; with --push both files go in one commit.
 
 --quiet (log: opt-in; inbox: default) prints one short line instead of the row or

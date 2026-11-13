@@ -19,17 +19,17 @@ CHAIN = os.path.join(HERE, "chain")
 BMHOST = os.path.join(ROOT, "build", "host", "bmhost-bin")
 BMHOST_AI = os.path.join(ROOT, "build", "host", "bmhost-ai")
 sys.path.insert(0, os.path.join(ROOT, "video", "lib"))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 
 FPS = 60
 
 
 def fresh_sd(sd, files=()):
-    """A clean SD (an editor remembers page and file on it): carts/ with `files` [(src, name)] copied in."""
+    """A clean SD (an editor remembers page and file on it): bm/ with `files` [(src, name)] copied in."""
     shutil.rmtree(sd, ignore_errors=True)
-    os.makedirs(os.path.join(sd, "carts"))
+    os.makedirs(os.path.join(sd, "bm"))
     for src, name in files:
-        shutil.copy(src, os.path.join(sd, "carts", name))
+        shutil.copy(src, os.path.join(sd, "bm", name))
     return sd
 
 

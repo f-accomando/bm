@@ -8,7 +8,7 @@ Reads OUT_DIR/sd/carts/TROPIC.BME (OUT_DIR default: video/3d/05-sound/out; what 
 OUT_DIR/events.json (the frames where record.py plays an effect or the song). The answers are the recipes of
 docs/video/05-sound/script.md, written here again as raw editor values (not taken from record.py).
 
-  1. the sound bank (scripts/bmaudio.py): sounds 0-10 APPLE CRATE JUMP STEP SPIN HIT KICK SHAKER BASS MARIMBA PAD with their
+  1. the sound bank (core/scripts/bmaudio.py): sounds 0-10 APPLE CRATE JUMP STEP SPIN HIT KICK SHAKER BASS MARIMBA PAD with their
      values; effects 0-5 (name, SPEED, notes); song 0 JUNGLE (BPM, swing, echo, room, loop, the 24 slots); patterns 0-2 (tracks
      1-6 as in the tables; tracks 7 and 8 empty in every pattern: the two voices the effects borrow)
   2. the cartridge: the other sections (MESH, ANIM, SHEET ...) are byte for byte those of the start cartridge; chain/05-sound.bm
@@ -32,7 +32,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmaudio  # noqa: E402
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -40,7 +40,7 @@ start_opt = sys.argv[sys.argv.index("--start") + 1] if "--start" in sys.argv els
 if start_opt in args:
     args.remove(start_opt)
 OUT = args[0] if args else os.path.join(HERE, "out")
-BME = os.path.join(OUT, "sd", "carts", "TROPIC.BME")
+BME = os.path.join(OUT, "sd", "bm", "TROPIC.BME")
 WAV = os.path.join(OUT, "sound.wav")
 CHAIN = os.path.join(ROOT, "video", "3d", "chain")
 PEAK_MAX_DB, RMS_MAX_DB = -6.0, -18.0

@@ -19,7 +19,7 @@ local env = setmetatable({
   gpu3d = function() return gpu end,
   screen = function(w, h) asked[#asked + 1] = w .. "x" .. h; return true end,
 }, { __index = _G })
-local lib = assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", env))()
+local lib = assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", env))()
 local LY = lib.layout
 check(LY ~= nil, "lib.layout exists")
 

@@ -1,4 +1,4 @@
-/* The tests of the C core of bm PSX (src/bm/psx_*.c): the R3000A on small hand-assembled programs (branch and load
+/* The tests of the C core of bm PSX (core/src/bm/psx_*.c): the R3000A on small hand-assembled programs (branch and load
  * delay slots, multiply, divide, LWL/LWR, interrupts), the BIOS calls answered without a BIOS, the GTE, the GPU
  * (fill, flat triangle, textured rectangle, VRAM transfers), the DMA, the CD-ROM controller and the SPU.
  * Run: make test-psx. */

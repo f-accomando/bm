@@ -1,4 +1,4 @@
-/* ppu_equiv.c: the fast PPU (src/bm/snes_ppu.c) against the reference copy (tests/snes/ppu_ref.c).
+/* ppu_equiv.c: the fast PPU (core/src/bm/snes_ppu.c) against the reference copy (tests/snes/ppu_ref.c).
  *   ppu_equiv equiv [cases]   random register, VRAM, OAM and CGRAM states; every line must match bit for bit
  *   ppu_equiv bench [loops]   time of ppu_line for a scene like Super Mario World (mode 1, three layers, sprites, colour math)
  * Original code. */

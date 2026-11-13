@@ -14,11 +14,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/ledger_subagent.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/scripts/hooks/ledger_subagent.py\""
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/tools/bm_robot.py\" --hook"
           }
         ]
       }
@@ -28,11 +28,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/scripts/hooks/branch_cleanup.py\""
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/fetch_origin.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/scripts/hooks/fetch_origin.py\""
           }
         ]
       }
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/tools/bm_robot.py\" --hook"
           }
         ]
       }
@@ -53,11 +53,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/branch_cleanup.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/scripts/hooks/branch_cleanup.py\""
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/bm_robot.py\" --hook"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/core/tools/bm_robot.py\" --hook"
           }
         ]
       }

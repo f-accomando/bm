@@ -1,5 +1,5 @@
 /*
- * Host test of the polygon reducer (src/bm/decimate.c): planes, a sphere,
+ * Host test of the polygon reducer (core/src/bm/decimate.c): planes, a sphere,
  * a textured plane, a two-colour plane, a rigged cylinder, a model record,
  * and the models of the cartridges named (each halved).
  *

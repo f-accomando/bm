@@ -1,6 +1,6 @@
 /*
  * bmhost: a .bm cartridge on the PC, with the console's own runtime
- * (src/bm/runtime.c: Lua, gfx16, r3d, the sound player) and the kernel's
+ * (core/src/bm/runtime.c: Lua, gfx16, r3d, the sound player) and the kernel's
  * services replaced by tests/host/stubs.c. Frames go to PNG files or to a
  * raw RGB stream for ffmpeg, the sound to a WAV file; the input comes from
  * a script. The clock is virtual: frame n is always at n/60 s, so a run is

@@ -18,7 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "video", "3d"))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 
 import lib3d                                    # noqa: E402
 import bmres                                    # noqa: E402
@@ -178,7 +178,7 @@ def game_pad():
 def main():
     args = sys.argv[1:]
     os.makedirs(OUT, exist_ok=True)
-    src = os.path.join(ROOT, "video", "3d", "06-sdk", "out", "sd", "carts", "TROPIC.BME")
+    src = os.path.join(ROOT, "video", "3d", "06-sdk", "out", "sd", "bm", "TROPIC.BME")
     if os.path.exists(src):                     # the project video 6 saved (screen 480x270, its code is cut by Ctrl+K)
         shutil.copy(src, os.path.join(OUT, "start.bme"))
     r1, r3 = build_r1(), build_r3()
@@ -191,8 +191,8 @@ def main():
         return 0
     os.makedirs(BIN, exist_ok=True)
     for name, cart in (("code.bm", "code"), ("editor.bm", "editor")):
-        subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", os.path.join(BIN, name), "--lua", os.path.join(ROOT, "carts", cart, "main.lua"),
-                               "--cover", os.path.join(ROOT, "carts", cart, "icon.png"), "--info", os.path.join(ROOT, "carts", cart, "bm.info")], cwd=ROOT)
+        subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", os.path.join(BIN, name), "--lua", os.path.join(ROOT, "bm", cart, "main.lua"),
+                               "--cover", os.path.join(ROOT, "bm", cart, "icon.png"), "--info", os.path.join(ROOT, "bm", cart, "bm.info")], cwd=ROOT)
     lib3d.fresh_sd(SD, [(os.path.join(OUT, "start.bme"), "TROPIC.BME")])
     shots = os.path.join(OUT, "shots")
     os.makedirs(shots, exist_ok=True)
@@ -200,11 +200,11 @@ def main():
     print("r1", (r.stderr or r.stdout)[-200:].strip())
     r = lib3d.run_headless(os.path.join(BIN, "editor.bm"), os.path.join(OUT, "input-r3.txt"), R3_SECONDS + 3, SD, shots=shots if "--shots" in args else None)
     print("r3", (r.stderr or r.stdout)[-200:].strip())
-    f = bmres.read(os.path.join(SD, "carts", "TROPIC.BME"))
+    f = bmres.read(os.path.join(SD, "bm", "TROPIC.BME"))
     f.header = f.header[:18] + bytes([f.header[18] & ~1 & 255]) + f.header[19:]
-    bmres.write(os.path.join(SD, "carts", "TROPIC.BM"), f)
+    bmres.write(os.path.join(SD, "bm", "TROPIC.BM"), f)
     bmres.write(os.path.join(OUT, "07-code.bm"), f)
-    r = lib3d.run_headless(os.path.join(SD, "carts", "TROPIC.BM"), os.path.join(OUT, "game.txt"), R2_SECONDS, SD, shots=os.path.join(OUT, "shots"), tool=False)
+    r = lib3d.run_headless(os.path.join(SD, "bm", "TROPIC.BM"), os.path.join(OUT, "game.txt"), R2_SECONDS, SD, shots=os.path.join(OUT, "shots"), tool=False)
     print("r2", (r.stderr or r.stdout)[-200:].strip())
     return 0
 

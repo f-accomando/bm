@@ -1,4 +1,4 @@
--- bm SNES SDK (carts/snes_sdk) on the PC (the stubs are those of pixel_host.lua): stand-ins for the bm API (a folder is
+-- bm SNES SDK (bm/snes_sdk) on the PC (the stubs are those of pixel_host.lua): stand-ins for the bm API (a folder is
 -- the SD card; the sheet is a table of RGB565 colours as the kernel keeps
 -- them; cart_write writes the sheet as the kernel does, SHEET8 with the
 -- palette first when it fits), keys typed into it, and checks on what it
@@ -150,30 +150,30 @@ E.mousep = function(i) return MS.p >> (i or 0) & 1 == 1 end
 local bmui, bmlib
 E.require = function(name)
   if name == "bmlib" then                -- the layout (lib.layout): once
-    bmlib = bmlib or assert(loadfile(ROOT .. "/src/script/bmlib.lua", "t", E))()
+    bmlib = bmlib or assert(loadfile(ROOT .. "/core/src/script/bmlib.lua", "t", E))()
     return bmlib
   end
   if name == "snesgfx" and not arg[3] then              -- the SNES converters (the build puts them into the cart)
-    return assert(loadfile(ROOT .. "/carts/shared/snesgfx.lua", "t", E))()
+    return assert(loadfile(ROOT .. "/bm/shared/snesgfx.lua", "t", E))()
   end
   if name == "snes_asm" then                             -- the kernel has it built in
-    E._asm = E._asm or assert(loadfile(ROOT .. "/src/script/snes_asm.lua", "t", E))()
+    E._asm = E._asm or assert(loadfile(ROOT .. "/core/src/script/snes_asm.lua", "t", E))()
     return E._asm
   end
   if name == "snescode" and not arg[3] then              -- the Code tab helpers (a built cart has them in SNESCODE)
-    E._code = E._code or assert(loadfile(ROOT .. "/carts/shared/snescode.lua", "t", E))()
+    E._code = E._code or assert(loadfile(ROOT .. "/bm/shared/snescode.lua", "t", E))()
     return E._code
   end
   if name == "snesrun" and not arg[3] then              -- the Run tab helpers
-    E._run = E._run or assert(loadfile(ROOT .. "/carts/shared/snesrun.lua", "t", E))()
+    E._run = E._run or assert(loadfile(ROOT .. "/bm/shared/snesrun.lua", "t", E))()
     return E._run
   end
   if name == "asmbuf" and not arg[3] then
-    E._buf = E._buf or assert(loadfile(ROOT .. "/carts/shared/asmbuf.lua", "t", E))()
+    E._buf = E._buf or assert(loadfile(ROOT .. "/bm/shared/asmbuf.lua", "t", E))()
     return E._buf
   end
   assert(name == "bmui", "require: only bmui, bmlib and snes_asm here (a built cart has the others as globals)")
-  bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
+  bmui = bmui or assert(loadfile(ROOT .. "/core/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
   return bmui
 end
 local keyhelp_list, keyhelp_title
@@ -462,7 +462,7 @@ E.snes_poke = function(a, v) FAKE.ram[a] = v end
 E.snes_mem = function(space, a, n) return string.rep(" ", n) end
 
 -- the third argument: the built main.lua (build/snes_sdk/main.lua, with the module as SNESGFX); none: the source
-local chunk = assert(loadfile(arg[3] or (ROOT .. "/carts/snes_sdk/main.lua"), "t", E))
+local chunk = assert(loadfile(arg[3] or (ROOT .. "/bm/snes_sdk/main.lua"), "t", E))
 chunk()
 
 local function screen()
@@ -494,7 +494,7 @@ local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
   return ""
 end
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 
 -- the sprite being drawn and the colour, from the panel
 local function sprite_at()

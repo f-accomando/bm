@@ -4,7 +4,7 @@ low-poly from the start. Optional dependencies: numpy and Pillow (not needed by 
   python detail_test.py OUT_DIR [--reuse]
 
 Builds the reference (the highest `detail` of mannequin.py that fits the tools' 4096 vertices) and an "ultra" one
-(over the tools' limit, kernel limits only), reduces them with the repo's own reducer (tools/bmreduce.py, the same
+(over the tools' limit, kernel limits only), reduces them with the repo's own reducer (core/tools/bmreduce.py, the same
 code as bm Studio's "reduce": quadric edge collapse, a vertex keeps its bone), builds direct low-poly versions, and
 measures each against the reference:
   - error in centimetres: distance from the reference surface to the candidate surface (what is lost) and back
@@ -125,10 +125,10 @@ def main(out):
         run([py, mk, str(d), os.path.join(out, f"direct_{d}.bm")])
         files[f"direct detail {d}"] = f"direct_{d}.bm"
     for n in (4000, 2000, 1200, 800, 600, 400):
-        run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "reference.bm"), "--faces", str(n),
+        run([py, os.path.join(ROOT, "core", "tools", "bmreduce.py"), os.path.join(out, "reference.bm"), "--faces", str(n),
              "-o", os.path.join(out, f"ref_r{n}.bm")])
         files[f"reference reduced to {n}"] = f"ref_r{n}.bm"
-    run([py, os.path.join(ROOT, "tools", "bmreduce.py"), os.path.join(out, "ultra.bm"), "--faces", "1200",
+    run([py, os.path.join(ROOT, "core", "tools", "bmreduce.py"), os.path.join(out, "ultra.bm"), "--faces", "1200",
          "-o", os.path.join(out, "ultra_r1200.bm")])
     files[f"ultra source ({len(mannequin.build(6.0)[0].faces)} tris) reduced to 1200"] = "ultra_r1200.bm"
 

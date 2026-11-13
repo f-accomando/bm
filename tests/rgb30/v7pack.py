@@ -4,7 +4,7 @@ Mesa's v7.xml (src/panfrost/genxml/v7.xml, MIT), the way the XML says, and
 writes them as tests/rgb30/mali_desc_golden.h. Run when a descriptor is
 added:  python3 tests/rgb30/v7pack.py /path/to/v7.xml
 
-The C packers (src/rgb30/mali_desc.c) are written by hand from the same
+The C packers (core/src/rgb30/mali_desc.c) are written by hand from the same
 file; the test compares the two."""
 import struct
 import sys

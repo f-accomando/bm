@@ -1,16 +1,16 @@
 """Clips (ANIM keys) from a simple keyframe description.
 
-What the format and the runtime can play (src/bm/format.c:275-296,
-src/bm/runtime.c:2230-2271, ported in skin.pose_at):
+What the format and the runtime can play (core/src/bm/format.c:275-296,
+core/src/bm/runtime.c:2230-2271, ported in skin.pose_at):
 - one interpolation MODE per clip (u8: 0 linear, 1 smooth = smoothstep
   u*u*(3-2u), 2 step), not per key;
 - a key = f32 time in seconds + one pose (q rotation relative to the parent,
   t translation) for EVERY bone; quaternions slerp the short way
-  (src/bm/runtime.c:2209-2223), translations lerp;
+  (core/src/bm/runtime.c:2209-2223), translations lerp;
 - loop flag (clip flags bit 0): t mod length, the last key blends into the
   first across the wrap; else clamp.
-bm Animator's constraints mirrored here (carts/animator/main.lua): keys sit
-on a 12 frames/s grid (snap_t :831, T.FPS src/script/bm3d.lua:32); one key
+bm Animator's constraints mirrored here (bm/animator/main.lua): keys sit
+on a 12 frames/s grid (snap_t :831, T.FPS core/src/script/bm3d.lua:32); one key
 per frame (key_at :815, set_key :819-823); keys within 0..length (:1005); a
 length is whole frames and >= max(1/12 s, last key) (:1029-1034); a new clip
 is smooth and looping (:912-913); at most 255 clips (:909); mirror = the
@@ -28,11 +28,11 @@ Description (dict or JSON file; unknown keys refused):
 A bone entry: one of "rot" [x, y, z] degrees (R = Rz Ry Rx: x first, then
 y, then z, in the parent's frame), "q" [x, y, z, w] (unit within 1e-3),
 "axis" + "angle" (degrees); plus "move" [x, y, z] (the pose t, added to the
-bone head in the parent's frame, src/bm/runtime.c:2273). Missing rotation =
+bone head in the parent's frame, core/src/bm/runtime.c:2273). Missing rotation =
 identity, missing move = 0. A bone not named in a key takes, at that key,
 its own track's value (interpolated between the keys that do name it, with
 their curves); a bone named in no key stays at rest (identity, as bm
-Animator's rest_pose and bmmesh's missing poses, scripts/bmmesh.py:115-120).
+Animator's rest_pose and bmmesh's missing poses, core/scripts/bmmesh.py:115-120).
 
 Curves: "linear", "smooth" (alias "ease-in-out"), "step" are the runtime's
 modes; "ease-in" (u*u) and "ease-out" (1-(1-u)^2) are not, nor are mixed
@@ -47,13 +47,13 @@ native and exact (a split slerp arc is the same arc; a held step stays held).
 
 Ranges (ValidationError on anything else):
 - frame: integer >= 0; time: finite seconds, snapped to round(t*12)/12;
-  length 1..12e6 frames (0 < length < 1e6 s, src/bm/format.c:277);
-- keys after baking: 1..1024 per clip (src/bm/bm.h:181); clips <= 255 (bm.h:180);
-- move: finite in (-1e6, 1e6), the MESH vertex range (src/bm/format.c:157;
+  length 1..12e6 frames (0 < length < 1e6 s, core/src/bm/format.c:277);
+- keys after baking: 1..1024 per clip (core/src/bm/bm.h:181); clips <= 255 (bm.h:180);
+- move: finite in (-1e6, 1e6), the MESH vertex range (core/src/bm/format.c:157;
   the ANIM check alone allows |v| < 1e9, format.c:241: strict);
 - rot / angle: finite degrees in (-1e6, 1e6); between two consecutive keys of
   one bone (and across the wrap of a loop) no "rot" axis may change by 180
-  degrees or more: slerp takes the short way (src/bm/runtime.c:2209-2223),
+  degrees or more: slerp takes the short way (core/src/bm/runtime.c:2209-2223),
   so the runtime would turn the other way; add a key in between;
 - q: 4 finite numbers, | |q| - 1 | <= 1e-3 (the runtime normalises,
   runtime.c:2201-2206; a far-from-unit q is a mistake, strict), stored unit.
@@ -67,14 +67,14 @@ from .binary import name_bytes
 from .errors import ValidationError, need
 from .skin import quat_mul, quat_norm, quat_slerp
 
-FPS = 12                         # src/script/bm3d.lua:32, carts/animator/main.lua:831
-NATIVE = {"linear": 0, "smooth": 1, "step": 2}          # src/bm/format.c:277, bm3d.lua:33
+FPS = 12                         # core/src/script/bm3d.lua:32, bm/animator/main.lua:831
+NATIVE = {"linear": 0, "smooth": 1, "step": 2}          # core/src/bm/format.c:277, bm3d.lua:33
 CURVES = ("linear", "smooth", "ease-in-out", "step", "ease-in", "ease-out")
 ALIAS = {"ease-in-out": "smooth"}
-MOVE_LIMIT = 1e6                 # src/bm/format.c:157
+MOVE_LIMIT = 1e6                 # core/src/bm/format.c:157
 ANGLE_LIMIT = 1e6
 Q_TOL = 1e-3
-FRAMES_MAX = int(animmod.LENGTH_MAX * FPS) - 1          # length < 1e6 s (src/bm/format.c:277)
+FRAMES_MAX = int(animmod.LENGTH_MAX * FPS) - 1          # length < 1e6 s (core/src/bm/format.c:277)
 CLIP_KEYS = {"name", "loop", "length", "frames", "curve", "keys", "comment"}
 KEY_KEYS = {"frame", "time", "curve", "pose", "mirror", "comment"}
 BONE_KEYS = {"rot", "q", "axis", "angle", "move"}
@@ -124,7 +124,7 @@ class _BP:
         self.q, self.t, self.rot = q, t, rot
 
     def mirrored(self):
-        """bm Animator mirror_pose (carts/animator/main.lua:958): q (x,-y,-z,w), t (-x,y,z);
+        """bm Animator mirror_pose (bm/animator/main.lua:958): q (x,-y,-z,w), t (-x,y,z);
         Euler (a,-b,-c) is the same reflection of R = Rz Ry Rx"""
         rot = None if self.rot is None else [self.rot[0], -self.rot[1], -self.rot[2]]
         return _BP([self.q[0], -self.q[1], -self.q[2], self.q[3]], [-self.t[0], self.t[1], self.t[2]], rot)
@@ -222,7 +222,7 @@ def _check_turns(bone, track, loop, where):
             d = abs(b.rot[ax] - a.rot[ax])
             need(d < 180, f"bone {bone!r} rot {'xyz'[ax]} goes {a.rot[ax]:g} -> {b.rot[ax]:g} degrees between "
                  f"frames {fa} and {fb}: 180 or more, slerp would turn the short way "
-                 "(src/bm/runtime.c:2209-2223); add a key in between", where)
+                 "(core/src/bm/runtime.c:2209-2223); add a key in between", where)
 
 
 def load(path_or_dict):
@@ -244,7 +244,7 @@ def clip(desc, rig, report=None):
     w = f"clip {name!r}"
     extra = set(d) - CLIP_KEYS
     need(not extra, f"unknown keys {sorted(extra)} (allowed: {sorted(CLIP_KEYS)})", w)
-    loop = d.get("loop", True)                     # new clips loop (carts/animator/main.lua:912)
+    loop = d.get("loop", True)                     # new clips loop (bm/animator/main.lua:912)
     need(isinstance(loop, bool), "'loop' is true or false", w)
     default = _curve(d.get("curve", "smooth"), w)  # new clips are smooth (main.lua:912)
     keys = d.get("keys")
@@ -262,7 +262,7 @@ def clip(desc, rig, report=None):
     raw.sort(key=lambda r: r[0])
     for (fa, _, _, _), (fb, _, _, kw) in zip(raw, raw[1:]):
         need(fa != fb, f"two keys on frame {fa} (bm Animator keeps one key per frame, "
-             "carts/animator/main.lua:815-823)", kw)
+             "bm/animator/main.lua:815-823)", kw)
     last = raw[-1][0]
     has_len, has_fr = "length" in d, "frames" in d
     need(not (has_len and has_fr), "give 'length' or 'frames', not both", w)
@@ -275,11 +275,11 @@ def clip(desc, rig, report=None):
         F = int(round(L * FPS))
         if abs(F - L * FPS) > 1e-6:
             snapped.append((L, F / FPS))
-        need(F >= 1, f"length {L} s is under one frame (1/{FPS} s, carts/animator/main.lua:1032)", w)
+        need(F >= 1, f"length {L} s is under one frame (1/{FPS} s, bm/animator/main.lua:1032)", w)
     else:
         need(not loop, "a looping clip needs 'frames' or 'length'", w)
         F = max(1, last)
-    need(last <= F, f"a key on frame {last}, past the length of {F} frames (carts/animator/main.lua:1005)", w)
+    need(last <= F, f"a key on frame {last}, past the length of {F} frames (bm/animator/main.lua:1005)", w)
     # poses: plain keys first, then mirrors of plain keys
     poses = {}
     byframe = {f: k for f, k, _, _ in raw}
@@ -340,7 +340,7 @@ def clip(desc, rig, report=None):
         mode = NATIVE[next(iter(kinds))]
     need(len(out_frames) <= animmod.KEYS_MAX,
          f"{len(out_frames)} keys{' after baking' if baked else ''}, at most {animmod.KEYS_MAX} "
-         f"(src/bm/bm.h:181){': ' + reason + ' -> one key per frame' if baked else ''}", w)
+         f"(core/src/bm/bm.h:181){': ' + reason + ' -> one key per frame' if baked else ''}", w)
     nb = len(rig.bones)
     out = []
     for f in out_frames:
@@ -367,7 +367,7 @@ def _parse_pose(p, bones, where):
 
 def add_clips(rig, descs, reports=None):
     """a copy of rig with the clips of `descs` (dicts or JSON paths) appended;
-    at most 255 clips (src/bm/bm.h:180, carts/animator/main.lua:909), names unique.
+    at most 255 clips (core/src/bm/bm.h:180, bm/animator/main.lua:909), names unique.
     -> anim.Rig, checked by anim.validate_rig"""
     clips = list(rig.clips)
     for dsc in descs:
@@ -376,7 +376,7 @@ def add_clips(rig, descs, reports=None):
         if reports is not None:
             reports.append(rep)
     w = f"rig {rig.model!r}"
-    need(len(clips) <= animmod.CLIPS_MAX, f"{len(clips)} clips, at most {animmod.CLIPS_MAX} (src/bm/bm.h:180)", w)
+    need(len(clips) <= animmod.CLIPS_MAX, f"{len(clips)} clips, at most {animmod.CLIPS_MAX} (core/src/bm/bm.h:180)", w)
     seen = set()
     for c in clips:
         need(c.name not in seen, f"clip name {c.name!r} twice", w)

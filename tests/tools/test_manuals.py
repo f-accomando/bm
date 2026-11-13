@@ -1,8 +1,8 @@
-"""Tests for scripts/manuals.py: split_chapters, signature, technical and the gap counter."""
+"""Tests for core/scripts/manuals.py: split_chapters, signature, technical and the gap counter."""
 import os, sys, tempfile, unittest, warnings
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import manuals  # noqa: E402  (needs Python 3.11+: tomllib)
 
 # split_chapters opens its file without closing it; that is the script's, not what is tested here

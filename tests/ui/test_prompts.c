@@ -1,5 +1,5 @@
 /*
- * The button prompts (src/kernel/prompts.c) on the PC: checks every one of
+ * The button prompts (core/src/kernel/prompts.c) on the PC: checks every one of
  * both sets, then draws each set 3x as on a TV into a PNG: the menu's on
  * the menu bar's colour (prompts.png), the apps' chips on the apps' blue
  * (chips.png), in the directory given (default build/prompts).

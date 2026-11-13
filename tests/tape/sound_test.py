@@ -2,7 +2,7 @@
 """
 sound_test.py - bm Tape in bmhost with --wav: the demo pattern plays for 2 bars (4 s at 120 BPM).
 
-  python3 tests/tape/sound_test.py build/host/bmhost-bin build/carts/tape.bm build/tape-test/demo.wav
+  python3 tests/tape/sound_test.py build/host/bmhost-bin build/bm/tape.bm build/tape-test/demo.wav
 
 Checks: the run ends well; the WAV holds sound in each of the two bars (RMS above a small floor, so the notes that
 play_at queued did reach the synthesizer); no run of full-scale samples longer than 24 samples (clipping).

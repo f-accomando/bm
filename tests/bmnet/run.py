@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-bmnet (src/script/bmnet.lua) between two bmhost on this PC: the cartridge
+bmnet (core/src/script/bmnet.lua) between two bmhost on this PC: the cartridge
 tests/bmnet/cart.lua on the LAN (BMHOST_NET_ID 0 and 1) and through the
-relay (tools/overbit_relay.py). Both consoles must pass their checks and
+relay (core/tools/overbit_relay.py). Both consoles must pass their checks and
 give the same hash of the match.
 
   tests/bmnet/run.py BUILD_DIR
@@ -21,7 +21,7 @@ def pack(build, name, prefix=""):
     with open(src, "w") as f:
         f.write(prefix + open(os.path.join(HERE, "cart.lua")).read())
     out = os.path.join(build, "bmnet", name + ".bm")
-    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", out, "--lua", src,
+    subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", out, "--lua", src,
                     "--title", "bmnet test"], check=True, capture_output=True)
     return out
 
@@ -41,7 +41,7 @@ def main():
     os.makedirs(os.path.join(build, "bmnet"), exist_ok=True)
     fails = 0
     runs = [("lan", pack(build, "lan"), None)]
-    relay = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "overbit_relay.py"), "--port", "47391",
+    relay = subprocess.Popen([sys.executable, os.path.join(ROOT, "core", "tools", "overbit_relay.py"), "--port", "47391",
                               "--quiet"])
     try:
         runs.append(("relay", pack(build, "relay", 'RELAY = "127.0.0.1:47391"\n'), relay))

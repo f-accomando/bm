@@ -20,8 +20,8 @@ updated: 2026-10-31
 
 ## Fatto
 - Branch `claude/rgb30-hdmi-external-720p`, già pubblicato su `origin`. Non è in `bm-core`.
-- Nuovi file: `src/rgb30/rk_hdmi.c`, `src/rgb30/rk_hdmi.h` (trasmettitore DW-HDMI e PHY, 1280x720p60, RGB 8 bit, senza audio e senza EDID).
-- Modificato `src/rgb30/rk_display.c`: porta VP0 del VOP2 verso HDMI, clock pixel da VPLL (1188 MHz / 16 = 74,25 MHz), lettura del pin HPD ogni 250 ms con due letture uguali, ripristino del pannello allo scollegamento.
+- Nuovi file: `core/src/rgb30/rk_hdmi.c`, `core/src/rgb30/rk_hdmi.h` (trasmettitore DW-HDMI e PHY, 1280x720p60, RGB 8 bit, senza audio e senza EDID).
+- Modificato `core/src/rgb30/rk_display.c`: porta VP0 del VOP2 verso HDMI, clock pixel da VPLL (1188 MHz / 16 = 74,25 MHz), lettura del pin HPD ogni 250 ms con due letture uguali, ripristino del pannello allo scollegamento.
 - Chiavi di `bm/config.txt`: `hdmi=0` (solo pannello), `hdmi_swap=1` (rosso e verde scambiati), `hdmi_origin=1` (posizione dell'immagine). Sono in `docs/spec/config-keys.toml`.
 - Documenti aggiornati: `docs/RGB30.md`, `docs/progress/platforms.md`, divergenza D56 in `docs/spec/divergences.toml`.
 - `consistency.py check`: 0 drift. `docs_audit.py`: nessun link rotto.
@@ -34,13 +34,13 @@ updated: 2026-10-31
 - Test QEMU non eseguiti: l'integrazione in `bm-core` aspetta la prova sulla console.
 
 ## Nero all'avvio (indagine di un agente Opus, solo lettura)
-- Ipotesi principale: `.bss` è circa 30 MB (di cui circa 18 MB in `mali.c` e circa 8 MB in `r3d.c`) e `src/rgb30/start.S:126-131` la azzera con MMU e cache spente. La dimensione l'ho verificata. La velocità di scrittura (circa 2,5 MB/s) non è misurata.
+- Ipotesi principale: `.bss` è circa 30 MB (di cui circa 18 MB in `mali.c` e circa 8 MB in `r3d.c`) e `core/src/rgb30/start.S:126-131` la azzera con MMU e cache spente. La dimensione l'ho verificata. La velocità di scrittura (circa 2,5 MB/s) non è misurata.
 - Ipotesi minori: `cores=4` (al massimo circa 6 s se i core non partono); WiFi/BT prima del menu (qui si vede il logo, non il nero).
 - Il bootlog non ha timestamp. Misura con un cronometro: fine dello splash, LED rosso, suono di avvio, menu.
 - Correzione proposta, non applicata: azzerare la `.bss` grande in C dopo `mmu_init` (modifiche a `kernel.ld`, `start.S`, `mmu.c`, `main.c`). Prima va controllato che nulla scriva in `.bss` prima di `mmu_init`.
 
 ## Connessione alla console
-- `192.168.1.233` non risponde da questa sessione cloud (timeout di `tools/bm_net.py`), anche dopo che l'utente ha aperto il bridge. È un indirizzo di rete locale.
+- `192.168.1.233` non risponde da questa sessione cloud (timeout di `core/tools/bm_net.py`), anche dopo che l'utente ha aperto il bridge. È un indirizzo di rete locale.
 - L'unico computer in Remote Control (`NB-ACCOMANDOFRANCESCO`, Windows) non è offerto alle sessioni cloud.
 - Strada che funziona: una sessione Claude Code locale sul PC, sul branch `claude/rgb30-hdmi-external-720p`.
 

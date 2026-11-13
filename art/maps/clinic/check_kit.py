@@ -3,7 +3,7 @@
 
   python3 check_kit.py [KIT.bmk] [BMHOST]     (default art/maps/clinic.bmk and build/host/bmhost-bin)
 
-1. Python (scripts/bmkit.py): the kit reads back, the models look out and have a map class, every id of the objects
+1. Python (core/scripts/bmkit.py): the kit reads back, the models look out and have a map class, every id of the objects
    layer is in the object table, every model of the table exists in both looks.
 2. Python, the layout: from the player start a person can walk to the Courtyard Gate, the atrium, the end of the alley
    and every lantern, through the doors that open (the locked doors and the gate are not passed), and the height step
@@ -23,7 +23,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, HERE)
 import bmkit  # noqa: E402
 import bmres  # noqa: E402
@@ -177,7 +177,7 @@ def host_checks(kit, host, lay):
         lua_path = os.path.join(work, "main.lua")
         open(lua_path, "w").write(lua)
         cart = os.path.join(work, "check.bm")
-        subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", cart, "--lua", lua_path,
+        subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", cart, "--lua", lua_path,
                                "--res", "640x360", "--title", "clinic kit check"], stdout=subprocess.DEVNULL)
         out = subprocess.run([host, cart, "--sd", sd, "--seconds", "3", "--tool"], capture_output=True, text=True, timeout=180)
         log = out.stdout + out.stderr

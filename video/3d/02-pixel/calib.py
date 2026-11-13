@@ -1,8 +1,8 @@
 """Calibration of the face pointer of bm Studio (tool 3/5): which arrows reach which face.
 
-bm Studio moves its face pointer to "the nearest face in that direction on the screen" (T.nav of src/script/bm3d.lua),
+bm Studio moves its face pointer to "the nearest face in that direction on the screen" (T.nav of core/src/script/bm3d.lua),
 so the keys that reach a given face depend on the model. record.py does not guess them: it runs a copy of bm Studio
-with a few lines of logging (built here from carts/studio/main.lua, nothing else changed), asks it for the screen
+with a few lines of logging (built here from bm/studio/main.lua, nothing else changed), asks it for the screen
 position, centre, normal and colour of every face of every model (key `~`), and plans the arrows with the same
 algorithm (nav) in Python. The log copy also traces every key (`KEY ...`), which is how the plan is checked (trace()).
 
@@ -57,16 +57,16 @@ end
 
 def build_dbg(out_dir):
     os.makedirs(out_dir, exist_ok=True)
-    src = open(os.path.join(ROOT, "carts", "studio", "main.lua"), encoding="utf-8").read()
+    src = open(os.path.join(ROOT, "bm", "studio", "main.lua"), encoding="utf-8").read()
     if MARK not in src:
-        raise SystemExit("calib: carts/studio/main.lua changed shape (end of the build block not found)")
+        raise SystemExit("calib: bm/studio/main.lua changed shape (end of the build block not found)")
     lua = os.path.join(out_dir, "main_dbg.lua")
     open(lua, "w", encoding="utf-8", newline="\n").write(src.replace(MARK, "\n" + INJECT + MARK, 1))
     out = os.path.join(out_dir, "studio_dbg.bm")
-    subprocess.check_call([sys.executable, os.path.join(ROOT, "scripts", "mkbm.py"), "-o", out, "--lua", lua,
-                           "--cover", os.path.join(ROOT, "carts", "studio", "icon.png"), "--sheet",
-                           os.path.join(ROOT, "carts", "studio", "assets", "sheet.png"), "--sheet8", "--info",
-                           os.path.join(ROOT, "carts", "studio", "bm.info")], cwd=ROOT, stdout=subprocess.DEVNULL)
+    subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py"), "-o", out, "--lua", lua,
+                           "--cover", os.path.join(ROOT, "bm", "studio", "icon.png"), "--sheet",
+                           os.path.join(ROOT, "bm", "studio", "assets", "sheet.png"), "--sheet8", "--info",
+                           os.path.join(ROOT, "bm", "studio", "bm.info")], cwd=ROOT, stdout=subprocess.DEVNULL)
     return out
 
 
@@ -124,7 +124,7 @@ def trace(sd, out_dir, input_path, seconds):
 
 # ------------------------------------------------------------------------------------- the pointer
 def nav(pos, cur, d):
-    """T.nav of src/script/bm3d.lua. pos: {i: (x, y, z)} of the faces seen on the screen; cur: face; d: direction."""
+    """T.nav of core/src/script/bm3d.lua. pos: {i: (x, y, z)} of the faces seen on the screen; cur: face; d: direction."""
     cx, cy, _ = pos[cur]
     dx, dy = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}[d]
     best, bs = cur, 1e18

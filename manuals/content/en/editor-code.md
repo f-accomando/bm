@@ -276,7 +276,7 @@ Put the cursor on the name of a bm function and press **Ctrl+Q** (on the pad, ho
 
 ## The check of API names on save
 
-When you save a tab whose file ends in `.bm`, `.bme` or `.lua`, bm Code looks for names that look like calls to the bm API but are not in it, as `scripts/api_lint.py` does.
+When you save a tab whose file ends in `.bm`, `.bme` or `.lua`, bm Code looks for names that look like calls to the bm API but are not in it, as `core/scripts/api_lint.py` does.
 
 - The status line says `API: N unknown name(s), line L: NAME` for the first one, and the line number of each line with an unknown name turns **red**.
 - A name that you define yourself, in this tab or in any other open tab, counts as known.

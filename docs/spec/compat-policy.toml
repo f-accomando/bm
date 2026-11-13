@@ -1,11 +1,11 @@
 # Compat policy: what a kernel does with a cartridge it may not be made for. EDITABLE DATA, not code.
 # Decided 22 Oct 2026 (docs/design/single-bm-and-adaptive-screen.md, decisions 1 and 4): the rule is one table.
 # A new kernel or a new rule changes this file, not the client. Grey is not a lock: the user may start a greyed
-# cart after a confirm. Read by scripts/bm_weight.py (load_policy, classify) and, as the C table src/bm/compat_table.h
-# made by scripts/mkcompat.py (--check fails when the table is old), by both kernels (bm_compat_classify in src/bm/format.c).
+# cart after a confirm. Read by core/scripts/bm_weight.py (load_policy, classify) and, as the C table core/src/bm/compat_table.h
+# made by core/scripts/mkcompat.py (--check fails when the table is old), by both kernels (bm_compat_classify in core/src/bm/format.c).
 #
 # [[kernel]]  id          kernel name as in docs/spec/platforms.toml
-#             target      the BM_TARGET_* bit of the kernel (src/bm/bm.h): 1 Pi Zero W, 2 RGB30
+#             target      the BM_TARGET_* bit of the kernel (core/src/bm/bm.h): 1 Pi Zero W, 2 RGB30
 #             default_action / default_reason   used when no rule of that kernel matches
 # [[rule]]    kernel      id of a [[kernel]]
 #             action      what the local menu (Games, Apps) does: show, grey or hide
@@ -83,7 +83,7 @@ audio_bytes_over = 16777216
 action = "grey"
 reason = "sound bank over the limit"
 
-# The Market ceiling is 100 MB per file (src/net/catalog.h). The local menu has no size limit.
+# The Market ceiling is 100 MB per file (core/src/net/catalog.h). The local menu has no size limit.
 [[rule]]
 kernel = "pi-zero-w"
 size_over_mib = 100

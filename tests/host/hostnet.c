@@ -1,5 +1,5 @@
 /*
- * bmhost: the cartridges' UDP (src/net/cartnet.h) on the PC's sockets, so
+ * bmhost: the cartridges' UDP (core/src/net/cartnet.h) on the PC's sockets, so
  * several bmhost on the same PC play a match together: BMHOST_NET_ID=k
  * (0..3) moves the ports a cartridge opens by 10 x k, and a broadcast goes
  * to 127.0.0.1 on the port of every k (the LAN of the consoles, on one PC).

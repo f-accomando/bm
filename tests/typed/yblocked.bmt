@@ -1,4 +1,4 @@
--- `solid_at` and `blocked` of Yharnam (carts/yharnam/main.lua), in the typed subset, on flat arrays.
+-- `solid_at` and `blocked` of Yharnam (bm/yharnam/main.lua), in the typed subset, on flat arrays.
 -- The map is 8 x 8 chunks of 16 x 16 tiles of 16 pixels. Chunk number ci = cy * 8 + cx + 1 (1 to 64).
 --   solid    256 values for each chunk, row by row: (ci - 1) * 256 + ty * 16 + tx + 1 (1 solid, 0 free)
 --   ready    1 if the chunk is in the arrays, 0 if it is not

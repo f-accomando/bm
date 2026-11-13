@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ARM instructions to draw the heroes of Overbit (tests/bm/herobench.c), on
-the ARM rasterizer and with the GPU backend (src/gpu/gpu3d.c, its V3D
+the ARM rasterizer and with the GPU backend (core/src/gpu/gpu3d.c, its V3D
 emulated and not counted): qemu-arm runs herobench built for the ARM1176,
 its translated blocks are counted by function (tests/overbit/framecount.c)
 and the instructions of r3d.c, gfx16.c, gpu3d.c and v3d_cl.c are added up
@@ -33,14 +33,14 @@ SETUP = ("r3d_mesh", "r3d_init", "g16_sheet", "g16_cls", "gpu3d_init", "probe", 
 
 def build(tmp):
     exe = os.path.join(tmp, "herobench.arm")
-    inc = ["-I" + os.path.join(ROOT, "src"), "-I" + os.path.join(ROOT, "tests/gpu")]
-    src = [os.path.join(ROOT, p) for p in ("tests/bm/herobench.c", "src/bm/format.c", "src/bm/r3d.c",
-                                            "src/bm/gfx16.c", "src/lib/crc32.c")]
+    inc = ["-I" + os.path.join(ROOT, "core", "src"), "-I" + os.path.join(ROOT, "tests/gpu")]
+    src = [os.path.join(ROOT, p) for p in ("tests/bm/herobench.c", "core/src/bm/format.c", "core/src/bm/r3d.c",
+                                            "core/src/bm/gfx16.c", "core/src/lib/crc32.c")]
     subprocess.run([ci.CC, *ci.CFLAGS, *inc, "-o", exe, *src, "-lm"], check=True)
     gobj = os.path.join(tmp, "gpu3d.o")
     subprocess.run([ci.CC, *ci.CFLAGS, *inc, "-Daligned_alloc=test_aligned_alloc", "-Dfree=test_free", "-c",
-                    os.path.join(ROOT, "src/gpu/gpu3d.c"), "-o", gobj], check=True)
-    gsrc = src + [os.path.join(ROOT, p) for p in ("tests/gpu/v3d_emu.c", "src/gpu/v3d_cl.c")]
+                    os.path.join(ROOT, "core/src/gpu/gpu3d.c"), "-o", gobj], check=True)
+    gsrc = src + [os.path.join(ROOT, p) for p in ("tests/gpu/v3d_emu.c", "core/src/gpu/v3d_cl.c")]
     subprocess.run([ci.CC, *ci.CFLAGS, *inc, "-DBENCH_GPU", "-o", exe + "-gpu", *gsrc, gobj, "-lm"], check=True)
     return exe
 

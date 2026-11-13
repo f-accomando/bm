@@ -1,6 +1,6 @@
 -- The map of the hunt as text (the cell grid of the areas, the chunk layout, lamps, bosses, gate pairs), for
--- carts/yharnam/build/mapview.py:
---   luahost tests/yharnam/mapdump.lua carts/yharnam/main.lua | python3 carts/yharnam/build/mapview.py out.png
+-- bm/yharnam/build/mapview.py:
+--   luahost tests/yharnam/mapdump.lua bm/yharnam/main.lua | python3 bm/yharnam/build/mapview.py out.png
 local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
 local Y = B.load(arg[1])
 local M = Y.MAP

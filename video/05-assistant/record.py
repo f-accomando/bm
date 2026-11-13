@@ -283,8 +283,8 @@ def main():
     if "--no-record" not in sys.argv:
         for d in (SD, SD_GAME):
             shutil.rmtree(d, ignore_errors=True)
-            os.makedirs(os.path.join(d, "carts"))
-        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "carts", "SKYVALE.BM"))
+            os.makedirs(os.path.join(d, "bm"))
+        shutil.copy(os.path.join(HERE, "start.bm"), os.path.join(SD, "bm", "SKYVALE.BM"))
         raws, wavs = [], []
         for name, tool, cart, secs in (("pixel", BMHOST_AI, PIXEL, c1 / FPS), ("code", BMHOST_AI, CODE, (c2 - c1) / FPS + 1)):
             raw, wv = os.path.join(OUT, "raw-%s.rgb" % name), os.path.join(OUT, "%s.wav" % name)
@@ -292,9 +292,9 @@ def main():
                   os.path.join(OUT, "input-%s.txt" % name), "--video", raw, "--wav", wv, "--quiet"], cwd=ROOT)
             raws.append(raw)
             wavs.append(wv)
-        shutil.copy(os.path.join(SD, "carts", "SKYVALE.BM"), os.path.join(SD_GAME, "carts", "SKYVALE.BM"))
+        shutil.copy(os.path.join(SD, "bm", "SKYVALE.BM"), os.path.join(SD_GAME, "bm", "SKYVALE.BM"))
         raw, wv = os.path.join(OUT, "raw-game.rgb"), os.path.join(OUT, "game.wav")
-        call([BMHOST, os.path.join(SD_GAME, "carts", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
+        call([BMHOST, os.path.join(SD_GAME, "bm", "SKYVALE.BM"), "--sd", SD_GAME, "--seconds", str(GAME_SECONDS),
               "--input", os.path.join(OUT, "game.txt"), "--video", raw, "--wav", wv, "--quiet"])
         raws.append(raw)
         wavs.append(wv)

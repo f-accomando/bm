@@ -45,7 +45,7 @@ def read_png_pixel(path, px, py):
 def main():
     bmhost = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "build/host/bmhost-bin")
     luahost = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "build/host/luahost")
-    mkbm = os.path.join(ROOT, "scripts/mkbm.py")
+    mkbm = os.path.join(ROOT, "core/scripts/mkbm.py")
 
     with tempfile.TemporaryDirectory(prefix="cart-b-") as tmp:
         # 1. Pure .b cartridge
@@ -114,10 +114,10 @@ def main():
         out3 = p3.stdout + p3.stderr
         assert "main.b:2:" in out3, f"expected main.b:2: error, got:\n{out3}"
 
-        # 4. Syntax-check carts/code/main.lua via luahost
+        # 4. Syntax-check bm/code/main.lua via luahost
         lua_check = os.path.join(tmp, "check_syntax.lua")
         open(lua_check, "w").write(
-            'local code_src = assert(io.open("' + os.path.join(ROOT, "carts/code/main.lua").replace("\\", "/") + '", "rb")):read("a")\n'
+            'local code_src = assert(io.open("' + os.path.join(ROOT, "bm/code/main.lua").replace("\\", "/") + '", "rb")):read("a")\n'
             'local fn, cerr = load(code_src, "=code", "t")\n'
             'assert(fn, cerr)\n'
         )

@@ -1,4 +1,4 @@
--- update_parts of Yharnam (carts/yharnam/main.lua) in Pallene, on the particles as the game keeps them: a Lua array of tables.
+-- update_parts of Yharnam (bm/yharnam/main.lua) in Pallene, on the particles as the game keeps them: a Lua array of tables.
 -- Pallene arrays hold no nil: the function swaps the last particle into the place of the one that dies and returns the new
 -- count; the caller cuts the tail of the array.
 local m: module = {}

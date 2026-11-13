@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""make test-bench3d: reads the bmhost-gpu log of carts/bench3d (the Lua edition of the 3D Bench).
+"""make test-bench3d: reads the bmhost-gpu log of bm/bench3d (the Lua edition of the 3D Bench).
 It checks the ramp's lines, the report's R, P, H, C and T lines and that the numbers hang together.
   check.py LOG [--tests a/b/c] [--profiles ARM/VSQ]
 LOG is the log of a run with the same `3d_tests` and `3d_profiles` (the defaults: every test, ARM and VSQ).
@@ -7,7 +7,7 @@ Prints `bench3d: N/N checks passed` (exit 0) or `bench3d: FAIL <what>` (exit 1).
 import re
 import sys
 
-# the tests of the cartridge, in its order: id -> the profiles (short names) that run it; (carts/bench3d/main.lua TESTS)
+# the tests of the cartridge, in its order: id -> the profiles (short names) that run it; (bm/bench3d/main.lua TESTS)
 ARM_VSQ, ARM_ONLY = ("ARM", "VSQ"), ("ARM",)
 ALL3 = ("ARM", "VSQ", "VSQ2")
 TESTS = {

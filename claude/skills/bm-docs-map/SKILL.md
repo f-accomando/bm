@@ -1,6 +1,6 @@
 ---
 name: bm-docs-map
-description: Map of which file to open in bm for each area (API, progress, roadmap, kernel, runtime) and how to read large files without burning tokens. Use it before reading docs/API.md, docs/progress*, docs/ROADMAP.md, src/bm/runtime.c or any file over ~15 KB, when you need to understand where something is in the repo, or when you need to update progress after a change.
+description: Map of which file to open in bm for each area (API, progress, roadmap, kernel, runtime) and how to read large files without burning tokens. Use it before reading docs/API.md, docs/progress*, docs/ROADMAP.md, core/src/bm/runtime.c or any file over ~15 KB, when you need to understand where something is in the repo, or when you need to update progress after a change.
 ---
 
 # bm: where to read and how to update (little, by sections)
@@ -28,7 +28,7 @@ Rule: never a large file in full. `Grep -n` on the symbol or on `^##`, then `Rea
 | bmnet | `bmnet.md` |
 
 API change: update the file of its area, `docs/GAME-GUIDE.md` (right section),
-`src/ai/kb/` (one file per area), then `make ai-model`. Not the `-IT` ones.
+`core/src/ai/kb/` (one file per area), then `make ai-model`. Not the `-IT` ones.
 
 ## Progress (current state, not chronicle)
 
@@ -52,16 +52,16 @@ Delegate to `bm-mechanic` if the lines are already decided.
 `runtime.c` has its section map in `docs/progress/runtime.md`; the commands for every
 large file are in `docs/progress/reading.md`.
 
-**Always-fresh index**: `python3 scripts/cindex.py <file> [parola]` prints the section banners and the
+**Always-fresh index**: `python3 core/scripts/cindex.py <file> [parola]` prints the section banners and the
 functions with the line (C and Lua); with the word, only the lines containing it. Then `Read` with
 `offset`/`limit`. For a Lua function exposed to games search `l_<nome>` (the `api[]` table
 in `runtime.c` links name → `l_…`).
 
-- `src/bm/runtime.c` (350 KB): `Grep -n 'static int l_<nome>\|"<nome>"'` for an exposed
+- `core/src/bm/runtime.c` (350 KB): `Grep -n 'static int l_<nome>\|"<nome>"'` for an exposed
   Lua function; `Grep -n '^[a-z].*(' ` limited with `head_limit` for the function list.
-- `src/kernel/menu_ui.c`, `settings.c`: search for the on-screen line/string, then read
+- `core/src/kernel/menu_ui.c`, `settings.c`: search for the on-screen line/string, then read
   ±60 lines.
-- `src/script/bm3d.lua`, `bmlib.lua`, `bmui.lua`: `Grep -n '^function\|^local function\|^P\.'`
+- `core/src/script/bm3d.lua`, `bmlib.lua`, `bmui.lua`: `Grep -n '^function\|^local function\|^P\.'`
   then `Read` of the span.
 - `docs/GAME-GUIDE.md`, `docs/B16.md`, `sdk/README.md`, `docs/RGB30.md`, `docs/DRIVERS.md`:
   `Grep -n '^#'` and read the section.
@@ -70,7 +70,7 @@ in `runtime.c` links name → `l_…`).
 
 GPU: `docs/DRIVERS.md`, `docs/BENCH3D.md` · RGB30: `docs/RGB30.md` · `.b16`: `docs/B16.md` ·
 `BMRES` resources: `docs/RISORSE.md` · riff: `docs/RIFF.md` · Predict and pad: `docs/PREDICT.md`,
-`docs/PADTYPE.md` · assistant: `src/ai/kb/README.md`, `AI.md` · Market: `market/README.md`.
+`docs/PADTYPE.md` · assistant: `core/src/ai/kb/README.md`, `AI.md` · Market: `market/README.md`.
 
 ## Wide searches
 

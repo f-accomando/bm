@@ -1,10 +1,10 @@
--- Host tests of the word completion (src/ai/predict.lua): the words before
+-- Host tests of the word completion (core/src/ai/predict.lua): the words before
 -- the cursor, the suggestions of each dictionary, their case and accents,
 -- and the texts of tests/predict/texts.lua typed again with Tab.
 --   luahost tests/predict/predict_test.lua build
 
 local build = arg[1] or "build"
-package.path = build .. "/?.lua;src/ai/?.lua;" .. package.path
+package.path = build .. "/?.lua;core/src/ai/?.lua;" .. package.path
 local P = require "predict"
 local typist = dofile("tests/predict/typist.lua")
 local TEXTS = dofile("tests/predict/texts.lua")
@@ -83,7 +83,7 @@ for _, t in ipairs(TEXTS) do
   check(tabs > 0 and keys < plain, string.format("%s: %d keys with Tab, %d without", t.name, keys, plain))
 end
 
--- the lint of Lua code: the reports of scripts/api_lint.py
+-- the lint of Lua code: the reports of core/scripts/api_lint.py
 local sf = assert(io.open("tests/predict/lint_sample.lua", "rb"))
 local sample = sf:read("a")
 sf:close()
@@ -94,7 +94,7 @@ check(#hits == 1 and hits[1].line == 1 and hits[1].name == "sprt", "lint: the sa
 local seen = {}
 for _, h in ipairs(hits) do seen[h.name] = h.line end
 check(seen.zzstr == nil and seen.zzsq == nil, "lint: a name inside a string is not a call")
-check(seen.hurt == nil and P.api("hurt") == nil, "lint: a name of scripts/api_lint_allow.txt is known")
+check(seen.hurt == nil and P.api("hurt") == nil, "lint: a name of core/scripts/api_lint_allow.txt is known")
 check(seen.lva == nil and seen.lvb == nil, "lint: local a, b defines both names")
 check(seen.blockcall == nil, "lint: a --[[ ]] block comment is not code")
 check(#P.lint({ "loadfile('a')", "dofile('b')" }) == 0, "lint: loadfile and dofile are Lua standard")

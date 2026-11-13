@@ -1,5 +1,5 @@
--- Test of pic_due (carts/snes/src/pic.lua): run with build/host/luahost from the repository root.
-dofile("carts/snes/src/pic.lua")
+-- Test of pic_due (bm/snes/src/pic.lua): run with build/host/luahost from the repository root.
+dofile("bm/snes/src/pic.lua")
 local fails = 0
 local function check(name, ok) if not ok then fails = fails + 1; print("FAIL " .. name) end end
 for ev = 1, 6 do

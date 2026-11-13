@@ -34,10 +34,10 @@ python3 art/models/enemies/build.py art/models
 
 ```bash
 make build/host/bmhost-bin
-python3 scripts/check_bmm.py art/models/enemies.bmm art/models/dnenemy.bmm
+python3 core/scripts/check_bmm.py art/models/enemies.bmm art/models/dnenemy.bmm
 ```
 
-`scripts/check_bmm.py` runs the import code of bm Mesh and bm Animator (`require "bm3d"`) and the kernel's `file_write` and `res_read` in
+`core/scripts/check_bmm.py` runs the import code of bm Mesh and bm Animator (`require "bm3d"`) and the kernel's `file_write` and `res_read` in
 bmhost. Result on 2026-10-30: 163 checks passed on `enemies.bmm`, `dnenemy.bmm` and `hunter.bmm`.
 
 ## Not verified

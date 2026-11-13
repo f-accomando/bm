@@ -3,7 +3,7 @@
 -- messages with a fifth of the packets lost, a lockstep match of 300
 -- frames that must give the same hash on both, then the guest leaves and
 -- the host goes on alone. RELAY (a line put in front by run.py): the same
--- through tools/overbit_relay.py.
+-- through core/tools/overbit_relay.py.
 local net = require "bmnet"
 local checks, fails = 0, 0
 local function check(ok, what)

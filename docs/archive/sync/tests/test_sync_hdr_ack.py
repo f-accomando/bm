@@ -1,4 +1,4 @@
-"""tools/sync_hdr.py: a call that writes the status block sets `ack` to the last SYNC.md row when --ack is missing (SYNC-EN-3)."""
+"""core/tools/sync_hdr.py: a call that writes the status block sets `ack` to the last SYNC.md row when --ack is missing (SYNC-EN-3)."""
 import contextlib
 import importlib.util
 import io
@@ -10,7 +10,7 @@ import unittest
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL = os.path.join(HERE, "..", "..", "tools", "sync_hdr.py")
+TOOL = os.path.join(HERE, "..", "..", "core", "tools", "sync_hdr.py")
 ROW1 = "2026-10-20T09:00+02:00"
 ROW2 = "2026-10-20T10:00+02:00"
 OLD = "2026-10-19T08:00+02:00"

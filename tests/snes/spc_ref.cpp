@@ -1,4 +1,4 @@
-/* spc_ref.cpp: compares the SPC700 of bm (src/bm/snes_spc.c) with the one of ares (ISC licence): every opcode on random registers and memory;
+/* spc_ref.cpp: compares the SPC700 of bm (core/src/bm/snes_spc.c) with the one of ares (ISC licence): every opcode on random registers and memory;
  * the registers, the flags, the bytes written and the cycles must be equal. ares is NOT part of this repository:
  *     git clone --depth 1 https://github.com/ares-emulator/ares.git /path/to/ares
  *     make test-snes-audio-ref ARES=/path/to/ares

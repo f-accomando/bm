@@ -1,12 +1,12 @@
 /*
  * mapbench: the 3D rasterizer drawing a baked map (the "lit" models of a
  * .bm whose names start with a prefix) from a point of view, every chunk,
- * for profiling the ARM code with tools/armprof.py (built for ARM Linux,
+ * for profiling the ARM code with core/tools/armprof.py (built for ARM Linux,
  * run by qemu-arm) or on the PC.
  *
  *   mapbench CART.bm PREFIX|@LIST x y z yaw pitch [frames] [out.ppm]
  *
- * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, src/gpu/gpu3d.c, as
+ * Built with -DBENCH_GPU (and tests/gpu/v3d_emu.c, core/src/gpu/gpu3d.c, as
  * tests/bm/herocost.py does), MAPBENCH_GPU=1 draws with the GPU backend on
  * the V3D emulator: the ARM's share of the map with the GPU.
  */

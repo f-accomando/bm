@@ -13,7 +13,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "studio"))
-sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
 import anim_figure  # noqa: E402
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402

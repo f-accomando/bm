@@ -14,7 +14,7 @@ clips `../idle.json`, `../walk.json`, `../jump.json`. `input.txt` is the bmhost 
 
 Opt-in bmhost run (needs `BM_FORGE_HOST=1`), from Windows through WSL:
 
-    scripts/wsl-run.ps1  BM_FORGE_HOST=1 python3 -m unittest discover tests/golden -p test_bmhost_demo.py
+    core/scripts/wsl-run.ps1  BM_FORGE_HOST=1 python3 -m unittest discover tests/golden -p test_bmhost_demo.py
 
 ## Runtime APIs used
 

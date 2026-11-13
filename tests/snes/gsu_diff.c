@@ -1,4 +1,4 @@
-/* gsu_diff.c: the Super FX interpreter (src/bm/snes_gsu.c) against the plain C reference (tests/snes/gsu_ref.c) on random programs.
+/* gsu_diff.c: the Super FX interpreter (core/src/bm/snes_gsu.c) against the plain C reference (tests/snes/gsu_ref.c) on random programs.
  * Each program is random bytes in a made-up ROM (and RAM), run in pieces of random length (the budget carries from one piece to the next), with random registers,
  * SCMR, SCBR, CFGR, CLSR, PBR and cart RAM size. After each piece the registers, flags, prefix state, instruction count, IRQ and a hash of the cart RAM must be equal.
  * Run: make test-snes-gsu-diff (host), make test-snes-gsu-arm (also on the ARM1176 in QEMU). Original code. */

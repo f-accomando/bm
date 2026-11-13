@@ -2,7 +2,7 @@
 import os, re, sys, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 from docs_audit import CLAUDE_MD_LIMIT  # noqa: E402  (the limit lives in one place)
 ROUTING = "docs/agents/routing.md"
 TERM = re.compile(r"^- `([^`]+)`:")     # a Glossary line: - `Term`: what it is

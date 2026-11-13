@@ -1,4 +1,4 @@
--- Stage 1 & 2 feature suite for the language of bm (tools/bml/bml.py)
+-- Stage 1 & 2 feature suite for the language of bm (core/tools/bml/bml.py)
 
 function is_even(n: i32): bool
   return n % 2 == 0

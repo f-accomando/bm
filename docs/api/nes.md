@@ -1,7 +1,7 @@
 # API: the NES machine
 
-Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`src/bm/nes.c`, entry
-points in `src/bm/api_nes.c`); the cartridge `carts/nes` is its user interface. See
+Part of the game API. Index and basics: [API.md](../API.md). The machine is in C (`core/src/bm/nes.c`, entry
+points in `core/src/bm/api_nes.c`); the cartridge `bm/nes` is its user interface. See
 [progress/nes.md](../progress/nes.md).
 
 | Function | Description |

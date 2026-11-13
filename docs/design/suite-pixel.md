@@ -1,6 +1,6 @@
 # Development Proposals: bm Pixel (2D Suite & Sprite Editor)
 
-This document analyzes what **bm Pixel** (`carts/pixel`) lacks to support the full creation of animation kits for complex characters (*Titan Clash*, *Yharnam* style, or advanced action/platformers), identifying the pain points of the manual approach and outlining concrete proposals for the interface and the engine.
+This document analyzes what **bm Pixel** (`bm/pixel`) lacks to support the full creation of animation kits for complex characters (*Titan Clash*, *Yharnam* style, or advanced action/platformers), identifying the pain points of the manual approach and outlining concrete proposals for the interface and the engine.
 
 ---
 

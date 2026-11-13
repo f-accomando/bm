@@ -8,12 +8,12 @@ input-studio.txt. The keys come from ONE Script (continuous frames = the seconds
 split at the cut (Pixel 0:08-2:22 = frames 480-8520, Studio 2:24-3:30 = frames 8640-12600; each file restarts at 0).
 
 Writes video/3d/02-pixel/out/: input.txt (all the keys, montage frames), input-pixel.txt, input-studio.txt, overlay.json
-(lib3d.write_overlay), shots/, sd/ (the SD after both recordings: carts/TROPIC.BME is the project saved by the editors),
+(lib3d.write_overlay), shots/, sd/ (the SD after both recordings: bm/TROPIC.BME is the project saved by the editors),
 bin/ (the two editors built here) and, when ffmpeg exists, ep02.mp4 (--no-video: the default without ffmpeg).
 Deterministic: the same script gives the same keys and the same project.
 
 Start: --start chain (default when video/3d/chain/01-studio.bme exists) copies the project of video 1 as
-carts/TROPIC.BME; --start forge uses the stand-in of standin.py (the reference models of video/3d/assets, flat colours,
+bm/TROPIC.BME; --start forge uses the stand-in of standin.py (the reference models of video/3d/assets, flat colours,
 on a sheet with bm Studio's starter tiles).
 
 Result: out/sd/carts/TROPIC.BME (project) -> video/3d/chain/02-pixel.bme and chain/02-pixel.bm (the same cartridge
@@ -21,7 +21,7 @@ without the project flag: `bmres` rewrite, the editors never touch a .bm; the .b
 
 Editors: build/pixel.bm and build/studio.bm are NOT used: the Makefile rules of the suite apps pass `$<` (= bm.info)
 as --lua, so those files hold the bm.info text as code ("main.lua:1: unexpected symbol near '#'"). This script
-builds its own copies with scripts/mkbm.py into out/bin/ (same options the Makefile intends).
+builds its own copies with core/scripts/mkbm.py into out/bin/ (same options the Makefile intends).
 """
 import hashlib
 import json
@@ -36,7 +36,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "video", "3d"))
 sys.path.insert(0, HERE)
 
-import lib3d                                    # noqa: E402  (also puts video/lib and scripts/ on sys.path)
+import lib3d                                    # noqa: E402  (also puts video/lib and core/scripts/ on sys.path)
 import art                                      # noqa: E402
 import calib                                    # noqa: E402
 import studio_part                              # noqa: E402
@@ -292,12 +292,12 @@ def write_lines(path, lines):
 
 def build_editors():
     os.makedirs(BIN, exist_ok=True)
-    mk = [sys.executable, os.path.join(ROOT, "scripts", "mkbm.py")]
-    subprocess.check_call(mk + ["-o", os.path.join(BIN, "pixel.bm"), "--lua", "carts/pixel/main.lua", "--cover",
-                                "carts/pixel/icon.png", "--info", "carts/pixel/bm.info"], cwd=ROOT)
-    subprocess.check_call(mk + ["-o", os.path.join(BIN, "studio.bm"), "--lua", "carts/studio/main.lua", "--cover",
-                                "carts/studio/icon.png", "--sheet", "carts/studio/assets/sheet.png", "--sheet8",
-                                "--info", "carts/studio/bm.info"], cwd=ROOT)
+    mk = [sys.executable, os.path.join(ROOT, "core", "scripts", "mkbm.py")]
+    subprocess.check_call(mk + ["-o", os.path.join(BIN, "pixel.bm"), "--lua", "bm/pixel/main.lua", "--cover",
+                                "bm/pixel/icon.png", "--info", "bm/pixel/bm.info"], cwd=ROOT)
+    subprocess.check_call(mk + ["-o", os.path.join(BIN, "studio.bm"), "--lua", "bm/studio/main.lua", "--cover",
+                                "bm/studio/icon.png", "--sheet", "bm/studio/assets/sheet.png", "--sheet8",
+                                "--info", "bm/studio/bm.info"], cwd=ROOT)
 
 
 def start_file(kind):
@@ -320,7 +320,7 @@ def sha(*paths):
 
 def calibration(src):
     """Which arrows reach which face of each model (calib.py), cached in out/calib.json by what it depends on."""
-    key = sha(src, os.path.join(ROOT, "carts", "studio", "main.lua"), os.path.join(ROOT, "src", "script", "bm3d.lua"),
+    key = sha(src, os.path.join(ROOT, "bm", "studio", "main.lua"), os.path.join(ROOT, "core", "src", "script", "bm3d.lua"),
               os.path.join(HERE, "calib.py"))
     cache = os.path.join(OUT, "calib.json")
     if os.path.exists(cache):
@@ -344,7 +344,7 @@ def main():
     print("start:", kind, os.path.relpath(src, ROOT))
     cal = calibration(src)
     sd_cal = os.path.join(OUT, "sd-calib")
-    key = sha(src, os.path.join(ROOT, "carts", "studio", "main.lua"), os.path.join(ROOT, "src", "script", "bm3d.lua"),
+    key = sha(src, os.path.join(ROOT, "bm", "studio", "main.lua"), os.path.join(ROOT, "core", "src", "script", "bm3d.lua"),
               os.path.join(HERE, "calib.py"))
     lib3d.fresh_sd(sd_cal, [(src, "TROPIC.BME")])
     session = calib.Session(sd_cal, os.path.join(OUT, "dbg"), os.path.join(OUT, "plan_cache.json"), key)
@@ -373,12 +373,12 @@ def main():
                                PIXEL_END - PIXEL_START, SD, shots=shots)
         print(r.stdout[-400:], r.stderr[-400:])
     if stage in ("all", "studio"):
-        if not os.path.isdir(os.path.join(SD, "carts")):
+        if not os.path.isdir(os.path.join(SD, "bm")):
             raise SystemExit("no SD: run the pixel stage first")
         r = lib3d.run_headless(os.path.join(BIN, "studio.bm"), os.path.join(OUT, "input-studio.txt"),
                                STUDIO_END - STUDIO_START, SD, shots=shots)
         print(r.stdout[-400:], r.stderr[-400:])
-    saved = os.path.join(SD, "carts", "TROPIC.BME")
+    saved = os.path.join(SD, "bm", "TROPIC.BME")
     if stage == "all" and os.path.exists(saved):
         lib3d.chain_put(saved, "02-pixel.bme")
         f = bmres.read(saved)

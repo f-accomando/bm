@@ -1,7 +1,7 @@
 /* icache_layout.c: moves the hot SNES sections in a recorded instruction trace and counts the misses of the 16 KB, 4-way, 32-byte-line cache
- * again, so that an order of the sections (src/bm/snes_hot.ld) can be searched without a new QEMU run (a run takes minutes, this takes a second).
+ * again, so that an order of the sections (core/src/bm/snes_hot.ld) can be searched without a new QEMU run (a run takes minutes, this takes a second).
  *   icache_layout units.txt hot.txt out.ld trace1.bin [trace2.bin ...]
- * units.txt: scripts/icache_units.py of the map of the build that made the traces. hot.txt: the sections to move, one "objfile section" a line,
+ * units.txt: core/scripts/icache_units.py of the map of the build that made the traces. hot.txt: the sections to move, one "objfile section" a line,
  * in the order to start from (the lines of snes_hot.ld). trace*.bin: ICACHE_DUMP of tests/snes/icache_sim.c.
  * Environment: ITERS (annealing steps, default 0 = only report), MAXRUNS (runs of each trace to use), SEED.
  * The model: sections are placed one after the other from an address that is a multiple of 4 KB, each shifted by pad words (0 to 63);

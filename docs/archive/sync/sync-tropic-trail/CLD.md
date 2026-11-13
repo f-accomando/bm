@@ -65,7 +65,7 @@ Non funziona:
 - **Operatore bloccato in attesa** finche non erano i subagent ad aspettare (ora si fa cosi).
 Proposte:
 1. Righe urgenti in un file a parte o in testa (`sync/URGENT.md`, o prefisso `!!` e nome dell'operatore) e il battito controlla solo `git diff` di `SYNC.md`/`sync/` dall'ultimo hash visto, con elenco delle righe nuove per me.
-2. Ogni consegna e richiesta porta `branch @ commit` sorgente; `rec_qemu` rifiuta di registrare se `build/kernel.img` e piu vecchio di `carts/editor/` o se manca il commit atteso (`tool_start`, ecc.) nel kernel.
+2. Ogni consegna e richiesta porta `branch @ commit` sorgente; `rec_qemu` rifiuta di registrare se `build/kernel.img` e piu vecchio di `bm/editor/` o se manca il commit atteso (`tool_start`, ecc.) nel kernel.
 3. Prompt dei timer senza stato ("fai fetch, leggi il diff, decidi") e riarmo come prima azione; durata attesa scritta quando parte un job.
 
 ## Profilo

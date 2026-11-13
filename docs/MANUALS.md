@@ -12,8 +12,8 @@ manuals/themes/<theme>.toml   the look (colours, fonts, sizes, shape of the boxe
 manuals/shots/                pictures (console screenshots: docs/SCREENSHOTS.md)
 manuals/pdf/                  the finished PDFs, <id>.en.pdf and <id>.it.pdf (make manuals)
 manuals/sync.json             what en and it said when they were last stamped as equal
-scripts/mkmanual.py           one content file -> PDF
-scripts/manuals.py            status, check, stamp, build for all the manuals
+core/scripts/mkmanual.py           one content file -> PDF
+core/scripts/manuals.py            status, check, stamp, build for all the manuals
 ```
 
 | Manual (`id`) | For |
@@ -29,23 +29,23 @@ scripts/manuals.py            status, check, stamp, build for all the manuals
 ## Commands
 
 ```
-python3 scripts/manuals.py status             what is there, the gaps, what is behind
-python3 scripts/manuals.py check              en and it: same shape, neither behind the other
-python3 scripts/manuals.py stamp <id>         "en and it say the same now" (after check passes)
-python3 scripts/manuals.py build [<id>]       PDFs (default build/manuals; the finished ones are in manuals/pdf: make manuals)
-python3 scripts/mkmanual.py <file.md> --all-themes -o DIR     one file in every theme
+python3 core/scripts/manuals.py status             what is there, the gaps, what is behind
+python3 core/scripts/manuals.py check              en and it: same shape, neither behind the other
+python3 core/scripts/manuals.py stamp <id>         "en and it say the same now" (after check passes)
+python3 core/scripts/manuals.py build [<id>]       PDFs (default build/manuals; the finished ones are in manuals/pdf: make manuals)
+python3 core/scripts/mkmanual.py <file.md> --all-themes -o DIR     one file in every theme
 ```
 
 ## Changing the text: the flow that keeps the languages together
 
 1. Change one language (`en` is the one to start from).
-2. `scripts/manuals.py check` says, chapter by chapter, what is behind: *"it is behind (en changed
+2. `core/scripts/manuals.py check` says, chapter by chapter, what is behind: *"it is behind (en changed
    since the stamp)"*, or *"en is behind"*, or that both changed.
 3. Bring the other language to the same text: the same chapters, sections, steps, tables, boxes,
    pictures, code and gaps. In code, comments, the text of strings and the values of `key=value` lines may be
    translated. Inline `code` that is an identifier, a file name, a path or a call (`play_at()`, `bm/shots/`)
    must be the same; placeholders (`<NAME>`), examples with spaces and key names may be translated.
-4. `check` passes: `scripts/manuals.py stamp <id>`. Commit the two `.md` files and `sync.json` together.
+4. `check` passes: `core/scripts/manuals.py stamp <id>`. Commit the two `.md` files and `sync.json` together.
 5. `status` also says when a repository file the manual comes from (`sources`) changed after the
    stamp: then check the manual still tells the truth.
 

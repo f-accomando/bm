@@ -1,4 +1,4 @@
-"""Unit tests for scripts/public_export.py (temp dirs only, no git, no network).
+"""Unit tests for core/scripts/public_export.py (temp dirs only, no git, no network).
 
 Run: python -m unittest tests/tools/test_public_export.py
 """
@@ -31,7 +31,7 @@ class SecretScan(unittest.TestCase):
 
     def test_private_key_block_and_allowlist(self):
         pem = '-----BEGIN PRIVATE KEY-----\n' + 'A' * 40 + '\n'
-        d = tree({'keys/x.pem': pem, 'boot/ca.pem': pem, 'leak.pem': pem,
+        d = tree({'core/keys/x.pem': pem, 'core/boot/ca.pem': pem, 'leak.pem': pem,
                   'hdr.h': 'const char *s = "-----BEGIN PRIVATE KEY-----\\n";'})
         self.assertEqual([r[0] for r in pe.scan_secrets(d)], ['leak.pem'])
 
@@ -43,38 +43,38 @@ class SecretScan(unittest.TestCase):
 
 class Exclusion(unittest.TestCase):
     def test_excluded_paths(self):
-        for p in ('carts/pong/main.lua', '.claude/skills/x/SKILL.md', 'docs/progress/a.md',
-                  'SYNC.md', 'tools/sync_hdr.py', 'docs/showreel.mp4', 'carts/editor/cover.png',
-                  'scripts/public_export.py', 'manuals/shots/a.png'):
+        for p in ('bm/pong/main.lua', '.claude/skills/x/SKILL.md', 'docs/progress/a.md',
+                  'SYNC.md', 'core/tools/sync_hdr.py', 'docs/showreel.mp4', 'bm/editor/cover.png',
+                  'core/scripts/public_export.py', 'manuals/shots/a.png'):
             self.assertTrue(pe.excluded(p), p)
 
     def test_kept_paths(self):
-        for p in ('src/kernel/main.c', 'carts/editor/icon.png',
-                  'carts/write/main.lua', 'manuals/pdf/api-3d.en.pdf', 'tools/bmplay/bmplay.c',
-                  'Makefile', 'docs/API.md', 'keys/market.pem'):
+        for p in ('core/src/kernel/main.c', 'bm/editor/icon.png',
+                  'bm/write/main.lua', 'manuals/pdf/api-3d.en.pdf', 'core/tools/bmplay/bmplay.c',
+                  'Makefile', 'docs/API.md', 'core/keys/market.pem'):
             self.assertFalse(pe.excluded(p), p)
 
     def test_forbidden_paths_check(self):
-        d = tree({'carts/snake/main.lua': '', 'src/a.c': ''})
-        self.assertEqual(pe.forbidden_paths(d), ['carts/snake/main.lua'])
+        d = tree({'bm/snake/main.lua': '', 'src/a.c': ''})
+        self.assertEqual(pe.forbidden_paths(d), ['bm/snake/main.lua'])
 
 
 class Dangling(unittest.TestCase):
     def test_refs_found_in_makefile_scripts_tests_only(self):
-        d = tree({'Makefile': 'GAMES := write\nx: build/carts/snake.bm\n',
-                  'scripts/s.py': 'run("scripts/docs_audit.py")\n',
-                  'tests/t.lua': 'dofile("carts/pong/main.lua")\n',
-                  'docs/x.md': 'carts/pong/main.lua\n',
+        d = tree({'Makefile': 'GAMES := write\nx: build/bm/snake.bm\n',
+                  'core/scripts/s.py': 'run("core/scripts/docs_audit.py")\n',
+                  'tests/t.lua': 'dofile("bm/pong/main.lua")\n',
+                  'docs/x.md': 'bm/pong/main.lua\n',
                   'tests/ok.py': 'print("typing speed")\n'})
         got = sorted((r[0], r[1]) for r in pe.dangling(d))
-        self.assertEqual(got, [('Makefile', 2), ('scripts/s.py', 1), ('tests/t.lua', 1)])
+        self.assertEqual(got, [('Makefile', 2), ('core/scripts/s.py', 1), ('tests/t.lua', 1)])
 
     def test_clean_tree(self):
         self.assertEqual(pe.dangling(tree({'Makefile': 'all:\n\techo hi\n'})), [])
 
     def test_check_exit_code(self):
         self.assertEqual(pe.main(['check', tree({'src/a.c': 'int x;'})]), 0)
-        self.assertEqual(pe.main(['check', tree({'carts/pong/a': 'x'})]), 1)
+        self.assertEqual(pe.main(['check', tree({'bm/pong/a': 'x'})]), 1)
 
     def test_host_tests_parser(self):
         d = tree({'Makefile': 'HOST_TESTS := test-a test-b \\\n  test-c\ntest-a:\ntest-c:\n'})

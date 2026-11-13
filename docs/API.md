@@ -7,12 +7,12 @@
 
 A `.bm` cartridge is a game for bm written in **Lua 5.4**. The kernel draws in C
 (640×360, 16-bit RGB565 colour, 60 frames a second); Lua only does the logic. Complete
-examples in `carts/`: `pong/`, `snake/`, `shooter/` (code only) and `demo/` (with a PNG
+examples in `bm/`: `pong/`, `snake/`, `shooter/` (code only) and `demo/` (with a PNG
 sprite sheet and a CSV map).
 
 ## The first cartridge in 5 minutes
 
-1. Create `carts/hello/main.lua`:
+1. Create `bm/hello/main.lua`:
 
    ```lua
    local x, y = 300, 160
@@ -37,32 +37,32 @@ sprite sheet and a CSV map).
 2. Pack it:
 
    ```sh
-   python3 scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+   python3 core/scripts/mkbm.py -o hello.bm --lua bm/hello/main.lua --title "Hello" --author "me"
    ```
 
    To add it to the build, put its name in `GAMES` in the `Makefile` and its title in a
-   line `title_hello := Hello`: `make` creates it in `build/carts/hello.bm`.
+   line `title_hello := Hello`: `make` creates it in `build/bm/hello.bm`.
 
    **Cover** (optional): `--cover cover.png`, a PNG of any size that the menu prints on
    the card: an 88×88 square (2026-10-04; 128×80 before). A square picture is scaled
    down; others stay whole, as wide as the square, over a blurred and darker copy of
-   themselves that fills the rest. In the build a file `carts/hello/cover.png` is enough;
-   those of the demo games are drawn by `scripts/mkcovers.py`. Without a cover the menu
+   themselves that fills the rest. In the build a file `bm/hello/cover.png` is enough;
+   those of the demo games are drawn by `core/scripts/mkcovers.py`. Without a cover the menu
    prints the title.
 
 3. Try it:
-   - **on the Pi**: copy `hello.bm` into the `carts/` folder of the SD card, power on (or
+   - **on the Pi**: copy `hello.bm` into the `bm/` folder of the SD card, power on (or
      press `R` in the menu): it appears in the menu with its title and author;
    - **in QEMU** (without a Pi):
 
      ```sh
      qemu-system-arm -M raspi0 -bios build/kernel.img -serial tcp:127.0.0.1:4444,server=on,wait=off -serial null &
-     python3 tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
+     python3 core/tools/bm_load.py tcp:127.0.0.1:4444 --cart hello.bm
      ```
 
      (from the menu or the monitor: the loader sends `U`, then the cartridge);
    - **from the serial line** (a Pi with a USB-serial adapter):
-     `python3 tools/bm_load.py /dev/ttyUSB0 --cart hello.bm`.
+     `python3 core/tools/bm_load.py /dev/ttyUSB0 --cart hello.bm`.
 
 Ctrl+Esc (keyboard), PS or Start+Select (gamepad) go back to bm's menu leaving the game
 **suspended** (still in memory: A on its cover resumes it where it was; if the cartridge has
@@ -71,7 +71,7 @@ match** (`online(true)`) the game is not suspended: the system asks the player w
 only on their console, "Leave the match?" (they will leave the game and disconnect from the
 server); yes calls `_leave()` and closes the game, back stays. From the serial line Ctrl+\
 is Ctrl+Esc and `q` closes without asking. The system's keys (one table,
-`src/kernel/syskeys.c`) and the cartridge's are shown while F12 is held. If there is a Lua
+`core/src/kernel/syskeys.c`) and the cartridge's are shown while F12 is held. If there is a Lua
 error, the cartridge stops and the error, with its line, appears on the console.
 
 ## Structure

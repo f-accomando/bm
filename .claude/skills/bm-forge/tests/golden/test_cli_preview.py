@@ -1,4 +1,4 @@
-"""CLI preview and doctor subcommands (scripts/bm_forge.py preview, doctor)."""
+"""CLI preview and doctor subcommands (core/scripts/bm_forge.py preview, doctor)."""
 import os
 import shutil
 import struct

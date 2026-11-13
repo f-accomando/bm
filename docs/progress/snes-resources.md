@@ -33,5 +33,5 @@ Order of reading: Project NESted and upernes for the practical examples, then th
 
 How it connects to bm:
 - **The converter of [snes-convert.md](snes-convert.md)** goes from 65C816 to ARM. A NES-on-SNES translator goes from 6502 to 65C816: the problems are the same (a block of code, flags, timing), in the other direction. Read the two projects for how they find the blocks and how they keep the cycle counts.
-- **The bm NES core** (`src/bm/nes.c`, the cart in `carts/nes/`) already runs the same games on the Pi: it is the reference to compare a translated game against, frame by frame.
+- **The bm NES core** (`core/src/bm/nes.c`, the cart in `bm/nes/`) already runs the same games on the Pi: it is the reference to compare a translated game against, frame by frame.
 - **Open questions** before any work: what the target is (a real SNES, the bm SNES core, or both), the license of each project, and what part of NES hardware (the APU, the mappers) a SNES cannot reproduce.

@@ -2,7 +2,7 @@
 -- Run from the repository root through tests/web/run.sh.
 --   run.sh            check everything
 --   run.sh --update   rewrite tests/web/expected/*.txt (then read the diff)
-package.path = "carts/bmweb/src/?.lua;" .. package.path
+package.path = "bm/bmweb/src/?.lua;" .. package.path
 
 local url = require("url")
 local html = require("html")

@@ -14,7 +14,7 @@ Give the reviewer: the WO file path, the delivery (`branch@commit`), and the rep
 - Python from PowerShell, Git Bash or WSL (`wsl -d Ubuntu`); in Git Bash prefix `git show <ref>:<path>` with `MSYS_NO_PATHCONV=1`.
 
 ## 2. The checklist (the reviewer runs all of it)
-1. **Perimeter**: `git diff --name-only <base>...<commit>` stays inside the WO's `Perimetro` and touches nothing under `NON toccare`. Once `tools/sync_perimeter.py` is on `bm-core` (AGY-5), `python tools/sync_perimeter.py --wo <WO> --section <ID> --diff <base>...<commit>` gives the same answer mechanically.
+1. **Perimeter**: `git diff --name-only <base>...<commit>` stays inside the WO's `Perimetro` and touches nothing under `NON toccare`. Once `core/tools/sync_perimeter.py` is on `bm-core` (AGY-5), `python core/tools/sync_perimeter.py --wo <WO> --section <ID> --diff <base>...<commit>` gives the same answer mechanically.
 2. **Every WO point is done**, one by one, and not only the verification commands. List each point with the file and line that realises it.
 3. **Run the WO's verification commands** and report the real output and exit code.
 4. **Read the code for flaws**: edge cases, tests that pass without proving anything (an expected value filled in from the output), checks that can be bypassed, a regex or filter that is too wide or too narrow.
@@ -31,5 +31,5 @@ Give the reviewer: the WO file path, the delivery (`branch@commit`), and the rep
 
 ## 4. What SPV does with it
 - Reports the verdict and the defects to the caller. Fixes go to a correction WO.
-- Appends one ledger row per reviewer with `python scripts/ledger_add.py ...` (tokens, tools, seconds from the notification).
+- Appends one ledger row per reviewer with `python core/scripts/ledger_add.py ...` (tokens, tools, seconds from the notification).
 - Before the second review of the same delivery, checks that the fix is verified by running the tests against the old code (item 7).

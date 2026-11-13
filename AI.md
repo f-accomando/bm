@@ -33,7 +33,7 @@ depthwise, ReLU, pooling, softmax) plus `ai.load` / `ai.run` for cartridges. In 
 tens of µs. The real limit is RAM bandwidth (~100–200 MB/s): INT8 weights and small networks.
 
 **Train on the PC, run on the Pi: yes.** Training and quantization on the PC (PyTorch), a
-script in `tools/` exports, the Pi only does inference, with no PC or cloud while running.
+script in `core/tools/` exports, the Pi only does inference, with no PC or cloud while running.
 
 **Model format: yes, simple.** Header + layers + INT8 weights + scales, CRC like the `.bm`
 files; better as a section inside the `.bm` cartridge (the game carries its model). No

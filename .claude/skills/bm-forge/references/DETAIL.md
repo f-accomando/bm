@@ -3,7 +3,7 @@
 Method: `examples/mannequin/mannequin.py` builds a plain male mannequin as one continuous rigged skin (base shapes
 only: egg head, neck, torso, tapering limbs, mitten hands, simple feet) with a `detail` knob;
 `examples/mannequin/detail_test.py OUT_DIR` (needs numpy and Pillow, optional) builds a reference at the highest detail
-that fits the tools' limits, reduces it with the repo's reducer (`tools/bmreduce.py`, the same code as bm Studio's
+that fits the tools' limits, reduces it with the repo's reducer (`core/tools/bmreduce.py`, the same code as bm Studio's
 reduce), builds direct low-poly versions, and measures each against the reference: error in cm (surface to surface,
 20000 points, both directions, by body part) and silhouette IoU (front, side, top). Run on 2026-10-15; figure 1.8 m.
 
@@ -12,9 +12,9 @@ reduce), builds direct low-poly versions, and measures each against the referenc
 | What | Value | Where |
 |---|---|---|
 | Tools (bm Studio, Animator) and bm-forge default | 4096 vertices, 16384 triangles a model | `T.LIMIT_V/T`, `bm_core/mesh.py` |
-| Kernel and `--kernel-limits` | 65535 / 65535 | `src/bm/bm.h:185` |
+| Kernel and `--kernel-limits` | 65535 / 65535 | `core/src/bm/bm.h:185` |
 | Drawn at 60 fps on the console | about 1200 triangles a scene | `T.TRIS_60FPS` |
-| Assistant recipes and img2mesh | 2048 faces, 40 bones, 4 clips | `src/ai/mesh.h` |
+| Assistant recipes and img2mesh | 2048 faces, 40 bones, 4 clips | `core/src/ai/mesh.h` |
 
 A continuous skin has about half as many vertices as triangles (the mannequin: 0.5), so the 4096-vertex limit is
 reached at about 8000 triangles: that is the real ceiling of detail for a model made in the tools (`detail` 2.6
@@ -67,7 +67,7 @@ here: 3785 vertices, 7602 triangles; 2.65 already has 4339 vertices). A flat-sha
 
 1. Model the base forms as one continuous skin at the highest detail the tools allow (about 4000 vertices).
 2. In bm Studio, models page F2, key `-`: the triangles wanted (half by default), at most 1200 a scene at 60 fps;
-   Ctrl+Z undoes. On the PC: `python tools/bmreduce.py CART.bm --faces 1200 -o OUT.bm`.
+   Ctrl+Z undoes. On the PC: `python core/tools/bmreduce.py CART.bm --faces 1200 -o OUT.bm`.
 3. Check the silhouette from the side and the top, and that hands and feet still read.
 4. Open it in bm Animator, F2 rig, `t`: the faces marked red tear or stretch.
 5. Below about 900 triangles keep the head from the reduction and build hands and feet low from the start.

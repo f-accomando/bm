@@ -4,7 +4,7 @@ jit_unicorn.py - tests the ARM code of the PSX recompiler on the PC.
 
   python3 tests/psx/jit_unicorn.py [trials] [first trial]
 
-The translator (src/bm/psx_jit.c built with PSX_JIT_HOST) makes the ARM code of a block; the Unicorn emulator runs it
+The translator (core/src/bm/psx_jit.c built with PSX_JIT_HOST) makes the ARM code of a block; the Unicorn emulator runs it
 on a copy of the CPU state and of RAM; the C interpreter runs the same MIPS program; the registers, HI, LO, the data
 area, the scratchpad and the GTE registers must come out the same. The programs are the ones of the self test that runs
 on the Pi (psx_jit_selftest): the same generator, in C. A call of the compiled code to a helper (the interpreter for an
@@ -19,8 +19,8 @@ LIB = os.path.join(ROOT, "build", "host", "libpsxjit.so")
 
 def build():
     os.makedirs(os.path.dirname(LIB), exist_ok=True)
-    srcs = ["tests/psx/jit_host.c"] + ["src/bm/psx_%s.c" % n for n in "jit cpu gte bus gpu cd spu".split()]
-    subprocess.check_call(["gcc", "-O1", "-g", "-shared", "-fPIC", "-DPSX_JIT_HOST", "-Isrc/bm", "-o", LIB] + srcs, cwd=ROOT)
+    srcs = ["tests/psx/jit_host.c"] + ["core/src/bm/psx_%s.c" % n for n in "jit cpu gte bus gpu cd spu".split()]
+    subprocess.check_call(["gcc", "-O1", "-g", "-shared", "-fPIC", "-DPSX_JIT_HOST", "-Icore/src/bm", "-o", LIB] + srcs, cwd=ROOT)
 
 from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_PROT_ALL, UC_HOOK_CODE
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_R9, \

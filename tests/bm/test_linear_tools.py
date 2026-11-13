@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test for linear level tools in bm SDK editor (AGY-03).
 
-Verifies that carts/editor/main.lua contains:
+Verifies that bm/editor/main.lua contains:
 1. Path tool (Shift+P) and width cycling (Shift+W, 1-5) on floor layer
 2. Apples row tool (Shift+A, two cells -> line of placeholder 1026)
 3. Crate tool (Shift+C -> placeholder 1028)
@@ -16,7 +16,7 @@ import os
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-EDITOR_LUA = os.path.join(ROOT, "carts", "editor", "main.lua")
+EDITOR_LUA = os.path.join(ROOT, "bm", "editor", "main.lua")
 
 def check_editor_source():
     assert os.path.isfile(EDITOR_LUA), f"Missing {EDITOR_LUA}"

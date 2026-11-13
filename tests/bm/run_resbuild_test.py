@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-bm_res_build (src/bm/format.c, through build/host/test_resbuild), the file the console's res_write
-makes in /bmm: the bytes are the ones scripts/bmres.py dump makes (header, CRC-32, section table, bodies
+bm_res_build (core/src/bm/format.c, through build/host/test_resbuild), the file the console's res_write
+makes in /bmm: the bytes are the ones core/scripts/bmres.py dump makes (header, CRC-32, section table, bodies
 padded to 4), with MESH only, with MESH + ANIM + a sheet + INFO, with a name over 47 bytes (cut on a
 character), and a section the kernel refuses (a LUA section in a model file).
 
@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import bmmesh  # noqa: E402
 import bmres  # noqa: E402
 

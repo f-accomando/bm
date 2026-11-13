@@ -35,7 +35,7 @@ It makes the picture of a SNES, so it plays the role of a GPU. It is not a moder
 Today the PPU runs on the ARM (`snes_ppu.c`, SIMD and assembly). The V3D only scales the picture in GPU 2x and 3x. The ARM and the V3D share the same RAM, so the GPU can write the RGB565 buffer directly. The draw path costs 5.7 ms at 1x (copy 1.0, blit 4.6, from [snes.md](snes.md)), and part of it could go. Not verified.
 
 Design sketch:
-- One full-screen shader does what `ppu_line` does for each pixel: tile, map, palette, priority and colour math. VRAM, CGRAM and OAM are buffers the GPU reads. The kernel has a VS, an FS2 and an assembler (`tools/qpuasm.py`).
+- One full-screen shader does what `ppu_line` does for each pixel: tile, map, palette, priority and colour math. VRAM, CGRAM and OAM are buffers the GPU reads. The kernel has a VS, an FS2 and an assembler (`core/tools/qpuasm.py`).
 - A register log for each line fixes HDMA. While it emulates, the ARM saves the PPU registers that changed on each line. The shader reads the settings of its own line. No strips are needed.
 - The ARM does the branchy part: it evaluates the OAM into a list of up to 32 sprites a line. The GPU does the work for each pixel.
 - Pipeline with one frame of delay: the ARM emulates frame N+1 while the GPU draws frame N. It needs a copy of the VRAM (64 KB) for each frame.
@@ -77,7 +77,7 @@ P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 Status: done on the V3D emulator; the kernel path is in [snes-gpu-pi.md](snes-gpu-pi.md). Nothing runs on the Pi.
 
-- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is in `src/gpu/qpuprog_snes.h` (made by `tools/qpusnes.py`, checked by `make test-qpu`).
+- Files: `core/tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is in `core/src/gpu/qpuprog_snes.h` (made by `core/tools/qpusnes.py`, checked by `make test-qpu`).
 - What it does: the picture of Mode 7 for a frame with only BG1 on. Each of 16 lanes makes two pixels of a block of 32. The ARM does the set-up of each line (X and Y at the start of the line, as `draw_mode7` does). The `mul24` of the QPU is unsigned and has 24 bits, so the 16-bit by 13-bit products of the set-up stay on the ARM. In the loop `a * xx` is `(a + 32768) * xx - (xx << 15)`.
 - Gate: 56 states give the same 57344 pixels as `ppu_line` of `ppu_ref.c`: identity, scroll, rotation, zoom out to the corner, mirrors, the four screen-over modes (wrap, wrap, clear, tile 0), the largest and the smallest matrix words, and 40 random states with any 16-bit matrix (16 fixed states, `make test-snes-g2` runs them and the 40).
 - What the QPU needs from the ARM: the 64 KB of video RAM in memory the V3D reads (a copy for each frame, or a change list), the colour table `lut` of `ppu_line` (256 halves, brightness applied), two words for each line, and the matrix words. The VRAM tile map (even bytes) and the 8-bit tiles (odd bytes) are read as they are.
@@ -94,7 +94,7 @@ The kernel path, the log fields, the numbers to read on the Pi and the plan for 
 ## Rules (do not break)
 
 - The ARM PPU (`ppu_line`) is the reference and the fallback of every GPU path. Every GPU picture equals it byte for byte (`make test-snes-g2`, `make test-snes-ppu`).
-- The key is off by default. With the key off nothing starts the V3D for the SNES. The RGB30 and the host never contain GPU code of the PPU (`src/kernel/snes_gpu.c` and `src/gpu/` are Pi only).
+- The key is off by default. With the key off nothing starts the V3D for the SNES. The RGB30 and the host never contain GPU code of the PPU (`core/src/kernel/snes_gpu.c` and `core/src/gpu/` are Pi only).
 - A failed QPU run draws the same lines with the ARM version. Two failed runs in a row turn the QPUs off for the session.
 - No frame of delay (G7) without a measured latency cost.
 - The ARM keeps the registers, the video RAM and the timing. The GPU never changes the emulated behaviour.

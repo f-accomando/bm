@@ -12,7 +12,7 @@ updated: {ISO 8601 with zone}
 # {ID} — {name}
 
 > **Only {ID} writes this file** (the others read it). The supervisor (SPV) reads it and updates table §1b of `SYNC.md`.
-> Update the block with `python tools/sync_hdr.py {ID} --state ... --task ... [--waiting-on] [--progress] [--eta]`, then commit and
+> Update the block with `python core/tools/sync_hdr.py {ID} --state ... --task ... [--waiting-on] [--progress] [--eta]`, then commit and
 > `git pull --rebase origin sync/{name} && git push origin HEAD:sync/{name}`. Do it at least every 15 min and after each finished task.
 
 ## Profile
@@ -25,7 +25,7 @@ updated: {ISO 8601 with zone}
 
 ## Deliveries
 (one line per finished work order: `DELIVERED {WO-ID} @ {branch}@{commit} · verify: {command} → {result} · {ISO}`)
-(close the work order and write the line in one call: `python tools/sync_hdr.py <ID> --deliver <WO> --branch <branch> --commit <sha> --tokens T --min M --verify "command -> result"`. It writes the ledger row, adds the line above, sets the state to FREE and prints the chat line `done WO ...`.)
+(close the work order and write the line in one call: `python core/tools/sync_hdr.py <ID> --deliver <WO> --branch <branch> --commit <sha> --tokens T --min M --verify "command -> result"`. It writes the ledger row, adds the line above, sets the state to FREE and prints the chat line `done WO ...`.)
 
 ## Progress
 

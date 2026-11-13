@@ -28,7 +28,7 @@ The kernel starts, shows a menu, and runs **cartridges**: single files (`.bm`) t
 
 ## Good to know
 
-- One menu serves both boards (`src/kernel/menu_ui.c`): on the Pi it is 640x360, on the RGB30 it is 360x360 shown twice as large.
+- One menu serves both boards (`core/src/kernel/menu_ui.c`): on the Pi it is 640x360, on the RGB30 it is 360x360 shown twice as large.
 - The repository says the Pi Zero 2 W code stays in the tree but is switched off in the normal build.
 - A `.bm` runs on the Pi Zero W and on the RGB30. Its header lists the kernels it is made for (the `targets` key of `bm.info`: `pi`, `rgb30`).
 
@@ -56,7 +56,7 @@ The `config.txt` that bm ships asks the firmware for these things:
 
 ## Loading a kernel from the PC
 
-The repository also builds a small **chainloader** (`chainloader/`, built by `make` as `build/chainloader.img`). Put on the card in place of the kernel, it waits on the serial port, receives a `kernel.img` from the PC, checks its CRC and jumps to it at 0x8000. While it waits it blinks the LED and sends three bytes every second.
+The repository also builds a small **chainloader** (`core/chainloader/`, built by `make` as `build/chainloader.img`). Put on the card in place of the kernel, it waits on the serial port, receives a `kernel.img` from the PC, checks its CRC and jumps to it at 0x8000. While it waits it blinks the LED and sends three bytes every second.
 
 ::: note
 The monitor command `r` reboots the Pi, and the chainloader then asks for a new kernel. That is how a developer tries a build without touching the card.
@@ -67,7 +67,7 @@ make sdcard-chainloader
 make run-serial
 :::
 
-`make sdcard-chainloader` prepares the card contents with the chainloader as the kernel. `make run-serial` sends `build/kernel.img` with `tools/bm_load.py`, then opens a terminal. The serial line is 115200 baud, 8N1, on GPIO14 and GPIO15.
+`make sdcard-chainloader` prepares the card contents with the chainloader as the kernel. `make run-serial` sends `build/kernel.img` with `core/tools/bm_load.py`, then opens a terminal. The serial line is 115200 baud, 8N1, on GPIO14 and GPIO15.
 
 ## On the RGB30
 
@@ -146,7 +146,7 @@ System also has *SD map*: a bar of what is on the card, split in Kernel, bm (gam
 
 # The system keys
 
-The system keys work in the menu, inside games and inside the tools. Most are defined in one table, `src/kernel/syskeys.c`, which lists the keys shown on screen while you hold F12. Print Screen is not in that table: games and apps handle it separately (`src/bm/runtime.c`).
+The system keys work in the menu, inside games and inside the tools. Most are defined in one table, `core/src/kernel/syskeys.c`, which lists the keys shown on screen while you hold F12. Print Screen is not in that table: games and apps handle it separately (`core/src/bm/runtime.c`).
 
 | Key | What it does |
 |---|---|
@@ -200,7 +200,7 @@ The monitor is bm's text console. It opens the bm shell: a menu of items and a c
 
 - Press `Ctrl+Shift+Esc` anywhere.
 - Or choose Settings > System > *Open the monitor*.
-- Or connect from the PC: `python3 tools/bm_net.py IP` shows the monitor of a console on the network.
+- Or connect from the PC: `python3 core/tools/bm_net.py IP` shows the monitor of a console on the network.
 
 ## The bm shell menu
 
@@ -292,7 +292,7 @@ The card is FAT32. Names follow the 8.3 rule when the console writes them.
 | `kernel.img` | bm for the Pi Zero W and the Pi 1 |
 | `kernel7.img` | the Pi Zero 2 W's kernel, only when built with `ZERO2=1` |
 | `kernel8.img` | bm for the RGB30 |
-| `carts/` | your cartridges (`carts/nano8/` for PICO-8 carts) |
+| `bm/` | your cartridges (`bm/nano8/` for PICO-8 carts) |
 | `bm/config.txt` | bm's settings |
 | `bm/ca.pem` | certificates for HTTPS |
 | `bm/` firmware files | WiFi and Bluetooth chip firmware |
@@ -348,7 +348,7 @@ wifi_psk=my password
 
 ::: copy
 ./easy_install.sh config
-python3 tools/bm_net.py IP --config
+python3 core/tools/bm_net.py IP --config
 :::
 
 # Screenshots
@@ -394,7 +394,7 @@ To back up a game's save, copy its files from `bm/save/` to the PC.
 
 - A fatal exception shows a red screen with the registers and the list of addresses it was called from, even during a game.
 - The last 4 KB printed and a trail of breadcrumbs stay in memory across a reset. At the next boot they become a report in `bm/reports/`, sent when the network is up. Network and `report()` ask your permission the first time.
-- After 20 seconds of running time, the screen says "Restarting in 60 s: this screen goes out as a report", the LED blinks a code, and the console restarts. This also holds on the Pi Zero W: the restart writes the power-management registers directly (`src/kernel/exceptions.c`, `src/drivers/watchdog.c`), so it does not depend on the watchdog check made at boot.
+- After 20 seconds of running time, the screen says "Restarting in 60 s: this screen goes out as a report", the LED blinks a code, and the console restarts. This also holds on the Pi Zero W: the restart writes the power-management registers directly (`core/src/kernel/exceptions.c`, `core/src/drivers/watchdog.c`), so it does not depend on the watchdog check made at boot.
 - [TO FILL: what each LED blink count means on the Pi Zero W; only the RGB30's codes are written down]
 
 ![The red crash screen](shots/boot-os-crash.png)
@@ -434,7 +434,7 @@ If something fails, nothing was written until the files were checked. The comman
 ::: copy
 ./easy_install.sh kernel
 ./easy_install.sh install
-python3 tools/bm_net.py IP --kernel build/kernel.img
+python3 core/tools/bm_net.py IP --kernel build/kernel.img
 :::
 
 ::: warn

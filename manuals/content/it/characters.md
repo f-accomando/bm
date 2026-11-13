@@ -26,7 +26,7 @@ Un personaggio in bm è una di tre cose: uno **sprite** nello sprite sheet, un i
 | bm Studio | modelli 3D da blocchi e tile; un modello da un'immagine | Modelli 3D |
 | bm Animator, pagine F2 e F3 | lo scheletro e le animazioni di un modello | Modelli 3D |
 | bm Mesh | i vertici e le facce di un modello; le mesh costruite dal codice di un gioco | Mesh |
-| `scripts/bmres.py`, `tools/` | estrarre, aggiungere e convertire risorse; modelli da immagini, sul PC | Mesh, 2D pre-renderizzato |
+| `core/scripts/bmres.py`, `core/tools/` | estrarre, aggiungere e convertire risorse; modelli da immagini, sul PC | Mesh, 2D pre-renderizzato |
 | bm-forge | modelli, scheletri e anteprime da riga di comando, sul PC | Modelli 3D |
 
 ## Da sapere
@@ -58,7 +58,7 @@ Le note del repository sono chiare sul limite: disegnare a mano ogni direzione d
 
 ## Da sapere
 
-- *Titan Clash* (`carts/titan`) e *Yharnam* (`carts/yharnam`) usano sprite pre-renderizzati.
+- *Titan Clash* (`bm/titan`) e *Yharnam* (`bm/yharnam`) usano sprite pre-renderizzati.
 - Un modello 3D può alimentare gli altri due: lo stesso modello è un personaggio 3D e, generato in sprite, uno 2D.
 
 # Sprite a mano
@@ -181,7 +181,7 @@ Il gioco disegna il fotogramma con `sspr(..., flip)`. Ogni fotogramma ha un'ànc
 
 ## Un modulo per tutte le animazioni
 
-*Yharnam* fa partire le animazioni del cacciatore e di ogni creatura con un piccolo modulo, `ANIM` (il modulo `anim` in `carts/yharnam/main.lua`). Copialo in un gioco che ha attori con direzioni.
+*Yharnam* fa partire le animazioni del cacciatore e di ogni creatura con un piccolo modulo, `ANIM` (il modulo `anim` in `bm/yharnam/main.lua`). Copialo in un gioco che ha attori con direzioni.
 
 Un attore è una tabella con `anim` (il nome che parte), `f` (il fotogramma, 1 è il primo), `ft` (i tick da cui il fotogramma è a schermo), `newf` (vero nel tick in cui è iniziato un fotogramma) e `rev` (vero quando va all'indietro). Un set ha, per ogni nome, `t` (i tick che dura ogni fotogramma), `loop` e `d` (i fotogrammi di ogni direzione).
 
@@ -226,7 +226,7 @@ Disegna un lato, specchia l'altro al momento del disegno: `spr`, `sspr` e `zspr`
 
 ## Riusare parti di sprite
 
-*Titan Clash* disegna il robot a strati sopra una base. Lo script di build (`carts/titan/build/mkrobot.py`) tiene in uno strato proprio tutto ciò che può cambiare: piastre d'armatura, la spallina vicina (integra o crepata), i cannoni dei bracci, la spada (sulla schiena o in mano). Uno strato contiene solo i pixel che le sue parti mostrano davanti alla base, quindi base più strati è esattamente il robot con quelle parti.
+*Titan Clash* disegna il robot a strati sopra una base. Lo script di build (`bm/titan/build/mkrobot.py`) tiene in uno strato proprio tutto ciò che può cambiare: piastre d'armatura, la spallina vicina (integra o crepata), i cannoni dei bracci, la spada (sulla schiena o in mano). Uno strato contiene solo i pixel che le sue parti mostrano davanti alla base, quindi base più strati è esattamente il robot con quelle parti.
 
 Il gioco disegna una base e poi i suoi strati in ordine fisso, con la stessa àncora:
 
@@ -243,7 +243,7 @@ end
 
 Un fotogramma e molte combinazioni di equipaggiamento costano il fotogramma una volta e ogni strato una volta.
 
-Altri modi dello stesso tipo, dalla build di *Yharnam* (`carts/yharnam/build/mkassets.py`): ogni fotogramma è ritagliato nel suo riquadro e impacchettato nello sheet, e i fotogrammi identici si tengono una volta sola.
+Altri modi dello stesso tipo, dalla build di *Yharnam* (`bm/yharnam/build/mkassets.py`): ogni fotogramma è ritagliato nel suo riquadro e impacchettato nello sheet, e i fotogrammi identici si tengono una volta sola.
 
 ## Palette
 
@@ -272,7 +272,7 @@ Una **zona stack** è una riga del file delle zone: `stack name x y w h n` per `
 
 - **bm Pixel, pagina F4** crea e cambia le zone `stack`, mostra le fette una per una e mostra l'intero stack che ruota. Una fetta si disegna su F1. Il capitolo "F4: the stack" del manuale di bm Pixel ha i tasti.
 - **bm Animator** conserva le fette di una zona quando si rifà il bake della zona, se la nuova zona sta ancora nello sheet.
-- **Da stack a mesh.** Sul PC, `python tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` legge uno stack e scrive un file `.bmm` con un modello. Ogni pixel opaco è un voxel e i voxel dello stesso colore si uniscono in box. `--dir v` serve per fette una sotto l'altra. Il limite predefinito è 4096 vertici; `--kernel-limits` ne permette 65535 per l'RGB30. Uno stack troppo grande si ferma con un errore che indica il limite.
+- **Da stack a mesh.** Sul PC, `python core/tools/stack2mesh.py SHEET.png -o OUT.bmm --size W H -n N --at X Y` legge uno stack e scrive un file `.bmm` con un modello. Ogni pixel opaco è un voxel e i voxel dello stesso colore si uniscono in box. `--dir v` serve per fette una sotto l'altra. Il limite predefinito è 4096 vertici; `--kernel-limits` ne permette 65535 per l'RGB30. Uno stack troppo grande si ferma con un errore che indica il limite.
 
 ::: copy
 ```lua
@@ -301,8 +301,8 @@ Il pre-render disegna un modello 3D, posa per posa e da ogni direzione, in pixel
 
 ## Come lo fanno i giochi del repository
 
-- *Titan Clash*: `carts/titan/build/mkrobot.py` costruisce un robot di solidi semplici appesi a uno scheletro, renderizza ogni posa in ortogonale a 1:1 pixel e la stilizza: sfaccettature piatte in pochi toni per materiale, contorni scuri sulla silhouette e dove una parte sta davanti a un'altra, visiera e sfiati luminosi. Dà anche le hitbox e le hurtbox dalle ossa.
-- *Yharnam*: `carts/yharnam/build/mkassets.py` renderizza oltre 5.000 fotogrammi (qualche secondo ciascuno) del cacciatore e delle creature, con campi di distanza con segno, e le animazioni del cacciatore come curve a 8 direzioni. Si ridisegnano solo i fotogrammi la cui posa o il cui modello è cambiato.
+- *Titan Clash*: `bm/titan/build/mkrobot.py` costruisce un robot di solidi semplici appesi a uno scheletro, renderizza ogni posa in ortogonale a 1:1 pixel e la stilizza: sfaccettature piatte in pochi toni per materiale, contorni scuri sulla silhouette e dove una parte sta davanti a un'altra, visiera e sfiati luminosi. Dà anche le hitbox e le hurtbox dalle ossa.
+- *Yharnam*: `bm/yharnam/build/mkassets.py` renderizza oltre 5.000 fotogrammi (qualche secondo ciascuno) del cacciatore e delle creature, con campi di distanza con segno, e le animazioni del cacciatore come curve a 8 direzioni. Si ridisegnano solo i fotogrammi la cui posa o il cui modello è cambiato.
 
 Questi script girano sul PC (servono numpy e Pillow); il loro risultato (lo sheet e l'elenco dei fotogrammi) è in git, quindi per costruire il gioco non servono.
 
@@ -356,7 +356,7 @@ I fotogrammi generati sono sprite normali nello sheet. Apri il progetto in bm Pi
 
 ## Provalo, passo per passo
 
-1. Apri la scheda **Dev** e avvia **bm Animator**. Scegli un progetto con un modello con scheletro (`carts/overbit` ha dei modelli con scheletro).
+1. Apri la scheda **Dev** e avvia **bm Animator**. Scegli un progetto con un modello con scheletro (`bm/overbit` ha dei modelli con scheletro).
 2. Premi **F4**. Scegli l'animazione `walk` nella prima riga.
 3. Imposta `frames` a 8, `size` a 48, `directions` a 4.
 4. Controlla che `hitboxes` dica `from bones`.
@@ -385,12 +385,12 @@ Una mesh è una forma 3D fatta di punti (vertici) e triangoli (facce). In bm ce 
 Un'immagine diventa un modello in tre modi.
 
 - **In bm Studio, nella pagina dei modelli, `m`** (o *Model from picture...* nel menu): un'immagine dalla cartella `pics/` della SD o dalla radice della SD (`.png` o `.jpg`). **Cutout** è una figura di carta spessa con l'immagine davanti e specchiata dietro; **lathe** ruota il mezzo contorno attorno all'asse verticale (vasi, torri); **meshy.ai** è un servizio online che richiede la rete e un account.
-- **Sul PC, `tools/cutout2mesh.py`**: lo stesso cutout e lathe senza rete e senza IA. In una cartuccia nuova l'immagine va sullo sheet; in una esistente le facce prendono colori piatti.
-- **Sul PC, `tools/img2mesh.py`**: un modello di visione (servono l'API Anthropic e una chiave fuori dal repository) guarda l'immagine, scrive uno script di parti, e lo script viene costruito, disegnato e corretto per qualche giro. Il risultato è un `.bm` con un modello, con ossa e animazioni se lo script le ha.
+- **Sul PC, `core/tools/cutout2mesh.py`**: lo stesso cutout e lathe senza rete e senza IA. In una cartuccia nuova l'immagine va sullo sheet; in una esistente le facce prendono colori piatti.
+- **Sul PC, `core/tools/img2mesh.py`**: un modello di visione (servono l'API Anthropic e una chiave fuori dal repository) guarda l'immagine, scrive uno script di parti, e lo script viene costruito, disegnato e corretto per qualche giro. Il risultato è un `.bm` con un modello, con ossa e animazioni se lo script le ha.
 
 ::: copy
-python3 tools/cutout2mesh.py hero.png -o hero.bm --name hero
-python3 tools/cutout2mesh.py vase.png -o vase.bm --lathe
+python3 core/tools/cutout2mesh.py hero.png -o hero.bm --name hero
+python3 core/tools/cutout2mesh.py vase.png -o vase.bm --lathe
 :::
 
 ## Da una mesh a un'immagine
@@ -442,7 +442,7 @@ Usa **M** per costruire un personaggio simmetrico: modella metà, copiala dall'a
 
 - Al massimo 65535 vertici e 65535 triangoli in una mesh, e 256 modelli in una cartuccia.
 - bm Mesh mantiene lo scheletro di un modello: l'osso di ogni nuovo vertice è quello da cui nasce.
-- Uno stack di sprite diventa un mesh con `tools/stack2mesh.py` (capitolo "Sprite stacking"). Un pulsante per farlo in bm Studio o bm Mesh non c'è ancora.
+- Uno stack di sprite diventa un mesh con `core/tools/stack2mesh.py` (capitolo "Sprite stacking"). Un pulsante per farlo in bm Studio o bm Mesh non c'è ancora.
 
 # Modelli 3D
 
@@ -474,8 +474,8 @@ I nomi hanno un uso: `.L` e `.R` per i due lati; `sword`, `fist` e simili per le
 ## Modelli fuori dalla console
 
 - **bm-forge** (`.claude/skills/bm-forge`): costruisce modelli MESH da JSON di box o da `.glb` senza texture, scheletri e clip da JSON, ed esporta `.bm`. Una persona o un personaggio è una pelle continua con vertici condivisi alle giunture, con scheletro, mai box separate. Il modello `examples/charkit/` ha due preset.
-- Un `.glb` locale della scheda SD non si apre ancora negli editor; l'importazione nella suite è prevista (APP-9). Oggi la console riceve un `.glb` solo dal servizio da immagine a 3D (`picture3d`), e bm Studio lo prende poi come modello. Sul PC, `python3 scripts/bmres.py convert IN.glb OUT.bmm` converte un `.glb` in un `.bmm`; `tools/meshy2mesh.py`, `tools/local2mesh.py` e `tools/cutout2mesh.py` fanno modelli da altre fonti. Per un gioco del repository, la build legge `assets/models.bm` oppure `assets/models.glb` (prima `models.bm`) e mette i modelli nel `.bm`. `carts/village/assets` contiene `models.bm`, non un `.glb`.
-- **[IN SVILUPPO]** Salvare e aprire i file di modello `.bmm` dal bm Studio della console. Oggi il programma salva solo il progetto; sul PC `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` ne crea uno.
+- Un `.glb` locale della scheda SD non si apre ancora negli editor; l'importazione nella suite è prevista (APP-9). Oggi la console riceve un `.glb` solo dal servizio da immagine a 3D (`picture3d`), e bm Studio lo prende poi come modello. Sul PC, `python3 core/scripts/bmres.py convert IN.glb OUT.bmm` converte un `.glb` in un `.bmm`; `core/tools/meshy2mesh.py`, `core/tools/local2mesh.py` e `core/tools/cutout2mesh.py` fanno modelli da altre fonti. Per un gioco del repository, la build legge `assets/models.bm` oppure `assets/models.glb` (prima `models.bm`) e mette i modelli nel `.bm`. `bm/village/assets` contiene `models.bm`, non un `.glb`.
+- **[IN SVILUPPO]** Salvare e aprire i file di modello `.bmm` dal bm Studio della console. Oggi il programma salva solo il progetto; sul PC `core/scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` ne crea uno.
 
 ## Attenzione
 
@@ -537,7 +537,7 @@ Il colore di una faccia può portare dei **bit di materiale**: bit 30 `0x4000000
 
 ## Shader
 
-Il driver V3D del Pi esegue shader QPU scritti in `tools/qpuasm.py` e generati in `src/gpu/shaders.h`; il Mali dell'RGB30 ha un suo bring-up (`docs/progress/graphics-mali.md`). Un gioco non li scrive: sceglie con `gpu3d()` (acceso, anti-aliasing 4x, dove il vertex shader colloca i vertici) e con le righe di Settings. Le stesse funzioni disegnano sull'ARM quando la GPU è spenta.
+Il driver V3D del Pi esegue shader QPU scritti in `core/tools/qpuasm.py` e generati in `core/src/gpu/shaders.h`; il Mali dell'RGB30 ha un suo bring-up (`docs/progress/graphics-mali.md`). Un gioco non li scrive: sceglie con `gpu3d()` (acceso, anti-aliasing 4x, dove il vertex shader colloca i vertici) e con le righe di Settings. Le stesse funzioni disegnano sull'ARM quando la GPU è spenta.
 
 ::: warn
 **[IN SVILUPPO]** Shader scritti dal gioco. L'API non documenta alcuna chiamata per dare a un modello uno shader proprio.
@@ -566,7 +566,7 @@ function _draw()
 end
 :::
 
-L'ultima riga disegna l'ombra. È lo schema dei giochi con modelli con scheletro, come `carts/overbit`.
+L'ultima riga disegna l'ombra. È lo schema dei giochi con modelli con scheletro, come `bm/overbit`.
 
 # Ottimizzare i modelli 3D
 
@@ -608,8 +608,8 @@ Una sola faccia che la GPU non accetta manda tutto il modello all'ARM. Controlla
 
 ::: copy
 cd .claude/skills/bm-forge
-python3 scripts/bm_forge.py gpuskin game.bmm
-python3 scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
+python3 core/scripts/bm_forge.py gpuskin game.bmm
+python3 core/scripts/bm_forge.py gpuskin game.bmm --two-bones -o game_gpu.bmm
 :::
 
 Per le console con driver precedenti a bm3D 7.33, `--palette X,Y[,W] --palette-png STRIP.png` dà una texture alle facce a tinta unita su due ossa: ogni colore diventa un texel di una striscia. Metti la striscia nello sprite sheet della cartuccia in `X,Y`. Queste facce prendono poi una luce grigia e niente nebbia, come tutte le facce con texture illuminate dal sole.

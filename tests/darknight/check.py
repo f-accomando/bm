@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""make test-darknight: Dark Night (carts/darknight) played by a script of keys in bmhost, on the PC.
+"""make test-darknight: Dark Night (bm/darknight) played by a script of keys in bmhost, on the PC.
 
   check.py BMHOST DARKNIGHT.bm WORKDIR
 
@@ -18,7 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "art", "maps", "clinic"))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 
 W, A, S, D, SPACE, SHIFT = 0x1A, 0x04, 0x16, 0x07, 0x2C, 0xE1
 Q, E, U, I, O, P, F9 = 0x14, 0x08, 0x18, 0x0C, 0x12, 0x13, 0x42
@@ -55,7 +55,7 @@ REQUIRE = ["hit villager saw", "shot hit", "enemy villager attack1", "enemy vill
 
 
 def ids_of_main():
-    text = open(os.path.join(ROOT, "carts", "darknight", "main.lua")).read()
+    text = open(os.path.join(ROOT, "bm", "darknight", "main.lua")).read()
     block = re.search(r"local ID = \{(.*?)\}", text, re.S).group(1)
     return {k: int(v) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", block)}
 
@@ -73,7 +73,7 @@ def main(host, cart, work):
     want = dict(B.IDS)
     want["enemy"], want["start"] = B.ENEMY, B.PLAYER_START
     check(ids == want, "the ids of main.lua are those of the kit: %r vs %r" % (ids, want))
-    radius = re.search(r"local RADIUS = \{(.*?)\}", open(os.path.join(ROOT, "carts", "darknight", "main.lua")).read(), re.S).group(1)
+    radius = re.search(r"local RADIUS = \{(.*?)\}", open(os.path.join(ROOT, "bm", "darknight", "main.lua")).read(), re.S).group(1)
     got = {k: float(v) for k, v in re.findall(r"(\w+)\s*=\s*([\d.]+)", radius)}
     check(got == {n: float(r) for n, _f, _c, r in B.OBJECTS}, "the radii of main.lua are those of the kit")
     script = os.path.join(work, "input.txt")

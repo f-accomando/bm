@@ -1,5 +1,5 @@
 /*
- * core_test.c: standalone host tests for src/bm/snes16.c + snes_ppu.c + snes_dsp.c.
+ * core_test.c: standalone host tests for core/src/bm/snes16.c + snes_ppu.c + snes_dsp.c.
  * Links with ZERO dependency on snes_cpu.c, snes_bus.c, or snes_spc.c.
  */
 #include <assert.h>

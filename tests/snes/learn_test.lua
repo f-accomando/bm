@@ -1,15 +1,15 @@
--- learn_test.lua: the Learn tab of bm SNES SDK on the PC: the lesson files (carts/snes_sdk/lessons/*.txt) and the helpers
--- (carts/shared/sneslearn.lua). Every example is assembled with snes_asm and written as a ROM for the core runner
+-- learn_test.lua: the Learn tab of bm SNES SDK on the PC: the lesson files (bm/snes_sdk/lessons/*.txt) and the helpers
+-- (bm/shared/sneslearn.lua). Every example is assembled with snes_asm and written as a ROM for the core runner
 -- (tests/snes/learn_run.c); the test also checks that Insert, Open as new file and Run example alone keep the
 -- files of the user byte for byte, and that the marks survive a save and an open.
 --   build/host/luahost tests/snes/learn_test.lua [ROOT] [OUTDIR]     (make test-snes-learn)
 local ROOT = arg[1] or "."
 local OUT = arg[2]
-package.path = ROOT .. "/src/script/?.lua;" .. package.path
+package.path = ROOT .. "/core/src/script/?.lua;" .. package.path
 local A = require "snes_asm"
-local SL = assert(loadfile(ROOT .. "/carts/shared/sneslearn.lua"))()
-local SC = assert(loadfile(ROOT .. "/carts/shared/snescode.lua"))()
-local BF = assert(loadfile(ROOT .. "/carts/shared/asmbuf.lua"))()
+local SL = assert(loadfile(ROOT .. "/bm/shared/sneslearn.lua"))()
+local SC = assert(loadfile(ROOT .. "/bm/shared/snescode.lua"))()
+local BF = assert(loadfile(ROOT .. "/bm/shared/asmbuf.lua"))()
 local checks, fails = 0, 0
 local function check(ok, msg)
   checks = checks + 1
@@ -20,12 +20,12 @@ local function slurp(path) local f = io.open(path, "rb"); if not f then return n
 
 -- the list of the lesson files (the list is in the file LIST, one name per line: Lua has no directory listing)
 local names = {}
-for n in (slurp(ROOT .. "/carts/snes_sdk/lessons/LIST") or ""):gmatch("[^\r\n]+") do names[#names + 1] = n end
+for n in (slurp(ROOT .. "/bm/snes_sdk/lessons/LIST") or ""):gmatch("[^\r\n]+") do names[#names + 1] = n end
 check(#names >= 10, "at least 10 lessons (" .. #names .. ")")
 
 local lessons = {}
 for i, n in ipairs(names) do
-  local text = slurp(ROOT .. "/carts/snes_sdk/lessons/" .. n .. ".txt")
+  local text = slurp(ROOT .. "/bm/snes_sdk/lessons/" .. n .. ".txt")
   check(text ~= nil, "lesson file " .. n)
   if text then lessons[#lessons + 1] = SL.parse(n, text) end
 end
@@ -83,7 +83,7 @@ end
 
 -- English only: no accented letters
 for _, n in ipairs(names) do
-  local s = slurp(ROOT .. "/carts/snes_sdk/lessons/" .. n .. ".txt")
+  local s = slurp(ROOT .. "/bm/snes_sdk/lessons/" .. n .. ".txt")
   check(not s:find("[\128-\255]"), n .. " has only ASCII letters")
 end
 

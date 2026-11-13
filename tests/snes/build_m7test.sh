@@ -1,6 +1,6 @@
 #!/bin/sh
-# build_m7test.sh: assemble tests/snes/m7test/main.s into build/m7test.sfc with the bm SNES SDK assembler (src/script/snes_asm.lua).
-#   tests/snes/build_m7test.sh [out.sfc]      run it from the repository root (WSL or Linux; scripts/wsl-run.ps1 "tests/snes/build_m7test.sh")
+# build_m7test.sh: assemble tests/snes/m7test/main.s into build/m7test.sfc with the bm SNES SDK assembler (core/src/script/snes_asm.lua).
+#   tests/snes/build_m7test.sh [out.sfc]      run it from the repository root (WSL or Linux; core/scripts/wsl-run.ps1 "tests/snes/build_m7test.sh")
 # The ROM stays out of git. Copy it to the snes folder of the SD card.
 set -e
 cd "$(dirname "$0")/../.."

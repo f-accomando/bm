@@ -1,6 +1,6 @@
 # Development Proposals: bm Code (The Console's Code Editor)
 
-This document analyzes what **bm Code** (`carts/code`) lacks to support complex programming projects on the console, overcome the monolithic-file constraint and improve integration with graphic and sound assets.
+This document analyzes what **bm Code** (`bm/code`) lacks to support complex programming projects on the console, overcome the monolithic-file constraint and improve integration with graphic and sound assets.
 
 ---
 
@@ -20,7 +20,7 @@ Despite the excellent usability on the console, large projects run into strong l
 ### A. No Multi-File Structure Within the Same Project
 - Currently bm Code tabs open **distinct `.bm` or `.bme` cartridges**, not multiple source files of the same project.
 - As a result:
-  - In *Titan Clash*, developers had to create a `carts/titan/src/` folder with 11 Lua files (`00_core.lua`, `20_fighter.lua`, `30_fx.lua`, `70_screens.lua`...) and create a Python script `build.py` to run on a PC to concatenate them into a single `main.lua`.
+  - In *Titan Clash*, developers had to create a `bm/titan/src/` folder with 11 Lua files (`00_core.lua`, `20_fighter.lua`, `30_fx.lua`, `70_screens.lua`...) and create a Python script `build.py` to run on a PC to concatenate them into a single `main.lua`.
   - In *Yharnam*, where the build script was not set up the same way, the whole game lives in a single gigantic `main.lua` file of **5,573 lines**.
 - Editing, navigating and maintaining a 5,000-line file on a retro console with a 640×360 or 360×360 resolution is a grueling experience.
 

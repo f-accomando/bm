@@ -1,5 +1,5 @@
 /*
- * The tests' reports going by themselves (src/kernel/reports.c,
+ * The tests' reports going by themselves (core/src/kernel/reports.c,
  * reports_auto_due, 2026-10-04) on the PC: an SD card in memory, a GitHub
  * that takes or refuses them, the network and the clock set by the test.
  * They go when the network comes (not before, not without a token or with

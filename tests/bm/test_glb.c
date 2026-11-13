@@ -1,5 +1,5 @@
 /*
- * Host test / tool of the .glb reader (src/bm/glb.c): converts a .glb
+ * Host test / tool of the .glb reader (core/src/bm/glb.c): converts a .glb
  * and prints what came out; the model record, its flat twin and the
  * texture go to files for tests/bm/run_glb_test.py to check.
  *

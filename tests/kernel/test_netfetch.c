@@ -1,4 +1,4 @@
-/* make test-netfetch: src/kernel/netfetch.c (what "net fetch" downloads and where it goes) on the PC. */
+/* make test-netfetch: core/src/kernel/netfetch.c (what "net fetch" downloads and where it goes) on the PC. */
 #include "kernel/netfetch.h"
 
 #include <stdio.h>

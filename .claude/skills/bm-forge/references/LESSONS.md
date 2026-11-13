@@ -21,7 +21,7 @@ were moved into the skill by the orchestrating session.
 ## L3 Tool limit and kernel limit differ
 
 **Lesson**: the Lua tools cap a model lower than the kernel.
-**Case**: `src/script/bm3d.lua:34` has `T.LIMIT_V, T.LIMIT_T = 4096, 16384`; `src/bm/bm.h:175-176`
+**Case**: `core/src/script/bm3d.lua:34` has `T.LIMIT_V, T.LIMIT_T = 4096, 16384`; `core/src/bm/bm.h:175-176`
 has `BM_MODEL_VERTS`/`BM_MODEL_FACES` 65535. `bm_core/mesh.py:23-24` holds both and `limits()`
 (line 31) picks; `references/TOOLS.md:183-184` records the mismatch;
 `tests/golden/test_negative.py:288-298` (`test_oversized_model`) asserts 4097 vertices fail by
@@ -40,7 +40,7 @@ default and pass with `kernel_limits=True`.
 
 **Lesson**: rigid skinning (one bone per vertex) cuts boxes at joints.
 **Case**: 24 of the 104 humanoid vertices land on the wrong bone (`references/OPEN_QUESTIONS.md`
-item 40, `src/bm/format.c:266-269`).
+item 40, `core/src/bm/format.c:266-269`).
 **Rule**: `nearest_bone_part` by default (one bone per connected part).
 
 ## L6 luahost `.bme` goldens fail `check_path`
@@ -63,7 +63,7 @@ rig): rejected. v3 `examples/charkit` (preset crash): 750 triangles, 378 vertice
 nose grow out of vertices they share with the part they hang on (a limb's first ring is a patch of torso
 vertices; legs start from the two halves of the pelvis ring). Orient every face away from a point inside
 its part. Colour by ring sector and by face normal (sole = faces looking down). Characters face -z, .L on +x
-(bm Studio's part language `src/ai/mesh_script.c`, the villager; `carts/overbit/art/geo.py` says +z: NON VERIFICATO which
+(bm Studio's part language `core/src/ai/mesh_script.c`, the villager; `bm/overbit/art/geo.py` says +z: NON VERIFICATO which
 one the console tools really use, the example is built facing +z and mirrored at the end).
 **Skinning**: the format has one bone per vertex and no weights (`bm_core/skelgen.py`). A ring shared by
 two segments belongs to the distal bone. Write the vertex bones yourself and call `skelgen.bind(...,

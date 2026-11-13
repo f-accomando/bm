@@ -8,7 +8,7 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   fiber is past its slice. `fiber_job_run` logs `fiber: <job> did not yield: x.y ms past its slice`
   for a slice over `FIBER_STALL_US` (5 ms), once for each new record of a job.
 - `menu stalls:` line (after `menu idle:`, same window): TLS handshake (`tls.c`), `release_verify`
-  and `release_check_file` (`update.c`): count, last and worst ms, KB hashed (`src/kernel/stalls.h`).
+  and `release_check_file` (`update.c`): count, last and worst ms, KB hashed (`core/src/kernel/stalls.h`).
 - `fiber_selftest()` and the QEMU test `test_fiber_measure` were removed on 24 Oct 2026 with the boot diagnostics. The "did not yield" log line stays; no test covers it now.
 - Pi numbers not collected. To collect with this build (section 6 of the design doc): 1 handshake ms
   (`menu stalls:`), 2 verify ms (`menu stalls:`), 3 hash speed (`menu stalls:` file hash KB / ms),
@@ -16,7 +16,7 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   Items 4 and 7-12 need other measurements.
 
 ## Stage 2: hash steps (stage 2 of the design doc, 2026-10-22)
-- `release_check_file` (`src/net/release.c`) hashes in 16 KB pieces and calls `release_hash_tick`
+- `release_check_file` (`core/src/net/release.c`) hashes in 16 KB pieces and calls `release_hash_tick`
   between them; `update_start` sets it to `fiber_slice` (like `catalog_hash_tick` in `market.c`).
   Same digest and errors; with no hook (host, main loop) it runs through.
 - `fiber_budget_us()` (`fiber.h`): microseconds left in the slice, 0 when over, `UINT32_MAX`
@@ -30,13 +30,13 @@ Detail of the stages of [multitasking-alternatives](../design/multitasking-alter
   (`menu idle:`), and hash speed from the `hash` line of `menu stalls:` (it times the whole check, yields included).
 
 ## Stages 3-5: SD writer lock, keep-alive, Range resume (2026-10-22)
-- **Lock** (`src/fs/sdlock.[ch]`): `sd_writer_begin(who, pause)` / `sd_writer_end(who)`. A holder with a pause hook
+- **Lock** (`core/src/fs/sdlock.[ch]`): `sd_writer_begin(who, pause)` / `sd_writer_end(who)`. A holder with a pause hook
   is stopped by the next writer that begins (its job starts again later from byte 0); a holder with no hook makes
   the next one fail with -1. `sd_write_file(who, dir, name, ...)` wraps `fat_mkdirs` + `fat_write_file` for the
   short writes: game `save()`, `doc_write()`, `config_save()`. The netxfer write job holds it with `netxfer_write_pause`
   as hook. Market, update and covers do not hold it (the FAT store keeps each write whole at every tick, as before).
   `begin` called inside a fiber never pauses another writer (the hook runs fibers): it returns -1.
-- **Queued `file_write`** (`src/bm/webfile.[ch]`): `file_write(name, data, true)` copies the data into one of 4 jobs and
+- **Queued `file_write`** (`core/src/bm/webfile.[ch]`): `file_write(name, data, true)` copies the data into one of 4 jobs and
   returns at once. A writer fiber (64 KB stack) puts it on the card; `fat_write_tick` yields after each piece (a run of
   clusters, up to 32 KB). `web_poll` and `file_state` pump it (3 ms). `web_reset` (cartridge end) writes what is left
   (`webfile_reset`). The longest stall of a frame is one piece (read-back included); not measured.

@@ -1,6 +1,6 @@
 /*
- * Host test of the release manifests (src/net/release.c) with the files
- * made by scripts/mkrelease.py: tests/net/run_release_test.py signs a
+ * Host test of the release manifests (core/src/net/release.c) with the files
+ * made by core/scripts/mkrelease.py: tests/net/run_release_test.py signs a
  * release with a test key, and passes the directory and the keys.
  *   test_release DIR PUB OTHER_PUB
  */
@@ -83,10 +83,10 @@ int main(int argc, char **argv)
     }
 
     /* the key built into the kernel: the placeholder, or a real P-256 key */
-    char *repo_key = slurp("", "keys/release-pub.pem", &n);
+    char *repo_key = slurp("", "core/keys/release-pub.pem", &n);
     int real = repo_key && strstr(repo_key, "BEGIN PUBLIC KEY") != NULL;
     check(repo_key && release_set_key(repo_key) == (real ? 0 : -1),
-          real ? "keys/release-pub.pem: a P-256 public key" : "keys/release-pub.pem: placeholder, no key");
+          real ? "core/keys/release-pub.pem: a P-256 public key" : "core/keys/release-pub.pem: placeholder, no key");
     free(repo_key);
 
     check(release_set_key("# no key\n") == -1 && !release_has_key(), "placeholder: no key");
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
     check(release_parse((uint8_t *)man, ml, &r, err, sizeof err) == 0, "manifest read");
     check(strcmp(r.version, "v9.9.9") == 0 && strcmp(r.commit, "0123abc") == 0, "version and commit");
     check(r.nfiles == 3 && strcmp(r.files[0].asset, "kernel.img") == 0 &&
-          strcmp(r.files[0].path, "/kernel.img") == 0 && strcmp(r.files[1].path, "/carts/pong.bm") == 0 &&
+          strcmp(r.files[0].path, "/kernel.img") == 0 && strcmp(r.files[1].path, "/bm/pong.bm") == 0 &&
           strcmp(r.files[2].asset, "ca.pem") == 0 && strcmp(r.files[2].path, "/bm/ca.pem") == 0,
           "files: names and paths on the SD card");
     int good = 1;
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
     check(parse_text(buf) == -1, "path with ..: refused");
     snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a/b.bm /carts/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "asset name with /: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "relative path: refused");
     snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %.63s\n", sha);
     check(parse_text(buf) == -1, "short SHA-256: refused");

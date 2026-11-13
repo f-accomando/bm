@@ -1,8 +1,8 @@
-"""Tests for scripts/agent_audit.py: the script runs as a subprocess on fake ledgers."""
+"""Tests for core/scripts/agent_audit.py: the script runs as a subprocess on fake ledgers."""
 import os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "agent_audit.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "agent_audit.py")
 HEADER = "# date|agent|model|task|area|gate|necessity|outcome|tokens|tools|secs"
 
 

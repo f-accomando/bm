@@ -3,7 +3,7 @@
   python tests/tools/test_compat_policy.py build/host/test_compat
 
 The host test `test_compat --grid` reads a grid of real headers with bm_compat_facts and prints the verdict of
-bm_compat_classify. Here the same facts go through scripts/bm_weight.py classify (the toml itself): every action, rule
+bm_compat_classify. Here the same facts go through core/scripts/bm_weight.py classify (the toml itself): every action, rule
 number and reason must be equal. Also: mkcompat --check (the generated header is current)."""
 import os
 import subprocess
@@ -12,7 +12,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bm_weight  # noqa: E402
 
 BIN = sys.argv.pop(1) if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]) else None
@@ -23,7 +23,7 @@ ACTION = ("show", "grey", "hide")
 
 class GridTest(unittest.TestCase):
     def test_c_table_is_current(self):
-        r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "mkcompat.py"), "--check"],
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "mkcompat.py"), "--check"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
 

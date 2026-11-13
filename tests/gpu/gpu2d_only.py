@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "core", "scripts"))
 import mkbm  # noqa: E402
 
 CART = r"""
@@ -145,7 +145,7 @@ def main():
             f.write(mkbm.pack((BIGCART % win).encode(), sheet=sheet, layers=layers, title=f"gpu2d_only {name}", author="bm",
                               res=(320, 180)))
         carts.append((name, cart))
-    yharnam = os.path.join(build, "carts", "yharnam.bm")
+    yharnam = os.path.join(build, "bm", "yharnam.bm")
     if os.path.exists(yharnam):
         carts.append(("yharnam", yharnam))
     for name, cart in carts:

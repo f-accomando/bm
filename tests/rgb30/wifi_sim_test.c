@@ -1,6 +1,6 @@
 /*
  * The RGB30's WiFi station on the PC: rtw_sta.c, rtw_init.c, rtw_io.c,
- * rtw_frame.c, wpa.c and lwIP (src/net/net.c), unchanged, on a simulated
+ * rtw_frame.c, wpa.c and lwIP (core/src/net/net.c), unchanged, on a simulated
  * RTL8821C reached through SDIO (MAC registers, TX FIFOs and descriptors,
  * the RX FIFO with aggregated packets, RF registers, security CAM,
  * firmware mailbox and H2C packets) and two simulated access points:

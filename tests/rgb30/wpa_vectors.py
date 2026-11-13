@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """A WPA2-PSK 4-way handshake and a group rekey, as an AP would run them,
-computed independently of src/rgb30/wpa.c (hashlib, hmac and the
+computed independently of core/src/rgb30/wpa.c (hashlib, hmac and the
 `cryptography` package's AES key wrap). Writes tests/rgb30/wpa_vectors.h,
 which tests/rgb30/wpa_test.c checks wpa.c against:
 

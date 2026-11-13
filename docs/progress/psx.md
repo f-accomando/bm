@@ -1,7 +1,7 @@
 # bm PSX
 
-An emulator of the PlayStation 1. The machine is written in C and is part of the kernel (`src/bm/psx_*.c`, one
-global machine). The cartridge `carts/psx/` is its user interface in Lua: it lists the games, passes the pads and
+An emulator of the PlayStation 1. The machine is written in C and is part of the kernel (`core/src/bm/psx_*.c`, one
+global machine). The cartridge `bm/psx/` is its user interface in Lua: it lists the games, passes the pads and
 draws the picture. Both kernels have it (Pi and RGB30). Status (2026-11-09): the core and the cartridge exist and
 pass their tests on the PC (`make test-psx`, 38 checks; `make test-psx-cart`, the cartridge in bmhost with a test
 PS-EXE). On the Pi Zero W (2026-11-09) a real BIOS boots to the PlayStation logo and the "Licensed by" screen, reads the disc, and starts the game's code, at about 8 to 11 frames a second. Crash Bandicoot 2 loads from the disc and plays its logo animation (see Open work). The RGB30 is not measured.
@@ -29,18 +29,18 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 
 | File | Content |
 |---|---|
-| `src/bm/psx.h` | the public calls of the core, the pad bits, the disc callback |
-| `src/bm/psx_int.h` | the machine state shared by the files; every global symbol starts with `psx_` (the kernel links the SNES core too) |
-| `src/bm/psx_cpu.c` | the R3000A: MIPS I with the branch and load delay slots, COP0 (SR, CAUSE, EPC, exceptions, interrupts), the call into COP2, cache isolation. An instruction costs 2 cycles |
-| `src/bm/psx_jit.c` | the dynamic recompiler MIPS to ARMv6 (Pi Zero W only): blocks of up to 48 instructions to a branch with its delay slot; RAM and scratchpad loads and stores inline; the GTE, add with trap and the rest through helpers; code pages of 256 bytes; `psx_jit_selftest` runs random programs both ways |
-| `src/bm/psx_gte.c` | the GTE: RTPS, RTPT, NCLIP, OP, DPCS, INTPL, MVMVA, NCDS, CDP, NCDT, NCCS, CC, NCS, NCT, SQR, DCPL, DPCT, AVSZ3, AVSZ4, GPF, GPL, NCCT, with the division table and the saturation flags |
-| `src/bm/psx_bus.c` | the memory map (RAM, scratchpad, BIOS, I/O), I_STAT/I_MASK, the 3 timers, DMA channels 2, 3, 4, 6 (instant), the digital pad port, the frame loop (263 lines of 2154 cycles, vertical blank at line 240), the PS-EXE loader, the BIOS calls for a run without BIOS (putchar, puts, printf) |
-| `src/bm/psx_gpu.c` | the software GPU: GP0 polygons (flat, Gouraud, textured 4/8/15 bit, semi-transparent), lines and polylines, rectangles, fills, VRAM copies, texture window, mask bit, dither; GP1; the picture from the VRAM (15 and 24 bit) |
-| `src/bm/psx_cd.c` | the CD-ROM controller: registers, FIFOs, interrupts, the commands a BIOS and a game use, the sectors from a callback |
-| `src/bm/psx_spu.c` | the SPU: 24 ADPCM voices, pitch (and modulation), linear interpolation, ADSR, volumes, the 512 KB sound RAM, DMA; 44.1 kHz into a ring, `psx_audio_mix` resamples it to the output |
-| `src/bm/api_psx.c` | the Lua calls (`psx_list`, `psx_boot`, `psx_frame`, `psx_draw`, ...): [api/psx.md](../api/psx.md). It reads the BIOS, the cue sheet and the sectors with `fat_read_at` |
-| `src/fs/fat.c` | `fat_read_at`: a range of a file, read in place, with a cluster cursor |
-| `carts/psx/src/main.lua` | the user interface; `carts/psx/build/build.py` packs it (`make build/carts/psx.bm`) |
+| `core/src/bm/psx.h` | the public calls of the core, the pad bits, the disc callback |
+| `core/src/bm/psx_int.h` | the machine state shared by the files; every global symbol starts with `psx_` (the kernel links the SNES core too) |
+| `core/src/bm/psx_cpu.c` | the R3000A: MIPS I with the branch and load delay slots, COP0 (SR, CAUSE, EPC, exceptions, interrupts), the call into COP2, cache isolation. An instruction costs 2 cycles |
+| `core/src/bm/psx_jit.c` | the dynamic recompiler MIPS to ARMv6 (Pi Zero W only): blocks of up to 48 instructions to a branch with its delay slot; RAM and scratchpad loads and stores inline; the GTE, add with trap and the rest through helpers; code pages of 256 bytes; `psx_jit_selftest` runs random programs both ways |
+| `core/src/bm/psx_gte.c` | the GTE: RTPS, RTPT, NCLIP, OP, DPCS, INTPL, MVMVA, NCDS, CDP, NCDT, NCCS, CC, NCS, NCT, SQR, DCPL, DPCT, AVSZ3, AVSZ4, GPF, GPL, NCCT, with the division table and the saturation flags |
+| `core/src/bm/psx_bus.c` | the memory map (RAM, scratchpad, BIOS, I/O), I_STAT/I_MASK, the 3 timers, DMA channels 2, 3, 4, 6 (instant), the digital pad port, the frame loop (263 lines of 2154 cycles, vertical blank at line 240), the PS-EXE loader, the BIOS calls for a run without BIOS (putchar, puts, printf) |
+| `core/src/bm/psx_gpu.c` | the software GPU: GP0 polygons (flat, Gouraud, textured 4/8/15 bit, semi-transparent), lines and polylines, rectangles, fills, VRAM copies, texture window, mask bit, dither; GP1; the picture from the VRAM (15 and 24 bit) |
+| `core/src/bm/psx_cd.c` | the CD-ROM controller: registers, FIFOs, interrupts, the commands a BIOS and a game use, the sectors from a callback |
+| `core/src/bm/psx_spu.c` | the SPU: 24 ADPCM voices, pitch (and modulation), linear interpolation, ADSR, volumes, the 512 KB sound RAM, DMA; 44.1 kHz into a ring, `psx_audio_mix` resamples it to the output |
+| `core/src/bm/api_psx.c` | the Lua calls (`psx_list`, `psx_boot`, `psx_frame`, `psx_draw`, ...): [api/psx.md](../api/psx.md). It reads the BIOS, the cue sheet and the sectors with `fat_read_at` |
+| `core/src/fs/fat.c` | `fat_read_at`: a range of a file, read in place, with a cluster cursor |
+| `bm/psx/src/main.lua` | the user interface; `bm/psx/build/build.py` packs it (`make build/bm/psx.bm`) |
 | `tests/psx/core_test.c` | 38 checks: the CPU on small programs, BIOS calls, interrupts, GTE, GPU, DMA, CD-ROM, SPU |
 | `tests/psx/boot_probe.c` | a PC probe: boots a BIOS with a disc given on the command line and prints the CD traffic (no BIOS or disc in the repository) |
 | `tests/psx/jit_unicorn.py` | the recompiler on the PC: the ARM code runs in the Unicorn emulator (`pip install unicorn`), the helpers are the real C ones, the programs are those of the self test; `python3 tests/psx/jit_unicorn.py 1000` (in WSL or Linux) |
@@ -67,7 +67,7 @@ usual one of PS1 emulators (R3000A, GTE, GPU, SPU, CD-ROM, DMA, timers).
 
 - Crash Bandicoot 2 (USA) runs on the Pi Zero W up to the Naughty Dog logo animation (2026-11-09, 7 frames a second). The title screen and the game are not checked yet: run the probe further (`tests/psx/boot_probe.c`, frames 3000 and more) and look at `build/psx_probe.ppm`. Speed is the next problem: 7 frames a second is far from 60.
 - Speed on the Pi Zero W (2026-11-10, Crash Bandicoot 2 title screen): 11 frames a second with the recompiler, 7 without. The GPU is the CPU: the V3D is not used. The debug HUD (menu "FPS") shows the per-frame timers `us_dma`, `us_gte`, `us_gpu_other`. A frame takes about 38 ms: GTE 1.9 ms, GPU drawing plus the drawing started by DMA 14 to 15 ms, sound 3 ms, the rest is the JIT CPU (about 284000 instructions a frame at about 75 ns each). The CPU time is mostly the 54000 blocks a frame (5 instructions each): the dispatcher and the instruction cache (the generated code is too big for 16 KB). Next, in this order: (1) a faster software rasteriser (specialised spans for flat, Gouraud and textured pixels; fewer checks per pixel); (2) chain the blocks (a patched jump to the next block with a cycle budget); (3) put the slow paths of loads and stores in shared stubs; (4) keep the MIPS registers used most in ARM registers; (5) frame skip or a smaller picture; (6) the V3D for fills and textured polygons.
-- `tools/pi.py` run script `build/w6.sh` filters the make output and can hide a link error: if the Pi shows the menu, check that the kernel linked.
+- `core/tools/pi.py` run script `build/w6.sh` filters the make output and can hide a link error: if the Pi shows the menu, check that the kernel linked.
 - Not measured: the RGB30 (the interpreter is used there, no JIT). Not tested: any game other than Crash Bandicoot 2. Test a 2D game and a game with FMV before the Market.
 - The MDEC (FMV) is not done: DMA channels 0 and 1 end at once and the picture stays black in movies. The CD-DA and XA audio are not done.
 - The CPU timing is 2 cycles an instruction. Games with exact timing (raster tricks, some timers) may break. Add the real costs of

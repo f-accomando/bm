@@ -11,7 +11,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmres  # noqa: E402
 
 
@@ -31,7 +31,7 @@ def main():
     chain = os.path.join(ROOT, "video", "3d", "chain")
     mp = args[0] if args else pick(os.path.join(chain, "04-map.bm"),
                                    os.path.join(ROOT, "video", "3d", "chain-delivered", "04-map.bm"),
-                                   os.path.join(ROOT, "video", "3d", "04-map", "out", "sd", "carts", "TROPIC.BM"))
+                                   os.path.join(ROOT, "video", "3d", "04-map", "out", "sd", "bm", "TROPIC.BM"))
     sp = args[1] if len(args) > 1 else pick(os.path.join(chain, "05-sound.bm"),
                                              os.path.join(ROOT, "video", "3d", "chain-delivered", "05-sound.bm"))
     base = bmres.read(mp)

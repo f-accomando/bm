@@ -1,6 +1,6 @@
 /*
  * bmcart.js: reader of the .bm container for the web player (docs/BM-FORMAT.md).
- * It checks the header, the CRC-32 and the section table as src/bm/format.c does,
+ * It checks the header, the CRC-32 and the section table as core/src/bm/format.c does,
  * and returns the title, the author, the sections, the INFO lines and the cover.
  * It runs in a browser (window.bmCart) and in Node (module.exports).
  */

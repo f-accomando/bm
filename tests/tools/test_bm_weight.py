@@ -1,4 +1,4 @@
-"""Tests for scripts/bm_weight.py: weight report, performance plan, compat policy table."""
+"""Tests for core/scripts/bm_weight.py: weight report, performance plan, compat policy table."""
 import json
 import os
 import subprocess
@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(ROOT, "scripts"))
+sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bm_weight  # noqa: E402
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402
@@ -181,7 +181,7 @@ class PolicyTest(unittest.TestCase):
 
 class CliTest(unittest.TestCase):
     def run_cli(self, *args):
-        return subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "bm_weight.py"), *args],
+        return subprocess.run([sys.executable, os.path.join(ROOT, "core", "scripts", "bm_weight.py"), *args],
                               capture_output=True, text=True)
 
     def test_json_and_text_on_a_cart_file(self):
@@ -211,7 +211,7 @@ class CliTest(unittest.TestCase):
             self.assertIn("not a .bm", r.stderr)
 
     def test_a_cart_in_the_repo(self):
-        path = os.path.join(ROOT, "carts", "hero", "assets", "models.bm")
+        path = os.path.join(ROOT, "bm", "hero", "assets", "models.bm")
         if not os.path.exists(path):
             self.skipTest("fixture missing")
         out = json.loads(self.run_cli(path, "--json").stdout)

@@ -19,7 +19,7 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FORGE = os.path.join(HERE, "..", "..", ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
+FORGE = os.path.join(HERE, "..", "..", ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
 AUTHOR = "bm tests"
 LICENCE = "Mock, made for bm tests, CC0"
 

@@ -1,12 +1,12 @@
 # FAT long names (write, up to 16 characters)
 
-Status: implemented (2026-11-10). Plan made on 2026-10-30 from a read of `src/fs/fat.c` and the tests.
+Status: implemented (2026-11-10). Plan made on 2026-10-30 from a read of `core/src/fs/fat.c` and the tests.
 
 ## Goal
 
 The kernel writes a file or a folder with a long name (VFAT LFN). The base name has 1 to 16 characters.
 A person sees `hunter_lo.bmm` or `Il mio gioco.bm` when the card is in a PC.
-Today the kernel reads long names but writes only 8.3 names (`to_83` in `src/fs/fat.c`).
+Today the kernel reads long names but writes only 8.3 names (`to_83` in `core/src/fs/fat.c`).
 
 ## Facts found in the code
 
@@ -16,7 +16,7 @@ Today the kernel reads long names but writes only 8.3 names (`to_83` in `src/fs/
   the run must continue from the free tail into the new cluster. A `0x00` slot before a used slot hides the file.
 - `store()` gives the CPU back until the data is written. Choose the alias and the slots after that,
   in the window with no tick. Then two writers cannot take the same alias.
-- `src/fs/sdlock.c` needs no change.
+- `core/src/fs/sdlock.c` needs no change.
 - `make test-fat` needs `mkfs.vfat`, mtools and `fsck.vfat`. They are not in the Claude cloud container.
   CI installs them. The test always uses FAT32. FAT16 is not tested today.
 - `tests/qemu_test.py` `test_monitor_files` expects `cp note.txt toolongname.txt` to fail with "8.3". It must change.

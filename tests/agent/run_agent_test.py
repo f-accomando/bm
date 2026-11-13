@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""make test-agent: carts/agent in bmhost with a fake model (tests/agent/prelude.lua before main.lua).
+"""make test-agent: bm/agent in bmhost with a fake model (tests/agent/prelude.lua before main.lua).
 
   run_agent_test.py BMHOST MKBM_PY BUILD_DIR
 
@@ -30,9 +30,9 @@ lua = os.path.join(out, "agent_test.lua")
 with open(lua, "w") as f:
     f.write(open(os.path.join(HERE, "prelude.lua")).read())
     f.write("\n")
-    f.write(open(os.path.join(ROOT, "carts", "agent", "main.lua")).read())
+    f.write(open(os.path.join(ROOT, "bm", "agent", "main.lua")).read())
 cart = os.path.join(out, "agent_test.bm")
-subprocess.run([sys.executable, mkbm, "-o", cart, "--lua", lua, "--info", os.path.join(ROOT, "carts", "agent", "bm.info")],
+subprocess.run([sys.executable, mkbm, "-o", cart, "--lua", lua, "--info", os.path.join(ROOT, "bm", "agent", "bm.info")],
                check=True, stdout=subprocess.DEVNULL)
 script = os.path.join(out, "input.txt")
 with open(script, "w") as f:
@@ -55,9 +55,9 @@ with open(wiz, "w") as f:
     f.write("FAKE_UNSET = true\n")
     f.write(open(os.path.join(HERE, "prelude.lua")).read())
     f.write("\n")
-    f.write(open(os.path.join(ROOT, "carts", "agent", "main.lua")).read())
+    f.write(open(os.path.join(ROOT, "bm", "agent", "main.lua")).read())
 wcart = os.path.join(out, "agent_wizard.bm")
-subprocess.run([sys.executable, mkbm, "-o", wcart, "--lua", wiz, "--info", os.path.join(ROOT, "carts", "agent", "bm.info")],
+subprocess.run([sys.executable, mkbm, "-o", wcart, "--lua", wiz, "--info", os.path.join(ROOT, "bm", "agent", "bm.info")],
                check=True, stdout=subprocess.DEVNULL)
 with open(script, "w") as f:
     f.write("10 source keyboard\n15 shot wizard\n20 type 1\\n\n30 type gsk_secret_key_9876\n35 shot key\n"
@@ -78,7 +78,7 @@ check(all(os.path.exists(os.path.join(out, n + ".png")) for n in ("wizard", "key
       "screenshots wizard, key, tested, paired")
 
 real = os.path.join(out, "agent_real.bm")
-shutil.copy(os.path.join(ROOT, "build", "carts", "agent.bm") if os.path.exists(os.path.join(ROOT, "build", "carts", "agent.bm")) else cart, real)
+shutil.copy(os.path.join(ROOT, "build", "bm", "agent.bm") if os.path.exists(os.path.join(ROOT, "build", "bm", "agent.bm")) else cart, real)
 with open(script, "w") as f:
     f.write("20 shot unset\n30 quit\n")
 env = dict(os.environ, BMHOST_CONFIG="")

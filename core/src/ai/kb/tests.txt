@@ -1,0 +1,394 @@
+# Held-out questions: never trained on (core/scripts/trainassist.py prints how
+# many come first; tests/ai/test_ai.c wants 90% in the first three).
+# question => the right entries (any of them)
+
+# drawing
+pulisci lo schermo => cls
+come metto lo sfondo nero => cls
+voglio disegnare un pallino giallo => circfill, pset
+fare un rettangolo colorato pieno => rectfill
+come faccio solo il contorno di un quadrato => rect
+come si traccia una riga tra due punti => line
+scrivere game over grande in mezzo => center_text, print
+how do i write text on the screen => print
+mostrare il numero dei punti in alto => hud, print
+dove sono le coordinate dello schermo, quanto è largo => screen_size
+make a gradient triangle => tri
+colore a caso per le palline => rgb, random
+
+# sprites and map
+disegna il mio sprite => spr
+voglio uno sprite 16x16 che guarda a sinistra => spr, face_direction, big_sprite
+sprite che cammina con due fotogrammi => anim_frames
+come cambio un pixel dello sheet da codice => sset, sprite_from_string
+come leggo che tile c'è sotto i piedi => mget, collide_map
+mostrare il livello fatto a tessere => map
+far scorrere il livello quando il giocatore si muove => map_scroll, camera
+la camera dovrebbe seguire l'omino in modo fluido => camera_smooth
+tile che fanno male come le spine => tile_flags, fget
+prendere le monetine sparse nel livello => pickup_tiles
+generare una grotta diversa ogni volta => map_gen
+scrivere il livello con dei caratteri nel codice => map_in_code
+
+# input and movement
+voglio muovere l'omino con le freccette => move_arrows
+how do i move my character with the keyboard => move_arrows
+il personaggio in diagonale corre troppo => move_8dir
+usare la levetta del ds4 per muoversi => move_stick, stick
+il personaggio deve scivolare un po' quando lascio il tasto => accel_friction
+non deve uscire dai bordi dello schermo => clamp_screen
+se esce a destra rientra da sinistra => wrap_screen
+nemico che mi viene dietro => chase
+ruotare la nave e accelerare come in asteroids => move_angle
+muoversi una casella per volta => grid_move
+nemico che cammina da una parte all'altra => patrol
+quanto dista il nemico dal giocatore => distance
+il tasto deve valere una volta sola, non ripetere => btnp
+sapere se A è premuto => btn
+quanti joypad sono collegati => players
+scrivere con la tastiera il nome => name_input, keyp
+
+# physics and collisions
+come faccio saltare il personaggio => jump_gravity
+far cadere il personaggio e farlo atterrare => jump_gravity, platformer
+voglio un salto doppio => double_jump
+gioco di piattaforme con la mappa => platformer
+come capisco se due sprite si scontrano => collide_rect
+check if two circles touch => collide_circle
+il mio omino passa attraverso i muri => collide_map, platformer
+la pallina deve rimbalzare sulle pareti => bounce_walls
+racchetta e pallina come pong => pong_ball
+
+# action
+il giocatore deve sparare quando premo A => bullets
+sparare tenendo premuto con una certa cadenza => cooldown
+gestire tanti nemici insieme => enemies_list
+i colpi devono uccidere gli alieni => bullets_hit
+il nemico spara verso di me => enemy_aim
+nemici che arrivano a ondate sempre più forti => spawn_waves
+esplosione con tante scintille => particles
+lo schermo deve tremare quando esplode qualcosa => screen_shake
+dopo essere colpito il giocatore lampeggia e non perde altre vite => invincible
+barra della salute del boss => health_bar
+
+# game structure and ui
+come è fatto un gioco, quali funzioni servono => callbacks, game_skeleton
+un esempio di gioco da cui partire => game_skeleton
+schermata iniziale, partita e fine => game_states
+fare qualcosa ogni 3 secondi => timer
+tempo che scende fino a zero => countdown
+scritta premi start che lampeggia => blink
+mettere in pausa il gioco con start => pause
+ricomincia la partita da capo => restart
+il gioco va a scatti, come misuro => perf_measure, perf_tips
+menu con gioca e opzioni scelto con le frecce => title_menu
+mostrare il punteggio finale quando perdi => game_over_screen
+fumetto con il testo che si scrive da solo => dialog_box
+transizione al nero tra due livelli => fade
+chi viene disegnato sopra a chi => draw_order
+lo stesso nemico ma blu => palette_swap
+
+# sound
+fare un beep quando prendo la moneta => sfx_examples, note
+suono di esplosione => sfx_examples, envelope, note
+suonare una canzoncina quando vinci => jingle
+musica di sottofondo che si ripete => music_loop, music
+suono che scende come un laser => slide, freq, sfx_examples
+fermare il suono => noteoff
+far partire il brano che ho fatto nel sound editor => music
+suonare l'effetto 2 del banco => sfx
+la musica deve andare più veloce col boss => tempo
+nota con il vibrato => vibrato
+suonare un accordo di do maggiore arpeggiato => arp
+abbassa il volume => volume
+voglio che le note suonino come un pianoforte elettrico => tone
+il suono è troppo 8 bit, lo voglio più morbido => tone, retro
+far suonare la cassa e il rullante dal codice => play
+che strumenti pronti ci sono => instruments
+mettere un po' di eco e riverbero alla musica => reverb
+voglio il suono grezzo delle console a 8 bit => retro
+generare una melodia nel codice del gioco => ai_music
+voglio scrivere la musica a pattern come in strudel => riff, riff_code
+una nota esattamente in tempo anche se il gioco rallenta => play_at
+cosa significa <c e g> nella stringa del ritmo => riff_mini
+come sento la musica mentre la scrivo in bm code => riff_live, riff_code
+voglio un pad più largo con il chorus => chorus, tone_fx
+l'audio esce a 16 o a 24 bit? => audio_depth
+suonare il rullante campionato della console => sample_kit, play
+un basso sporco a pochi bit come un vecchio campionatore => tone_fx
+how long is each sample in my bank => audio_samples
+in riff voglio la batteria bd sd hh come strudel => riff_kit
+
+# saves, players, system
+salvare il punteggio più alto => high_score, save
+caricare i dati salvati => saved
+salvare a che livello sono arrivato => save_progress
+tre partite salvate da scegliere all'avvio => saves, save_progress
+cancellare la partita salvata nello slot 2 => delsave
+quale funzione del mio gioco è la più lenta => profile
+fermare il gioco a una riga e guardare le variabili => breakpoint
+giocare in due con due controller => two_players
+numero casuale tra 1 e 6 => random
+scrivere un messaggio nel log per il debug => log
+uscire dal gioco e tornare al menu => quit
+quanti fps sto facendo => stat, perf_measure
+quanto tempo è passato dall'inizio => time
+
+# 3d and lights
+come si fa un cubo che gira in 3d => cube_3d
+camminare in un mondo 3d in prima persona => fps_camera
+nebbia sugli oggetti lontani => fog3d
+scena di notte con la torcia => night_scene, light_begin
+lampione che tremola => light, night_scene
+creare un modello 3d con vertici e facce => mesh
+
+# lua
+come aggiungo un elemento a una lista => lua_tables
+scorrere tutti gli elementi di una tabella => lua_loops
+come scrivo una funzione che restituisce due valori => lua_functions
+differenza tra local e globale => lua_local
+unire testo e numeri => lua_strings
+arrotondare un numero con la virgola => lua_math
+come si scrive diverso in lua => lua_if, err_unexpected_symbol
+fare una classe nemico con i metodi => lua_objects
+sequenza di eventi con delle pause => lua_coroutines
+ordinare la classifica dal più alto => lua_sort
+
+# errors
+attempt to call a nil value (global 'sprr') => err_call_nil
+attempt to index a nil value (local 'enemy') => err_index_nil
+attempt to perform arithmetic on a nil value (global 'punti') => err_arith_nil
+attempt to compare nil with number => err_compare_nil
+'end' expected (to close 'if' at line 12) near <eof> => err_end_expected
+unexpected symbol near '+' => err_unexpected_symbol
+cart timeout: more than 20 million instructions in one frame => err_timeout
+bad argument #3 to 'print' (number expected, got nil) => err_bad_argument
+il gioco si blocca e poi dice timeout => err_timeout
+'then' expected near '=' => err_then_expected
+attempt to concatenate a nil value (field 'name') => err_concat_nil
+attempt to call a number value (global 'time') => err_call_value
+
+# sprite recipes
+voglio uno slime verde => sprite.slime
+disegnami una navetta per lo spazio => sprite.ship
+mattoncini per il muro del castello => sprite.brick
+uno scheletro cattivo => sprite.skull
+il cuoricino delle vite => sprite.heart
+una moneta che gira => sprite.coin
+il pavimento d'erba per la mappa => sprite.grass, sprite.ground
+un mostriciattolo con le corna => sprite.monster
+una bottiglietta magica rossa => sprite.potion
+un tesoro da aprire => sprite.chest
+l'acqua del lago => sprite.water
+un nemico robotico => sprite.robot
+un fantasmino bianco => sprite.ghost
+una chiave d'oro => sprite.key
+il fuoco di un falò => sprite.fire
+un albero di natale => sprite.tree
+un omino che cammina di lato per il mio platform => sprite.hero_side
+la macchinina per il gioco di corse => sprite.car
+
+# actions (#entry: lines in bm Code)
+metti il ternario in questa funzione => act.ternary
+scrivi un commento che spieghi la funzione => act.comment, act.explain
+voglio un log quando entra nella funzione => act.log
+via tutti i log => act.remove_log
+sistema i rientri => act.indent
+rinomina speed in velocita => act.rename
+cosa fa questa funzione? => act.explain
+rendila locale => act.make_local
+crea uno snippet per uno sprite particle effect => particles
+voglio un font più piccolo per scrivere tante righe => font
+salvare il codice senza perdere la mappa => cart_write
+come apro due file uno accanto all'altro => bm_code
+come chiedo all'assistente di modificare la funzione => entry_lines
+
+# 3d recipes (bm Studio, bm Animator)
+fammi un cubo => mesh.cube, mesh_cube
+voglio una palla 3d => mesh.sphere
+un albero per il villaggio => mesh.tree
+make me a small house => mesh.house
+una casetta rossa con il tetto => mesh.house
+torre del castello con i merli => mesh.tower
+un omino che cammina => mesh.hero, sprite.hero_side, sprite.hero
+a knight with a sword => mesh.knight
+un cane che scodinzola => mesh.dog
+un drago verde che vola => mesh.dragon
+mech rosa con il pilota => mesh.mech
+giant battle robot with cannons => mesh.mech
+una botte di legno => mesh.barrel
+forziere del tesoro => mesh.chest
+un ponte di legno sul fiume => mesh.bridge
+un pesciolino arancione => mesh.fish
+pupazzo di neve con la carota => mesh.snowman
+uno scheletro nemico => mesh.skeleton, sprite.skull
+
+# mouse (M32)
+come leggo dove è il mouse => mouse
+how do i know the player clicked => mousep, mouse
+
+# the SDK's guides (2026-10-04): 2D and 3D games, step by step
+non so da dove iniziare per fare il mio videogioco => guide.sdk_start
+what are the first steps to build a game in bm => guide.sdk_start
+a cosa servono i tasti f1 f2 f3 f4 dell'sdk => guide.sdk_pages, editor_keys
+where do i draw the level map in the sdk => guide.sdk_pages, guide.map
+come apro il mio progetto con bm pixel => guide.sdk_suite
+go back from bm studio to the sdk => guide.sdk_suite
+voglio fare un gioco con un omino che salta tra le piattaforme => guide.platformer, jump_gravity, platformer
+step by step platformer like mario => guide.platformer, platformer
+un'avventura vista dall'alto come zelda => guide.topdown
+top-down maze where i collect coins => guide.topdown, pickup_tiles
+navicella che spara ai nemici che arrivano => guide.shooter, bullets
+how to make a space shoot em up => guide.shooter
+gioco a caselle tipo sokoban => guide.puzzle, grid_move
+make a grid puzzle game => guide.puzzle
+dove disegno la grafica del personaggio => guide.sprites, sprite_sheet
+how do i make pixel art sprites for my game => guide.sprites
+creare un livello con le tessere della mappa => guide.map, map
+build a tile level with walls => guide.map, tile_flags
+aggiungere una musica di sottofondo al gioco => guide.sound, music, music_loop
+sound effects when the player jumps => guide.sound, sfx, sfx_examples
+schermata iniziale e fine partita => guide.ui, game_states, title_menu, game_over_screen
+title screen score and game over => guide.ui, game_states
+voglio iniziare un gioco in tre dimensioni => guide.3d_first, cube_3d
+first steps for a 3d scene => guide.3d_first
+mettere nel gioco la casa che ho fatto con bm studio => guide.3d_models, model
+draw my bm studio model in the game => guide.3d_models, model
+far correre il personaggio 3d con la sua animazione => guide.3d_anim, animate
+play the walk animation of my 3d hero => guide.3d_anim, animate
+la telecamera deve stare dietro al personaggio => guide.3d_camera
+camera behind the player in 3d => guide.3d_camera
+il personaggio 3d passa attraverso i muri => guide.3d_world, world_move
+walls and floors collisions in 3d => guide.3d_world, world3d
+scena notturna con lanterne e nebbia => guide.3d_light, lamp3d, night_scene
+fog and shadows in my 3d scene => guide.3d_light, fog3d, shadow3d
+scintille ed esplosioni nel mondo 3d => guide.3d_effects, point3d
+laser beams and particles in 3d => guide.3d_effects, line3d, point3d
+scrivere il nome sopra il nemico in 3d => guide.3d_hud, project3d
+health bar over a 3d enemy => guide.3d_hud, project3d
+saltare i nemici che non si vedono in 3d => visible3d
+skip enemies hidden behind the walls => visible3d, pvs3d
+il mio gioco 3d va a scatti => guide.3d_perf, perf_tips
+how many triangles can the pi draw => guide.3d_perf
+vedere quanta memoria e quanti token usa il gioco => guide.devkit, stat
+performance overlay with ram and fps => guide.devkit
+il gioco finisce la memoria => guide.ram, err_memory
+reduce memory use of my game => guide.ram
+il dev kit dice che ho troppi token => guide.tokens
+what does token count mean => guide.tokens, code_tokens
+portare il gioco sulla powkiddy => guide.rgb30
+is there a size limit for the rgb30 cartridge => guide.rgb30
+il gioco si blocca con un errore in rosso => guide.test, editor_run
+how do i debug my game => guide.test, log
+mettere il mio gioco nel market => guide.publish
+share my game with other consoles => guide.publish
+una macchina che corre su una pista 3d => guide.racing3d
+make a kart racing game => guide.racing3d
+cosa può fare l'assistente per me => guide.assistant, assistant_keys
+can the ai help me make the game => guide.assistant
+
+# the 3D the assistant did not know yet (2026-10-04)
+prendere il modello chiamato house => model
+elenco di tutti i modelli del gioco => models
+blend idle and walk animations => animate
+quanto dura l'animazione del salto => clips
+nomi di tutte le ossa del cane => bones3d
+la spada nella mano destra del personaggio => bone3d
+il robot gira la testa verso di me => bone_turn
+centrare il modello sullo schermo => bounds3d
+colpo alla testa del nemico 3d => hit3d
+luce arancione del tramonto => sky3d
+metallo che riflette il sole => shine3d
+ombre nere sotto gli oggetti => shadow3d, guide.3d_light
+pallini luminosi nello spazio 3d => point3d
+disegnare un raggio laser tra due punti => line3d
+fumo che guarda sempre la telecamera => sprite3d
+il 3d lo disegna la gpu o l'arm => gpu3d
+modelli lontani disegnati come un quadrato => impostor3d
+far disegnare alla gpu mentre gira il draw dopo => gpu3d_later
+creare il mondo delle collisioni => world3d
+mettere una cassa solida nel livello => world_box
+il nemico vede il giocatore oltre il muro => world_ray
+camminare scivolando lungo i muri => world_move
+altezza del pavimento sotto il giocatore => world_floor
+voglio il gioco a 960x540 => screen
+quanti token sono queste righe => code_tokens
+
+# map layers, tile flags, named zones (R11)
+come dico che una tile è un muro => tile_flags, fset, fget
+la chioma dell'albero deve stare sopra il personaggio => map_layers
+how do i draw a second map layer => map_layers, map, mlayers
+quali tile tocca il rettangolo del giocatore => mflags, collide_map
+disegnare lo sprite della moneta per nome => zspr, named_sprites
+quanto è grande la mappa in celle => msize
+
+# bmlib (R10)
+c'è una libreria con le funzioni già pronte per i giochi => bmlib
+tenere il valore tra zero e cento => lib.clamp, clamp_screen
+platform con gravità usando bmlib => lib.step, platformer
+il nemico vede il giocatore o c'è un muro => lib.ray
+far scendere la scritta del titolo con un rimbalzo => lib.tween, lib.ease
+chiamare una funzione tra tre secondi => lib.after, timer
+una scena con dialoghi che aspettano => lib.script
+camera con la zona morta che segue l'eroe => lib.camera, camera_smooth
+schermata titolo e partita con bmlib => lib.states, game_states
+menu di pausa con il volume => lib.pause, pause
+salvare il punteggio migliore => lib.store, save_progress
+numeri casuali sempre uguali con lo stesso seme => lib.rng
+togliere dalla lista i proiettili usciti dallo schermo => lib.each, bullets
+
+# hitboxes, players, network
+il pugno deve colpire il nemico una volta sola => lib.hits, hitbox_frames
+le hitbox scritte nello sheet per ogni fotogramma => zboxes, hitbox_frames
+specchiare la hitbox quando il personaggio guarda a sinistra => lib.box
+i due lottatori non devono passare uno dentro l'altro => lib.separate
+schermata dove ogni giocatore preme A per entrare => lib.party
+schermo diviso in quattro per quattro giocatori => lib.split
+il colore del giocatore due => lib.pads, controller
+giocare con un amico su un'altra console in rete => bmnet, guide.online
+ospitare una partita sulla rete di casa => net.host
+la partita deve andare uguale su tutte le console => net.frames, net.check
+mandare la mossa all'altro giocatore in un gioco a turni => net.post
+tasti con i nomi delle azioni del gioco => keymap
+
+# music (bm Sound)
+mi serve una batteria per una canzone rock => music.beat.rock
+suono quando il personaggio prende una moneta => music.sfx.coin
+musica di sottofondo per una grotta buia => music.base.dungeon, music.base.ambient
+una melodia malinconica per il finale => music.melody.sad
+arpeggio veloce in stile trance => music.arp.trance
+effetto per quando esplode una bomba => music.sfx.explosion
+la base per la battaglia col boss finale => music.base.boss
+a funky bass line => music.bass.funk
+the sound when the hero jumps => music.sfx.jump
+lofi beats to study to => music.beat.lofi, music.base.lofi
+
+# rig and skin (bm Animator)
+come metto le ossa al mio personaggio => guide.rig_character
+il mio modello non si muove con l'animazione pronta => tip.rig_names
+what is the right order to rig a character => guide.rig_character
+il braccio si deforma quando lo piego => tip.rig_stretch
+my elbow looks broken when it bends => tip.rig_stretch
+perché non si possono mescolare due ossa su un angolo => tip.rig_one_bone
+do i need weight painting for the skin => tip.rig_one_bone
+come aggiungo una coda animata a un animale => howto.rig_tail
+the tail of my gecko should sway when it walks => howto.rig_tail
+come controllo il rig prima di fare l'animazione => howto.rig_test_pose
+test poses for a rigged model => howto.rig_test_pose
+
+# low poly and reduction (bm Studio)
+come riduco i triangoli del mio personaggio => howto.reduce_triangles
+make my 3d model lighter for the console => howto.reduce_triangles
+quanti triangoli posso usare per un personaggio sulla console => tip.tri_limits
+what is the vertex limit of a model in the tools => tip.tri_limits
+meglio fare il modello basso fin dall'inizio o ridurre dopo => tip.reduce_or_build
+is decimating better than modeling low poly => tip.reduce_or_build
+dopo aver ridotto i poligoni la testa è venuta male => tip.reduce_lost_parts
+my reduced model lost the hands => tip.reduce_lost_parts
+guida per portare il personaggio a 1200 triangoli => guide.lowpoly_1200
+crea una persona organica con la pelle continua => mesh.biped
+make a smooth humanoid with no loose parts => mesh.biped
+fammi un camaleonte con la coda arrotolata => mesh.chameleon
+i want a lizard person with a long tail => mesh.chameleon
+perché il braccio si stacca dal corpo quando lo piego => tip.skin_continuous
+how do i avoid gaps at the joints of my character => tip.skin_continuous

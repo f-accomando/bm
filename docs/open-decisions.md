@@ -42,18 +42,18 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)
 - `sdk/README.md` says bm Studio and bm Animator do not use the mouse (they do) and gives Animator's copy/paste as `c` `v` (it is Ctrl+C / Ctrl+V).
 - `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time: `--res` is the resolution there.
-- `src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project flag).
-- LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`boot/rgb30/LEGGIMI.txt`).
+- `core/src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project flag).
+- LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`core/boot/rgb30/LEGGIMI.txt`).
 - `sdk_b16.bm` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
 - The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.
 
 ## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
-- Everything converges before 1.0.0: `python3 scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
+- Everything converges before 1.0.0: `python3 core/scripts/consistency.py gate` lists the blockers (27 on 2026-10-13: differences between the Pi and the RGB30 that are not hardware, 2 accepted drifts and 2 specification items); 5 more are fixed in the code and wait for a try on an RGB30 (D01, D02, D06, D07, D08).
 - A baseline tag for the current line (`v0.3.0`?) and `v1.0.0` when `gate` is empty: waiting for a yes (a tag is outward-facing).
 - D03/D05 (RGB30 multiplayer and menu pointer): decided 25 Oct 2026 (PORT) and written; to try on the console. D13 (tools from Market > Apps on the RGB30).
 
 ## Postponed on purpose (to do in the future, decided 2026-10-13)
-- Manual for the Assistant app (`carts/assistant`).
+- Manual for the Assistant app (`bm/assistant`).
 - Manual of the specifications (the `docs/spec/` registry as a PDF).
 - Asset exchange on the console (sharing resources between games from the console itself; the PC side, `bmres.py`, exists).
 - Owner's tests on the hardware: D01, D02, D06, D07, D08, D13, D16, the screenshot (Select held 3 s on the RGB30) and a 720x720 `.bm` on the Pi; then mark them `resolved` in `docs/spec/divergences.toml` and run `consistency.py check`.

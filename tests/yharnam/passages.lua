@@ -1,14 +1,14 @@
 -- The passages between the areas, with their gates open: can the hunter walk through each one, and how wide is it?
---   luahost tests/yharnam/passages.lua carts/yharnam/main.lua [--drawn]   -> "passages ok", else the narrow ones and exit 1
+--   luahost tests/yharnam/passages.lua bm/yharnam/main.lua [--drawn]   -> "passages ok", else the narrow ones and exit 1
 -- Every chunk is made and every gate is broken (as after the boss). Then the real collision of the game (Y.blocked: the
 -- tiles of the ground and the ellipses of the objects, for the hunter's feet) is asked on a grid of 2 pixels round each
 -- gate: a fill from the side A of the border has to reach the side B, and the free width of the border line (the
 -- narrowest of the lines 0, 8 and 16 pixels from the border, on both sides) has to be at least MIN pixels.
 local B = dofile((arg[0]:match("^(.*/)") or "") .. "fakebm.lua")
 local SRC = arg[1]
-assert(SRC, "luahost tests/yharnam/passages.lua carts/yharnam/main.lua [--drawn]")
+assert(SRC, "luahost tests/yharnam/passages.lua bm/yharnam/main.lua [--drawn]")
 if arg[2] == "--drawn" then
-  local A = (arg[0]:match("^(.*/)") or "") .. "../../carts/yharnam/assets/"
+  local A = (arg[0]:match("^(.*/)") or "") .. "../../bm/yharnam/assets/"
   B.load_map({ { "ground", A .. "map_ground.csv" }, { "overlay", A .. "map_overlay.csv" },
                { "objects", A .. "map_objects.csv" } })
 end

@@ -31,7 +31,7 @@ def emulator(rom, ticks):
 def port(ticks):
     env = dict(os.environ, SMW_TRACE="1", SMW_GOD="1")
     tmp = tempfile.mkdtemp()
-    subprocess.run([sys.executable, ROOT + "/carts/smw/build/build.py", ROOT + "/carts/smw/extracted", tmp], check=True,
+    subprocess.run([sys.executable, ROOT + "/bm/smw/build/build.py", ROOT + "/bm/smw/extracted", tmp], check=True,
                    capture_output=True, env=env)
     lines, last = [], None
     for t in range(ticks):                       # tick t runs in this frame of the 60 Hz host

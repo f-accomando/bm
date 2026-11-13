@@ -1,5 +1,5 @@
 /*
- * A V3D for the tests on the PC (M33): the functions of src/gpu/v3d.h
+ * A V3D for the tests on the PC (M33): the functions of core/src/gpu/v3d.h
  * over a small emulator. It reads the control lists bm writes (only the
  * packets bm uses: anything else is an error), keeps the triangles of the
  * binning list with their state, and runs the rendering list tile by tile

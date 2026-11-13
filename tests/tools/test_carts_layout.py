@@ -1,4 +1,4 @@
-"""Tests for scripts/carts_layout.py: tests CLI checks on temporary repo structures."""
+"""Tests for core/scripts/carts_layout.py: tests CLI checks on temporary repo structures."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "scripts", "carts_layout.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "carts_layout.py")
 
 VALID_BMINFO = """name: Pong
 author: Dev
@@ -16,7 +16,7 @@ resolution: 640x360
 
 def setup_repo(root, projects=None, doc_ids=None, create_carts=True):
     if create_carts:
-        carts_dir = os.path.join(root, "carts")
+        carts_dir = os.path.join(root, "bm")
         os.makedirs(carts_dir, exist_ok=True)
         if projects:
             for name, data in projects.items():

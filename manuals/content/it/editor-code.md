@@ -276,7 +276,7 @@ Porta il cursore sul nome di una funzione di bm e premi **Ctrl+Q** (sul pad, tie
 
 ## Il controllo dei nomi API al salvataggio
 
-Quando salvi una scheda il cui file finisce in `.bm`, `.bme` o `.lua`, bm Code cerca i nomi che sembrano chiamate all'API di bm ma non ci sono, come fa `scripts/api_lint.py`.
+Quando salvi una scheda il cui file finisce in `.bm`, `.bme` o `.lua`, bm Code cerca i nomi che sembrano chiamate all'API di bm ma non ci sono, come fa `core/scripts/api_lint.py`.
 
 - La riga di stato dice `API: N unknown name(s), line L: NAME` per il primo, e il numero di ogni riga con un nome sconosciuto diventa **rosso**.
 - Un nome che definisci tu, in questa scheda o in un'altra scheda aperta, vale come noto.

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOOL = os.path.join(HERE, "..", "..", "tools", "sync_log.py")
+TOOL = os.path.join(HERE, "..", "..", "core", "tools", "sync_log.py")
 ROW = re.compile(r"^\| \d{4}-\d\d-\d\dT\d\d:\d\d[+-]\d\d:\d\d \| SPV \| `b/x` \| `ASSIGNED` \| NET: W1, W2 \|$")
 
 

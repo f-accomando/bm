@@ -1,10 +1,10 @@
 /*
- * Host test of the Pi 1 B's network path: lwIP and src/net/net.c on the
- * Ethernet driver (src/usb/smsc95xx.c), itself on a simulated LAN9512
+ * Host test of the Pi 1 B's network path: lwIP and core/src/net/net.c on the
+ * Ethernet driver (core/src/usb/smsc95xx.c), itself on a simulated LAN9512
  * (tests/usb/lan9512_sim.c). A small peer on the "cable" answers ARP,
  * DHCP (192.168.1.50 for us) and sends a ping. The cable is plugged in
  * after the start, pulled and plugged in again. The cartridges' UDP
- * (src/net/cartnet.c): a packet from the peer to a game's socket, a
+ * (core/src/net/cartnet.c): a packet from the peer to a game's socket, a
  * broadcast of the game on the cable.
  */
 #include "net/net.h"

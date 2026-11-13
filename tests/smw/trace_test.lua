@@ -1,4 +1,4 @@
--- Plays the input scripts of scripts/smw_trace.py through the physics and logs one line per tick.
+-- Plays the input scripts of core/scripts/smw_trace.py through the physics and logs one line per tick.
 --SCRIPTS--
 
 local function solid(px, py) return py >= 384 end

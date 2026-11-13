@@ -1,8 +1,8 @@
 /*
- * Host test of the mesh capture (src/bm/meshcap.c, cart_meshes() of bm
+ * Host test of the mesh capture (core/src/bm/meshcap.c, cart_meshes() of bm
  * Mesh): the meshes a cartridge builds in its code, with their names.
  *
- *   test_meshcap src/bm/runtime.c CART.bm name,name,... [CART.bm names ...]
+ *   test_meshcap core/src/bm/runtime.c CART.bm name,name,... [CART.bm names ...]
  *
  * The names of bm's functions come from the api[] table of runtime.c (all
  * of them get stand-ins, as on the console). Each cartridge must run with

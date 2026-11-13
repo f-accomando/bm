@@ -1,8 +1,8 @@
-# BML Language & Compiler Manual (`tools/bml/`)
+# BML Language & Compiler Manual (`core/tools/bml/`)
 
-This document is the technical reference and manual for **BML** (*BareMetal Language*), the compiler and virtual machine in [`tools/bml/bml.py`](../../tools/bml/bml.py).
+This document is the technical reference and manual for **BML** (*BareMetal Language*), the compiler and virtual machine in [`core/tools/bml/bml.py`](../../core/tools/bml/bml.py).
 
-For project state and rules, see [`docs/progress/typed.md`](../progress/typed.md). For the earlier C-generating prototype (`scripts/bmt.py`) and benchmark history, see [`docs/design/typed-native.md`](typed-native.md).
+For project state and rules, see [`docs/progress/typed.md`](../progress/typed.md). For the earlier C-generating prototype (`core/scripts/bmt.py`) and benchmark history, see [`docs/design/typed-native.md`](typed-native.md).
 
 ---
 
@@ -11,16 +11,16 @@ For project state and rules, see [`docs/progress/typed.md`](../progress/typed.md
 BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the Raspberry Pi Zero W (BCM2835, ARM1176JZF-S, ARMv6 A32):
 
 1. **Single-Source Dual Execution**: Every valid `.b` file is also valid Lua 5.4 once its `: <type>` annotations are stripped (`bml.py --lua`). The standard Lua VM is the ground-truth oracle for every test stage.
-2. **Explicit Multi-Pass Architecture**: Unlike `scripts/bmt.py` (which emits C text directly during single-pass parsing), `tools/bml/bml.py` separates the compiler into distinct, inspectable stages:
+2. **Explicit Multi-Pass Architecture**: Unlike `core/scripts/bmt.py` (which emits C text directly during single-pass parsing), `core/tools/bml/bml.py` separates the compiler into distinct, inspectable stages:
    - **Stage 1 (Front End)**: `Lexer` $\to$ `Parser` $\to$ `AST` $\to$ `TypeChecker` (+ Lua stripper `to_lua`).
    - **Stage 2 (Host Bytecode & VM)**: `BytecodeCompiler` $\to$ `Module` $\to$ `StackVM` (with `--dump` disassembler).
-   - **Stage 3 (Kernel VM Back End)**: `BMVMCompiler` (`--bmvm <out.bmv>`), lowering the checked stack IR into a verified `BMV1` register-machine module executed by [`src/bm/bmvm.c`](../../src/bm/bmvm.c) (`vm_load`, `vm_run`).
+   - **Stage 3 (Kernel VM Back End)**: `BMVMCompiler` (`--bmvm <out.bmv>`), lowering the checked stack IR into a verified `BMV1` register-machine module executed by [`core/src/bm/bmvm.c`](../../core/src/bm/bmvm.c) (`vm_load`, `vm_run`).
    - **Stage 4 (ARMv6 A32 Native Back End)**: `ARMv6Assembler` and `ARMv6Compiler` (`--armv6 <out.bin>`, `--dump-armv6`), lowering BML functions directly to 32-bit ARMv6 (A32, AAPCS) machine words and verified on an emulated ARM1176JZF-S CPU via `qemu-system-arm -M versatilepb -cpu arm1176`.
-   - **Stage 5 (Native Pi Loader & Cache Maintenance)**: `compile_native_blob` (`--native <out.bmn>`), packing the verified `BMN1` container loaded by [`src/bm/bmnative.c`](../../src/bm/bmnative.c) and [`src/bm/api_vm.c`](../../src/bm/api_vm.c) (`native_load`, `native_fn`, `native_run`) into 32-byte-aligned executable RAM with CP15 D-cache clean and I-cache invalidate.
+   - **Stage 5 (Native Pi Loader & Cache Maintenance)**: `compile_native_blob` (`--native <out.bmn>`), packing the verified `BMN1` container loaded by [`core/src/bm/bmnative.c`](../../core/src/bm/bmnative.c) and [`core/src/bm/api_vm.c`](../../core/src/bm/api_vm.c) (`native_load`, `native_fn`, `native_run`) into 32-byte-aligned executable RAM with CP15 D-cache clean and I-cache invalidate.
    - **Stage 6 (Types & Memory)**: 32-bit two's complement wraparound for `i32`, 1-based arrays (`i32[]`, `bool[]`, `f32[]`), `struct Name ... end` (`s.field`), and single-precision `f32` floats lowered to hardware VFPv2 coprocessor 10 instructions (`vadd.f32`, `vsub.f32`, `vmul.f32`, `vdiv.f32`, `vsqrt.f32`, `vcmp.f32` + `vmrs APSR_nzcv, fpscr`, `vcvt.f32.s32`, `vcvt.s32.f32`).
    - **Stage 7 (Kernel Function Table)**: Direct calls from `.b` to `bm` kernel functions (`cls`, `pix`, `rectfill`, `spr`, `btn`, `btnp`, `line`, `circ`, `circfill`, `rect`, `sfx`, `music`, `time`, plus `abs`/`min`/`max`/`sqrt`/`floor`/`f32`) via `CALL_HOST` and the 6-word ARMv6 stub `__bml_call_host`.
    - **Stage 8 (Games — Dark Night)**: Full enemy movement, wall bounce, camera collision (`cam_blocked`), and $O(N^2)$ pairwise separation (`move_and_separate`) in [`tests/bml/darknight_enemy.b`](../../tests/bml/darknight_enemy.b).
-   - **Stage 9 (On-Console Compiler in C & Advanced Features)**: Self-contained C compiler in [`src/bm/bmlc.c`](../../src/bm/bmlc.c) (`bml_compile_native`) exposed to Lua as `native_compile(src)`, compiling `.b` source text directly into `BMN1` ARMv6 + VFPv2 machine code on the Pi Zero W without Python. Supports zero-cost `const`, sequential `enum`, struct methods (`Struct:method`) with implicit `self`, and full kernel APIs.
+   - **Stage 9 (On-Console Compiler in C & Advanced Features)**: Self-contained C compiler in [`core/src/bm/bmlc.c`](../../core/src/bm/bmlc.c) (`bml_compile_native`) exposed to Lua as `native_compile(src)`, compiling `.b` source text directly into `BMN1` ARMv6 + VFPv2 machine code on the Pi Zero W without Python. Supports zero-cost `const`, sequential `enum`, struct methods (`Struct:method`) with implicit `self`, and full kernel APIs.
 3. **Line-Accurate Diagnostics**: Every lexical, syntactic, or type error reports the 1-based line number of the offending token or statement (`line <N>: <message>`).
 
 ---
@@ -29,23 +29,23 @@ BML is a statically typed subset of Lua 5.4 designed for `bm` cartridges on the 
 
 ```bash
 # 1. Check syntax and types only (Stage 1)
-python3 tools/bml/bml.py tests/bml/sum.b --check
+python3 core/tools/bml/bml.py tests/bml/sum.b --check
 
 # 2. Strip type annotations to produce plain Lua
-python3 tools/bml/bml.py tests/bml/sum.b --lua build/sum.lua
+python3 core/tools/bml/bml.py tests/bml/sum.b --lua build/sum.lua
 
 # 3. Disassemble the compiled Stage 2 stack bytecode
-python3 tools/bml/bml.py tests/bml/sum.b --dump
+python3 core/tools/bml/bml.py tests/bml/sum.b --dump
 
 # 4. Compile and run a function in the Stage 2 StackVM on the host
-python3 tools/bml/bml.py tests/bml/sum.b --run sum 10
+python3 core/tools/bml/bml.py tests/bml/sum.b --run sum 10
 # -> 55
 
-# 5. Emit a Stage 3 BMV1 binary module for the kernel's bmvm (src/bm/bmvm.c)
-python3 tools/bml/bml.py tests/bml/features.b --bmvm build/features.bmv
+# 5. Emit a Stage 3 BMV1 binary module for the kernel's bmvm (core/src/bm/bmvm.c)
+python3 core/tools/bml/bml.py tests/bml/features.b --bmvm build/features.bmv
 
 # 6. Emit and inspect Stage 4 ARMv6 (A32) 32-bit machine words
-python3 tools/bml/bml.py tests/bml/sum.b --armv6 build/sum.bin --dump-armv6
+python3 core/tools/bml/bml.py tests/bml/sum.b --armv6 build/sum.bin --dump-armv6
 
 # 7. Run the full verification suite (Stages 1, 2, 3, and 4 on QEMU ARM1176 vs Lua)
 make test-bml
@@ -283,7 +283,7 @@ function sum(n: i32): i32
 end
 ```
 
-Disassembly (`python3 tools/bml/bml.py tests/bml/sum.b --dump`):
+Disassembly (`python3 core/tools/bml/bml.py tests/bml/sum.b --dump`):
 ```text
 ; constants: K[0]=0, K[1]=1
 
@@ -323,9 +323,9 @@ At each iteration (`PC 0006..0018`), `i <= i$stop` is tested; `s = s + i` and `i
 
 ## 6. Stage 3 Internals: Kernel VM Back End (`BMVMCompiler`)
 
-### 6.1 Architectural Decision: Reusing `bmvm` (`src/bm/bmvm.h`)
+### 6.1 Architectural Decision: Reusing `bmvm` (`core/src/bm/bmvm.h`)
 
-The kernel already includes `bmvm` ([`src/bm/bmvm.h`](../../src/bm/bmvm.h), [`src/bm/bmvm.c`](../../src/bm/bmvm.c), exposed to Lua in [`src/bm/api_vm.c`](../../src/bm/api_vm.c) via `vm_load`, `vm_fn`, and `vm_run`), a verified register machine that enforces:
+The kernel already includes `bmvm` ([`core/src/bm/bmvm.h`](../../core/src/bm/bmvm.h), [`core/src/bm/bmvm.c`](../../core/src/bm/bmvm.c), exposed to Lua in [`core/src/bm/api_vm.c`](../../core/src/bm/api_vm.c) via `vm_load`, `vm_fn`, and `vm_run`), a verified register machine that enforces:
 - Load-time validation of register indices (`a, b, c < f->nregs`), constant indices, call targets, and jump targets.
 - Strict forward-only conditional jumps (`c->k > pc` for `JF`/`JT`), ensuring backward loops must execute `JMP` or `FORI` where the instruction step budget is decremented.
 - Runtime bounds on call depth (`BMVM_DEPTH = 32`), register stack (`BMVM_STACK = 4096`), and execution step budget.
@@ -390,7 +390,7 @@ Under this mapping, every Stage 2 stack instruction lowers **1-to-1** to a singl
 
 ### 7.4 Stage 5: Native Pi Loader (`native_load`, `native_fn`, `native_run`) and Cache Maintenance
 
-`tools/bml/bml.py --native <out.bmn>` packs the compiled functions into a `BMN1` (`0x314E4D42`) binary container (`12`-byte header `<III`, `nfn` 56-byte function descriptors `<32sBBH16BI`, and `ncode` 32-bit A32 words). [`src/bm/bmnative.c`](../../src/bm/bmnative.c) and [`src/bm/api_vm.c`](../../src/bm/api_vm.c) expose:
+`core/tools/bml/bml.py --native <out.bmn>` packs the compiled functions into a `BMN1` (`0x314E4D42`) binary container (`12`-byte header `<III`, `nfn` 56-byte function descriptors `<32sBBH16BI`, and `ncode` 32-bit A32 words). [`core/src/bm/bmnative.c`](../../core/src/bm/bmnative.c) and [`core/src/bm/api_vm.c`](../../core/src/bm/api_vm.c) expose:
 - `m, why = native_load(blob)`: Accepts either a `BMN1` container or raw 32-bit ARMv6 A32 words (`--armv6`). Validates every instruction word (rejects `SVC`/`SWI`, coprocessor `MCR`/`MRC`/`CDP`/`LDC`/`STC`, `BKPT`, and out-of-range `B`/`BL` targets), copies the words into 32-byte-aligned executable RAM, and calls `bmnative_sync_cache`:
   1. `dcache_clean_range(code, bytes)` (`mcr p15, 0, a, c7, c10, 1` per 32-byte line + `arm_dsb()`),
   2. `mcr p15, 0, a, c7, c5, 1` (invalidate I-cache line by MVA),
@@ -691,7 +691,7 @@ int32_t step_vec2f(Vec2f *v, float dt, float lim)
 
 ### 9.6 Stage 9: On-Console Compiler in C (`native_compile`)
 
-On the console (or in `bmhost`), cartridges can compile `.b` source strings directly into `BMN1` ARMv6 + VFPv2 machine code in RAM using `native_compile(src)` ([`src/bm/bmlc.c`](../../src/bm/bmlc.c)):
+On the console (or in `bmhost`), cartridges can compile `.b` source strings directly into `BMN1` ARMv6 + VFPv2 machine code in RAM using `native_compile(src)` ([`core/src/bm/bmlc.c`](../../core/src/bm/bmlc.c)):
 
 ```lua
 local src = [[
@@ -711,9 +711,9 @@ local v1   = native_run(mod, "bounce_vel", 0.25, -0.5, 0.4, 4.6) -- -> 0.5
 
 ### 9.7 Game Optimization Pattern: Dark Night Enemy Separation (Lua vs .b)
 
-In `carts/darknight/main.lua`, the enemy separation routine scans 272 pairs every frame ($O(N^2)$). Profiling shows it takes **27.3%** of the entire frame logic time in Lua.
+In `bm/darknight/main.lua`, the enemy separation routine scans 272 pairs every frame ($O(N^2)$). Profiling shows it takes **27.3%** of the entire frame logic time in Lua.
 
-#### Original Lua Implementation (`carts/darknight/main.lua` lines 843–856)
+#### Original Lua Implementation (`bm/darknight/main.lua` lines 843–856)
 ```lua
 if e.st ~= "dead" and d < FAR then
   local ex, ez = e.x, e.z
@@ -869,7 +869,7 @@ This section documents how `.b` compares to compiled C on the Pi Zero W (ARM1176
 
 ### 10.1 Where `.b` Sits Today: Lua VM vs. `.b` vs. Compiled C
 
-Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`tools/bml/bml.py`](../../tools/bml/bml.py) or [`src/bm/bmlc.c`](../../src/bm/bmlc.c)), its performance sits **far above the Lua VM** and **below C compiled with GCC/Clang `-O2`/`-O3`** on general code:
+Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`core/tools/bml/bml.py`](../../core/tools/bml/bml.py) or [`core/src/bm/bmlc.c`](../../core/src/bm/bmlc.c)), its performance sits **far above the Lua VM** and **below C compiled with GCC/Clang `-O2`/`-O3`** on general code:
 
 | Aspect | Lua 5.4 VM | `.b` (`bmlc.c` / `ARMv6Compiler`) | C (`gcc -O2/-O3` for ARM1176) |
 |---|---|---|---|
@@ -887,8 +887,8 @@ Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`tools/bm
 
 Cartridges (`.bm`) cannot ship arbitrary precompiled C binaries: the kernel enforces a single portable cartridge format and does not link untrusted ELF object files. Within those constraints, `.b` fills a unique niche:
 
-1. **Zero-toolchain native execution on the console**: [`native_compile`](../../src/bm/api_vm.c) compiles `.b` source text directly into `BMN1` ARMv6 machine code in RAM on the Pi Zero W without GCC, Python, or a cross-compiler.
-2. **Verified sandboxing**: [`bmnative_load`](../../src/bm/bmnative.c) (`check_armv6_words`) rejects privileged/coprocessor instructions (allowing only CP10 VFPv2), `SVC`/`SWI`, `BKPT`, and out-of-module branches before synchronizing D-cache/I-cache.
+1. **Zero-toolchain native execution on the console**: [`native_compile`](../../core/src/bm/api_vm.c) compiles `.b` source text directly into `BMN1` ARMv6 machine code in RAM on the Pi Zero W without GCC, Python, or a cross-compiler.
+2. **Verified sandboxing**: [`bmnative_load`](../../core/src/bm/bmnative.c) (`check_armv6_words`) rejects privileged/coprocessor instructions (allowing only CP10 VFPv2), `SVC`/`SWI`, `BKPT`, and out-of-module branches before synchronizing D-cache/I-cache.
 3. **Eliminating Lua table and bridge bottlenecks**: Passing `vm_buf` pointers once per frame (`native_run`) avoids both Lua table hashing and the ~1 µs per-call Lua $\leftrightarrow$ C crossing cost (e.g. 3.7x–6.0x faster on `move_and_separate` in Section 9.7).
 4. **Single-source portability**: Stripping `: <type>` yields plain Lua 5.4 so the same game source runs on non-ARM hosts (or when native compilation is bypassed) with identical semantics.
 
@@ -907,7 +907,7 @@ However, `.b` has three narrow architectural paths where it can **match or outpe
 While general-purpose GCC `-O2`/`-O3` remains hard to beat on arbitrary programs, closing the gap on `bm`'s target workload (numeric/physics/3D loops on `vm_buf` arrays, targeting ~80–100% of C speed) comes down to **five concrete backend improvements**:
 
 1. **Keep `f32` values in VFPv2 registers (`s4..s31`) *(done in `bmlc.c` + `bmnative.c`)***:
-   - [`check_armv6_words`](../../src/bm/bmnative.c) and `sim_armv6_call` permit CP10 `0xC`/`0xD` (`vldr`/`vstr`/`vldm`/`vstm`) and `s0..s31`; [`compile_armv6_fn`](../../src/bm/bmlc.c) allocates `f32` locals and stack operands directly in `s4..s31` (using `vpush`/`vpop` on `s16..s31` when needed and loading non-`imm12` float literals from `.rodata` via `vldr`).
+   - [`check_armv6_words`](../../core/src/bm/bmnative.c) and `sim_armv6_call` permit CP10 `0xC`/`0xD` (`vldr`/`vstr`/`vldm`/`vstm`) and `s0..s31`; [`compile_armv6_fn`](../../core/src/bm/bmlc.c) allocates `f32` locals and stack operands directly in `s4..s31` (using `vpush`/`vpop` on `s16..s31` when needed and loading non-`imm12` float literals from `.rodata` via `vldr`).
 2. **Inline rotated immediates and ARM barrel-shifter indexing *(done in `bmlc.c`)***:
    - Fold 8-bit rotated constants directly into `add`/`sub`/`cmp`/`cmn`/bitwise immediates, lower `OP_AGET`/`OP_ASET` to `ldr`/`str [base_m4, idx, lsl #2]`, and hoist `base - 4` for unmodified array parameters.
 3. **Minimal prologue/epilogue and generic leaf functions *(done in `bmlc.c`)***:
@@ -915,15 +915,15 @@ While general-purpose GCC `-O2`/`-O3` remains hard to beat on arbitrary programs
 4. **Low-cost local/peephole passes and word-block memory *(done in `bmlc.c`)***:
    - Done: compile-time scalar constant propagation/folding, dead-branch elimination (unlocking runtime specialization via `native_compile`), word/block `ldmia`/`stmia` transfers for `OP_MEMCPY`/`OP_MEMSET`, `mla` (`i32`) and `vmla.f32`/`vmls.f32` (`f32`) fusion, `cmp`/`fcmp` + `jz` fusion, `OP_LOAD` aliasing, and power-of-2 constant `*`, `//`, `%` shifts/masks.
 5. **Small-function inlining and direct C math fast-paths *(done in `bmlc.c` + `api_vm.c`)***:
-   - Done: [`optimize_ir`](../../src/bm/bmlc.c) inlines leaf small `.b` helper functions (`code_len <= 48`, no `OP_NEW_ARR`) directly into callers, and [`bmnative_lua_host_dispatch`](../../src/bm/api_vm.c) binds `sin`, `cos`, and `atan2` directly to C `libm` (`sinf`, `cosf`, `atan2f`) without Lua lookups. (Offline PC build-time SSA/graph-coloring/LICM in [`tools/bml/bml.py`](../../tools/bml/bml.py) remains an optional Path B track in §10.5.)
+   - Done: [`optimize_ir`](../../core/src/bm/bmlc.c) inlines leaf small `.b` helper functions (`code_len <= 48`, no `OP_NEW_ARR`) directly into callers, and [`bmnative_lua_host_dispatch`](../../core/src/bm/api_vm.c) binds `sin`, `cos`, and `atan2` directly to C `libm` (`sinf`, `cosf`, `atan2f`) without Lua lookups. (Offline PC build-time SSA/graph-coloring/LICM in [`core/tools/bml/bml.py`](../../core/tools/bml/bml.py) remains an optional Path B track in §10.5.)
 
 ### 10.5 Two Implementation Paths (Combinable)
 
-Both paths emit the exact same `BMN1` binary container loaded by [`bmnative_load`](../../src/bm/bmnative.c), so they require no cartridge format changes:
+Both paths emit the exact same `BMN1` binary container loaded by [`bmnative_load`](../../core/src/bm/bmnative.c), so they require no cartridge format changes:
 
-- **Path A — Upgrade [`src/bm/bmlc.c`](../../src/bm/bmlc.c) (On-Console Compiler)**:
+- **Path A — Upgrade [`core/src/bm/bmlc.c`](../../core/src/bm/bmlc.c) (On-Console Compiler)**:
   Items 1–4 require ~1,000–1,500 lines of straightforward C (no full SSA optimizer needed) and keep instant in-RAM compilation on the Pi Zero W via `native_compile(src)` (including runtime constant specialization).
-- **Path B — Offline Optimizing Backend in [`tools/bml/bml.py`](../../tools/bml/bml.py) (PC Build-Time AOT)**:
+- **Path B — Offline Optimizing Backend in [`core/tools/bml/bml.py`](../../core/tools/bml/bml.py) (PC Build-Time AOT)**:
   During cartridge packaging on a PC, Python has no RAM/CPU constraints and can run full SSA passes, graph-coloring register allocation across `r0..r12` and `s0..s31`, loop-invariant code motion, and cross-function inlining, packing precompiled `BMN1` modules directly into `.bm` builds.
 
 ---
@@ -932,10 +932,10 @@ Both paths emit the exact same `BMN1` binary container loaded by [`bmnative_load
 
 As of specification revision `7` ([`docs/spec/specs.toml`](../spec/specs.toml)), `.b` code can live directly inside `.bm` and `.bme` containers alongside or instead of Lua:
 
-1. **Container Section (`BM_SEC_B = 17`)**: [`src/bm/bm.h`](../../src/bm/bm.h), [`src/bm/format.c`](../../src/bm/format.c), and [`scripts/mkbm.py`](../../scripts/mkbm.py) (`--b`, alone or with `--lua`) pack `.b` source into `BM_SEC_B`. Pure `.b` cartridges define `_init`, `_update`, and `_draw` (each taking `()` or `(state: i32[])` backed by a persistent 256-word buffer in [`src/bm/runtime.c`](../../src/bm/runtime.c)). Hybrid cartridges expose compiled `.b` functions to Lua via `_B` and `B.<fn>(...)`.
-2. **Compile-Time Error Reporting**: [`bm_run()`](../../src/bm/runtime.c) compiles `cart.b` on load with [`bml_compile_native`](../../src/bm/bmlc.c) and reports syntax/type diagnostics as `main.b:<line>:<message>`, jumping the cursor in `bm Code` and `bm SDK` to the failing line.
-3. **Shared ARMv6 + VFPv2 Disassembler (`native_disasm`)**: [`bmnative_disasm_word`](../../src/bm/bmnative.c) provides a freestanding ARMv6 + VFPv2 CP10 decoder (`vldr`, `vstr`, `vpush`, `vpop`, `vmov`, `vadd`/`vsub`/`vmul`/`vdiv`/`vmla`/`vmls`/`vneg`/`vabs`/`vsqrt`/`vcvt`/`vcmp`/`vcmpz`/`vmrs`, `ldr`/`str` indexed with register offsets and shifts, `mla`/`mul`, rotated `imm12` and ALU shifts) shared by [`native_disasm(blob)`](../../src/bm/api_vm.c) in `bm Code` (`Ctrl+Shift+D`) and the serial shell editor [`src/kernel/shell_code.c`](../../src/kernel/shell_code.c).
-4. **Console Editors (`bm Code` & `shell_code`)**: Both [`carts/code/main.lua`](../../carts/code/main.lua) and [`src/kernel/shell_code.c`](../../src/kernel/shell_code.c) edit `.b` and `.lua` with syntax highlighting, language-specific completion, syntax checks (`native_compile` / `tool_lua_check`), sandboxed execution (`native_run` with `f32` I/O formatting in `shell_code`, `tool_lua_run`), and disassembly views.
+1. **Container Section (`BM_SEC_B = 17`)**: [`core/src/bm/bm.h`](../../core/src/bm/bm.h), [`core/src/bm/format.c`](../../core/src/bm/format.c), and [`core/scripts/mkbm.py`](../../core/scripts/mkbm.py) (`--b`, alone or with `--lua`) pack `.b` source into `BM_SEC_B`. Pure `.b` cartridges define `_init`, `_update`, and `_draw` (each taking `()` or `(state: i32[])` backed by a persistent 256-word buffer in [`core/src/bm/runtime.c`](../../core/src/bm/runtime.c)). Hybrid cartridges expose compiled `.b` functions to Lua via `_B` and `B.<fn>(...)`.
+2. **Compile-Time Error Reporting**: [`bm_run()`](../../core/src/bm/runtime.c) compiles `cart.b` on load with [`bml_compile_native`](../../core/src/bm/bmlc.c) and reports syntax/type diagnostics as `main.b:<line>:<message>`, jumping the cursor in `bm Code` and `bm SDK` to the failing line.
+3. **Shared ARMv6 + VFPv2 Disassembler (`native_disasm`)**: [`bmnative_disasm_word`](../../core/src/bm/bmnative.c) provides a freestanding ARMv6 + VFPv2 CP10 decoder (`vldr`, `vstr`, `vpush`, `vpop`, `vmov`, `vadd`/`vsub`/`vmul`/`vdiv`/`vmla`/`vmls`/`vneg`/`vabs`/`vsqrt`/`vcvt`/`vcmp`/`vcmpz`/`vmrs`, `ldr`/`str` indexed with register offsets and shifts, `mla`/`mul`, rotated `imm12` and ALU shifts) shared by [`native_disasm(blob)`](../../core/src/bm/api_vm.c) in `bm Code` (`Ctrl+Shift+D`) and the serial shell editor [`core/src/kernel/shell_code.c`](../../core/src/kernel/shell_code.c).
+4. **Console Editors (`bm Code` & `shell_code`)**: Both [`bm/code/main.lua`](../../bm/code/main.lua) and [`core/src/kernel/shell_code.c`](../../core/src/kernel/shell_code.c) edit `.b` and `.lua` with syntax highlighting, language-specific completion, syntax checks (`native_compile` / `tool_lua_check`), sandboxed execution (`native_run` with `f32` I/O formatting in `shell_code`, `tool_lua_run`), and disassembly views.
 
 
 

@@ -1,5 +1,5 @@
 // Test of web/bmcart.js: a cartridge built in memory, bad files, and (when
-// Python is there) a cartridge packed by scripts/mkbm.py.
+// Python is there) a cartridge packed by core/scripts/mkbm.py.
 // Run: node tests/webplayer/test_bmcart.js
 "use strict";
 const assert = require("assert");
@@ -67,7 +67,7 @@ const lua = path.join(os.tmpdir(), "bmcart_test.lua"), out = path.join(os.tmpdir
 fs.writeFileSync(lua, "function _draw() cls(1) end\n");
 let real = "skipped (no python)";
 for (const py of ["python3", "python"]) {
-  const r = cp.spawnSync(py, ["scripts/mkbm.py", "-o", out, "--lua", lua, "--title", "Real", "--author", "Bo", "--res", "360x360"],
+  const r = cp.spawnSync(py, ["core/scripts/mkbm.py", "-o", out, "--lua", lua, "--title", "Real", "--author", "Bo", "--res", "360x360"],
     { cwd: path.join(__dirname, "../.."), encoding: "utf8" });
   if (r.status === 0) {
     const rc = bmCart.parse(fs.readFileSync(out), "real.bm");

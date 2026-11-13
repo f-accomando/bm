@@ -1,6 +1,6 @@
 /*
- * Host test / tool of bm_res_build (src/bm/format.c): the resource file the console's res_write makes.
- * tests/bm/run_resbuild_test.py builds the same file with scripts/bmres.py and compares the bytes.
+ * Host test / tool of bm_res_build (core/src/bm/format.c): the resource file the console's res_write makes.
+ * tests/bm/run_resbuild_test.py builds the same file with core/scripts/bmres.py and compares the bytes.
  *
  *   test_resbuild OUT KIND NAME AUTHOR TYPE:FILE...
  *

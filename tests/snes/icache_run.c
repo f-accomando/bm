@@ -1,4 +1,4 @@
-/* icache_run.c: plays a ROM on the ARM1176 in QEMU and marks the frames, so that scripts/icache_sim.py can trace the instruction fetches of a few frames
+/* icache_run.c: plays a ROM on the ARM1176 in QEMU and marks the frames, so that core/scripts/icache_sim.py can trace the instruction fetches of a few frames
  * and count the misses of a 16 KB, 4-way, 32-byte-line cache (the I-cache of the Pi Zero W). See docs/progress/snes-cpu.md, "I-cache work".
  *   build with -DIC_ROM="\"file\"" -DIC_FW (file or "-") -DIC_WARM (string) -DIC_TRACE (string) -DIC_SCRIPT (file; lines "first last padhex", as in game_run.c)
  * It prints ICACHE_WAIT after the warm-up and reads one byte from the console: the driver switches the trace on and then sends the byte.

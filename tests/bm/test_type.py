@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MKBM = os.path.join(ROOT, "scripts", "mkbm.py")
+MKBM = os.path.join(ROOT, "core", "scripts", "mkbm.py")
 
 ok = fail = 0
 

@@ -28,7 +28,7 @@ EXPECT = {
 }
 
 # the luahost stand-in container (tests/studio/tools3d_host.lua:49-66 pack_cart) writes flags 0:
-# the kernel's cart_write sets the project bit after bm_rewrite_with (src/bm/runtime.c:6467-6468),
+# the kernel's cart_write sets the project bit after bm_rewrite_with (core/src/bm/runtime.c:6467-6468),
 # the stand-in does not. So these .bme fail bm_core.check_path; their bytes are still valid.
 NO_PROJECT_BIT = {"studio_blocks.bme", "studio_copy3d.bme", "mesh_village.bme", "mesh_astrowin.bme"}
 
@@ -78,7 +78,7 @@ class Schema(unittest.TestCase):
         self.assertTrue(all(c.mode == 1 and c.loop for c in cart.anim().rigs[0].clips))
 
     def test_lit_golden(self):
-        """bmmesh_lit.bm: lit flag, material bits and lights as scripts/bmmesh.py wrote them"""
+        """bmmesh_lit.bm: lit flag, material bits and lights as core/scripts/bmmesh.py wrote them"""
         m = container.parse(C.load("bmmesh_lit.bm")).mesh()
         litbox, flat = m.models
         self.assertTrue(litbox.lit)

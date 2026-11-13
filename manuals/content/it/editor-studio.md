@@ -282,7 +282,7 @@ Sull'ARM in modalità software, la console disegna circa 1200 triangoli in una s
 
 ## File di risorsa
 
-Il formato di risorsa per i modelli è `.bmm`: MESH, ANIM se animato e uno sheet con solo le celle usate dalle texture. Sul PC, `scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` ne ricava uno da un gioco.
+Il formato di risorsa per i modelli è `.bmm`: MESH, ANIM se animato e uno sheet con solo le celle usate dalle texture. Sul PC, `core/scripts/bmres.py extract GAME.bm --model villager -o VILLAGER.bmm` ne ricava uno da un gioco.
 
 bm Studio legge e scrive file `.bmm` in `/bmm`. La sezione seguente mostra come.
 
@@ -302,7 +302,7 @@ Un `.glb` dà colori piatti. Un `.bmm` con uno scheletro lo conserva (bm Animato
 
 ## Per un gioco costruito dal repository
 
-Un `.bm` con i modelli e gli scheletri, salvato da bm Studio, può essere messo come `models.bm` in `carts/<game>/`. `make` lo inserisce nella cartuccia con `mkbm.py --models`. Se il gioco non ha un `sheet.png`, lo sheet è quello di `models.bm`.
+Un `.bm` con i modelli e gli scheletri, salvato da bm Studio, può essere messo come `models.bm` in `bm/<game>/`. `make` lo inserisce nella cartuccia con `mkbm.py --models`. Se il gioco non ha un `sheet.png`, lo sheet è quello di `models.bm`.
 
 # Usare il modello in un gioco
 
