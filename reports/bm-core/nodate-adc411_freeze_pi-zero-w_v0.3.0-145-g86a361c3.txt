@@ -1,0 +1,76 @@
+bm report
+kind: freeze
+kernel: v0.3.0-145-g86a361c3
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-adc411_freeze_pi-zero-w_v0.3.0-145-g86a361c3.txt
+
+the Pi froze (the watchdog restarted it) while: monitor line "menu", frame 0, 790 s after boot, kernel v0.3.0-145-g86a361c3, ring 86412, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+ draw 8939 us, enlarge 1 us, flip 91 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 8960 us, enlarge 1 us, flip 91 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 9090 us, enlarge 1 us, flip 92 us, free time used 21 us (300 frames)
+menu frame: 1x, a frame averages draw 9003 us, enlarge 0 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8920 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9000 us, enlarge 0 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9074 us, enlarge 0 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8986 us, enlarge 0 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8904 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9048 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9052 us, enlarge 1 us, flip 90 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8972 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8891 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9095 us, enlarge 1 us, flip 90 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9052 us, enlarge 1 us, flip 90 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8965 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 8888 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+menu frame: 1x, a frame averages draw 9120 us, enlarge 1 us, flip 91 us, free time used 20 us (300 frames)
+market: Checking for new games...
+menu idle: 300/300 frames, 165 of 1673 ms taken, 16.0 ms past a frame; market 159 ms (+20.2, stk 4.0/128K); min slack -7820 us, paced 0
+menu frame: 1x, a frame averages draw 9701 us, enlarge 1 us, flip 92 us, free time used 553 us (300 frames)
+menu frame: 1x, a frame averages draw 10328 us, enlarge 1 us, flip 92 us, free time used 15 us (300 frames)
+net: receiving a new kernel (6971772 bytes)...
+net: kernel 0% (0 of 6808 KB)
+net: kernel 10% (682 of 6808 KB)
+menu idle: sd first word <1ms 4 <3ms 1 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 11690 us, enlarge 1 us, flip 95 us, free time used 18 us (300 frames)
+net: kernel 20% (1366 of 6808 KB)
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 1c00001d FDBGR 595d68fd FDBGS 1246f1ef (t 779053 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 1c00001d FDBGR 595d68fd FDBGS 1246f1ef (t 779062 ms, 1 jobs)
+back to the monitor
+> net: kernel 30% (2046 of 6808 KB)
+
+> 
+> 
+> 
+> net: kernel 40% (2728 of 6808 KB)
+
+> 
+> 
+> 
+> net: kernel 50% (3405 of 6808 KB)
+
+> 
+> 
+> 
+> 
+> 
+> net: kernel 60% (4087 of 6808 KB)
+
+> 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: the GPU cannot draw 3x, 360p on the ARM
+net: kernel 70% (4771 of 6808 KB)
+menu idle: sd first word <1ms 20 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 10791 us, enlarge 1 us, flip 93 us, free time used 28 us (300 frames)
+net: kernel 80% (5452 of 6808 KB)
+net: kernel 90% (6138 of 6808 KB)
+net: dev mode: kernel received (6971772 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 139.3 ms past its slice
+menu idle: 300/300 frames, 781 of 1052 ms taken, 141.8 ms past a frame; netxfer 1060 ms (+139.3, stk 1.1/64K); min slack -106167 us, paced 0
+menu idle: sd first word <1ms 268 <3ms 4 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 12657 us, enlarge 1 us, flip 92 us, free time used 2603 us (300 frame
