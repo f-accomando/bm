@@ -156,7 +156,19 @@ E.require = function(name)
   if name == "snesgfx" and not arg[3] then              -- the SNES converters (the build puts them into the cart)
     return assert(loadfile(ROOT .. "/carts/shared/snesgfx.lua", "t", E))()
   end
-  assert(name == "bmui", "require: only bmui and bmlib here (a built cart has snesgfx in SNESGFX)")
+  if name == "snes_asm" then                             -- the kernel has it built in
+    E._asm = E._asm or assert(loadfile(ROOT .. "/src/script/snes_asm.lua", "t", E))()
+    return E._asm
+  end
+  if name == "snescode" and not arg[3] then              -- the Code tab helpers (a built cart has them in SNESCODE)
+    E._code = E._code or assert(loadfile(ROOT .. "/carts/shared/snescode.lua", "t", E))()
+    return E._code
+  end
+  if name == "asmbuf" and not arg[3] then
+    E._buf = E._buf or assert(loadfile(ROOT .. "/carts/shared/asmbuf.lua", "t", E))()
+    return E._buf
+  end
+  assert(name == "bmui", "require: only bmui, bmlib and snes_asm here (a built cart has the others as globals)")
   bmui = bmui or assert(loadfile(ROOT .. "/src/script/bmui.lua", "t", E))()   -- the mouse (it takes keyp over)
   return bmui
 end
@@ -405,6 +417,13 @@ E.doc_write = function(name, bytes)
   docs[name] = bytes
   return true
 end
+E.doc_read = function(name) return docs[name] end
+E.doc_list = function()
+  local out = {}
+  for n, b in pairs(docs) do out[#out + 1] = { name = n, size = #b } end
+  table.sort(out, function(a, b) return a.name < b.name end)
+  return out
+end
 
 -- the third argument: the built main.lua (build/snes_sdk/main.lua, with the module as SNESGFX); none: the source
 local chunk = assert(loadfile(arg[3] or (ROOT .. "/carts/snes_sdk/main.lua"), "t", E))
@@ -475,7 +494,7 @@ frames(2)
 check(sees("bm SNES SDK") and sees("Sprites") and sees("Code") and sees("Map") and sees("Music") and sees("Run"),
       "the tab bar: Code, Sprites, Map, Music, Run")
 check(sees("4 bpp") and sees("sub-palette 1 of 8"), "it starts on Sprites: 4 bpp, 8 sub-palettes")
-for _, t in ipairs({ { "f1", "Code" }, { "f3", "Map" }, { "f4", "Music" }, { "f5", "Run" } }) do
+for _, t in ipairs({ { "f3", "Map" }, { "f4", "Music" }, { "f5", "Run" } }) do
   key(t[1])
   check(sees(t[2] .. " - coming soon"), "the " .. t[2] .. " tab says coming soon")
 end
@@ -576,6 +595,11 @@ key("esc")
 key("esc")
 check(sees("bm SNES SDK") and sees("New project"), "Esc opens the menu")
 key("esc")
+
+-- the Code tab
+local code_checks = dofile(ROOT .. "/tests/studio/snes_sdk_code.lua")
+code_checks({ check = check, key = key, frames = frames, sees = sees, status = status, click = click, mouse = mouse,
+              docs = docs, type_text = type_text })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm SNES SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,

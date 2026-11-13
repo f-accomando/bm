@@ -11,9 +11,11 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). Phase 1 of the pla
 | `tests/snes/asm_test.lua` | unit tests: all 256 opcodes, the addressing modes, width tracking, expressions, directives, macros, errors, the builder |
 | `tests/snes/testrom.s`, `tests/snes/asm_rom_test.py` | the program of `make_testrom.py` in assembly; the test compares the bytes and runs the ROM in the core |
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |
+| `carts/shared/snescode.lua`, `carts/shared/asmbuf.lua` | the helpers of the Code tab: colours, F1 texts, errors in plain words, snippets, the text buffer (no bm API) |
+| `tests/snes/code_test.lua` | the tests of the two modules above (`make test-snes-code`) |
 | `tests/snes/asm_cli.lua` | a command line: `build/host/luahost tests/snes/asm_cli.lua in.s out.sfc [--title T] [--map hirom] [--sym f]` |
 
-Test: `make test-snes-asm`.
+Test: `make test-snes-asm`, `make test-snes-code`.
 
 ## The API
 
@@ -49,7 +51,12 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 
 ## The app: bm SNES SDK (`carts/snes_sdk`)
 
-- One SDK, many tabs: the SDK is ONE app with a tab bar (Code, Sprites, Map, Music, Run; F1 to F5). A new tool of the SDK is a new tab in `carts/snes_sdk/main.lua`, not a new app. Code, Map, Music and Run say "coming soon".
+- One SDK, many tabs: the SDK is ONE app with a tab bar (Code, Sprites, Map, Music, Run; F1 to F5). A new tool of the SDK is a new tab in `carts/snes_sdk/main.lua`, not a new app. The Code tab works. Map, Music and Run say "coming soon".
+- Code tab: the editor of the `.s` and `.inc` files of the project, on `snes_asm`. The files are in `/docs` (8.3 names; `doc_read`, `doc_write`). The project keeps the names of the open files and the main file in the line `--code main=... files=...` of the data between the marks. A new project opens `main.s` (from `/docs`, or new with the reset snippet).
+  - Keys: Ctrl+B build, F1 help on the instruction (a short help shows in the status line when the cursor is on one), Ctrl+G go to a label (the label under the cursor, or a list; a double click on a label name goes to it), Ctrl+F find, F6 and F7 next and previous match, F8 and F9 next and previous error, Ctrl+J snippets (reset, nmi, dma, joypad, colour; each line has its comment), Ctrl+E the files (open, new, save all, main file, close), Ctrl+W close the file, Ctrl+S save the sources (and the project when it has a name), Ctrl+Q start or stop a selection, Ctrl+C/X/V/K/D copy, cut, paste, cut line, copy line down. The mouse puts the cursor, drags a selection, scrolls with the wheel and clicks an error or a file tab. F1 in another tab opens the Code tab.
+  - Build: the buffers are saved, then `snes_asm` assembles the main file (`.include` reads the open buffer, else `/docs`) and the ROM builder writes `<project name>.sfc` (or the stem of the main file) to `/docs`. The size of the ROM is 32 KB minimum. The title in the header is the name in upper case (21 characters at most).
+  - Errors: `SC.plain` turns the message of the assembler into plain words with what to do (A 8 bit and a 16 bit value: `rep #$20`; X and Y: `rep #$10`; an unknown word: the nearest instruction; a label that does not exist; a branch that is too far: `brl`). The first error shows under the cursor line, all errors are in a list (file, line; click to go there).
+  - The F1 texts come from `A.opcodes` (the modes, the opcodes and the lengths are read from it) and from the datasheet facts of the cycles and flags. A test checks that every opcode of the table has a text.
 - Frame: the project is a `.bme` in `/bme` (Ctrl+N new, Ctrl+O open, Ctrl+S save, Esc menu). The sheet is its SHEET8. The data of the Sprites tab is text between `-- snes-sdk:begin` and `-- snes-sdk:end` in its Lua section: depth, sizes, the sub-palettes (BGR555 words) and the sub-palette of each tile. Other tabs keep their own data outside these marks.
 - Sprites tab: depth 2/4/8 bpp, the size pairs 8/16, 8/32, 8/64, 16/32, 16/64, 32/64 (small or large), 8 sub-palettes of BGR555 with colour 0 clear, 5-bit channel bars with a live preview, the sub-palette of each tile on the grid, a sprite editor (pencil, fill, mouse or keys), an OAM preview (flip X, flip Y, priority, palette bits), PNG import with the quantiser (15 colours + clear), export of `.chr` (planar tiles, rows padded to 16 tiles: use a sheet 128 wide) and `.pal` (all sub-palettes, low byte first) to `/docs`.
 - The pixels are indices in the sub-palette of their tile (the data); the colours of the runtime sheet come from the palette. A change of a colour repaints the sheet.
@@ -64,6 +71,9 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - One module `snes_asm` holds the assembler and the builder. Register a new built-in library in the same places as `snes_asm` (`src/bm/require.c`, `src/script/embed.S`, `src/rgb30/bm_embed.S`, `tests/host/libs.S`, `rgb30.mk`, `Makefile`, `scripts/mkweblibs.py`).
 - The opcode test of `asm_test.lua` lists the 256 opcodes in the order of the opcode map, apart from the table of the assembler. Keep it so: the two lists check each other.
 - Pass 1 decides the size of each instruction and pass 2 only writes bytes. A change to the size rules must keep the two passes equal.
+- The Code tab has no Lua macros, no `.lua` blocks and no Lisp syntax (the user decided to leave them out). Do not add them to `snes_asm`.
+- Each snippet of `snescode.lua` assembles by itself (with a `reset` label) and has a comment on every line. Add a snippet to the list and the test checks it.
+- A new instruction or mode in `snes_asm` needs its F1 text in `snescode.lua` (the test fails without it).
 - One SDK, many tabs: new SNES tools are tabs of `carts/snes_sdk`. Shared code goes in a module (`carts/shared/`), never in the interface of another app.
 - Keep the converters free of any bm API, so the PC tests run them.
 - Write the text of docs and comments in ASD-STE100.
@@ -73,7 +83,7 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 First, the Sprites tab (done; the rest of it is here). Then the tabs below, in this order. Do not start a tab before the one above it works.
 
 - Sprites tab: sizes 16x32 and 32x64 (OBSEL 6 and 7), recolour of the OAM preview by sub-palette, `.pal` and tile sub-palettes as files of the project, `.chr` import, a rectangle select and animation. A `.bme` is one file: `.chr` and `.pal` go to `/docs` until the project layout has a `gfx/` folder. Remove the duplicate F7 page of bm Pixel when the user agrees.
-1. Code tab on `snes_asm`: the errors of the assembler in plain words, and F1 on an opcode shows its flags, cycles and addressing. Register `snes_sdk` in the console's app list and the Market when this tab works.
+1. Code tab (done; the rest of it is here): register `snes_sdk` in the console's app list and the Market. Typing with the pad (an on-screen keyboard) is not done: the Pi and RGB30 need a keyboard for now. A list of the local labels (`@name`) in Go to. A breakpoint marker in the gutter (with the Run tab). The speed of the colours and the build on the Pi Zero W is not measured.
 2. Run tab with debug: F5 run, F9 break, F10 step, the registers and the memory (`snes_regs`, `snes_peek`, `snes_poke`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md)).
 3. Learn tab ("Impara"): original lessons in Italian and English, kept as data files in the project, with projects that work. Each lesson can link to an outside source (SNESdev Wiki, ersanio, PVSnesLib, the SMW disassembly). Use links only. Never copy their text or code.
 4. Step-by-step run as a teaching tool: the registers have colours, and the one that changed shows.

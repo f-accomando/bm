@@ -14,6 +14,9 @@ local W, H = SCREEN_W, SCREEN_H
 local U = require "bmui"
 -- the converters: the build puts the module in the global SNESGFX after this file, so G looks it up at the first call
 local G = setmetatable({}, { __index = function(_, k) return (SNESGFX or require "snesgfx")[k] end })
+-- the same for the Code tab: carts/shared/snescode.lua (SNESCODE) and carts/shared/asmbuf.lua (ASMBUF)
+local SC = setmetatable({}, { __index = function(_, k) return (SNESCODE or require "snescode")[k] end })
+local BF = setmetatable({}, { __index = function(_, k) return (ASMBUF or require "asmbuf")[k] end })
 
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
@@ -45,6 +48,12 @@ local tab = 2
 ----------------------------------------------------------------- state
 
 local P = { path = nil, title = "", dirty = false, lua = "" }
+-- the Code tab: the open source files (buffers), the main one, the errors of the last build, the help panel
+local CD
+local function code_reset()
+  CD = { files = {}, order = {}, cur = nil, main = nil, errs = {}, esel = 0, show_errs = false, help = nil, find = "" }
+end
+code_reset()
 local M = { bpp = 4, set = 0, large = false, cur = 1, sel = 2, ch = 1, fx = false, fy = false, prio = 0,
             pals = {}, tp = {} }                  -- the Sprites data of the project
 local sw, sh = 128, 128                          -- the sheet
@@ -178,6 +187,7 @@ local function meta_text()
     for j = k, min(#keys, k + 23) do w[#w + 1] = keys[j] .. "=" .. M.tp[keys[j]] end
     out[#out + 1] = "--tp " .. table.concat(w, " ")
   end
+  if #CD.order > 0 then out[#out + 1] = "--code main=" .. (CD.main or "") .. " files=" .. table.concat(CD.order, ",") end
   out[#out + 1] = END
   return table.concat(out, "\n")
 end
@@ -200,6 +210,12 @@ local function parse_meta(lua)
     if i then
       local p, k = subpal(tonumber(i)), 0
       for w in words:gmatch("%x+") do k = k + 1; p[k] = tonumber(w, 16) & 0x7FFF end
+    end
+    local code = line:match("^%-%-code (.*)$")
+    if code then
+      CD.want_main = code:match("main=([%w_%.%-]*)")
+      CD.want_files = {}
+      for n in (code:match("files=(%S*)") or ""):gmatch("[^,]+") do CD.want_files[#CD.want_files + 1] = n end
     end
     local tps = line:match("^%-%-tp (.*)$")
     if tps then for t, s in tps:gmatch("(%d+)=(%d+)") do M.tp[tonumber(t)] = tonumber(s) end end
@@ -227,6 +243,7 @@ local function reset_view()
 end
 
 local function new_project()
+  code_reset()
   cart_new()
   pcall(cart_sheet, 128, 128)
   sw, sh = cart_sheet()
@@ -245,6 +262,7 @@ end
 local function open_file(path)
   local p, e = cart_load(path)
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
+  code_reset()
   sw, sh = cart_sheet()
   P = { path = path, title = p.title or "", dirty = false, lua = p.lua or "" }
   M.bpp, M.set, M.large, M.cur, M.sel, M.ch, M.pals, M.tp = 4, 0, false, 1, 2, 1, {}, {}
@@ -705,6 +723,421 @@ local function draw_soon(i)
   hint({ { { "f2" }, "sprites" }, { { "esc" }, "menu" }, { { "ctrl", "s" }, "save" } })
 end
 
+----------------------------------------------------------------- the Code tab
+
+-- The text of the project's source files (.s and .inc) is in /docs (doc_read, doc_write): a .bme is one file.
+-- The project keeps only the names of the files and the main one (the line --code in its Lua section).
+-- The helpers are in carts/shared/snescode.lua (colours, F1 texts, errors in plain words, snippets) and
+-- carts/shared/asmbuf.lua (the text buffer); tests/snes/code_test.lua runs them on the PC.
+local GUT = 48
+local CC = { mn = 0x80C0FF, dir = 0xC890FF, label = 0xFFC050, hex = 0x80E0A0, num = 0xF0A070, cmt = 0x6A7288,
+             str = 0xE8D878, op = 0xA8B0C8, txt = C_TEXT }
+local C_ERRBG, C_CURLINE = 0x40202A, 0x1C2030
+
+local function src_ok(n)
+  local stem, ext = n:match("^([%w_%-]+)%.(%a+)$")
+  return stem ~= nil and #stem <= 8 and (ext == "s" or ext == "inc")
+end
+local function cur_buf() return CD.cur and CD.files[CD.cur] end
+
+local function code_geom()
+  local pan = 0
+  if CD.help then pan = #CD.help + 1
+  elseif CD.show_errs and #CD.errs > 0 then pan = min(#CD.errs, 6) + 1 end
+  local bottom = HINT_Y - pan * 16
+  return 32, max(1, (bottom - 32) // 16), max(8, (W - GUT - 8) // 8), pan, bottom
+end
+
+local function wrap(text, cols)
+  local out = {}
+  for para in text:gmatch("[^\n]+") do
+    local line = ""
+    for w in para:gmatch("%S+") do
+      if line ~= "" and #line + #w + 1 > cols then out[#out + 1] = line; line = "  " .. w
+      else line = (line == "" and w) or (line .. " " .. w) end
+    end
+    if line ~= "" then out[#out + 1] = line end
+  end
+  return out
+end
+
+local function code_open(name, text_if_new, quiet)
+  name = name:lower()
+  if not CD.files[name] then
+    local t = doc_read and doc_read(name)
+    local b
+    if t then b = BF.new(t) else b = BF.new(text_if_new or ""); b.dirty = true end
+    CD.files[name] = b
+    CD.order[#CD.order + 1] = name
+    CD.main = CD.main or name
+    if not quiet then P.dirty = true end
+  end
+  CD.cur = name
+  CD.help = nil
+  return CD.files[name]
+end
+
+-- the first visit: the files the project names, or main.s (from /docs, or a new one with the reset snippet)
+local function code_ensure()
+  if CD.cur then return end
+  if CD.want_files and #CD.want_files > 0 then
+    for _, n in ipairs(CD.want_files) do if src_ok(n) then code_open(n, "", true) end end
+    if CD.want_main and CD.files[CD.want_main] then CD.main = CD.want_main end
+    CD.cur = CD.main or CD.order[1]
+  end
+  if not CD.cur then
+    code_open("main.s", SC.snippet("reset").text, true)
+    CD.main = "main.s"
+  end
+end
+
+local function code_save_all(quiet)
+  if not doc_write then say("save: this console cannot write files", C_ERR); return false end
+  local n = 0
+  for _, name in ipairs(CD.order) do
+    local b = CD.files[name]
+    if b.dirty then
+      local ok, e = doc_write(name, BF.text(b))
+      if not ok then say("cannot save " .. name .. ": " .. tostring(e), C_ERR); return false end
+      b.dirty = false
+      n = n + 1
+    end
+  end
+  if n > 0 and not quiet then say("saved " .. n .. " source file" .. (n > 1 and "s" or "") .. " in /docs", C_ACC) end
+  return true
+end
+
+local function code_scroll_to(b, rows, middle)
+  if middle then b.top = max(1, b.cy - rows // 2) end
+  BF.scroll(b, rows, (select(3, code_geom())))
+end
+
+local function code_goto(file, line, col)
+  file = file and file:lower()
+  if not file or not src_ok(file) then return false end
+  local b = code_open(file)
+  BF.set_cursor(b, line or 1, col or 0)
+  local _, rows = code_geom()
+  code_scroll_to(b, rows, true)
+  return true
+end
+
+local function rom_name()
+  local stem = P.path and P.path:match("([^/]+)%.[^.]*$") or (CD.main or "main"):match("^(.-)%.[^.]*$") or "main"
+  return stem:sub(1, 8):lower() .. ".sfc"
+end
+
+local function code_build()
+  code_ensure()
+  if not code_save_all(true) then return end
+  local files = {}
+  for n, b in pairs(CD.files) do files[n] = BF.text(b) end
+  local main = CD.files[CD.main or ""] and CD.main or CD.cur
+  local title = (P.path and P.path:match("([^/]+)%.[^.]*$")) or main:match("^(.-)%.[^.]*$")
+  local rom, res = SC.build(files, main, title, function(n) return doc_read and doc_read(n) end)
+  CD.help = nil
+  if not rom then
+    CD.errs, CD.esel, CD.show_errs = res, 1, true
+    local e = res[1]
+    if e and e.file and e.line then code_goto(e.file, e.line) end
+    say(#res .. (#res == 1 and " error" or " errors") .. ": " .. (e and e.msg or "?"), C_ERR, 400)
+    return
+  end
+  CD.errs, CD.show_errs = {}, false
+  local name = rom_name()
+  if not doc_write then say("built, but this console cannot write the ROM file", C_ERR); return end
+  local ok, e = doc_write(name, rom)
+  if not ok then say("cannot write " .. name .. ": " .. tostring(e), C_ERR); return end
+  local code = 0
+  for _, s in ipairs(res.segments) do code = code + #s.data end
+  CD.rom = { name = name, size = #rom }
+  say(string.format("built %s in /docs: %d KB, %d bytes of code, %d labels", name, #rom // 1024, code, #res.symlist), C_ACC, 400)
+end
+
+local function code_jump_error(d)
+  if not CD.errs or #CD.errs == 0 then say("no errors: Ctrl+B builds", C_DIM); return end
+  CD.esel = (CD.esel or 0) + d
+  if CD.esel > #CD.errs then CD.esel = 1 elseif CD.esel < 1 then CD.esel = #CD.errs end
+  CD.show_errs = true
+  local e = CD.errs[CD.esel]
+  if not code_goto(e.file, e.line) then say(e.msg, C_ERR, 300) end
+end
+
+local function word_under(b)
+  local l = b.lines[b.cy]
+  local w = SC.word_at(l, b.cx + 1)
+  if not w and b.cx > 0 then w = SC.word_at(l, b.cx) end
+  return w
+end
+
+local function label_def(name)
+  for _, fname in ipairs(CD.order) do
+    for _, d in ipairs(BF.labels(CD.files[fname])) do
+      if d.name == name then return fname, d.line end
+    end
+  end
+end
+
+local function code_help()
+  code_ensure()
+  local b = cur_buf()
+  local w = word_under(b)
+  local inf = w and SC.info(w)
+  if not inf then
+    local m = SC.mnemonic_of(b.lines[b.cy])
+    inf = m and SC.info(m)
+  end
+  if not inf then say("F1: put the cursor on an instruction (lda, sta, rep ...)", C_DIM); return end
+  local _, _, cols = code_geom()
+  local lines = {}
+  for _, l in ipairs(SC.info_lines(inf)) do
+    for _, w2 in ipairs(wrap(l, cols + 4)) do lines[#lines + 1] = w2 end
+  end
+  while #lines > 9 do lines[#lines] = nil end
+  CD.help, CD.help_name = lines, inf.name
+  CD.show_errs = false
+  local _, rows = code_geom()
+  code_scroll_to(b, rows)
+end
+
+local function code_labels_menu()
+  code_ensure()
+  local b = cur_buf()
+  local w = word_under(b)
+  if w then
+    local f, ln = label_def(w)
+    if f then code_goto(f, ln); say(w .. ": " .. f .. " line " .. ln, C_DIM); return end
+  end
+  local rows = {}
+  for _, d in ipairs(BF.labels(b)) do
+    local ln = d.line
+    rows[#rows + 1] = { string.format("%-24s line %d", d.name, ln), function() code_goto(CD.cur, ln) end }
+  end
+  if #rows == 0 then say("no labels in " .. CD.cur .. " (a label ends with a colon)", C_DIM); return end
+  choose("go to a label in " .. CD.cur, rows)
+end
+
+local function code_find_ask()
+  code_ensure()
+  ask("find in " .. CD.cur, CD.find or "", function(t)
+    if t == "" then return end
+    CD.find = t
+    local b = cur_buf()
+    if BF.find(b, t) then local _, rows = code_geom(); code_scroll_to(b, rows) else say("not found: " .. t, C_ERR) end
+  end)
+end
+local function code_find_next(back)
+  local b = cur_buf()
+  if not b then return end
+  if not CD.find or CD.find == "" then code_find_ask(); return end
+  if BF.find(b, CD.find, back) then local _, rows = code_geom(); code_scroll_to(b, rows) else say("not found: " .. CD.find, C_ERR) end
+end
+
+local function code_snippets()
+  code_ensure()
+  local rows = {}
+  for _, sn in ipairs(SC.snippets) do
+    rows[#rows + 1] = { string.format("%-8s %s", sn.key, sn.name), function()
+      local b = cur_buf()
+      BF.insert_block(b, sn.text)
+      CD.help = nil
+      local _, r = code_geom()
+      code_scroll_to(b, r)
+      say(sn.about .. " Each line has its comment.", C_ACC, 500)
+    end }
+  end
+  choose("insert a snippet at the cursor", rows)
+end
+
+local function new_source()
+  ask("new file (8.3, .s or .inc)", "", function(t)
+    t = t:lower():gsub("%s", "")
+    if t == "" then return end
+    if not t:find(".", 1, true) then t = t .. ".s" end
+    if not src_ok(t) then say("a name like main.s or sprites.inc (up to 8 letters)", C_ERR); return end
+    code_open(t, "")
+  end)
+end
+
+local function close_source()
+  local b = cur_buf()
+  if not b then return end
+  if b.dirty and not confirmed("closefile", CD.cur .. " has unsaved changes: choose again to close it") then return end
+  local name = CD.cur
+  CD.files[name] = nil
+  for i, n in ipairs(CD.order) do if n == name then table.remove(CD.order, i); break end end
+  if CD.main == name then CD.main = CD.order[1] end
+  CD.cur = CD.order[1]
+  P.dirty = true
+end
+
+local function code_files_menu()
+  code_ensure()
+  local names, seen = {}, {}
+  for _, n in ipairs(CD.order) do names[#names + 1] = n; seen[n] = true end
+  for _, d in ipairs(doc_list and doc_list() or {}) do
+    local n = d.name:lower()
+    if src_ok(n) and not seen[n] then names[#names + 1] = n; seen[n] = true end
+  end
+  table.sort(names)
+  local rows = {}
+  for _, n in ipairs(names) do
+    rows[#rows + 1] = { n .. (CD.files[n] and "  (open)" or "") .. (CD.main == n and "  [main]" or ""), function() code_open(n) end }
+  end
+  rows[#rows + 1] = { "New file...", new_source }
+  rows[#rows + 1] = { "Save all the source files", function() code_save_all() end }
+  if CD.cur then
+    rows[#rows + 1] = { "Make " .. CD.cur .. " the main file (the build starts there)", function() CD.main = CD.cur; P.dirty = true; say(CD.cur .. " is the main file", C_ACC) end }
+    rows[#rows + 1] = { "Close " .. CD.cur, close_source }
+  end
+  choose("source files (in /docs)", rows)
+end
+
+local function code_key(k)
+  code_ensure()
+  if k == "^b" then code_build()
+  elseif k == "f1" then code_help()
+  elseif k == "^g" then code_labels_menu()
+  elseif k == "^f" then code_find_ask()
+  elseif k == "f6" then code_find_next(false)
+  elseif k == "f7" then code_find_next(true)
+  elseif k == "f8" then code_jump_error(1)
+  elseif k == "f9" then code_jump_error(-1)
+  elseif k == "^j" then code_snippets()
+  elseif k == "^e" then code_files_menu()
+  elseif k == "^w" then close_source()
+  else
+    local b = cur_buf()
+    if not b then say("Ctrl+E opens or makes a source file", C_DIM); return end
+    local _, rows = code_geom()
+    if BF.key(b, k, rows - 1) then
+      CD.help = nil
+      code_scroll_to(b, rows)
+    end
+  end
+end
+
+local function code_mouse()
+  local b = cur_buf()
+  if not b or U.menu_open() then return end
+  local top, rows, cols = code_geom()
+  local z = U.at()
+  if not z then return end
+  if z.kind == "code" then
+    local ly = clamp(b.top + (U.y - top) // 16, 1, #b.lines)
+    local lx = max(0, b.left + (U.x - GUT + 4) // 8)
+    if U.wheel ~= 0 then b.top = clamp(b.top - U.wheel * 3, 1, #b.lines); return end
+    if U.pressed(0) then
+      BF.set_cursor(b, ly, lx)
+      b.mark = { cy = b.cy, cx = b.cx }
+      CD.help = nil
+      if U.double then
+        local w = word_under(b)
+        if w then
+          local f, ln = label_def(w)
+          if f then b.mark = nil; code_goto(f, ln) end
+        end
+      end
+    elseif U.down(0) and U.moved and b.mark then
+      BF.set_cursor(b, ly, lx, true)
+      code_scroll_to(b, rows)
+    end
+  elseif z.kind == "ferr" and U.pressed(0) then
+    CD.esel = z.a
+    local e = CD.errs[z.a]
+    if e then code_goto(e.file, e.line) end
+  elseif z.kind == "ftab" and U.pressed(0) then
+    if CD.files[z.a] then CD.cur = z.a; CD.help = nil end
+  end
+end
+
+local function code_status()
+  local b = cur_buf()
+  if not b then return "Code: Ctrl+E opens or makes a source file" end
+  local w = word_under(b)
+  local inf = (w and SC.info(w)) or nil
+  if inf then return inf.short .. "   (F1: more)" end
+  return string.format("%s  line %d of %d, column %d%s", CD.cur, b.cy, #b.lines, b.cx + 1, CD.main == CD.cur and "  [main]" or "")
+end
+
+local function draw_code()
+  code_ensure()
+  cls(C_BG)
+  local b = cur_buf()
+  local top, rows, cols, pan, bottom = code_geom()
+  -- the file strip
+  rectfill(0, 16, W, 16, C_PANEL)
+  local x = 8
+  for _, n in ipairs(CD.order) do
+    local f = CD.files[n]
+    local label = n .. (f.dirty and "*" or "") .. (CD.main == n and " >" or "")
+    local w = #label * 8 + 16
+    if n == CD.cur then rectfill(x - 4, 16, w, 16, C_SEL) end
+    U.zone(x - 4, 16, w, 16, "ftab", n)
+    print(label, x + 4, 16, n == CD.cur and 0xFFFFFF or C_DIM)
+    x = x + w + 4
+  end
+  if not b then
+    print("no source file: Ctrl+E opens or makes one", 16, 56, C_DIM)
+  else
+    BF.scroll(b, rows, cols)
+    local y0, x0, y1, x1 = BF.sel_range(b)
+    local err_at = {}
+    for _, e in ipairs(CD.errs) do
+      if e.file == CD.cur and e.line and not err_at[e.line] then err_at[e.line] = e end
+    end
+    U.zone(GUT, top, W - GUT, rows * 16, "code")
+    local blink = (frame // 20) % 2 == 0
+    for r = 0, rows - 1 do
+      local ln, y = b.top + r, top + r * 16
+      if ln > #b.lines then break end
+      local l = b.lines[ln]
+      if ln == b.cy then rectfill(0, y, W, 16, C_CURLINE) end
+      if y0 and ln >= y0 and ln <= y1 then       -- the selection
+        local a = (ln == y0) and x0 or 0
+        local z = (ln == y1) and x1 or #l + 1
+        a, z = max(a, b.left), min(z, b.left + cols)
+        if z > a then rectfill(GUT + (a - b.left) * 8, y, (z - a) * 8, 16, C_SEL) end
+      end
+      print(string.format("%4d", ln), 4, y, err_at[ln] and C_ERR or C_DIM)
+      if err_at[ln] then print("!", GUT - 12, y, C_ERR) end
+      for _, t in ipairs(SC.tokens(l)) do
+        local a, z = max(t[1], b.left + 1), min(t[2], b.left + cols)
+        if z >= a then print(l:sub(a, z), GUT + (a - 1 - b.left) * 8, y, CC[t[3]] or C_TEXT) end
+      end
+      if ln == b.cy and blink then rectfill(GUT + (b.cx - b.left) * 8, y, 2, 16, 0xFFFFFF) end
+    end
+    -- the error of the cursor line, under it (above it on the last row)
+    local e = err_at[b.cy]
+    if e then
+      local r = b.cy - b.top
+      local lines = wrap("! " .. e.msg, cols)
+      local n = min(#lines, 2)
+      local ry = (r + n <= rows - 1) and (top + (r + 1) * 16) or (top + (r - n) * 16)
+      rectfill(0, ry, W, n * 16, C_ERRBG)
+      for i = 1, n do print(lines[i]:sub(1, cols), GUT, ry + (i - 1) * 16, 0xFF9090) end
+    end
+  end
+  -- the panel: the help of an instruction, or the list of errors
+  if CD.help then
+    rectfill(0, bottom, W, pan * 16, C_BAR)
+    print("F1 " .. string.upper(CD.help_name or "") .. "   (Esc closes)", 8, bottom, C_ACC)
+    for i, l in ipairs(CD.help) do print(l:sub(1, (W - 16) // 8), 8, bottom + i * 16, C_TEXT) end
+  elseif pan > 0 then
+    rectfill(0, bottom, W, pan * 16, C_BAR)
+    print(#CD.errs .. (#CD.errs == 1 and " error" or " errors") .. "   (F8 next, F9 previous, Esc closes)", 8, bottom, C_ERR)
+    for i = 1, pan - 1 do
+      local e = CD.errs[i]
+      local y = bottom + i * 16
+      U.zone(0, y, W, 16, "ferr", i)
+      if i == CD.esel then rectfill(0, y, W, 16, C_SEL) end
+      print(((e.file or "?") .. ":" .. (e.line or "?") .. "  " .. e.msg):sub(1, (W - 16) // 8), 8, y, C_TEXT)
+    end
+  end
+  hint({ { { "ctrl", "b" }, "build" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "go to" }, { { "ctrl", "f" }, "find" },
+         { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" } })
+end
+
 local function draw_pick()
   local p = pick
   local rows = min(#p.rows, 14)
@@ -756,15 +1189,24 @@ LY.screen_row = MENU[#MENU - 1]
 
 local function global_key(k)
   for i, t in ipairs(TABS) do
-    if k == t[2] then tab = i; return true end
+    if k == t[2] then
+      if i == 1 and tab == 1 then return false end        -- F1 in the Code tab is the help of an instruction
+      tab = i
+      return true
+    end
   end
-  if k == "esc" then menu_actions(); return true
-  elseif k == "^s" then save_now(); return true
+  if k == "esc" then
+    if tab == 1 and (CD.help or CD.show_errs) then CD.help, CD.show_errs = nil, false else menu_actions() end
+    return true
+  elseif k == "^s" then
+    if tab == 1 then code_save_all() end
+    if tab ~= 1 or P.path then save_now() end
+    return true
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" then open_other(); return true
   elseif k == "^n" then new_other(); return true
-  elseif k == "^z" then if tab == 2 then do_undo(undo, redo, "undo") end; return true
-  elseif k == "^y" then if tab == 2 then do_undo(redo, undo, "redo") end; return true
+  elseif k == "^z" then if tab == 1 then return false end; if tab == 2 then do_undo(undo, redo, "undo") end; return true
+  elseif k == "^y" then if tab == 1 then return false end; if tab == 2 then do_undo(redo, undo, "redo") end; return true
   elseif k == "\t" and tab == 2 then sprites_actions(); return true
   end
   return false
@@ -843,6 +1285,16 @@ local HELP = {
   { "esc", "the menu (new, open, save, sheet size)" },
   { "ctrl s / o / n", "save, open, new" },
   { "ctrl z / y", "undo, redo" },
+  "Code",
+  { "ctrl b", "build: the ROM goes to /docs; errors in plain words" },
+  { "f1", "help on the instruction under the cursor" },
+  { "ctrl g / double click", "go to a label" },
+  { "ctrl f / f6 / f7", "find; next; previous" },
+  { "f8 / f9", "next, previous error" },
+  { "ctrl j", "insert a snippet (reset, nmi, dma, joypad, colour)" },
+  { "ctrl e / ctrl w", "the source files; close the file" },
+  { "ctrl q", "start or stop a selection (the mouse drags one too)" },
+  { "ctrl c / x / v / k / d", "copy, cut, paste, cut line, copy line down" },
   "Sprites",
   { "arrows", "the sprite (or the pixel while drawing)" },
   { "enter / space", "draw on / off; paint the pixel" },
@@ -896,7 +1348,8 @@ function _update()
         if z.a == pick.sel or U.double then U.press("\n") else pick.sel = z.a end
       elseif z and z.kind == "shade" then U.press("esc")
       elseif z and z.kind == "field" and input then U.line_click(input, input.x0 or 96, 8) end
-    elseif tab == 2 then sprites_mouse() end
+    elseif tab == 2 then sprites_mouse()
+    elseif tab == 1 then code_mouse() end
   end
   while true do
     local k = keyp()
@@ -911,7 +1364,9 @@ function _update()
       elseif k == "down" then p.sel = p.sel % #p.rows + 1
       elseif k == "esc" or k == "back" then pick = nil
       elseif k == "\n" or k == "ok" then pick = nil; p.rows[p.sel][2]() end
-    elseif not global_key(k) and tab == 2 then sprites_key(k) end
+    elseif not global_key(k) then
+      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) end
+    end
   end
   if input then
     if btnp(5) then input = nil end
@@ -925,7 +1380,7 @@ end
 function _draw()
   LY.poll()
   U.begin()
-  if tab == 2 then draw_sprites() else draw_soon(tab) end
+  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() else draw_soon(tab) end
 
   rectfill(0, 0, W, 16, C_BAR)                 -- the tabs: each with its key
   local x = U.bar_title("bm SNES SDK", C_ACC)
@@ -941,7 +1396,7 @@ function _draw()
   U.bar_file(P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
-  local status = msg_t > 0 and msg or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
+  local status = msg_t > 0 and msg or tab == 1 and code_status() or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
                                                       M.sel - 1, M.cur, M.bpp)
   print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end
