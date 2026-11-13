@@ -160,7 +160,9 @@ local function frame_ms(k)
   local p, sp, c = string.match(us, "ppu (%d+) spc (%d+) cpu (%d+)")
   if not p then return nil end
   local draw = win_dr > 0 and win_d / win_dr or 3.3
-  return (tonumber(c) + tonumber(sp)) / 1000 + (math.max(tonumber(p), ppu_hi) / 1000 + draw) / k
+  -- The Super FX is not in `cpu`: a cartridge with the chip (Doom: 8 to 15 ms a frame on the Pi Zero W) adds its own time, else the cart steps to a finer picture while the chip eats the frame.
+  local g = tonumber(string.match(us, " gsu (%d+)")) or 0
+  return (tonumber(c) + tonumber(sp) + g) / 1000 + (math.max(tonumber(p), ppu_hi) / 1000 + draw) / k
 end
 local MINI, last_ups, last_dps = false, 0, 0              -- a test build with a one-line speed readout
 local function adapt()

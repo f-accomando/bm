@@ -67,11 +67,31 @@ Fix: `snes_bus.c` reads the IRQ time again while the line runs (`irq_time`, slic
 
 Speed on the Pi (kernel -92, `line log`): 15-16 pictures a second drawn, 55-57 emulated frames a second, `us frame` 12-18 ms, about 110000 GSU instructions per video frame. One game frame takes 9 video frames, so the game runs at 6-7 fps by design.
 
+## Slowdown and key response after the IRQ fix (host measure, 2026-11-13)
+
+Tool: `tests/snes/doom_input.c` (header has the build line; it needs the user's ROM). It prints the host time of 300 frames, the CPU and GSU instructions in a frame, and the frame at which the ROM reads a pad value.
+
+Measured on the host, frames 1500-3000 of `doom.sfc`, kernel before and after `c6948275`:
+
+| | before the IRQ fix | after the IRQ fix |
+|---|---|---|
+| GSU instructions a frame | 98000 to 110000 (Pi log: 108000 to 116000) | 187000 |
+| 65816 instructions a frame | 25000 to 28000 | 8600 |
+| ROM reads of `$4218` in 300 frames | 125 | 225 |
+| Host time a frame | about 1.7 to 2.3 ms | the same, within the noise |
+
+Cause of the slowdown: the fix did not add work to the hot loop (the extra IRQ test runs only after an IRQ fired). The game now runs as it should. Before the fix the CPU lost IRQs and waited on wrong wakes, so the Super FX idled about 45% of the time. Now the Super FX works almost all the time (187000 of the 357000 clocks a frame at 21 MHz), as on a real console, and the game takes 1.7 times more GSU work for each emulated second. At 40 to 80 ns for a GSU instruction on the Pi Zero W, the chip alone needs 8 to 15 ms of a 16.7 ms frame. So the Pi can fall below 60 frames a second (not yet measured on the Pi) and the game then runs in slow motion. This is a real cost, not a bug of the IRQ code.
+
+Key response: the core is not late. The pad that `snes_frame` gets is copied at the start of the V-blank (auto-read), and the NMI handler of the ROM reads it in the same frame (test `pad_latency_tests` in `core_test.c`). Doom reads `$4218` at `7E:2818` at line 23 or 24, 3 frames in 4. A key shows in the ROM at the next poll, 1 to 2 frames later, then the game acts on it at its own tick (6 to 10 game frames a second by design). So a key is seen after 150 to 300 ms on a console that holds 60 frames a second, and slower when the Pi falls behind. The cart reads the keys in each `_update` and passes them to `snes_frame` in the same call, so it adds no frame.
+
+Cart fix: `frame_ms` (the predictor of the picture rate in `carts/snes/src/main.lua`) did not count the Super FX time (`us_cpu` leaves it out). For Doom it saw a cheap frame and stepped to a finer picture, which cost more time and slowed the game more. It now adds the `gsu` field of the `us` line.
+
 ## Open work
 
 - Check on the Pi that the flicker is gone (kernel with the IRQ fix).
 - The 3D view of the first level shows one band of walls with dark floor and ceiling (indices 156-177 are dark grays in CGRAM). Compare with a picture of a real console: the first room may look like this.
-- Speed on the RGB30 is not measured for Doom. On the Pi Zero W the emulation runs at 55-57 of 60 frames a second.
+- Speed on the Pi Zero W with the IRQ fix: not measured yet. Run Doom on the next kernel and read the log line (`pi.py line log`): `upd` (emulated frames a second), `pic 1/N`, `gsu` (us), `gins` (about 187000 expected), `us frame`. If `upd` is under 57, the Super FX loop is the limit: the next step is to speed up the hot loop of Doom (ROM `00:E1B6`-`E1C7`: `FROM`, `ROMB`, `GETB`) in `snes_gsu_arm.S` (another session owns that file now, see [snes-superfx.md](snes-superfx.md)).
+- Speed on the RGB30 is not measured for Doom.
 - Compare the section map of a retail ROM with `RL.SEC` (the retail build may differ from the source of 1995).
 - If a disassembler is needed for the Super FX code of the ROM: write a SLEIGH module or a small script on the opcode table of [snes-superfx-isa.md](snes-superfx-isa.md).
 - Read the sound driver in the archive.org backup if the sound or its timing is a suspect.

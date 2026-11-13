@@ -305,12 +305,31 @@ static void htime_rewrite_tests(void)
     if (S.wram[2] < 5) printf("  got %d IRQs in 3 frames\n", S.wram[2]);
 }
 
+/* A key set before frame N is seen by the ROM in frame N: the auto-read at the start of the V-blank copies the pad that snes_frame got, and the NMI handler reads it at once. */
+static void pad_latency_tests(void)
+{
+    static const uint8_t main_code[] = { 0xA9, 0x81, 0x8D, 0x00, 0x42, 0x80, 0xFE };      /* NMI and auto-read on; BRA * */
+    static const uint8_t nmi_code[] = { 0xAD, 0x18, 0x42, 0x85, 0x02, 0xAD, 0x19, 0x42, 0x85, 0x03, 0x40 };   /* $02 = $4218, $03 = $4219; RTI */
+    static uint8_t rom[0x8000];
+    memset(rom, 0, sizeof rom);
+    memcpy(rom, main_code, sizeof main_code);
+    memcpy(rom + 0x100, nmi_code, sizeof nmi_code);
+    rom[0x7FFA] = 0x00; rom[0x7FFB] = 0x81; rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80;
+    snes_load(rom, sizeof rom, NULL);
+    for (int f = 0; f < 3; f++) snes_frame(0, 0, 0);
+    snes_frame(0x0881, 0, 0);
+    CHECK("pad set for a frame is read in the same frame", S.wram[2] == 0x81 && S.wram[3] == 0x08);
+    snes_frame(0, 0, 0);
+    CHECK("pad released is read in the next frame", S.wram[2] == 0 && S.wram[3] == 0);
+}
+
 int main(void)
 {
     scroll_tests();
     timing_tests();
     vcounter_tests();
     htime_rewrite_tests();
+    pad_latency_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();
