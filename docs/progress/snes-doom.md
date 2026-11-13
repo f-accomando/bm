@@ -59,13 +59,19 @@ Trace tool: build the core with `-DSNES_TRACE` (hooks `snes_trace.wr`, `.op`, `.
 
 Cause: the ROM buffer of the Super FX. The chip loads the buffer when R14 is written. `ROMB` changes the bank but keeps the buffer, so a `GETB` after `ROMB` without a new R14 returns the byte of the OLD bank. The core reloaded the buffer from the new bank at once. The hot loop of the engine (ROM `$00:E1B6`-`E1C7`, about 230000 runs in 2500 frames) does `FROM R4, ROMB, GETB`, so every texel and colour map byte came from the wrong bank: noisy walls. Fix: `set_rombr` in `snes_gsu.c` loads the buffer with the old bank before the bank changes; the buffer reloads only when R14 changes (C loop, `gsu_c_romb` for the ARM loop, and `tests/snes/gsu_ref.c`). Tests: `romb keeps buffer` and `romb then r14` in `gsu_test.c`. Approximation: a rewrite of R14 with the same value after ROMB does not reload (the chip does).
 
-Measured on the host (doom.sfc, no pad, frames 2450-2470): the picture is static (no flicker). One game frame takes 9 video frames in 3 passes: the GSU draws 9 tile columns (8 bpp, 160 lines, SCBR 1, RAN toggles 1F/17), the CPU sends them by 9 DMAs of 1152 bytes to VRAM (two views, `$1440` and `$5100`), then the next 9 columns. About 750000 GSU instructions per game frame: 20 to 40 ms on the Pi Zero W at 25-50 ns each, so a slow frame rate on the Pi is the GSU speed, not a bug.
+## The flicker: solved (2026-11-13)
+
+Cause: the V/H-IRQ of the core fired once per line. The game turns the display on at V 23 and off at V 199 with `WAI`. At each IRQ its handler writes HTIME again (`$60`, then `$F8`) in the same line and waits again. The second IRQ of the line was lost. The CPU then woke at the next IRQ of another source (the Super FX STOP) and wrote `$2100` at a wrong line (L96, L110, L151, L220, L235). So the picture lost its top, its status bar, or a whole frame. The host showed the same flicker as the Pi (the host harness at frames 2450-2457: the display on at L22 and off at L198 only in some frames). The old claim "the host picture is static" was wrong: it came from a frame range with no wrong wake.
+
+Fix: `snes_bus.c` reads the IRQ time again while the line runs (`irq_time`, slices of 96 clocks after an IRQ fired). After the fix every frame has `$2100` on at L22 and off at L198, and 8 frames in a row are equal. Other games (Mario Kart, Yoshi's Island, Star Fox, Zelda, Kirby) give the same pictures at frames 400, 900 and 1500. Test: `htime_rewrite_tests` in `tests/snes/core_test.c`.
+
+Speed on the Pi (kernel -92, `line log`): 15-16 pictures a second drawn, 55-57 emulated frames a second, `us frame` 12-18 ms, about 110000 GSU instructions per video frame. One game frame takes 9 video frames, so the game runs at 6-7 fps by design.
 
 ## Open work
 
-- Check on the Pi that the walls are clean, and look for flicker with a pad script (the host picture does not flicker).
+- Check on the Pi that the flicker is gone (kernel with the IRQ fix).
 - The 3D view of the first level shows one band of walls with dark floor and ceiling (indices 156-177 are dark grays in CGRAM). Compare with a picture of a real console: the first room may look like this.
-- Speed on the Pi Zero W and the RGB30 is not measured for Doom (about 750000 GSU instructions per game frame).
+- Speed on the RGB30 is not measured for Doom. On the Pi Zero W the emulation runs at 55-57 of 60 frames a second.
 - Compare the section map of a retail ROM with `RL.SEC` (the retail build may differ from the source of 1995).
 - If a disassembler is needed for the Super FX code of the ROM: write a SLEIGH module or a small script on the opcode table of [snes-superfx-isa.md](snes-superfx-isa.md).
 - Read the sound driver in the archive.org backup if the sound or its timing is a suspect.

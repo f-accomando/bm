@@ -279,11 +279,38 @@ static void vcounter_tests(void)
     }
 }
 
+/* The handler of an H-IRQ writes HTIME while the line goes on, and the new time is still ahead of the clock: the comparator fires again in the same line
+ * (Doom: HTIME $60, then $F8, then WAI; the core missed the second IRQ and the screen flickered). Each frame holds two IRQs: at H $10 and at H $C0. */
+static void htime_rewrite_tests(void)
+{
+    static const uint8_t main_code[] = {
+        0xA9, 0x64, 0x8D, 0x09, 0x42, 0xA9, 0x00, 0x8D, 0x0A, 0x42,   /* VTIME = 100 */
+        0xA9, 0x10, 0x8D, 0x07, 0x42, 0xA9, 0x00, 0x8D, 0x08, 0x42,   /* HTIME = $10 */
+        0xA9, 0x30, 0x8D, 0x00, 0x42,                                  /* V and H IRQ, no NMI */
+        0x58, 0x80, 0xFE                                               /* CLI; BRA * */
+    };
+    static const uint8_t irq_code[] = {
+        0xAD, 0x11, 0x42, 0xE6, 0x02, 0xA5, 0x02, 0x29, 0x01,         /* acknowledge; INC $02; LDA $02; AND #1 */
+        0xF0, 0x06, 0xA9, 0xC0, 0x8D, 0x07, 0x42, 0x40,               /* odd: HTIME = $C0; RTI */
+        0xA9, 0x10, 0x8D, 0x07, 0x42, 0x40                            /* even: HTIME = $10; RTI */
+    };
+    static uint8_t rom[0x8000];
+    memset(rom, 0, sizeof rom);
+    memcpy(rom, main_code, sizeof main_code);
+    memcpy(rom + 0x100, irq_code, sizeof irq_code);
+    rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80; rom[0x7FFE] = 0x00; rom[0x7FFF] = 0x81;
+    snes_load(rom, sizeof rom, NULL);
+    for (int f = 0; f < 3; f++) snes_frame(0, 0, 0);
+    CHECK("HTIME rewritten in the IRQ line: two IRQs a frame", S.wram[2] >= 5);
+    if (S.wram[2] < 5) printf("  got %d IRQs in 3 frames\n", S.wram[2]);
+}
+
 int main(void)
 {
     scroll_tests();
     timing_tests();
     vcounter_tests();
+    htime_rewrite_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();

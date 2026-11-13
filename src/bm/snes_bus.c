@@ -768,6 +768,16 @@ void snes_set_meter(void (*r)(uint32_t *), void (*e)(int)) { meter_fn = r; meter
 static int cpu_pc24(void) { uint32_t pc; int fl; cpu_info(&pc, &fl); return (int)pc; }
 void snes_frame(uint16_t pad1, uint16_t pad2, int render) { snes_frame_break(pad1, pad2, render, 0); }
 
+/* The clock (in the line) at which the V/H-IRQ comparator fires in the line L, or -1. The V counter: line 0 of the loop is the first picture line = V 1 (V 0 is the line before it, here L 261); the NMI is at V 225. */
+static int irq_time(int L)
+{
+    const int m = (S.nmitimen >> 4) & 3, vc = (L + 1) % 262;
+    if (m == 1) return (S.htime > 339 ? 339 : S.htime) * 4 + 14;
+    if (m == 2 && vc == S.vtime) return 14;
+    if (m == 3 && vc == S.vtime) return (S.htime > 339 ? 339 : S.htime) * 4 + 14;
+    return -1;
+}
+
 /* One frame. brk 0: plain frame (a breakpoint does not stop it; a frame that a breakpoint stopped is finished). brk 1: the CPU runs on the debug path while a
  * breakpoint is armed; it returns the 24-bit address of the instruction that it stopped on, and the next call goes on with the same frame. -1: the frame is done. */
 int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
@@ -813,11 +823,7 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
             }
         }
         /* IRQ: V, H or both */
-        const int m = (S.nmitimen >> 4) & 3;
-        const int vc = (L + 1) % 262;                                  /* the V counter: line 0 of this loop is the first picture line = V 1 (V 0 is the line before it, here L 261); the NMI is at V 225 */
-        if (m == 1) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
-        else if (m == 2 && vc == S.vtime) ia = 14;
-        else if (m == 3 && vc == S.vtime) ia = (S.htime > 339 ? 339 : S.htime) * 4 + 14;
+        ia = irq_time(L);
         /* The line: the CPU runs the whole line. The sound CPU and the Super FX do not run here: each follows the CPU when the CPU touches it (spc_sync,
          * gsu_sync), and catches up now and then (below). The IRQ fires when the clock passes its time. */
         }
@@ -837,8 +843,18 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
             n_instr += (uint32_t)cpu_run_dbg(end, 0);
             if (cpu_dbg_hit) { rs_line = L; rs_ia = -1; return cpu_pc24(); }
         } else {
-            if (ia >= 0) { n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1; }
-            n_instr += (uint32_t)cpu_run(end);
+            if (ia >= 0) {
+                n_instr += (uint32_t)cpu_run(ia); S.irq_pending = 1; S.timeup = 1;
+                /* The IRQ handler may write HTIME (or VTIME, $4200) in the same line, and the new time may still be ahead of the clock (Doom: HTIME $60, then $F8,
+                 * then WAI): the comparator then fires again in this line. Run the rest of the line in slices and fire at the slice end when the new time fell inside. */
+                int fired = ia;
+                while (snes_clk < end) {
+                    const int from = snes_clk, to = from + 96 < end ? from + 96 : end;
+                    n_instr += (uint32_t)cpu_run(to);
+                    const int ib = irq_time(L);
+                    if (ib > from && ib <= snes_clk && ib != fired) { S.irq_pending = 1; S.timeup = 1; fired = ib; }
+                }
+            } else n_instr += (uint32_t)cpu_run(end);
         }
         S.line_clk = 0; snes_clk -= end;
         if (S.sa1) sa1_line_end(L);

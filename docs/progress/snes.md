@@ -60,6 +60,7 @@ machine was written again in C. The RGB30 is not measured.
 | `tests/snes/game_run.c` | a host harness (built with `-DSNES_TRACE`) that plays a ROM from the disk with a scripted pad, saves pictures, pokes the work RAM, logs the PPU, DMA, DSP and CPU events and can lock-step a trace with another core; the header lists the options. It holds no game data |
 
 ## Rules (do not break)
+- The V/H-IRQ time is read again while the line runs. After an IRQ fires, the bus runs the rest of the line in slices of 96 clocks. If the handler writes HTIME, VTIME or `$4200` and the new time is still ahead of the clock, the IRQ fires again in the same line (`irq_time` in `snes_bus.c`). Doom needs it: HTIME `$60`, then `$F8`, then `WAI`. Test: `htime_rewrite_tests` in `tests/snes/core_test.c`.
 - The S-DSP (`snes_dsp.c`) and the SPC700 (`snes_spc.c`) must equal ares. Before you change them, run `make test-snes-audio-ref ARES=/path/to/ares`. The cycle table `spc_cyc` comes from ares; a golden hash changes only when ares agrees with the new value.
 
 - The debug API of the carts (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`) uses a separate CPU loop, `cpu_run_dbg` in `snes_cpu.c`. `snes_frame_break` enters it only while a breakpoint is armed. Add no check for the API to `cpu_run` or `snes_cpu_arm.S`: the hot loop must cost nothing with debugging off. A debug change to the CPU loop needs `make test-snes-cpu`, `make test-snes-cpu-arm` and `make test-snes-debug`.
