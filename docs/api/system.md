@@ -226,12 +226,12 @@ call returns `nil` and the reason.
 
 | Function | Description |
 |---|---|
-| `doc_list([folder])` | the files in `/docs` (or in `/snes`, the ROM folder of bm SNES, with `"snes"`; `"sfc"` is the old name of that folder and still works; or in `/nes`, the ROM folder of bm NES, with `"nes"`): `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
-| `doc_read(name[, folder])` | the bytes of a document (a string), or `nil` and the reason. In `"snes"`, `"sfc"` and `"nes"` the name is the one the card has (long names too); in `"docs"` it is 8.3 |
+| `doc_list([folder])` | the files in `/docs` (or in `/snes`, the ROM folder of bm SNES, with `"snes"`; or in `/nes`, the ROM folder of bm NES, with `"nes"`): `{ {name = "letter.bmd", size = 1234}, ... }` (empty if there are none); `nil` and the reason if the player did not allow it |
+| `doc_read(name[, folder])` | the bytes of a document (a string), or `nil` and the reason. In `"snes"` and `"nes"` the name is the one the card has (long names too); in `"docs"` it is 8.3 |
 | `doc_write(name, bytes[, folder])` | writes a document, new or replaced (at most 4 MB); `true`, or `nil` and the reason |
 | `doc_delete(name[, folder])` | deletes a document; `true`, or `nil` and the reason |
 
-`folder` is `"docs"` (the default), `"snes"`, `"sfc"` (the old name of `/snes`) or `"nes"`. Any other word gives `nil` and `the folder is docs, snes, sfc or nes`. The same permission covers the four folders.
+`folder` is `"docs"` (the default), `"snes"` or `"nes"`. Any other word gives `nil` and `the folder is docs, snes or nes`. The same permission covers the three folders.
 
 ```lua
 local ok, why = doc_write("notes.txt", "shopping:\nbread\nmilk\n")

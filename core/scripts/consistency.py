@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tomllib
 
-ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KNOWN = os.path.join(ROOT, "docs", "spec", "known.toml")
 
 

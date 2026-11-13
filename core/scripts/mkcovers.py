@@ -13,7 +13,7 @@ import struct
 import zlib
 
 W, H = 128, 80
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 
 def load_font():

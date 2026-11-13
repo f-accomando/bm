@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-carts_layout.py - check that projects in bm/ adhere to docs/PROJECT-LAYOUT.md.
+bm_layout.py - check that projects in bm/ adhere to docs/PROJECT-LAYOUT.md.
 
 Usage:
-  python core/scripts/carts_layout.py [--root DIR]
+  python core/scripts/bm_layout.py [--root DIR]
 """
 import argparse
 import fnmatch
@@ -88,7 +88,7 @@ def parse_doc_table(doc_path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    repo_root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    repo_root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     ap.add_argument("--root", default=repo_root, help="repository root directory")
     args = ap.parse_args()
 

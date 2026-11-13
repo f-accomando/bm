@@ -54,7 +54,7 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 [ -n "$MARKET" ] || MARKET=$(dirname "$PWD")/bm-market
 
 # ---------------------------------------------------------------- the repository

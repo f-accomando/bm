@@ -190,7 +190,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) core/scripts/mkbm
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/bm/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan titanex nano8 overbit yharnam typing write ko2 bench3d font
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 bench3d font
 GAME_CARTS := $(patsubst %,$(BUILD)/bm/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -309,17 +309,6 @@ test-nes: $(BUILD)/host/bmhost-bin $(BUILD)/bm/nes.bm tests/nes/render_test.py t
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/nes_core_test tests/nes/core_test.c core/src/bm/nes.c
 	$(BUILD)/host/nes_core_test $(if $(and $(wildcard build/nestest.nes),$(wildcard build/nestest.log)),build/nestest.nes build/nestest.log)
 	$(PYTHON) tests/nes/render_test.py $< $(BUILD)/bm/nes.bm
-# bm SNES-16 (bm/snes16): native ARM SNES-16 PPU + S-DSP demo with slim library and engine.b compiled by bmlc.c.
-$(BUILD)/bm/snes16.bm $(BUILD)/bm/snes16.bme: $(BUILD)/bm/snes16.%: bm/snes16/build/build.py $(wildcard bm/snes16/src/*.lua) bm/snes16/src/engine.b bm/snes16/bm.info core/scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) bm/snes16/build/build.py $(BUILD)/snes16
-	cp $(BUILD)/snes16/snes16.$* $@
-
-test-snes16: $(BUILD)/host/bmhost-bin $(BUILD)/bm/snes16.bm tests/snes16/core_test.c tests/snes16/render_test.py
-	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes16_core_test tests/snes16/core_test.c core/src/bm/snes16.c core/src/bm/snes_ppu.c core/src/bm/snes_dsp.c
-	$(BUILD)/host/snes16_core_test
-	$(PYTHON) tests/snes16/render_test.py $< $(BUILD)/bm/snes16.bm
-
 # bm Tape (bm/tape): a studio for the Pi: synth, drums, sequencer, song (TAPE), MIX, FX and punch-in effects with sound (phase 3), a DJ preview scene.
 # build.py joins bm/tape/src/*.lua, puts engine.b (compiled on the console by native_compile) at its placeholder
 # line, makes the cover and packs the .bme and the .bm. Not in GAMES yet (docs/design/bm-tape.md).
@@ -401,14 +390,14 @@ test-snes-debug: $(BUILD)/host/snes_debug_test
 test-snes-sa1: $(BUILD)/host/snes_sa1_test
 	$<
 # the Code tab of bm SNES SDK: colours, F1 texts, errors in plain words, snippets, text buffer
-test-snes-code: $(BUILD)/host/luahost core/src/script/snes_asm.lua bm/shared/snescode.lua bm/shared/asmbuf.lua tests/snes/code_test.lua
+test-snes-code: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/lua/snescode.lua core/lua/asmbuf.lua tests/snes/code_test.lua
 	$(BUILD)/host/luahost tests/snes/code_test.lua .
 
-# the Run tab of bm SNES SDK: flags, registers, hex view, breakpoints, lines and addresses (bm/shared/snesrun.lua)
-test-snes-run: $(BUILD)/host/luahost core/src/script/snes_asm.lua bm/shared/snesrun.lua tests/snes/run_test.lua
+# the Run tab of bm SNES SDK: flags, registers, hex view, breakpoints, lines and addresses (core/lua/snesrun.lua)
+test-snes-run: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/lua/snesrun.lua tests/snes/run_test.lua
 	$(BUILD)/host/luahost tests/snes/run_test.lua .
 
-# the SNES graphics converters (bm Pixel, bm SNES SDK) (bm/shared/snesgfx.lua)
+# the SNES graphics converters (bm Pixel, bm SNES SDK) (core/lua/snesgfx.lua)
 test-snes-gfx: $(BUILD)/host/luahost
 	$(BUILD)/host/luahost tests/snes/snesgfx_test.lua .
 test-snes-gsu: $(BUILD)/host/snes_gsu_test
@@ -529,17 +518,6 @@ $(BUILD)/titan/main.lua: $(TITAN_SRC) bm/titan/build/build.py
 lua_titan := $(BUILD)/titan/main.lua
 sheet8_titan := 1
 
-# Titan Clash EX: the same game's second edition, 360x360 (1:1), with its own sources in
-# bm/titan_ex/ (a .bm for the Pi and the RGB30; Titan Clash stays in bm/titan/)
-TITAN_EX_SRC := $(sort $(wildcard bm/titan_ex/src/*.lua))
-$(BUILD)/titan_ex/main.lua: $(TITAN_EX_SRC) bm/titan_ex/build/build.py
-	$(PYTHON) bm/titan_ex/build/build.py $@ --map $(BUILD)/titan_ex/main.map
-
-cdir_titanex := bm/titan_ex
-lua_titanex := $(BUILD)/titan_ex/main.lua
-sheet_titanex := bm/titan/assets/sheet.png
-sheet8_titanex := 1
-
 # bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
 # sources in bm/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
 # built into the RGB30's kernel (core/rgb30.mk, its Dev tab), not into the Pi's: here
@@ -549,22 +527,22 @@ SDK_B16_SRC := bm/sdk_b16/layout.lua bm/sdk_b16/main.lua bm/sdk_b16/build/build.
 $(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
 	$(PYTHON) bm/sdk_b16/build/build.py $@
 
-# bm Pixel: main.lua, then the SNES converter module (bm/shared/snesgfx.lua) as the global SNESGFX
+# bm Pixel: main.lua, then the SNES converter module (core/lua/snesgfx.lua) as the global SNESGFX
 # (a cart has no other Lua file; the module goes after main.lua, so its line numbers stay)
-$(BUILD)/pixel/main.lua: bm/pixel/main.lua bm/shared/snesgfx.lua
+$(BUILD)/pixel/main.lua: bm/pixel/main.lua core/lua/snesgfx.lua
 	@mkdir -p $(dir $@)
-	{ cat bm/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat bm/shared/snesgfx.lua; printf '\nend)()\n'; } > $@
+	{ cat bm/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat core/lua/snesgfx.lua; printf '\nend)()\n'; } > $@
 lua_pixel := $(BUILD)/pixel/main.lua
 
-# the Learn tab of bm SNES SDK: the lessons (bm/snes_sdk/lessons), their helpers (bm/shared/sneslearn.lua); every example assembles and runs in the core
-test-snes-learn: $(BUILD)/host/luahost core/src/script/snes_asm.lua bm/shared/sneslearn.lua bm/shared/snescode.lua bm/shared/asmbuf.lua tests/snes/learn_test.lua tests/snes/learn_run.c tests/snes/learn_run.py bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt) $(wildcard core/src/bm/snes*.h)
+# the Learn tab of bm SNES SDK: the lessons (bm/snes_sdk/lessons), their helpers (core/lua/sneslearn.lua); every example assembles and runs in the core
+test-snes-learn: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/lua/sneslearn.lua core/lua/snescode.lua core/lua/asmbuf.lua tests/snes/learn_test.lua tests/snes/learn_run.c tests/snes/learn_run.py bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt) $(wildcard core/src/bm/snes*.h)
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes_learn_run tests/snes/learn_run.c $(SNES_CORE_SRCS)
 	$(PYTHON) tests/snes/learn_run.py $(BUILD)/host/luahost $(BUILD)/host/snes_learn_run
 
 # bm SNES SDK: main.lua, then the converter module as the global SNESGFX, the Code tab modules as SNESCODE and ASMBUF, the Run tab module as SNESRUN, the Learn tab module as SNESLEARN and the lessons as the table SNESLESSONS
-$(BUILD)/snes_sdk/main.lua: bm/snes_sdk/main.lua bm/shared/snesgfx.lua bm/shared/snescode.lua bm/shared/asmbuf.lua bm/shared/snesrun.lua bm/shared/sneslearn.lua bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt)
+$(BUILD)/snes_sdk/main.lua: bm/snes_sdk/main.lua core/lua/snesgfx.lua core/lua/snescode.lua core/lua/asmbuf.lua core/lua/snesrun.lua core/lua/sneslearn.lua bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt)
 	@mkdir -p $(dir $@)
-	{ cat bm/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat bm/shared/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat bm/shared/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat bm/shared/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat bm/shared/snesrun.lua; printf '\nend)()\n'; printf '\nSNESLEARN = (function()\n'; cat bm/shared/sneslearn.lua; printf '\nend)()\n'; printf '\nSNESLESSONS = {\n'; for n in $$(cat bm/snes_sdk/lessons/LIST); do printf '{ name = "%s", text = [==[\n' $$n; cat bm/snes_sdk/lessons/$$n.txt; printf ']==] },\n'; done; printf '}\n'; } > $@
+	{ cat bm/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat core/lua/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat core/lua/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat core/lua/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat core/lua/snesrun.lua; printf '\nend)()\n'; printf '\nSNESLEARN = (function()\n'; cat core/lua/sneslearn.lua; printf '\nend)()\n'; printf '\nSNESLESSONS = {\n'; for n in $$(cat bm/snes_sdk/lessons/LIST); do printf '{ name = "%s", text = [==[\n' $$n; cat bm/snes_sdk/lessons/$$n.txt; printf ']==] },\n'; done; printf '}\n'; } > $@
 lua_snes_sdk := $(BUILD)/snes_sdk/main.lua
 
 lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
@@ -995,7 +973,7 @@ test-nano8: $(BUILD)/host/n8host $(BUILD)/host/n8cartinfo $(BUILD)/host/luahost 
 # gfx16, r3d, the sound player) and the kernel's services replaced
 # (tests/host/stubs.c): frames to PNG or raw video, sound to WAV, input from
 # a script. For the reels of the games and for tests with screenshots.
-BMHOST_RT := core/src/bm/runtime.c core/src/bm/api_jobs.c core/src/kernel/jobs.c core/src/kernel/offload.c core/src/bm/api_world.c core/src/bm/api_anim.c core/src/bm/api_net.c core/src/bm/api_save.c core/src/bm/api_shot.c core/src/bm/api_docs.c core/src/bm/api_snes.c core/src/bm/api_nes.c core/src/bm/nes.c core/src/bm/api_snes16.c core/src/bm/snes16.c core/src/bm/api_psx.c core/src/bm/psx_cpu.c core/src/bm/psx_gte.c core/src/bm/psx_bus.c core/src/bm/psx_gpu.c core/src/bm/psx_cd.c core/src/bm/psx_spu.c core/src/bm/psx_jit.c core/src/bm/snes_bus.c core/src/bm/snes_sa1.c core/src/bm/snes_sa1_cpu.c core/src/bm/snes_gsu.c core/src/bm/snes_dsp77.c core/src/bm/snes_cpu.c core/src/bm/snes_ppu.c core/src/bm/snes_spc.c core/src/bm/snes_dsp.c core/src/bm/api_sound.c core/src/bm/api_light.c core/src/bm/api_map.c core/src/bm/api_vm.c core/src/bm/bmvm.c core/src/bm/bmlc.c core/src/bm/bmnative.c core/src/bm/api_collmap.c core/src/bm/api_prompts.c core/src/bm/api_keys.c core/src/bm/api_web.c core/src/bm/api_video.c core/src/bm/api_perm.c core/src/bm/api_editor.c core/src/bm/api_text.c core/src/bm/api_debug.c core/src/bm/api_math.c core/src/bm/phys2d.c core/src/bm/api_phys2d.c core/src/bm/tokens.c core/src/bm/gfx16.c core/src/bm/r3d.c core/src/bm/world3d.c core/src/bm/map3d.c core/src/bm/format.c core/src/bm/meshcap.c core/src/bm/vfont.c \
+BMHOST_RT := core/src/bm/runtime.c core/src/bm/api_jobs.c core/src/kernel/jobs.c core/src/kernel/offload.c core/src/bm/api_world.c core/src/bm/api_anim.c core/src/bm/api_net.c core/src/bm/api_save.c core/src/bm/api_shot.c core/src/bm/api_docs.c core/src/bm/api_snes.c core/src/bm/api_nes.c core/src/bm/nes.c core/src/bm/api_psx.c core/src/bm/psx_cpu.c core/src/bm/psx_gte.c core/src/bm/psx_bus.c core/src/bm/psx_gpu.c core/src/bm/psx_cd.c core/src/bm/psx_spu.c core/src/bm/psx_jit.c core/src/bm/snes_bus.c core/src/bm/snes_sa1.c core/src/bm/snes_sa1_cpu.c core/src/bm/snes_gsu.c core/src/bm/snes_dsp77.c core/src/bm/snes_cpu.c core/src/bm/snes_ppu.c core/src/bm/snes_spc.c core/src/bm/snes_dsp.c core/src/bm/api_sound.c core/src/bm/api_light.c core/src/bm/api_map.c core/src/bm/api_vm.c core/src/bm/bmvm.c core/src/bm/bmlc.c core/src/bm/bmnative.c core/src/bm/api_collmap.c core/src/bm/api_prompts.c core/src/bm/api_keys.c core/src/bm/api_web.c core/src/bm/api_video.c core/src/bm/api_perm.c core/src/bm/api_editor.c core/src/bm/api_text.c core/src/bm/api_debug.c core/src/bm/api_math.c core/src/bm/phys2d.c core/src/bm/api_phys2d.c core/src/bm/tokens.c core/src/bm/gfx16.c core/src/bm/r3d.c core/src/bm/world3d.c core/src/bm/map3d.c core/src/bm/format.c core/src/bm/meshcap.c core/src/bm/vfont.c \
              core/src/kernel/syskeys.c core/src/kernel/controls.c \
              core/src/bm/require.c core/src/kernel/prompts.c core/src/gfx/font8x16.c core/src/gfx/font8x14.c core/src/gfx/font_inter8x16.c core/src/gfx/font_bmf.c \
              core/src/gfx/font_bm12x32.c core/src/gfx/font_bm18x48.c core/src/bm/api_font.c \
@@ -1202,13 +1180,12 @@ RADIO_FW := BCM43430A1.hcd brcmfmac43430-sdio.bin brcmfmac43430-sdio.txt brcmfma
             brcmfmac43436-sdio.clm_blob brcmfmac43436s-sdio.bin brcmfmac43436s-sdio.txt
 sdcard: $(SHIP_IMG) $(K7) $(SD_CARTS)
 	@test -f $(FW_DIR)/start.elf || { echo "Run 'make firmware' first"; exit 1; }
-	@mkdir -p $(DIST)/carts $(DIST)/bm
+	@mkdir -p $(DIST)/bm
 	cp $(FW_DIR)/bootcode.bin $(FW_DIR)/start.elf $(FW_DIR)/fixup.dat $(DIST)/
 	cp core/boot/config.txt $(DIST)/
 	cp $(SHIP_IMG) $(DIST)/kernel.img
 	$(if $(K7),cp $(K7) $(DIST)/kernel7.img,rm -f $(DIST)/kernel7.img)
-	rm -f $(DIST)/bm/*.bm       # the games were in bm/ before 25 Oct 2026: they are in bm/ now
-	rm -f $(DIST)/bm/*.cart     # the old .cart format: bm no longer plays it
+	rm -f $(DIST)/bm/*.bm
 	cp $(SD_CARTS) $(DIST)/bm/
 	mkdir -p $(DIST)/bm/nano8 && cp $(NANO8_ROMS) $(DIST)/bm/nano8/
 	mkdir -p $(DIST)/bm && cp core/boot/ca.pem $(DIST)/bm/ca.pem
@@ -1269,23 +1246,15 @@ release: $(SHIP_KERNEL) $(K7)
 # firmware in bm/. Settings and saves (bm/config.txt, bm/save) are
 # never touched. Uses sudo when the card is not writable (WSL).
 SD ?= /mnt/d
-# the console's folder before the project was renamed bm: moved to bm/
-OLD_DIR := bm33
 
 install: sdcard
 	@test -d $(SD) || { echo "$(SD) is not mounted (sudo mount -t drvfs D: $(SD))"; exit 1; }
 	@S=; [ -w $(SD) ] || S=sudo; \
-	$$S mkdir -p $(SD)/carts $(SD)/bm && \
-	if [ -d $(SD)/$(OLD_DIR) ]; then $$S cp -rn $(SD)/$(OLD_DIR)/. $(SD)/bm/ && $$S rm -rf $(SD)/$(OLD_DIR) && \
-	    echo "moved $(OLD_DIR)/ (settings, saves, firmware) to bm/"; fi && \
+	$$S mkdir -p $(SD)/bm && \
 	$$S cp $(DIST)/bootcode.bin $(DIST)/start.elf $(DIST)/fixup.dat $(DIST)/config.txt $(DIST)/kernel.img \
 	    $(if $(K7),$(DIST)/kernel7.img) $(SD)/ && \
-	$$S rm -f $(SD)/bm/demo.cart $(SD)/bm/demo.bm $(SD)/bm/stress.bm \
-	    $(SD)/bm/texroom.bm $(SD)/bm/texroom_hd.bm && \
 	$$S cp -r $(DIST)/bm/* $(SD)/bm/ && \
-	for g in $(SD)/bm/*.bm $(SD)/bm/*.b16; do [ -f "$$g" ] && $$S mv -n "$$g" $(SD)/bm/; done; \
-	if [ -d $(DIST)/bm ]; then $$S cp $(DIST)/bm/* $(SD)/bm/; fi && \
-	sync && echo "installed on $(SD): kernel $$(git describe --tags --always --dirty), carts, bm/ firmware" && \
+	sync && echo "installed on $(SD): kernel $$(git describe --tags --always --dirty), bm/ firmware" && \
 	ls $(SD)/bm
 
 sdcard-chainloader:
@@ -1487,9 +1456,7 @@ MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
 # typing, write and bench3d are apps: they go to the apps/ folder of the Market.
 MARKET_APPS_OF_GAMES := typing write bench3d font
-# titanex is held back: built as a .bm, not in the Market until the owner says so (26 Oct 2026).
-MARKET_HELD := titanex
-MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES) $(MARKET_HELD),$(GAMES))
+MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
 # the RGB30's SDK is not in the Market for now (the new SDK .bm for both kernels comes later).

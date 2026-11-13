@@ -3,7 +3,7 @@
 #   core/scripts/sync-core.sh          report only
 #   core/scripts/sync-core.sh --ff     also fast-forward the current branch to origin/bm-core when it is bm-core and clean
 set -u
-cd "$(dirname "$0")/.." || exit 2
+cd "$(dirname "$0")/../.." || exit 2
 git fetch -q origin || { echo "bm-core: fetch failed"; exit 1; }
 branch=$(git rev-parse --abbrev-ref HEAD)
 read -r ahead behind < <(git rev-list --left-right --count "HEAD...origin/bm-core")

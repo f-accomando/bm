@@ -1114,7 +1114,7 @@ Raspberry Pi Imager; 2 or 3 update its files."
     read -r -p "Type $DRIVE to go on: " typed || typed=
     [ "${typed%:}" = "$DRIVE" ] || [ "${typed%:}" = "${DRIVE,,}" ] || die "stopped: nothing touched"
 
-    if [ -n "$(ls -A "$SD" 2>/dev/null)" ] && ask "Keep your settings, saves and games (bm/ and bm/: copied to the PC first, then back)?" y; then
+    if [ -n "$(ls -A "$SD" 2>/dev/null)" ] && ask "Keep your settings, saves and games (bm/: copied to the PC first, then back)?" y; then
         bk=$BACKUPS/$(date +%Y%m%d-%H%M%S)
         mkdir -p "$bk"
         for f in bm carts kernel.img; do
@@ -1134,12 +1134,6 @@ Raspberry Pi Imager; 2 or 3 update its files."
         cp --update=none /dev/null "$bk/.cp-test" 2>/dev/null && keep=--update=none
         rm -f "$bk/.cp-test"
         if [ -d "$bk/bm" ]; then cp -r $keep "$bk/bm/." "$SD/bm/"; fi
-        if [ -d "$bk/carts" ]; then
-            cp -r $keep "$bk/carts/." "$SD/carts/"
-            for g in "$SD"/bm/*.bm "$SD"/bm/*.BM "$SD"/bm/*.b16 "$SD"/bm/*.B16; do   # the menus read bm/ only
-                [ -f "$g" ] && mv -n "$g" "$SD/bm/"
-            done
-        fi
         ok "settings, saves and games put back"
     fi
     sync

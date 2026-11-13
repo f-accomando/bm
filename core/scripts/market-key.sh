@@ -9,7 +9,7 @@
 set -eu
 KEY=${1:-$HOME/.bm/market-key.pem}
 PUB=core/keys/market-pub.pem
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 if [ -e "$KEY" ]; then
     echo "$KEY exists: kept"
 else

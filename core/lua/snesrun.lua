@@ -2,7 +2,7 @@
 -- breakpoints and the map between source lines and addresses. No bm API and no drawing: the PC tests run it
 -- (tests/snes/run_test.lua). The caller gives the functions of the debug API (snes_peek, snes_mem).
 --
---   local R = loadfile("bm/shared/snesrun.lua")()
+--   local R = loadfile("core/lua/snesrun.lua")()
 --   R.flags(p, e)             { {name, on}, ... } the flags of the P register, in the order N V M X D I Z C
 --   R.regs_text(r)            the register lines for the panel
 --   R.flags_words(p, e)       the set flags in words

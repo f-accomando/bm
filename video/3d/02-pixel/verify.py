@@ -190,7 +190,7 @@ def main():
 
     # ---------------------------------------------------------------- 3. forge and chain
     print("forge / chain")
-    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py"), "check", path,
+    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py"), "check", path,
                         "--no-sync", "--json"], capture_output=True, text=True)
     try:
         j = json.loads(r.stdout)

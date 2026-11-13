@@ -102,11 +102,6 @@ order = 19
 sources = ["bm/editor/main.lua", "core/src/bm/map3d.c", "docs/api/draw.md", "docs/api/bmlib.md", "docs/api/light3d.md", "docs/GAME-GUIDE.md", "docs/design/games-architecture.md", "docs/design/suite-sdk.md", "docs/progress/tools.md", "docs/progress/graphics.md", "docs/progress/v3d.md", "docs/ROADMAP.md"]
 
 [[manual]]
-id = "smw-guide"
-order = 20
-sources = ["bm/smw/src/game.lua", "bm/smw/src/physics.lua", "bm/smw/build/build.py", "bm/smw/build/sprites.py", "docs/progress/smw.md"]
-
-[[manual]]
 id = "graphics-techniques"
 order = 21
 sources = ["docs/PERF-BUDGET.md", "docs/progress/graphics.md", "docs/progress/graphics-mali.md", "docs/progress/graphics-vector.md", "docs/progress/multicore.md", "docs/progress/mali-parity.md", "docs/DRIVERS.md"]

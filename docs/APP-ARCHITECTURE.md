@@ -93,7 +93,7 @@ A game **cannot `require` its own files**: there is no module system for cartrid
 
 - Single-file games: `bm/<id>/main.lua` + assets; the generic Makefile rule calls `mkbm.py` with `--info bm.info` (3 games
   migrated) or the `title_<id>`/`res_<id>` variables.
-- Several files (titan, titan_ex, kitchen, overbit, nano8, sdk_b16): one `build.py` **per game** joins `core/src/*.lua` in name order
+- Several files (titan, kitchen, overbit, nano8, sdk_b16): one `build.py` **per game** joins `core/src/*.lua` in name order
   into a single `main.lua`: `00_*.lua` stays at the top level and declares the shared locals; every other file goes into
   `do -- name ... end` (so its locals do not count against Lua's 200 limit); an `OUT.map` file maps `main.lua:LINE` back to a
   source file. titan and overbit append a build tag (SHA-1 of the sources); overbit also has `--minify`, `--start`, `--hero`...
@@ -159,7 +159,7 @@ Other points:
 |---|---|---|---|
 | A2 | The list of apps and tools was in 7 places; since 2026-10-13 the **file names of the tools are one list**, `core/src/kernel/toolnames.h` (used by the Pi's menu, the RGB30's and `reserved_tool_name`); still apart: the Market's two lists (`catalog.c`, `mkmarket.py`), `EMBED_TOOLS` and `embed.S`, all checked against it by `core/scripts/consistency.py` | generate the Market's lists from the same table | no |
 | A3 | `devtool_session` finds the tool by comparing the display string (`"SDK"` on the Pi, `"bm SDK"` on the RGB30): rename the string and the SD override stops silently | pass the tool id | no |
-| A4 | Six near-identical `build.py` (kitchen, titan, titan_ex, overbit, nano8, sdk_b16) with different features | one `core/scripts/joinlua.py`; or the SDK joins the project's files itself from `bm.info` | no |
+| A4 | Five near-identical `build.py` (kitchen, titan, overbit, nano8, sdk_b16) with different features | one `core/scripts/joinlua.py`; or the SDK joins the project's files itself from `bm.info` | no |
 | A5 | No module system for the game's own files (only a convention of `do ... end` blocks) | keep it; a runtime module system would need several LUA sections | yes, for old kernels |
 | A6 | `bm.info` adopted by 3 games of ~13; INFO is stored but the menu does not read it | migrate the rest; read `name` from INFO in the Market | no |
 | A7 | Save identity is CRC32(title, author), checked only for Market games (`mkmarket.py:253`) | add an `id` key to INFO and use it for new saves, falling back to the CRC | no (old saves keep working) |

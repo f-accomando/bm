@@ -4,7 +4,7 @@ Run: python -m unittest tests/tools/test_public_export.py
 """
 import os, sys, tempfile, unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'core', 'scripts'))
 import public_export as pe
 
 

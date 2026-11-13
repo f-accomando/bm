@@ -16,7 +16,7 @@ import argparse, os, re, statistics, sys
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf8')
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_LEDGER = os.path.join(ROOT, "docs", "agents", "ledger.txt")
 FIELDS = ["date", "agent", "model", "task", "area", "gate", "necessity", "outcome", "tokens", "tools", "secs"]
 AGENTS = {"bm-planner", "bm-coder", "bm-mechanic", "bm-light", "bm-deep", "bm-research", "bm-ops",

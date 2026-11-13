@@ -8,7 +8,7 @@ An entry passes when `answer` is a substring of the recipe output and the recipe
 Exit 1 if any entry fails. Stdlib only (Python >= 3.11 for tomllib)."""
 import argparse, os, shlex, subprocess, sys, tomllib
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GOLDEN = os.path.join(ROOT, "docs", "agents", "recipes", "golden.toml")
 
 

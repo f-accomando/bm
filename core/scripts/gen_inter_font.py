@@ -13,7 +13,7 @@ import urllib.request
 from PIL import Image, ImageFont, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.join(HERE, "..")
+REPO_ROOT = os.path.join(HERE, "..", "..")
 SRC_GFX = os.path.join(REPO_ROOT, "core", "src", "gfx")
 TTF_PATH = os.path.join(REPO_ROOT, "scratch", "Inter.ttf")
 

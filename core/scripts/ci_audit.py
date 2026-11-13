@@ -20,7 +20,7 @@ try:
 except ImportError:  # handled in check_ci
     yaml = None
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_CI = ROOT / ".github" / "workflows" / "ci.yml"
 QEMU_TESTS = [
     ROOT / "tests" / "qemu_test.py",

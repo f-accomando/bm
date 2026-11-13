@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SKILL = os.path.join(ROOT, ".claude", "skills", "bm-forge")
 sys.path.insert(0, SKILL)
 from bm_core import container  # noqa: E402
@@ -136,10 +136,10 @@ def main(argv):
         open(lua_path, "w").write(lua)
         # a cart with one model, only to carry the Lua (bm_forge makes it)
         probe = os.path.join(work, "probe.bm")
-        subprocess.check_call([sys.executable, os.path.join(SKILL, "core", "scripts", "bm_forge.py"), "mesh",
+        subprocess.check_call([sys.executable, os.path.join(SKILL, "scripts", "bm_forge.py"), "mesh",
                                os.path.join(SKILL, "examples", "humanoid_boxes.json"), "-o", probe], stdout=subprocess.DEVNULL)
         cart = os.path.join(work, "check.bm")
-        subprocess.check_call([sys.executable, os.path.join(SKILL, "core", "scripts", "bm_forge.py"), "export", "cart", probe, "--lua", lua_path,
+        subprocess.check_call([sys.executable, os.path.join(SKILL, "scripts", "bm_forge.py"), "export", "cart", probe, "--lua", lua_path,
                                "-o", cart, "--title", "bmm check", "--budget", "20000"], stdout=subprocess.DEVNULL)
         out = subprocess.run([host, cart, "--sd", sd, "--seconds", "3"], capture_output=True, text=True, timeout=240)
         log = out.stdout + out.stderr

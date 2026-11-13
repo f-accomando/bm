@@ -1,6 +1,6 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
 name: bm SNES
-desc: A Super Nintendo emulator. It plays .sfc and .smc files from the /sfc folder of the SD card. The machine is in C.
+desc: A Super Nintendo emulator. It plays .sfc and .smc files from the /snes folder of the SD card. The machine is in C.
 author: bm
 license: LicenseRef-BM-Community-1.0
 version: 0.3

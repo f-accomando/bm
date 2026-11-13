@@ -21,7 +21,7 @@ param(
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $wroot = (wsl -e wslpath -a $root).Trim()
 if (-not $wroot) { Write-Error 'wslpath failed: is WSL installed?'; exit 2 }
 if ($Dir) { $wroot = "$wroot/$($Dir -replace '\\', '/')" }

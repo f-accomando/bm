@@ -27,7 +27,7 @@ import threading
 import time
 import zlib
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 import qemu_test as qt  # noqa: E402  (Qemu, read_ppm, screen_text; mksd and mkbm)
 

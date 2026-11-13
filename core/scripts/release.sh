@@ -55,7 +55,7 @@ done
 [[ $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the version is vX.Y.Z, e.g.: core/scripts/release.sh v0.1.0"
 DRIVE=$(printf '%s' "$DRIVE" | tr -d ':' | tr 'a-z' 'A-Z')
 [ -n "$SD" ] || SD=/mnt/$(printf '%s' "$DRIVE" | tr 'A-Z' 'a-z')
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # ---------------------------------------------------------------- the repository
 say "The repository"

@@ -213,13 +213,13 @@ static int same_path(const char *a, const char *b)
     return strcasecmp(a, b) == 0;
 }
 
-/* The menus list bm/ (core/src/kernel/library.c): a game sent to bm/ (what
+/* The menus list bm/ (core/src/kernel/library.c): a game sent to carts/ (what
  * older versions of bm_net.py and easy_install.sh say) goes there. */
 static void to_menu_folder(void)
 {
     const char *p = path[0] == '/' ? path + 1 : path;
     const char *dot = strrchr(p, '.');
-    if (strncasecmp(p, "bm/", 6) == 0 && !strchr(p + 6, '/') && dot &&
+    if (strncasecmp(p, "carts/", 6) == 0 && !strchr(p + 6, '/') && dot &&
         (strcasecmp(dot, ".bm") == 0 || strcasecmp(dot, ".b16") == 0)) {
         char name[sizeof path];
         strcpy(name, p + 6);

@@ -32,7 +32,7 @@ end
 
 def build():
     out = [HEAD]
-    for path in sorted(glob.glob(os.path.join(HERE, "core", "src", "*.lua"))):
+    for path in sorted(glob.glob(os.path.join(HERE, "src", "*.lua"))):
         name = os.path.basename(path)[:-4]
         if name in SKIP:
             continue

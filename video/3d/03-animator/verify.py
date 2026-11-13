@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(ROOT, ".claude", "skills", "bm-forge"))
 import bmres  # noqa: E402
 from bm_core import container  # noqa: E402
 
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
 CHAIN = os.path.join(ROOT, "video", "3d", "chain")
 ASSETS = os.path.join(ROOT, "video", "3d", "out", "assets", "tropic_assets.bm")
 

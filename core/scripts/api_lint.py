@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 LUA_STD = {
     "assert", "error", "ipairs", "pairs", "next", "pcall", "xpcall", "select",

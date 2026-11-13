@@ -22,7 +22,7 @@ import subprocess
 import sys
 import wave
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 FEL = os.path.join(ROOT, "core", "third_party", "felucca-engines")
 LIST = os.path.join(ROOT, "bm", "tape", "sounds", "felucca.json")
 RENDER_C = os.path.join(ROOT, "core", "tools", "felrender", "felrender.c")
@@ -83,9 +83,9 @@ def main():
     os.makedirs(raw, exist_ok=True)
     sounds = json.load(open(LIST))["sounds"]
     tables = os.path.join(d, "fe_tables.h")
-    sh([sys.executable, os.path.join(FEL, "core", "tools", "gen_engine_tables.py"), "--fs", str(FS), tables])
+    sh([sys.executable, os.path.join(FEL, "tools", "gen_engine_tables.py"), "--fs", str(FS), tables])
     exe = os.path.join(d, "felrender")
-    sh([os.environ.get("CC", "cc"), "-O2", "-std=c99", "-w", "-I" + d, "-I" + os.path.join(FEL, "core", "src"),
+    sh([os.environ.get("CC", "cc"), "-O2", "-std=c99", "-w", "-I" + d, "-I" + os.path.join(FEL, "src"),
         "-o", exe, RENDER_C])
     known = {}
     for line in sh([exe, "-l"]).splitlines():

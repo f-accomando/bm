@@ -91,7 +91,7 @@ def main():
         check(g.get(bmres.SEC_LAYERS) == f.get(bmres.SEC_LAYERS) and g.get(bmres.SEC_MAP) == f.get(bmres.SEC_MAP), "TROPIC.BM has the same map layers")
     else:
         check(False, "TROPIC.BM built by Ctrl+B")
-    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py"), "check", path,
+    r = subprocess.run([sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py"), "check", path,
                         "--no-sync", "--json"], capture_output=True, text=True)
     try:
         fl_ = json.loads(r.stdout)["files"][0]

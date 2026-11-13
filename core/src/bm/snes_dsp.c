@@ -11,7 +11,7 @@
 
 #include <string.h>
 
-/* Standalone/shared DSP memory: defaults to internal buffers unless spc_reset() or snes16 binds its own. */
+/* Standalone/shared DSP memory: defaults to internal buffers unless spc_reset() binds its own. */
 static uint8_t dsp_fallback_ram[65536];
 static uint8_t dsp_fallback_regs[128];
 static uint8_t *dsp_ram_ptr = dsp_fallback_ram;

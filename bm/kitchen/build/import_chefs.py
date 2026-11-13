@@ -617,7 +617,7 @@ def main():
         print(f"{s['src']}: {len(m.part)} triangles {parts}")
     sheet, uvs = bake(models)
     sheet.save(os.path.join(HERE, "models", "chefs.png"))
-    write_lua(models, uvs, os.path.join(HERE, "core", "src", "16_chef_models.lua"))
+    write_lua(models, uvs, os.path.join(HERE, "src", "16_chef_models.lua"))
     if a.preview:
         preview(models, uvs, sheet, a.preview)
 

@@ -8,7 +8,7 @@
 # first 2500000 runs of both traces. Copy best.ld into core/src/bm/snes_hot.ld (keep its header comment) when the numbers are good.
 # Pad scripts: tests/snes/icache_pad_smw.txt and icache_pad_smw2.txt.
 set -e
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 TAG=$1; shift
 SFC=${SFC:-$(ls -d /mnt/c/Users/*/Desktop/snes ~/Desktop/snes /mnt/c/Users/*/Desktop/sfc ~/Desktop/sfc 2>/dev/null | head -1)}
 mkdir -p build

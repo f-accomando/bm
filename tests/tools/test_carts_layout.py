@@ -1,4 +1,4 @@
-"""Tests for core/scripts/carts_layout.py: tests CLI checks on temporary repo structures."""
+"""Tests for core/scripts/bm_layout.py: tests CLI checks on temporary repo structures."""
 import os
 import subprocess
 import sys
@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(ROOT, "core", "scripts", "carts_layout.py")
+SCRIPT = os.path.join(ROOT, "core", "scripts", "bm_layout.py")
 
 VALID_BMINFO = """name: Pong
 author: Dev

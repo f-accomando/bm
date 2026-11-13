@@ -24,7 +24,7 @@ import sys
 import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 import bmmesh  # noqa: E402  (cart_sections reads the container; decode_anim reads the rigs)
 

@@ -6,7 +6,7 @@ These are the *answers* for verify.py and a visual reference; the videos build t
 import os, subprocess, sys
 H = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(H, "..", "..", ".."))
-F = [sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")]
+F = [sys.executable, os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")]
 out = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "video", "3d", "out", "assets"))
 os.makedirs(out, exist_ok=True)
 def run(*a):

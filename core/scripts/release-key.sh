@@ -7,7 +7,7 @@
 set -eu
 KEY=${1:-$HOME/.bm/release-key.pem}
 PUB=core/keys/release-pub.pem
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 if [ -e "$KEY" ]; then
     echo "$KEY exists: kept"
 else

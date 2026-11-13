@@ -21,7 +21,7 @@ import sys
 import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.normpath(os.path.join(HERE, ".."))
+ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 MAN = os.path.join(ROOT, "manuals")
 SYNC = os.path.join(MAN, "sync.json")
 LANGS = ("en", "it")

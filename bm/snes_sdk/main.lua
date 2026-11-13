@@ -6,7 +6,7 @@
 -- the rest of the Sprites data (depth, sizes, sub-palettes, the sub-palette of each tile) is text between
 -- the marks "-- snes-sdk:begin" and "-- snes-sdk:end" in its Lua section (read back when it opens).
 -- Keys: F1..F5 the tabs, Esc the menu, Ctrl+S save, Ctrl+O open, Ctrl+N new, F12 (held) the keys.
--- The converters are in bm/shared/snesgfx.lua (no interface; tests/snes/snesgfx_test.lua).
+-- The converters are in core/lua/snesgfx.lua (no interface; tests/snes/snesgfx_test.lua).
 
 local LY = require("bmlib").layout
 LY.auto()
@@ -14,12 +14,12 @@ local W, H = SCREEN_W, SCREEN_H
 local U = require "bmui"
 -- the converters: the build puts the module in the global SNESGFX after this file, so G looks it up at the first call
 local G = setmetatable({}, { __index = function(_, k) return (SNESGFX or require "snesgfx")[k] end })
--- the same for the Code tab: bm/shared/snescode.lua (SNESCODE) and bm/shared/asmbuf.lua (ASMBUF)
+-- the same for the Code tab: core/lua/snescode.lua (SNESCODE) and core/lua/asmbuf.lua (ASMBUF)
 local SC = setmetatable({}, { __index = function(_, k) return (SNESCODE or require "snescode")[k] end })
 local BF = setmetatable({}, { __index = function(_, k) return (ASMBUF or require "asmbuf")[k] end })
--- and for the Run tab: bm/shared/snesrun.lua (SNESRUN)
+-- and for the Run tab: core/lua/snesrun.lua (SNESRUN)
 local RR = setmetatable({}, { __index = function(_, k) return (SNESRUN or require "snesrun")[k] end })
--- and for the Learn tab: bm/shared/sneslearn.lua (SNESLEARN) and the lesson files (the table SNESLESSONS)
+-- and for the Learn tab: core/lua/sneslearn.lua (SNESLEARN) and the lesson files (the table SNESLESSONS)
 local SL = setmetatable({}, { __index = function(_, k) return (SNESLEARN or require "sneslearn")[k] end })
 
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
@@ -747,8 +747,8 @@ end
 
 -- The text of the project's source files (.s and .inc) is in /docs (doc_read, doc_write): a .bme is one file.
 -- The project keeps only the names of the files and the main one (the line --code in its Lua section).
--- The helpers are in bm/shared/snescode.lua (colours, F1 texts, errors in plain words, snippets) and
--- bm/shared/asmbuf.lua (the text buffer); tests/snes/code_test.lua runs them on the PC.
+-- The helpers are in core/lua/snescode.lua (colours, F1 texts, errors in plain words, snippets) and
+-- core/lua/asmbuf.lua (the text buffer); tests/snes/code_test.lua runs them on the PC.
 local GUT = 56
 local CC = { mn = 0x80C0FF, dir = 0xC890FF, label = 0xFFC050, hex = 0x80E0A0, num = 0xF0A070, cmt = 0x6A7288,
              str = 0xE8D878, op = 0xA8B0C8, txt = C_TEXT }
@@ -1017,7 +1017,7 @@ end
 
 ----------------------------------------------------------------- the Run tab
 -- Build the project of the Code tab, load the ROM in the machine and run it beside a debug panel. The helpers are in
--- bm/shared/snesrun.lua (flags, registers, hex view, breakpoints, lines and addresses); tests/snes/run_test.lua runs them on the PC.
+-- core/lua/snesrun.lua (flags, registers, hex view, breakpoints, lines and addresses); tests/snes/run_test.lua runs them on the PC.
 -- With no breakpoint armed the loop is the normal one (snes_run is snes_frame then); the C core costs nothing more.
 local BTNS = { { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start", 0x1000 }, { "up", 0x0800 },
                { "down", 0x0400 }, { "left", 0x0200 }, { "right", 0x0100 }, { "a", 0x0080 }, { "x", 0x0040 },

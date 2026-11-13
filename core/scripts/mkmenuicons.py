@@ -13,7 +13,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 OUT = os.path.join(ROOT, "art", "icons")
 U = 192                                     # the 1080p icon, in pixels
 SS = 4                                      # oversampling of the master

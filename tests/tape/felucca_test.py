@@ -65,7 +65,7 @@ check("the SHA-256 of each WAV equals tests/tape/felucca_golden.txt (different: 
 print("PCM total %d bytes (%.3f MB)" % (total, total / 1048576))
 check("the PCM total is 2.5 MB or less", total <= 2621440)
 
-lua = open(os.path.join(ROOT, "bm", "tape", "core", "src", "25_sounds.lua")).read()
+lua = open(os.path.join(ROOT, "bm", "tape", "src", "25_sounds.lua")).read()
 in_lua = re.findall(r'pcm\("[^"]+", "([A-Z0-9]+)", "[a-z]+"\)', lua)
 check("25_sounds.lua names the 24 samples of the list in the same order", in_lua == names)
 

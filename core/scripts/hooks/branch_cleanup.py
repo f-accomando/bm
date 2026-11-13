@@ -15,7 +15,7 @@ if inp.get("hook_event_name") == "PostToolUse":
     cmd = (inp.get("tool_input") or {}).get("command", "")
     if "gh pr merge" not in cmd and "git merge" not in cmd:
         sys.exit(0)
-tool = os.environ.get("BRANCH_AUDIT") or os.path.normpath(os.path.join(root, "..", "bm33-sync", "core", "tools", "branch_audit.py"))
+tool = os.environ.get("BRANCH_AUDIT") or os.path.normpath(os.path.join(root, "..", "bm33-sync", "tools", "branch_audit.py"))
 if not os.path.exists(tool):
     sys.exit(0)
 try:

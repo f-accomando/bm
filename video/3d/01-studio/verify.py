@@ -28,7 +28,7 @@ import bmres    # noqa: E402
 
 BUDGET = {"PICO": 300, "APPLE": 80, "CRATE": 40}
 ORDER = ["CRATE", "APPLE", "PICO"]
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
 CHAIN = os.path.join(HERE, "..", "chain")
 # T.PALETTE of bm Studio (core/src/script/bm3d.lua): the colours the video picks
 COL = {"brown": 0x8A5A30, "red": 0xE84A5A, "orange": 0xF09030, "mint": 0x60D0C0, "yellow": 0xF0D040, "cream": 0xFFF4C0}

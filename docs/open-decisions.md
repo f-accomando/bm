@@ -36,7 +36,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migrations: `demo`, `stress` (test carts; `texroom` was removed on 24 Oct 2026), `sdk_b16` and `titan_ex` (own layouts); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
+- Next migrations: `demo`, `stress` (test carts; `texroom` was removed on 24 Oct 2026), `sdk_b16` (own layout); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
 
 ## Found while checking the manuals (to fix in the source documents)
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)
@@ -64,6 +64,6 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Left for later (2026-10-13, at the end of the pdf-manuals session)
 - Manuals: the `[DA COMPLETARE]` gaps that need the hardware or a measure; about 60 pictures (`manuals/shots/`, taken on the console).
 - D09 `.bme` projects in Dev on the RGB30, D17 and D35 (after the on-screen keyboard).
-- Migration to the common layout: `sdk_b16` and `titan_ex` (own layouts).
+- Migration to the common layout: `sdk_b16` (own layout).
 - Warnings seen but not mine: none open on the Pi or RGB30 builds.
 - Tags `v0.3.0` and `v1.0.0`: only with an explicit yes.

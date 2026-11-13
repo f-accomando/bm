@@ -10,7 +10,7 @@ machine was written again in C. The RGB30 is not measured.
 ## How to use it
 
 1. Make the folder `/snes` at the root of the SD card and copy the ROM there (the old folder `/sfc` still works when `/snes` has no ROM). The name can be long. A file has at most 4 MB.
-   (The cartridge reads it with `doc_list("sfc")` and `doc_read(name, "sfc")`; the permission is the one of the documents.)
+   (The cartridge reads it with `doc_list("snes")` and `doc_read(name, "snes")`; the permission is the one of the documents.)
 2. Start "bm SNES" from the menu. The first time, the console asks if the cartridge may use the files.
 3. Choose the ROM with the arrows. Press A.
 4. Keys: the pad keys are the SNES keys (A, B, X, Y, L1, R1, Start, Select, the cross). The SNES buttons are
@@ -72,7 +72,7 @@ machine was written again in C. The RGB30 is not measured.
 - The picture is drawn at the end of each line (`ppu_line`) from the registers at that moment, so effects in the middle of the frame show.
 - The sound program is uploaded through the boot ROM state machine (`spc_port_write`). A write to port 0 is the command; its data is in
   port 1. A 16-bit store writes port 1 after port 0, so the state machine works at the next read or write of another port.
-- The ROM comes only from `doc_read(name, "sfc")`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
+- The ROM comes only from `doc_read(name, "snes")`. The cartridge never writes a ROM. The only file it writes is the `.srm`.
 - No SNES firmware, ROM data or game code goes into the repository. The test ROM is made by `make_testrom.py`.
 - The core tests are the gate for a change of the CPU, the PPU or the SPC700. Run `make test-snes`. After a change of `snes_ppu.c` run `make test-snes-ppu` too: it must stay bit for bit equal to `tests/snes/ppu_ref.c` (change the reference only for a new PPU feature, in both files).
 - The CPU reads and writes memory through the page tables (`snes_read_f`, `snes_write_f` in `snes_int.h`); `snes_map_build` makes them and runs after a reset and a write to $420D. A page is fast only when its first and last byte are plain memory at the same distance, so a ROM that is not a multiple of 4 KB still mirrors right. A change of the memory map (a new chip, a bank rule) goes in `map_ptr` and in `raw_read` together; `make test-snes-cpu` must pass with the same hashes.

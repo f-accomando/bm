@@ -28,7 +28,7 @@ from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, Image, KeepTog
                                 Paragraph, Preformatted, Spacer, Table, TableStyle)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.normpath(os.path.join(HERE, ".."))
+ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 THEMES = os.path.join(ROOT, "manuals", "themes")
 
 

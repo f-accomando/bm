@@ -154,22 +154,22 @@ E.require = function(name)
     return bmlib
   end
   if name == "snesgfx" and not arg[3] then              -- the SNES converters (the build puts them into the cart)
-    return assert(loadfile(ROOT .. "/bm/shared/snesgfx.lua", "t", E))()
+    return assert(loadfile(ROOT .. "/core/lua/snesgfx.lua", "t", E))()
   end
   if name == "snes_asm" then                             -- the kernel has it built in
     E._asm = E._asm or assert(loadfile(ROOT .. "/core/src/script/snes_asm.lua", "t", E))()
     return E._asm
   end
   if name == "snescode" and not arg[3] then              -- the Code tab helpers (a built cart has them in SNESCODE)
-    E._code = E._code or assert(loadfile(ROOT .. "/bm/shared/snescode.lua", "t", E))()
+    E._code = E._code or assert(loadfile(ROOT .. "/core/lua/snescode.lua", "t", E))()
     return E._code
   end
   if name == "snesrun" and not arg[3] then              -- the Run tab helpers
-    E._run = E._run or assert(loadfile(ROOT .. "/bm/shared/snesrun.lua", "t", E))()
+    E._run = E._run or assert(loadfile(ROOT .. "/core/lua/snesrun.lua", "t", E))()
     return E._run
   end
   if name == "asmbuf" and not arg[3] then
-    E._buf = E._buf or assert(loadfile(ROOT .. "/bm/shared/asmbuf.lua", "t", E))()
+    E._buf = E._buf or assert(loadfile(ROOT .. "/core/lua/asmbuf.lua", "t", E))()
     return E._buf
   end
   assert(name == "bmui", "require: only bmui, bmlib and snes_asm here (a built cart has the others as globals)")

@@ -24,7 +24,7 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 SOCK = os.path.expanduser("~/.pi_bridge.sock")
 DEV = ""            # --dev NAME: one bridge per device
 sys.path.insert(0, HERE)

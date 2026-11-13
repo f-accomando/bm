@@ -4918,9 +4918,9 @@ def test_bm_write(b, opts):
 
 DOCFOLDER_CART = r"""
 function _init()
-  local l = doc_list("sfc")
-  log("sfc", l and #l or "nil", l and l[1] and l[1].name or "-", l and l[1] and l[1].size or 0)
-  local d = doc_read("t.sfc", "sfc")
+  local l = doc_list("snes")
+  log("snes", l and #l or "nil", l and l[1] and l[1].name or "-", l and l[1] and l[1].size or 0)
+  local d = doc_read("t.sfc", "snes")
   log("read", d and #d or "nil", d and d:byte(1) or 0)
   local nl = doc_list("nes")
   local nd = doc_read("t.nes", "nes")
@@ -4928,16 +4928,16 @@ function _init()
   log("indocs", select(2, doc_read("t.sfc")))
   log("docs", #doc_list(), #doc_list("docs"))
   log("badfolder", select(2, doc_list("nope")))
-  log("write", doc_write("w.srm", "abc", "sfc"), (doc_read("w.srm", "sfc")))
-  log("delete", doc_delete("w.srm", "sfc"), select(2, doc_read("w.srm", "sfc")))
+  log("write", doc_write("w.srm", "abc", "snes"), (doc_read("w.srm", "snes")))
+  log("delete", doc_delete("w.srm", "snes"), select(2, doc_read("w.srm", "snes")))
   quit()
 end
 """
 
 
 def test_doc_folders(b, opts):
-    """The document calls take a folder (2026-11-07): doc_list/doc_read/doc_write/doc_delete with "sfc" work on
-    /sfc, the ROM folder of bm SNES; no folder or "docs" is /docs as before; another word says so; the same
+    """The document calls take a folder (2026-11-07): doc_list/doc_read/doc_write/doc_delete with "snes" work on
+    /snes, the ROM folder of bm SNES; no folder or "docs" is /docs as before; another word says so; the same
     permission (documents) covers both."""
     tmp = tempfile.mkdtemp(prefix="bm-docfolder-")
     img = os.path.join(tmp, "sd.img")
@@ -4950,7 +4950,7 @@ def test_doc_folders(b, opts):
     nrom = os.path.join(tmp, "t.nes")
     with open(nrom, "wb") as f:
         f.write(bytes([0xCD]) + b"y" * 49)
-    mksd.build(img, [(cfg, "bm/config.txt"), (rom, "sfc/t.sfc"), (nrom, "nes/t.nes")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (rom, "snes/t.sfc"), (nrom, "nes/t.nes")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         q.boot()
@@ -4962,12 +4962,12 @@ def test_doc_folders(b, opts):
         out += q.expect("delete\t", timeout=30)
         out += q.expect("\n", timeout=5)
         text = out.decode(errors="replace").replace("\r", "")
-        assert "sfc\t1\tT.SFC\t100" in text or "sfc\t1\tt.sfc\t100" in text, text
+        assert "snes\t1\tT.SFC\t100" in text or "snes\t1\tt.sfc\t100" in text, text
         assert "read\t100\t171" in text, text
         assert "nes\t1\t50\t205" in text, text
         assert "indocs\tno document t.sfc" in text, text
         assert "docs\t0\t0" in text, text
-        assert "badfolder\tnope: the folder is docs, sfc or nes" in text, text
+        assert "badfolder\tnope: the folder is docs, snes or nes" in text, text
         assert "write\ttrue\tabc" in text, text
         assert "delete\ttrue\tno document w.srm" in text, text
         q.expect("> ", timeout=20)

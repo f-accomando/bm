@@ -77,7 +77,7 @@ def forge_assets():
 
 
 # CLI testing utilities
-CLI = os.path.join(SKILL, "core", "scripts", "bm_forge.py")
+CLI = os.path.join(SKILL, "scripts", "bm_forge.py")
 _cli_module = None
 
 

@@ -204,7 +204,7 @@ def main():
     ap.add_argument("--seconds", type=int, default=300)
     ap.add_argument("--eval", type=int, default=40)
     ap.add_argument("--eval-seconds", type=int, default=600)
-    ap.add_argument("--out", default=os.path.join(HERE, "..", "core", "src", "76_brain.lua"))
+    ap.add_argument("--out", default=os.path.join(HERE, "..", "src", "76_brain.lua"))
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     a = ap.parse_args()
     rules = "OVERBIT_RULES={unlock=3,pct=0.6,round_end=1,match_end=1}"

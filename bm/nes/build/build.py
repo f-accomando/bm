@@ -46,7 +46,7 @@ def cover(path):
 
 
 def main():
-    parts = sorted(glob.glob(os.path.join(HERE, "..", "core", "src", "*.lua")))
+    parts = sorted(glob.glob(os.path.join(HERE, "..", "src", "*.lua")))
     lua = "\n".join(open(p, encoding="utf-8").read() for p in parts)
     if os.environ.get("NES_PLAY") == "1":           # a build for the bridge: opens the first ROM by itself and holds Start now and then
         lua = lua.replace("local AUTOPLAY = false", "local AUTOPLAY = true")

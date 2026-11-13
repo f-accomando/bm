@@ -1490,16 +1490,6 @@ static uint8_t compile_call(bmlc_ctx_t *C, const char *callee, int stmt_line, in
         { "sin",      BMN_HOST_SIN,      1, BMN_F32, BMN_F32 },
         { "cos",      BMN_HOST_COS,      1, BMN_F32, BMN_F32 },
         { "atan2",    BMN_HOST_ATAN2,    2, BMN_F32, BMN_F32 },
-        { "s16_mode",      BMN_HOST_S16_MODE,      4, BMN_I32, BMN_NONE },
-        { "s16_scroll",    BMN_HOST_S16_SCROLL,    3, BMN_I32, BMN_NONE },
-        { "s16_oam",       BMN_HOST_S16_OAM,       5, BMN_I32, BMN_NONE },
-        { "s16_oam_clear", BMN_HOST_S16_OAM_CLR,   1, BMN_I32, BMN_NONE },
-        { "s16_m7",        BMN_HOST_S16_M7,        8, BMN_I32, BMN_NONE },
-        { "s16_hdma_grad", BMN_HOST_S16_HDMA_GRAD, 4, BMN_I32, BMN_NONE },
-        { "s16_hdma_band", BMN_HOST_S16_HDMA_BAND, 5, BMN_I32, BMN_NONE },
-        { "s16_hdma_m7",   BMN_HOST_S16_HDMA_M7,   7, BMN_I32, BMN_NONE },
-        { "s16_render",    BMN_HOST_S16_RENDER,    0, BMN_I32, BMN_NONE },
-        { "s16_sfx",       BMN_HOST_S16_SFX,       4, BMN_I32, BMN_NONE },
     };
     for (size_t h = 0; h < sizeof host_specs / sizeof host_specs[0]; h++) {
         if (strcmp(callee, host_specs[h].name) == 0) {

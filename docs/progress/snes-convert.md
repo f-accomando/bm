@@ -31,5 +31,5 @@ C4 and C5 share one translator. The only difference is when it runs: at the star
 | JIT (C4) with the interpreter as fallback | good | one translator, no ROM analysis, handles dynamic cases |
 | JIT and a static cache on the SD card | medium, later | only if the translation pause shows in the measures |
 
-The extreme case is SNES16: the *game* is rewritten as native code. It is a port by hand, not a translation, and it does not apply to any `.sfc`.
+The extreme case is a game rewritten as native code. It is a port by hand, not a translation, and it does not apply to any `.sfc`.
 Measure C1 first. If the CPU costs 4 to 5 ms of 22, a JIT frees about 15% (3 to 3.5 ms).

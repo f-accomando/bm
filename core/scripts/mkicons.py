@@ -15,7 +15,7 @@ import sys
 
 from PIL import Image
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 SHEET = os.path.join(ROOT, "art", "brand", "bm-suite.png")
 SIZE = 128
 RADIUS = 26                         # the icons' round corners, at SIZE

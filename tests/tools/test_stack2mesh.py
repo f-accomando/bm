@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(ROOT, "core", "tools"))
 import stack2mesh as s2m  # noqa: E402
 
-FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
+FORGE = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
 RED, BLUE, GREEN = (255, 0, 0), (0, 0, 255), (0, 255, 0)
 CLEAR = (0, 0, 0, 0)
 

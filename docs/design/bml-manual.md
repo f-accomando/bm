@@ -881,7 +881,7 @@ Although `.b` emits native 32-bit ARMv6 A32 + VFPv2 machine code (via [`core/too
 | **Division (`//`, `%`)** | VM opcode | Power-of-2 constant divisors lowered to `asr`/`and` in `bmlc.c`; general divisors call `__bml_idivmod` | Constant divisors lowered to multiply + shift |
 | **Array indexing** | Hash/array table lookup | `bmlc.c` uses `ldr/str [base_m4, idx, lsl #2]` and `vldr/vstr` on hoisted `base - 4`; `bml.py` computes `(idx - 1) << 2` | Pointer induction with pre/post-increment (`ldr r, [p], #4`) |
 | **Bulk memory** | C `memcpy` via API | `bmlc.c` uses 16-byte `ldmia`/`stmia` + word loops (`__bml_memcpy`/`__bml_memset`); `bml.py` uses byte loops (`ldrb`/`strb`) | Word/block transfers (`ldm`/`stm`) |
-| **Math & kernel calls** | Direct C API call | `bmlc.c` dispatches `sin`/`cos`/`atan2` (`api_vm.c`) and `s16_*` (`snes16.c`) directly in C; other `OP_CALL_HOST` calls route through Lua | Direct `bl` to C / `libm` |
+| **Math & kernel calls** | Direct C API call | `bmlc.c` dispatches `sin`/`cos`/`atan2` (`api_vm.c`) directly in C; other `OP_CALL_HOST` calls route through Lua | Direct `bl` to C / `libm` |
 
 ### 10.2 Why `.b` Still Matters in `bm`
 

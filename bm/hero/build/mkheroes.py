@@ -47,7 +47,7 @@ def source():
         subprocess.run([sys.executable, os.path.join(FORGE, "examples", "charkit", "charkit.py"),
                         os.path.join(FORGE, "examples", "charkit", "presets", PRESET + ".json"), raw],
                        check=True, stdout=subprocess.DEVNULL)
-        subprocess.run([sys.executable, os.path.join(FORGE, "core", "scripts", "bm_forge.py"), "anim",
+        subprocess.run([sys.executable, os.path.join(FORGE, "scripts", "bm_forge.py"), "anim",
                         os.path.join(FORGE, "examples", "walk.json"), "--in", raw, "-o", rigged],
                        check=True, stdout=subprocess.DEVNULL)
         return open(rigged, "rb").read()
@@ -168,7 +168,7 @@ def baked(model):
 VARIANTS = (("_t", lambda m: textured(m, SHEET_TEX)), ("_a", lambda m: textured(m, SHEET_HOLES)), ("_s", screen_door),
             ("_b", baked))
 
-TRIS_LUA = os.path.join(HERE, "..", "core", "src", "05_tris.lua")
+TRIS_LUA = os.path.join(HERE, "..", "src", "05_tris.lua")
 
 
 def tris_lua(count):

@@ -1,10 +1,10 @@
--- run_test.lua: the helpers of the Run tab of bm SNES SDK, on the PC (bm/shared/snesrun.lua), with the
+-- run_test.lua: the helpers of the Run tab of bm SNES SDK, on the PC (core/lua/snesrun.lua), with the
 -- assembler: the map from source lines to addresses (res.lines) and the breakpoints.
 --   build/host/luahost tests/snes/run_test.lua [ROOT]     (make test-snes-run)
 local ROOT = arg[1] or "."
 package.path = ROOT .. "/core/src/script/?.lua;" .. package.path
 local A = require "snes_asm"
-local R = assert(loadfile(ROOT .. "/bm/shared/snesrun.lua"))()
+local R = assert(loadfile(ROOT .. "/core/lua/snesrun.lua"))()
 local checks, fails = 0, 0
 local function check(ok, msg)
   checks = checks + 1

@@ -1,7 +1,7 @@
 -- snescode.lua: the helpers of the Code tab of bm SNES SDK (bm/snes_sdk). No bm API: the PC tests run it
 -- (tests/snes/code_test.lua).
 --
---   local SC = loadfile("bm/shared/snescode.lua")()
+--   local SC = loadfile("core/lua/snescode.lua")()
 --   SC.tokens(line)               the colour classes of one line of assembly
 --   SC.info(mnemonic)             what the instruction does, the flags, the cycles, the addressing modes
 --   SC.plain(msg, line_text)      an error of the assembler in plain words, with what to do

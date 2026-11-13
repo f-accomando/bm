@@ -602,7 +602,7 @@ def main():
         return 1
     # the chain: the project as saved, and the cartridge of the models made from it (bm_forge, the real step)
     lib3d.chain_put(BME, "01-studio.bme")
-    forge = os.path.join(ROOT, ".claude", "skills", "bm-forge", "core", "scripts", "bm_forge.py")
+    forge = os.path.join(ROOT, ".claude", "skills", "bm-forge", "scripts", "bm_forge.py")
     dst = os.path.join(lib3d.CHAIN, "01-studio.bm")
     q = subprocess.run([sys.executable, forge, "export", "models", BME, "-o", dst, "--title", "tropic"],
                        capture_output=True, text=True, cwd=ROOT)

@@ -300,7 +300,7 @@ int main(int argc, char **argv)
     CHECK(c.rej_obj == a.rej_obj + LINES && c.m7_lines == a.m7_lines + LINES && c.frames_arm == a.frames_arm + 1 && c.rej_bg == a.rej_bg,
           "sprites on: rej_obj %u -> %u, m7_lines %u -> %u", (unsigned)a.rej_obj, (unsigned)c.rej_obj, (unsigned)a.m7_lines, (unsigned)c.m7_lines);
 
-    /* ppu_line outside a frame (the SNES16 cart, the tests) draws at once */
+    /* ppu_line outside a frame (the tests) draws at once */
     setup(11, 0);
     memset(S.picture, 0xAB, sizeof S.picture);
     ppu_line(0);

@@ -325,7 +325,7 @@ def main():
     if len(cols) > 255:
         raise SystemExit("more than 255 colours: the cartridge cannot store the sheet as SHEET8")
     Image.fromarray(sheet, "RGBA").save(os.path.join(HERE, "assets", "sheet.png"))
-    open(os.path.join(HERE, "core", "src", "05_sprites.lua"), "w").write("\n".join(lua) + "\n")
+    open(os.path.join(HERE, "src", "05_sprites.lua"), "w").write("\n".join(lua) + "\n")
     art.cover(os.path.join(HERE, "cover.png"))
     if a.preview:
         os.makedirs(a.preview, exist_ok=True)

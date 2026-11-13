@@ -33,7 +33,7 @@ import os
 import re
 import unicodedata
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 CP437 = {'à': 0x85, 'è': 0x8A, 'é': 0x82, 'ì': 0x8D, 'ò': 0x95, 'ù': 0x97,
          'á': 0xA0, 'í': 0xA1, 'ó': 0xA2, 'ú': 0xA3}

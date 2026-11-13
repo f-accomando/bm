@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf8')
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOME = os.path.expanduser("~")
 LOOP = os.path.join(ROOT, ".claude", "docs-loop", "results.tsv")
 INDEX = "docs/progress.md"

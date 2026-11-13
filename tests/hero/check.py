@@ -106,7 +106,7 @@ def main():
     print("suite:", len(res), "results")
 
     # 2d. the help of the panel: one table, a text of at most two lines of 44 characters for every row
-    src = open(os.path.join(ROOT, "bm", "hero", "core", "src", "30_options.lua"), encoding="utf-8").read()
+    src = open(os.path.join(ROOT, "bm", "hero", "src", "30_options.lua"), encoding="utf-8").read()
     names = re.findall(r'(?:choice|grey|local \w+ = \{ name =) ?\(?"([^"]+)"', src) + ["Heroes"]
     help_ = {k: (a, b) for k, a, b in re.findall(r'\["([^"]+)"\] = \{ "([^"]*)", "([^"]*)" \}', src)}
     assert set(names) == set(help_), (sorted(set(names) ^ set(help_)))

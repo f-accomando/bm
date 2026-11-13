@@ -21,7 +21,7 @@ import glob, os, struct, subprocess, sys, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
-SRC = os.path.join(HERE, "..", "core", "src")
+SRC = os.path.join(HERE, "..", "src")
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "build", "tape")
 os.makedirs(OUT, exist_ok=True)
 

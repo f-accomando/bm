@@ -211,7 +211,7 @@ local function adapt()
 end
 local srm = ""
 
--- The ROM folder is /snes. A card that still has the old /sfc folder and no ROM in /snes keeps working: rom_dir is "sfc" then.
+-- The ROM folder is /snes.
 local rom_dir = "snes"
 
 local function rom_files(dir)
@@ -230,11 +230,6 @@ local function list_roms()
   files = {}
   msg = nil
   local l, why = rom_files("snes")
-  rom_dir = "snes"
-  if l and #l == 0 then
-    local old = rom_files("sfc")
-    if old and #old > 0 then l, rom_dir = old, "sfc" end
-  end
   if not l then msg = why or "the player did not allow the files"; return end
   files = l
   table.sort(files, function(a, b) return a.name < b.name end)

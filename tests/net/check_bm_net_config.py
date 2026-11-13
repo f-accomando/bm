@@ -22,7 +22,7 @@ import threading
 import time
 import zlib
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "core", "tools"))
 import bm_net  # noqa: E402
 
 PASSWORD = "123456"

@@ -24,5 +24,3 @@ build-*/
 # Super Mario World port: the user's own ROM and everything extracted from it stay local
 *.sfc
 *.smc
-bm/smw/rom/
-bm/smw/extracted/

@@ -2,7 +2,7 @@
 
 Common layout for `bm/<id>/` (games and apps). Migration is gradual: a folder without
 `bm.info` still builds the old way (title, author and resolution from the Makefile).
-Check it with `python core/scripts/carts_layout.py`: every project with `bm.info` must pass, and the table "Migrated so far" must match the folders.
+Check it with `python core/scripts/bm_layout.py`: every project with `bm.info` must pass, and the table "Migrated so far" must match the folders.
 
 ```
 bm/<id>/
@@ -127,7 +127,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `bench3d` | `bm.info`; `build/mkassets.py` builds the models and the sprite sheet at build time (no binary in git) |
 | `bmweb`, `hero` | `bm.info`; `src/` holds the modules and `build/` the build script |
 | `kratos` | `bm.info`; `build/glb2parts.py` writes the PARTS table into `main.lua` (between the DATA lines); the `.bme` is built with the `.bm` |
-| `sdk_b16`, `titan_ex` | `bm.info`; `sdk_b16` uses it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
+| `sdk_b16` | `bm.info`; `sdk_b16` uses it with `--info`; `build.py` is in `build/`; `sdk_b16` keeps `--res $(SDK_B16_RES)`; `titan_ex` shares `titan/assets/sheet.png` |
 
 ## Files the console writes on the SD card
 

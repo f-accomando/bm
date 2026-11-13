@@ -32,7 +32,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 
 HOME = os.environ.get("BM_LOCAL3D", os.path.join(os.path.expanduser("~"), ".bm", "local3d"))
 

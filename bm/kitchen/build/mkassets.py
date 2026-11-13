@@ -157,7 +157,7 @@ def write_png(path, w, h, px, alpha=True):
 
 
 def ingredients():
-    src = open(os.path.join(HERE, "core", "src", "10_ingredients.lua")).read()
+    src = open(os.path.join(HERE, "src", "10_ingredients.lua")).read()
     out = []
     for m in re.finditer(r'\{ id = "(\w+)",.*?c1 = 0x([0-9A-Fa-f]{6}), c2 = 0x([0-9A-Fa-f]{6}), shape = "(\w+)"', src):
         out.append((m.group(1), int(m.group(2), 16), int(m.group(3), 16), m.group(4)))
@@ -386,7 +386,7 @@ CHOP_LOOK = {}
 
 
 def load_chop_look():
-    src = open(os.path.join(HERE, "core", "src", "10_ingredients.lua")).read()
+    src = open(os.path.join(HERE, "src", "10_ingredients.lua")).read()
     block = src[src.index("Data.CHOP_LOOK"):]
     for m in re.finditer(r'(\w+) = "(\w+)"', block):
         CHOP_LOOK[m.group(1)] = m.group(2)

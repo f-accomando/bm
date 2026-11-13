@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 S = 4                       # supersampling
 N = 88                      # final size
 W = N * S
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
@@ -494,7 +494,6 @@ COVERS = {
     "shooter": ("Star Shooter", 0x040616, 0x14204A, shooter),
     "snake": ("Snake", 0x0C3A28, 0x2A7A44, snake),
     "titan": ("Titan Clash", 0x1A1030, 0x6A2A38, lambda a: titan(a, False)),
-    "titan_ex": ("Titan Clash EX", 0x120C28, 0x5A3A18, lambda a: titan(a, True)),
     "typing": ("Pad Typing", 0x0E2A38, 0x2A6A70, typing),
     "yharnam": ("Yharnam", 0x06141E, 0x1A4450, yharnam),
     "hero": ("Hero Stress", 0x141A3A, 0x2A4A9A, hero),

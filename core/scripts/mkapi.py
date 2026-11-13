@@ -9,7 +9,7 @@ import os
 import re
 import sys
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 ROW_RE = re.compile(r"^\| (.+?) \| (.*) \|\s*$")
 SIG_RE = re.compile(r"^(?:[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*\s*=\s*)?([A-Za-z_]\w*(?:[.:][A-Za-z_]\w*)*)\s*\(.*\)$")

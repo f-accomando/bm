@@ -244,7 +244,7 @@ static void plan(void)
         if (fat_find(f->path, &e) != 0 || e.is_dir) {
             /* a game deleted from the card stays deleted (the Market has
              * it); a kernel or the certificates go there anyway */
-            w = strncmp(f->path, "/bm/", 7) == 0 ? F_ABSENT_GAME : F_NEW;
+            w = strncmp(f->path, "/carts/", 7) == 0 ? F_ABSENT_GAME : F_NEW;
         } else if (e.size == f->size && fat_load(&e, &d, &len) == 0) {
             w = check_timed(f, d, len) == 0 ? F_SAME : F_CHANGED;
             free(d);

@@ -22,7 +22,7 @@ import bml  # noqa: E402
 
 LUAHOST, BUILD = sys.argv[1], sys.argv[2]
 os.makedirs(BUILD, exist_ok=True)
-SRC = open(os.path.join(ROOT, "bm", "tape", "core", "src", "engine.b")).read()
+SRC = open(os.path.join(ROOT, "bm", "tape", "src", "engine.b")).read()
 N = 300
 fails = []
 

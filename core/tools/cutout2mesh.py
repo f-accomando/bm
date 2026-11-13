@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
+sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import bmcutout  # noqa: E402
 import meshy2mesh  # noqa: E402
 

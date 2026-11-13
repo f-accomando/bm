@@ -13,7 +13,7 @@ import os
 
 from PIL import Image
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 SHEET = os.path.join(ROOT, "art", "brand", "bm-suite.png")
 OUT = os.path.join(ROOT, "core", "src", "kernel", "logo_data.c")
 OUT_SMALL = os.path.join(ROOT, "core", "src", "bm", "loading_logo.c")

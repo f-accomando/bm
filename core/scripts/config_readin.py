@@ -6,7 +6,7 @@ import re
 import sys
 import tomllib
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KEYS = "docs/spec/config-keys.toml"
 
 

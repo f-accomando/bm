@@ -2,7 +2,7 @@
 -- No bm API and no drawing: the PC tests run it (tests/snes/code_test.lua). Columns are 0-based (cx = the
 -- number of characters before the cursor), lines are 1-based.
 --
---   local B = loadfile("bm/shared/asmbuf.lua")()
+--   local B = loadfile("core/lua/asmbuf.lua")()
 --   local b = B.new(text)
 --   B.key(b, k)          one key of keyp(): moves, types, deletes, undo, copy, paste; true when the buffer took it
 --   B.text(b)            the whole text

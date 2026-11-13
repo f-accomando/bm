@@ -33,7 +33,7 @@ import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..")
+ROOT = os.path.join(HERE, "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 sys.path.insert(0, HERE)
 import bmmesh  # noqa: E402

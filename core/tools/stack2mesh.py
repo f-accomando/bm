@@ -45,7 +45,7 @@ import sys
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FORGE = os.path.join(HERE, "..", ".claude", "skills", "bm-forge")
+FORGE = os.path.join(HERE, "..", "..", ".claude", "skills", "bm-forge")
 sys.path.insert(0, FORGE)
 
 VERTS_PER_BOX, TRIS_PER_BOX = 8, 12

@@ -21,7 +21,7 @@ HERE = os.path.dirname(BUILD_DIR)
 
 
 def build():
-    files = sorted(glob.glob(os.path.join(HERE, "core", "src", "*.lua")))
+    files = sorted(glob.glob(os.path.join(HERE, "src", "*.lua")))
     out, spans, line = [], [], 1
     for i, path in enumerate(files):
         name = os.path.basename(path)

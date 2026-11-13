@@ -20,7 +20,7 @@ import os
 import re
 import unicodedata
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 V = set('aeiou')
 START = set('bl br cl cr dr fl fr gl gr pl pr tr vr ch gh gn sc sch scr spr str sp st sb sd sf sg '
             'sl sm sn sv sbr sdr sfr sgr spl scl ps pn'.split())

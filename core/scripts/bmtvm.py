@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bmt  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-_H = open(os.path.join(HERE, "..", "core", "src", "bm", "bmvm.h"), encoding="utf-8").read()
+_H = open(os.path.join(HERE, "..", "src", "bm", "bmvm.h"), encoding="utf-8").read()
 OPS = re.findall(r"X\((\w+)\)", _H.split("#define BMVM_OPS(X)")[1].split("enum {")[0])
 OP = {n: i for i, n in enumerate(OPS)}
 PT = {"i32": 0, "bool": 0, "f32": 1, "f64": 1, "i32[]": 2, "f64[]": 3}

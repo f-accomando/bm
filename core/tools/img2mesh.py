@@ -33,7 +33,7 @@ import sys
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..")
+ROOT = os.path.join(HERE, "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "core", "scripts"))
 import bmmesh  # noqa: E402
 import mkbm  # noqa: E402

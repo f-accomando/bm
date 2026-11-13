@@ -67,8 +67,8 @@ def main():
         steps.append(("restore kernel " + a.restore, ["kernel", a.restore]))
     if not steps:
         ap.error("nothing to do")
-    os.makedirs(os.path.join(HERE, "..", "out"), exist_ok=True)
-    log = open(os.path.join(HERE, "..", "out", "pi_test.txt"), "w", encoding="utf-8")
+    os.makedirs(os.path.join(HERE, "..", "..", "out"), exist_ok=True)
+    log = open(os.path.join(HERE, "..", "..", "out", "pi_test.txt"), "w", encoding="utf-8")
     ok = True
     for name, cmd in steps:
         if cmd is None:
