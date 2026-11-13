@@ -1,10 +1,10 @@
 # bm SNES: exploration of speed (CPU core, other emulators)
 
-Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (ARMv6, 32 bit). The numbers are estimates, not measurements.
+Status (2026-11-13): C1, C2 and C3 are built and measured; C4 and C5 are dropped (user decision); C6 and C7 are ideas. Pi Zero W only (ARMv6, 32 bit). The numbers of the ideas are estimates, not measurements.
 
 ### Work items (development codes)
 
-Status of every item: idea, not started, except C1 (code done 2026-11-11, the table of the Pi waits for a play with the logger). Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
+Status of every item: C1, C2, C3 done; C4, C5 dropped; C0, C6, C7 not started. Codes: C = CPU and system, G = PPU on the GPU. Gate = what must pass before the item counts as done. Detail of G items: [snes-gpu.md](snes-gpu.md).
 
 P = priority 0 to 9 (0 is the highest). T = time to do it 0 to 9 (9 is the longest). Both are estimates (2026-11-11), not measures.
 
@@ -12,10 +12,10 @@ P = priority 0 to 9 (0 is the highest). T = time to do it 0 to 9 (9 is the longe
 |---|---|---|---|---|
 | C0 | Find the cause of the uneven picture rate on the Pi One (see "Open work" in [snes.md](snes.md)) | 0 | 2 | FPS line read in the scenes that drop |
 | C1 | Measure CPU and bus time apart from the PPU and the DSP (test build) | 0 | 2 | a table of ms a frame for each part (done 2026-11-11: CPU and bus 3.0 ms a frame, see [snes-measure.md](snes-measure.md); C2 to C5 free at most 2.4 ms) |
-| C2 | Registers in ARM registers, inside the interpreter | 4 | 4 | `make test-snes-cpu`, `make test-snes`. Code done 2026-11-11 (see "C2: profile and result"); the time on the Pi waits for the logger line `cpu` |
-| C3 | Hot path in assembly (a table of mode and operation routines, cold opcodes in C) | 3 | 5 | same tests, and a timing against C1. Code done 2026-11-11 (see [snes-cpu-c3.md](snes-cpu-c3.md)); the time on the Pi waits for the logger |
-| C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | 5 | 9 | same tests, and a timing against C1 |
-| C5 | Static recompiler for one game (a tool that reads the ROM) | 8 | 9 | same tests, and the game picture byte for byte |
+| C2 | Registers in ARM registers, inside the interpreter | 4 | 4 | `make test-snes-cpu`, `make test-snes`. DONE 2026-11-11 (see "C2: profile and result"). Pi play of 2026-11-13 (kernel 106): `cpu` 2.5 ms a frame in SMW, 2.4 ms in SMW2 |
+| C3 | Hot path in assembly (a table of mode and operation routines, cold opcodes in C) | 3 | 5 | same tests, and a timing against C1. DONE 2026-11-11 (see [snes-cpu-c3.md](snes-cpu-c3.md)). Pi play of 2026-11-13: `cpu` 2.5 ms in SMW. The instruction-cache work that follows is a new session (section "I-cache work" when it lands) |
+| C4 | JIT of basic blocks, key `(PC, M, X, E)`, A in the top half of a register, flags in the CPSR | 5 | 9 | DROPPED (user, 2026-11-13): the gain is small for the work and the risk |
+| C5 | Static recompiler for one game (a tool that reads the ROM) | 8 | 9 | DROPPED (user, 2026-11-13): not worth the work |
 | C6 | Writes to PPU registers queued as events (clock, register, value) | 6 | 5 | `make test-snes`, `make test-snes-ppu` |
 | C7 | High-level SPC700 (low value: about 2 to 3% of a core) | 9 | 4 | `make test-snes-dsp`, sound by ear |
 

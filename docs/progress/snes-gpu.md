@@ -55,14 +55,14 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 ## Work items (development codes)
 
-Status of every item: idea, not started.
+Status of every item (2026-11-13): G1 done; G2 done on the PC (V3D emulator), the port to the Pi and the Pi benchmark are in progress; G3 to G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
 
 P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
 | G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; tables of Super Mario World (layers 43%, colour math 29%, sprites 17%, priority list 11%) and of Super Castlevania IV in `snes-measure.md`. Left: Mode 7 and HDMA scenes of SMW | 0 | 2 | a table for the scenes that drop |
-| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c`. Done on the PC (see "G2 result"); not run on the Pi | 3 | 6 | byte for byte against `ppu_ref.c` |
+| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c`. Done on the PC (see "G2 result"); the Pi port is the next step | 3 | 6 | byte for byte against `ppu_ref.c` |
 | G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
 | G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |
 | G5 | Mode 1 shader (BG1 to BG3, sprites) | 4 | 8 | same, Super Mario World frames |
