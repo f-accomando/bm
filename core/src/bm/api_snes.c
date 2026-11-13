@@ -9,6 +9,8 @@
  *                                                              render false: the picture is not drawn
  *   snes_draw(target)           -> lines                       copies the picture (256 x lines) to the top left of a
  *                                                              render target of 256 x 240 or bigger
+ *   snes_draw(nil, x, y)        -> lines, or nil               the picture straight into the page at (x, y), clipped;
+ *                                                              nil while the page's 2D goes to the GPU
  *   snes_info()                 -> {title, hirom, size, sram}
  *   snes_sram([bytes])          -> the battery RAM as a string if it changed since the last call, else nil;
  *                                  with bytes: puts them in it
@@ -122,6 +124,23 @@ int l_snes_draw(lua_State *L)
 {
     int lines;
     const uint16_t *src = snes_picture(&lines);
+    if (lua_isnoneornil(L, 1)) {
+        /* snes_draw(nil, x, y): the picture straight into the page at (x, y), clipped; no surface and no blit. nil while the 2D goes to the GPU. */
+        int w, h, stride;
+        uint16_t *dst = screen_cpu_pixels(&w, &h, &stride);
+        if (!dst) {
+            lua_pushnil(L);
+            return 1;
+        }
+        const int x = (int)luaL_optinteger(L, 2, 0), y = (int)luaL_optinteger(L, 3, 0);
+        const int x0 = x < 0 ? 0 : x, x1 = x + SNES_W > w ? w : x + SNES_W;
+        const int y0 = y < 0 ? 0 : y, y1 = y + lines > h ? h : y + lines;
+        if (x1 > x0)
+            for (int yy = y0; yy < y1; yy++)
+                memcpy(dst + (size_t)yy * (size_t)stride + x0, src + (size_t)(yy - y) * SNES_W + (x0 - x), (size_t)(x1 - x0) * sizeof(uint16_t));
+        lua_pushinteger(L, lines);
+        return 1;
+    }
     return snes_blit_target(L, src, lines, "snes_draw");
 }
 

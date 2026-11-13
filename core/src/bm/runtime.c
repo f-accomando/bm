@@ -702,6 +702,19 @@ int gpu2d(int op, const int32_t *v)
     return 0;
 }
 
+/* The pixels of the page (or of the render target in use) for a writer on the ARM (snes_draw to the screen); NULL when the 2D of this page is
+ * recorded for the GPU: a direct write would come before the 2D drawn earlier. The 3D waiting is drawn first. */
+uint16_t *screen_cpu_pixels(int *w, int *h, int *stride)
+{
+    if (d2.on)
+        return NULL;
+    sync3d();
+    *w = rt.g.w;
+    *h = rt.g.h;
+    *stride = (int)rt.g.stride;
+    return rt.g.px;
+}
+
 /* Before 2D on the page: 1 if it is to be recorded (n words of arguments
  * at *a, after the op): the GPU has 3D for the page and the queue is on,
  * so the 3D is started and the 2D waits for it. Else 0, the 3D waiting

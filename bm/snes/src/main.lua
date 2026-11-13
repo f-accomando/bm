@@ -523,7 +523,13 @@ function _draw()
     return
   end
   local t0 = time()
-  local lines = snes_draw(scr, dw, dh)
+  local direct = false
+  local lines
+  if dw == 256 and dh == cur_lines then          -- 1x: the picture goes straight into the page (no surface, no blit); nil while the 2D goes to the GPU
+    lines = snes_draw(nil, dx, dy)
+    direct = lines ~= nil
+  end
+  if not direct then lines = snes_draw(scr, dw, dh) end
   local t1 = time()
   if lines ~= cur_lines then cur_lines = lines; layout(lines) end   -- the next picture has the new size
   if dx > 0 then                                   -- the screen has two buffers: the margins are cleared every frame
@@ -534,7 +540,7 @@ function _draw()
     rectfill(0, 0, SCREEN_W, dy, 0)
     rectfill(0, dy + dh, SCREEN_W, SCREEN_H - dy - dh, 0)
   end
-  scr:draw(dx, dy)
+  if not direct then scr:draw(dx, dy) end
   draw_ms = { (t1 - t0) * 1000, (time() - t1) * 1000 }
   if state == "run" then win_dr = win_dr + 1; win_d = win_d + draw_ms[1] + draw_ms[2] end
   if state ~= "run" then lg.last = nil; lg.t0 = nil elseif log_on then log_draw(draw_ms[1] + draw_ms[2]) end

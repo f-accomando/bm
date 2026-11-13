@@ -578,6 +578,7 @@ int l_chorus(lua_State *L);
 int l_retro(lua_State *L);
 
 /* light (api_light.c) */
+uint16_t *screen_cpu_pixels(int *w, int *h, int *stride); /* the page for an ARM writer, NULL while its 2D goes to the GPU (runtime.c) */
 void sync3d(void);              /* the waiting 3D drawn first (defined in runtime.c) */
 int l_light_begin(lua_State *L);
 int l_light(lua_State *L);
