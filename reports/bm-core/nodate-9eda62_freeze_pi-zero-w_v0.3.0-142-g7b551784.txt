@@ -1,0 +1,77 @@
+bm report
+kind: freeze
+kernel: v0.3.0-142-g7b551784
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-9eda62_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt
+
+the Pi froze (the watchdog restarted it) while: restart: the log to the SD, frame 0, 283 s after boot, kernel v0.3.0-142-g7b551784, ring 82094, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the151 hdma 173 ins 10098 grestarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+64 | icache miss: cpu 24190 spc 13145 ppu 7267 | dcache miss: cpu 4917 spc 5420 ppu 9371 | mispredict: cpu 6585 spc 18456 ppu 489 | bus ppuw 49 ppur 1 apu 5 wram 1 cpu 49 dmar 140 other 9 | dma runs 19 bytes 1953
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 7051 frames, 52.4 fps, 812 dropped
+     update+draw avg 16.10 ms (96% of frame), max 178.21 ms, Lua 3244 KB
+     dev kit: Lua peak 3388 KB, data 516 KB, busiest frame 3k instructions, 2272 frames over 16.7 ms, 4523 tokens
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00002.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+fiber: reports did not yield: 9.2 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 11.9 ms past its slice
+fiber: reports did not yield: 98.0 ms past its slice
+report: sending nodate-611a21_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-611a21_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/nodate-611a21_freeze_pi-zero
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+report: sending nodate-611a21_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt
+report: nodate-611a21_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt was there already
+report: sent to f-accomando/bm, branch reports: reports/bm-core/nodate-611a21_freeze_pi-zero-w_v0.3.0-142-g7b551784.txt
+menu idle: 300/300 frames, 1694 of 1945 ms taken, 100.5 ms past a frame; reports 1656 ms (+98.0, stk 7.6/128K, stop 16.9); min slack -23003 us, paced 0
+menu idle: sd first word <1ms 310 <3ms 31 (max 1.5 ms)
+menu stalls: tls handshake 2x last 313.0 worst 313.0 ms
+menu frame: 1x, a frame averages draw 8808 us, enlarge 1 us, flip 92 us, free time used 5649 us (300 frames)
+report: sending session_bm-snes_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 776 of 2068 ms taken, 17.0 ms past a frame; reports 766 ms (+17.0, stk 7.6/128K); min slack -8494 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8141 us, enlarge 1 us, flip 91 us, free time used 2588 us (300 frames)
+menu frame: 1x, a frame averages draw 8126 us, enlarge 1 us, flip 91 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 8045 us, enlarge 1 us, flip 91 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 7981 us, enlarge 1 us, flip 90 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 8214 us, enlarge 1 us, flip 90 us, free time used 36 us (300 frames)
+menu frame: 1x, a frame averages draw 8123 us, enlarge 1 us, flip 90 us, free time used 36 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
+report: 20261113-204921_log_pi-zero-w_v0.3.0-142-g7b551784.txt saved as bm/reports/rpt00001.txt
+report: sending 20261113-204921_log_pi-zero-w_v0.3.0-142-g7b551784.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-204921_log_pi-zero-w_v0.3.0-142-g7b551784.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> 
+net: console closed
+net: receiving a new kernel (3277028 bytes)...
+net: kernel 0% (0 of 3200 KB)
+net: kernel 10% (324 of 3200 KB)
+net: kernel 20% (643 of 3200 KB)
+net: kernel 30% (960 of 3200 KB)
+net: kernel 40% (1281 of 3200 KB)
+net: kernel 50% (1600 of 3200 KB)
+net: kernel 60% (1922 of 3200 KB)
+net: kernel 70% (2242 of 3200 KB)
+net: kernel 80% (2560 of 3200 KB)
+net: kernel 90% (2881 of 3200 KB)
