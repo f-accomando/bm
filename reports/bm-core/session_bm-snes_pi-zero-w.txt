@@ -1,58 +1,58 @@
 bm report
 kind: session
-kernel: v0.3.0-130-g7674e543
+kernel: v0.3.0-142-g7b551784
 branch: bm-core
 board: Pi Zero W
-date: 2026-11-13 16:51:46
+date: 2026-11-13 20:48:46
 file: session_bm-snes_pi-zero-w.txt
 
 session of "bm SNES" (the last one: the next run of this game replaces this file)
 options bm3d 7.36 gpu3d=off 3d=none later=0 2d=0 impostor=0 fast=0
-screen 256x256, 1711 frames in 51.4 s, 33.2 fps
+screen 256x256, 7051 frames in 134.4 s, 52.4 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 23.6 ms, max 179.9 ms, 601 frames over 16.7 ms
-memory: Lua peak 2564 KB, data 516 KB; code 4523 tokens; busiest frame 3k Lua instructions
-frames that were shown after more than 1.5 frames: 458
+time of _update + _draw (+ the 3D's wait): avg 16.1 ms, max 178.2 ms, 2272 frames over 16.7 ms
+memory: Lua peak 3388 KB, data 516 KB; code 4523 tokens; busiest frame 3k Lua instructions
+frames that were shown after more than 1.5 frames: 812
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    1110
-  <= 25 ms             142
-  <= 34 ms (30 fps)    73
-  <= 50 ms             40
-  <= 100 ms            321
-  > 100 ms (a freeze)  24
+  <= 18 ms (60 fps)    4792
+  <= 25 ms             1446
+  <= 34 ms (30 fps)    487
+  <= 50 ms             213
+  <= 100 ms            108
+  > 100 ms (a freeze)  4
 
-the frame in its parts (as the overlay, 1710 frames; ms a frame, % of the 16.7 ms of a frame):
-  update          19.5  117%
-  draw (no 3D)     3.8   22%
+the frame in its parts (as the overlay, 7050 frames; ms a frame, % of the 16.7 ms of a frame):
+  update          12.1   72%
+  draw (no 3D)     3.7   22%
   3D calls         0.0    0%
-  audio            0.4    2%
+  audio            0.3    2%
   GPU wait         0.0    0%
-  all             23.8  142%
+  all             16.2   97%
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
   map        0.0 ms  0.0 calls
   spr        0.0 ms  0.0 calls
   sspr       0.0 ms  0.0 calls
   stack      0.0 ms  0.0 calls
-  print      0.1 ms  4.5 calls
-  shapes     0.0 ms  1.7 calls
-  all        0.1 ms  6.3 calls (of the draw's 3.8 ms: the rest is Lua, the light, the 3D)
-audio interrupt: 1.5% of the CPU's time (mean), 1.8% at most in a second
+  print      0.0 ms  0.9 calls
+  shapes     0.0 ms  1.9 calls
+  all        0.0 ms  2.8 calls (of the draw's 3.7 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 1.7% of the CPU's time (mean), 1.9% at most in a second
 GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-    375     6.4   180.3  179.9 176.5    3.3   0.0   0.0     0.4        1     2137        1
-   1204    34.1   126.6  125.7  83.2   42.4   0.0   0.0     0.8        2     2523        4
-   1191    33.0   125.6  124.8  82.4   42.4   0.0   0.0     0.8        2     2514        4
-   1217    35.1   120.1  119.2  76.6   42.5   0.0   0.0     0.8        2     2536        4
-   1270    39.2   118.4  118.1  75.6   42.5   0.0   0.0     0.2        3     2283        4
-   1152    29.9   117.7  117.0  74.5   42.5   0.0   0.0     0.6        3     2480        4
-   1178    31.9   117.7  116.9  74.5   42.3   0.0   0.0     0.8        2     2501        4
-   1230    36.2   117.7  116.9  74.2   42.6   0.0   0.0     0.8        3     2545        4
-   1283    40.3   116.5  115.8  73.0   42.8   0.0   0.0     0.7        3     2295        4
-   1043    21.6   113.5  112.6  69.4   43.1   0.0   0.0     0.9        3     2392        4
-   1085    24.7   113.2  112.3  69.9   42.4   0.0   0.0     0.9        3     2425        4
-   1113    26.8   113.0  111.8  69.4   42.4   0.0   0.0     1.1        2     2448        4
+    323     5.5   178.9  178.2 174.9    3.2   0.0   0.0     0.7        0     2169        1
+    799    15.7   149.2  148.9 114.7   34.2   0.0   0.0     0.2        1     2368        1
+   5155    95.7   107.4  106.8 103.6    3.1   0.0   0.0     0.5        0     3159        1
+    324     5.6   102.4  101.6  98.4    3.1   0.0   0.0     0.7        3     2170        4
+   3028    55.7    95.1   94.7  91.5    3.2   0.0   0.0     0.4        1     2635        1
+    752    14.7    84.4   83.2  48.9   34.2   0.0   0.0     1.1        2     2320        3
+    715    12.6    80.9   80.5  46.4   34.0   0.0   0.0     0.3        1     2295        2
+    733    13.6    79.9   78.8  44.7   34.1   0.0   0.0     1.0        2     2307        3
+    721    13.0    75.8   75.3  72.0    3.3   0.0   0.0     0.4        3     2299        4
+    559     9.8    71.7   70.8  67.6    3.1   0.0   0.0     0.8        3     2243        4
+    734    13.7    68.3   67.1  63.8    3.3   0.0   0.0     1.1        3     2307        4
+    716    12.7    67.9   67.4  64.1    3.3   0.0   0.0     0.4        3     2296        4
