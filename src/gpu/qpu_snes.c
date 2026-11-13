@@ -113,7 +113,7 @@ int qpu_snes_m7(uint16_t *dst, int lines, int a, int c, int sel)
 
 /* ------------------------------------------------------------------------ init */
 
-static uint32_t rs = 88172645463325252u;
+static uint32_t rs = 2463534242u;
 static uint32_t rnd(void) { rs ^= rs << 13; rs ^= rs >> 17; rs ^= rs << 5; return rs; }
 
 /* the set-up of draw_mode7 for line y (the ARM's part) */
@@ -209,16 +209,17 @@ static void chunk(void)
 }
 
 /* runs prog on NJOBS QPUs with the uniforms base, mask, iters; the time of the run in us, or 0 */
-static uint32_t timed_run(uint32_t (*us)(void), int prog, int njobs, uint32_t base, uint32_t mask, uint32_t iters, int hook)
+static uint32_t timed_run(uint32_t (*us)(void), int prog, int njobs, uint32_t base, uint32_t mask, uint32_t iters, uint32_t stride, int hook)
 {
     v3d_qpu_job_t jobs[NJOBS];
     for (int j = 0; j < njobs; j++) {
         uni[j][0] = base;
         uni[j][1] = mask;
         uni[j][2] = iters;
+        uni[j][3] = (uint32_t)j * stride;                /* each job starts elsewhere: no job reads what another one just read */
         jobs[j].code = code_bus[prog];
         jobs[j].unif = v3d_bus(uni[j]);
-        jobs[j].nunif = prog == P_NOP ? 0 : 3;
+        jobs[j].nunif = prog == P_NOP ? 0 : 4;
     }
     v3d_qpu_idle = hook ? chunk : NULL;
     chunk_n = 0;
@@ -233,7 +234,7 @@ static uint32_t avg_run(uint32_t (*us)(void), int prog, int njobs, int reps)
 {
     uint32_t sum = 0;
     for (int i = 0; i < reps; i++) {
-        const uint32_t t = timed_run(us, prog, njobs, 0, 0, 0, 0);
+        const uint32_t t = timed_run(us, prog, njobs, 0, 0, 0, 0, 0);
         if (!t)
             return 0;
         sum += t;
@@ -283,14 +284,15 @@ int qpu_snes_bench(uint32_t (*us)(void), uint32_t iters, uint32_t big, char *lin
             armbuf[i] = (uint32_t)i;
         chunk_buf = armbuf;
         const uint32_t base = v3d_bus(region);
-        g64 = timed_run(us, P_GATHER, NJOBS, base, 0xFFFCu, iters, 0);
-        gbig = timed_run(us, P_GATHER, NJOBS, base, (big - 1) & ~3u, iters, 0);
-        st = timed_run(us, P_STREAM, NJOBS, base, big - 1, iters, 0);
+        const uint32_t gst = 104729u, sst = (big / NJOBS) & ~255u;   /* seed step of the gathers, start step of the stream */
+        g64 = timed_run(us, P_GATHER, NJOBS, base, 0xFFFCu, iters, gst, 0);
+        gbig = timed_run(us, P_GATHER, NJOBS, base, (big - 1) & ~3u, iters, gst, 0);
+        st = timed_run(us, P_STREAM, NJOBS, base, big - 1, iters, sst, 0);
         /* the ARM next to the QPUs: chunks of ARM work done in the wait, with the QPUs busy on the 64 KB (the L2 cache),
          * on SDRAM, and with no QPU job (the same time as the SDRAM run) */
-        const uint32_t tg = timed_run(us, P_GATHER, NJOBS, base, 0xFFFCu, iters * 4, 1);
+        const uint32_t tg = timed_run(us, P_GATHER, NJOBS, base, 0xFFFCu, iters * 4, gst, 1);
         cg = chunk_n;
-        ta = timed_run(us, P_STREAM, NJOBS, base, big - 1, iters, 1);
+        ta = timed_run(us, P_STREAM, NJOBS, base, big - 1, iters, sst, 1);
         cs = chunk_n;
         if (ta) {
             chunk_n = 0;

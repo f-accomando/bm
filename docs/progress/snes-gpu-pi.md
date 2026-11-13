@@ -28,6 +28,17 @@ Status: built and tested on the PC (V3D emulator and QEMU build). Nothing is mea
 | 3D Bench row | `arm chunks/ms` alone, qpu-l2, qpu-sdram, `arm-slowdown` | How much work the ARM does with no QPU job, with the QPUs busy in the L2 cache, and with the QPUs reading SDRAM. The slowdown is the loss of the second against the first. Above 25%: the ARM loses what the GPU saves, so stop after Mode 7. |
 | `snes t=` line | `gpu_m7 job`, `copy`, `frames gpu/arm`, `lines gpu/arm` | The real gain of Mode 7 on a Mode 7 scene: compare `frame` (and `fps`) with `snes_gpu_m7=0`. |
 
+### First Pi numbers (2026-11-13, kernel v0.3.0-112, Pi Zero W)
+
+`snes gpu bench: job 4 us, jobs12 5 us, copy64k 186 us, gather64k 8 ns/word, gather8M 17 ns/word, stream 2904 MB/s, arm chunks/ms alone 51 qpu-l2 47 qpu-sdram 46, arm-slowdown 10%`.
+
+- The fixed cost of a job is 4 to 5 us (the estimate was about 300 us). A QPU pass is cheap to start: many small jobs are no problem.
+- The copy of the 64 KB is 186 us. The copy is made only when the video RAM changed.
+- Mode 7 reads about 170000 words: 170000 x 8 ns = about 1.4 ms of QPU time, plus 0.2 ms for the copy. The ARM draws the same layer in 3.7 ms, so the gain is about 2 ms a frame (above the 1.5 ms of the gate) on a Mode 7 frame the GPU can take.
+- The ARM loses 10% while the QPUs read SDRAM (below the 25% of the gate).
+- Caveat: in this first bench all 12 jobs read the same addresses, so the TMU and the L2 cache served most reads. `stream` (2904 MB/s is above the SDRAM peak) and `gather8M` are too good, and the 10% is too low. The bench now starts each job at another address (commit of 2026-11-13, fourth uniform `start`): read the line again after the next kernel. The 4 us of `job` and the 186 us of `copy64k` do not depend on this.
+- Decision of step 1: go on with the plan. The blocker is not the cost but the gate: the frames of the real games have sprites (SMW2 `m7/11/00`: 0 GPU frames), so Mode 7 alone helps only scenes with no sprites (the Super Castlevania IV room). The next step is a path that lets the ARM lay the sprites over the GPU picture (the GPU gives the BG1 colour index; G4 gives the sprite list).
+
 How to run (the user): put `snes_gpu_m7=1` in `bm/config.txt`, install `dist/kernel.img` with `./easy_install.sh`, boot, run the 3D Bench once (its row and the report `bm/bench/3dNNNN.txt` hold the line), then play a Mode 7 scene (Super Castlevania IV rotating room, F-Zero, Super Mario Kart) for 20 seconds with Log on and send the `snes t=` lines. Then do the same with the key off, same scene, for the A/B. If the boot log says `snes gpu: Mode 7 on the QPUs is off (...)`, send that line.
 
 Risk: the V3D start changed the boot of the Pi before (see `v3d-flags.md`; an off/on power cycle of the QPUs hung `probe_index`). The key is the guard: with the key off nothing starts.

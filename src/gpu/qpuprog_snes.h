@@ -190,14 +190,16 @@ static const uint32_t qp_bench_nop[6] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t qp_bench_gather[110] __attribute__((aligned(8))) = {
+static const uint32_t qp_bench_gather[114] __attribute__((aligned(8))) = {
     0x15827d80, 0x10020027,     /* mov ra0, unif        ; nop */
     0x15827d80, 0x100210a7,     /* mov rb2, unif        ; nop */
     0x15827d80, 0x100200e7,     /* mov ra3, unif        ; nop */
+    0x15827d80, 0x100211e7,     /* mov rb7, unif        ; nop */
     0x00010dcd, 0xe0021027,     /* ldi rb0, 69069 */
     0x00ffffff, 0xe0021067,     /* ldi rb1, 16777215 */
     0x00003039, 0xe0021127,     /* ldi rb4, 12345 */
     0x11983dc0, 0xd0020827,     /* shl r0, elem_num, 3  ; nop */
+    0x0c9c71c0, 0x10020827,     /* add r0, r0, rb7      ; nop */
     0x0c9c11c0, 0xd00200a7,     /* add ra2, r0, 1       ; nop */
     0x159c0fc0, 0xd00208a7,     /* mov r2, 0            ; nop */
     0x40080037, 0x100049e0,     /* nop                 ; mul24 r0, ra2, rb0 */
@@ -248,13 +250,15 @@ static const uint32_t qp_bench_gather[110] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
-static const uint32_t qp_bench_stream[78] __attribute__((aligned(8))) = {
+static const uint32_t qp_bench_stream[82] __attribute__((aligned(8))) = {
     0x15827d80, 0x10020027,     /* mov ra0, unif        ; nop */
     0x15827d80, 0x100210a7,     /* mov rb2, unif        ; nop */
     0x15827d80, 0x100200e7,     /* mov ra3, unif        ; nop */
+    0x15827d80, 0x100211e7,     /* mov rb7, unif        ; nop */
     0x00000040, 0xe0021167,     /* ldi rb5, 64 */
     0x00000100, 0xe00211a7,     /* ldi rb6, 256 */
-    0x11982dc0, 0xd00200a7,     /* shl ra2, elem_num, 2 ; nop */
+    0x11982dc0, 0xd0020827,     /* shl r0, elem_num, 2  ; nop */
+    0x0c9c71c0, 0x100200a7,     /* add ra2, r0, rb7     ; nop */
     0x159c0fc0, 0xd00208a7,     /* mov r2, 0            ; nop */
     0x150a7d80, 0x10020867,     /* mov r1, ra2          ; nop */
     0x149c23c0, 0x10020827,     /* and r0, r1, rb2      ; nop */

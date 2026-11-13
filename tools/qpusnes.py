@@ -167,14 +167,17 @@ def bench_nop():
 
 
 def bench_gather():
-    """random gathers (the access pattern of the Mode 7 program). Uniforms: base, mask, iterations.
+    """random gathers (the access pattern of the Mode 7 program). Uniforms: base, mask, iterations, start.
     Each lane draws an address base + (x & mask) from an LCG and four gathers are in flight; 64 words an iteration.
+    A fourth uniform, start, is added to the seed so that the jobs do not read the same addresses (the TMU and the L2 cache would serve all but the first).
     mask: a multiple of 4 below the size of the region (64 KB: the VRAM; 8 MB: SDRAM that the caches do not hold)."""
     L = ["mov ra0, unif        ; nop",
          "mov rb2, unif        ; nop",
          "mov ra3, unif        ; nop",
+         "mov rb7, unif        ; nop",
          "ldi rb0, 69069", "ldi rb1, 16777215", "ldi rb4, 12345",
          "shl r0, elem_num, 3  ; nop",
+         "add r0, r0, rb7      ; nop",
          "add ra2, r0, 1       ; nop",
          "mov r2, 0            ; nop",
          "loop:"]
@@ -196,12 +199,15 @@ def bench_gather():
 
 def bench_stream():
     """sequential reads: a lane takes the word at base + ((pos + 4 * lane) & mask), four lines of 64 bytes in flight,
-    256 bytes an iteration, pos grows by 256. Uniforms: base, mask (the region size - 1), iterations."""
+    256 bytes an iteration, pos grows by 256. Uniforms: base, mask (the region size - 1), iterations, start (the first pos
+    of the job, a multiple of 256: the jobs read different lines)."""
     L = ["mov ra0, unif        ; nop",
          "mov rb2, unif        ; nop",
          "mov ra3, unif        ; nop",
+         "mov rb7, unif        ; nop",
          "ldi rb5, 64", "ldi rb6, 256",
-         "shl ra2, elem_num, 2 ; nop",
+         "shl r0, elem_num, 2  ; nop",
+         "add ra2, r0, rb7     ; nop",
          "mov r2, 0            ; nop",
          "loop:",
          "mov r1, ra2          ; nop"]
