@@ -236,7 +236,7 @@ static int read_folder(gh_t *g, const char *target, const char *branch, const ch
 {
     memset(f, 0, sizeof *f);
     char path[256];
-    snprintf(path, sizeof path, "/repos/%s/contents/games/%s?ref=%s", target, id, branch);
+    snprintf(path, sizeof path, "/repos/%s/contents/bm/games/%s?ref=%s", target, id, branch);
     int st = call(g, "GET", path, NULL, 0);
     if (st == 404)
         return 0;                       /* a new game */
@@ -291,7 +291,7 @@ static int put_file(gh_t *g, const gh_publish_t *p, const char *target, const ch
 {
     char msg[160], file[256];
     snprintf(msg, sizeof msg, "%s %s: %s", p->title, p->version, name);
-    snprintf(file, sizeof file, "games/%s/%s", p->id, name);
+    snprintf(file, sizeof file, "bm/games/%s/%s", p->id, name);
     return put_contents(g, target, p->branch, file, data, len, sha, msg);
 }
 
@@ -388,7 +388,7 @@ int github_publish(const gh_publish_t *p, char *url, size_t url_len, char *err, 
     char title[160], body[640], et[200], eb[700];
     snprintf(title, sizeof title, "%s %s %s", f.bm_name[0] ? "Update" : "Add", p->title, p->version);
     snprintf(body, sizeof body,
-             "%s (`games/%s/`), version %s, sent from a bm console.\n\n%s",
+             "%s (`bm/games/%s/`), version %s, sent from a bm console.\n\n%s",
              p->title, p->id, p->version, p->info);
     json_escape(et, sizeof et, title);
     json_escape(eb, sizeof eb, body);

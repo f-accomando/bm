@@ -246,14 +246,15 @@ def read_game(games, gid, force_kind=None):
     return out
 
 
-def read_games(games, apps=None):
-    """GAMES, then APPS (optional); the items of APPS are always apps"""
+def read_games(games, apps=None, prefix=""):
+    """GAMES, then APPS (optional); the items of APPS are always apps.
+    PREFIX goes before games/ and apps/ in the paths of the catalog (the market has bm/games, bm/apps)"""
     if not os.path.isdir(games):
         die(f"{games}: no such folder")
-    folders = [(games, "games", None)]
+    folders = [(games, prefix + "games", None)]
     if apps:
         if os.path.isdir(apps):         # a market without apps/ yet is fine
-            folders.append((apps, "apps", "app"))
+            folders.append((apps, prefix + "apps", "app"))
     out, errors, seen, ids = [], [], {}, {}
     for folder, sub, force in folders:
         for gid in sorted(os.listdir(folder)):
@@ -427,6 +428,7 @@ def add(games, path, gid, version, lic, about, kind=None, apps=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("games")
+    ap.add_argument("--prefix", default="", help="before games/ and apps/ in the catalog paths (bm/)")
     ap.add_argument("--apps", help="second folder: the apps (same layout as GAMES)")
     ap.add_argument("-o", "--out")
     ap.add_argument("--check", action="store_true", help="only check the games")
@@ -456,7 +458,7 @@ def main():
                     lic, about = lic or l_.strip(), about or ab.strip()
         add(a.games, a.add, a.id, a.version, lic, about, a.kind, a.apps)
         return
-    games = read_games(a.games, a.apps)
+    games = read_games(a.games, a.apps, a.prefix)
     if a.check:
         print(f"mkmarket: {len(games)} games, all right")
         return

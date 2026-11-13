@@ -50,7 +50,7 @@ class Repo:
 class World:
     def __init__(self):
         self.repos = {MARKET: Repo({"README.md": b"bm Market\n",
-                                    "games/pong/pong.bm": b"old pong", "games/pong/info.txt": b"version: 1\n"}),
+                                    "bm/games/pong/pong.bm": b"old pong", "bm/games/pong/info.txt": b"version: 1\n"}),
                       BM: Repo({"README.md": b"bm\n"})}
         self.pulls = []
         self.fork_wait = 0          # GETs of a new fork's ref before it exists
@@ -206,13 +206,13 @@ big = os.urandom(1_300_000)                 # a big cartridge: the body is ~1.7 
 kind, what, out = run("tok-owner", "snake", "snake.bm", big, "Snake", "2026.10.01", "snake-1")
 check(kind == "url" and what == f"https://github.com/{MARKET}/pull/1", "owner: the pull request's address")
 m = W.repos[MARKET].branches
-check("snake-1" in m and m["snake-1"]["games/snake/snake.bm"] == big, "owner: a branch in the market, the .bm intact")
-check(b"version: 2026.10.01" in m["snake-1"]["games/snake/info.txt"] and
-      b'"quoted"' in m["snake-1"]["games/snake/info.txt"], "owner: info.txt")
-check("games/snake/snake.bm" not in m["main"], "owner: main untouched")
+check("snake-1" in m and m["snake-1"]["bm/games/snake/snake.bm"] == big, "owner: a branch in the market, the .bm intact")
+check(b"version: 2026.10.01" in m["snake-1"]["bm/games/snake/info.txt"] and
+      b'"quoted"' in m["snake-1"]["bm/games/snake/info.txt"], "owner: info.txt")
+check("bm/games/snake/snake.bm" not in m["main"], "owner: main untouched")
 pr = W.pulls[0]
 check(pr["head"] == "snake-1" and pr["base"] == "main" and pr["title"] == "Add Snake 2026.10.01" and
-      "games/snake/" in pr["body"], "owner: head, base, title, body")
+      "bm/games/snake/" in pr["body"], "owner: head, base, title, body")
 check(not any(p == "/repos/f-accomando/bm-market/forks" for _, p in W.calls), "owner: no fork")
 check("step token of f-accomando" in out and "step sending snake.bm" in out, "progress lines")
 
@@ -221,7 +221,7 @@ with tempfile.TemporaryDirectory() as d:
     gd = os.path.join(d, "games", "snake")
     os.makedirs(gd)
     for p, data in m["snake-1"].items():
-        if p.startswith("games/snake/"):
+        if p.startswith("bm/games/snake/"):
             with open(os.path.join(gd, os.path.basename(p)), "wb") as f:
                 f.write(data)
     info = mkmarket.read_info(os.path.join(gd, "info.txt"))
@@ -234,13 +234,13 @@ kind, what, out = run("tok-friend", "pong", "Pong_v2.bm", b"new pong bytes", "Po
 check(kind == "url" and what.endswith("/pull/2"), "friend: the pull request")
 fork = W.repos.get("friend/bm-market")
 check(fork is not None and "pong-2" in fork.branches, "friend: a branch in the fork")
-check(fork and fork.branches["pong-2"].get("games/pong/pong.bm") == b"new pong bytes" and
-      "games/pong/Pong_v2.bm" not in fork.branches["pong-2"], "update: the .bm keeps the name already there")
+check(fork and fork.branches["pong-2"].get("bm/games/pong/pong.bm") == b"new pong bytes" and
+      "bm/games/pong/Pong_v2.bm" not in fork.branches["pong-2"], "update: the .bm keeps the name already there")
 check(W.pulls[1]["head"] == "friend:pong-2" and W.pulls[1]["title"] == "Update Pong 2", "friend: head and title")
 check(("POST", "/repos/friend/bm-market/merge-upstream") in W.calls and "waiting for the fork" in out,
       "friend: waited for the fork, brought it up to date")
-check("games/pong/pong.bm" in W.repos[MARKET].branches["main"] and
-      W.repos[MARKET].branches["main"]["games/pong/pong.bm"] == b"old pong", "friend: the market untouched")
+check("bm/games/pong/pong.bm" in W.repos[MARKET].branches["main"] and
+      W.repos[MARKET].branches["main"]["bm/games/pong/pong.bm"] == b"old pong", "friend: the market untouched")
 
 # errors: their message
 kind, what, _ = run("tok-nobody", "x", "x.bm", b"x", "X", "1", "x-1")

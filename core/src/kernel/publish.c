@@ -99,8 +99,8 @@ void publish_panel(home_panel_t *p)
     memset(p, 0, sizeof p[0]);
     ksnprintf(p->title, sizeof p->title, "Publish > %s", pub.title);
     home_row(p, MENU_ROW_INFO, P_ID, "Folder in the Market",
-             pub.lic < 0 ? "Already in the Market: this is an update" : "games/<id>/, from the file name",
-             "games/%s", pub.id);
+             pub.lic < 0 ? "Already in the Market: this is an update" : "bm/games/<id>/, from the file name",
+             "bm/games/%s", pub.id);
     home_row(p, MENU_ROW_INFO, P_VERSION, "Version", "The day it is sent", "%s", pub.version);
     home_row(p, MENU_ROW_CHOICE, P_LICENSE, "License", "What others may do with your game", "%s", license());
     home_row(p, MENU_ROW_INFO, P_TOKEN, "GitHub token",
@@ -137,7 +137,7 @@ static void run(framebuffer_t *fb)
 {
     (void)fb;
     kprintf("\n\x1b[1;96mbm Market: publishing %s\x1b[0m\n", pub.title);
-    kprintf("  games/%s, version %s, license %s, to %s\n", pub.id, pub.version, license(), repo());
+    kprintf("  bm/games/%s, version %s, license %s, to %s\n", pub.id, pub.version, license(), repo());
     if (!net_ip()) {
         kprintf("\x1b[91mno network: connect in Settings > WiFi and network\x1b[0m\n");
         over(0, "no network: connect in Settings > WiFi and network");

@@ -1441,18 +1441,18 @@ $(BUILD)/host/test_github: tests/net/test_github.c core/src/net/github.c core/sr
 MARKET ?= ../bm-market
 MARKET_VERSION := $(shell date -u +%Y.%m.%d)
 # The Market has its own list of games: GAMES minus MARKET_APPS_OF_GAMES.
-# typing, write and bench3d are apps: they go to the apps/ folder of the Market.
+# typing, write and bench3d are apps: they go to the bm/apps/ folder of the Market.
 MARKET_APPS_OF_GAMES := typing write bench3d font
 MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
-# build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
+# build/<id>.bm and seeded in the bm/apps/ folder of the Market. The RGB30 gets
 # the RGB30's SDK is not in the Market for now (the new SDK .bm for both kernels comes later).
 MARKET_APPS := editor code pixel studio animator mesh sound assistant snes_sdk
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
-MKMARKET_ADD = $(PYTHON) core/scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add
+MKMARKET_ADD = $(PYTHON) core/scripts/mkmarket.py $(MARKET)/bm/games --apps $(MARKET)/bm/apps --add
 market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 	@test -d $(MARKET) || { echo "MARKET=$(MARKET): clone f-accomando/bm-market there first"; exit 1; }
-	mkdir -p $(MARKET)/.github/workflows $(MARKET)/games $(MARKET)/apps
+	mkdir -p $(MARKET)/.github/workflows $(MARKET)/bm/games $(MARKET)/bm/apps
 	cp market/README.md market/.gitignore $(MARKET)/
 	cp market/.github/workflows/market.yml $(MARKET)/.github/workflows/
 	for g in $(MARKET_GAMES); do \
@@ -1464,7 +1464,7 @@ market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 	for a in $(MARKET_APPS); do \
 		$(MKMARKET_ADD) $(BUILD)/$$a.bm --id $$a --kind app --version $(MARKET_VERSION) --about-file market/about.txt || exit 1; \
 	done
-	$(PYTHON) core/scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --check
+	$(PYTHON) core/scripts/mkmarket.py $(MARKET)/bm/games --apps $(MARKET)/bm/apps --check
 # kernel7.img's start in Hyp mode, as the Pi Zero 2 W's firmware does it:
 # start.S and vectors.S in QEMU's virt machine with the virtualization
 # extensions (raspi2b starts in SVC), tests/boot/hyp_main.c on its PL011

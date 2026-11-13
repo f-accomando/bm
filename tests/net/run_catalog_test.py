@@ -204,6 +204,11 @@ with tempfile.TemporaryDirectory() as tmp:
           and "file games/snake/snake.bm " in idx, "--apps: apps get kind app, games stay games")
     check(os.path.exists(os.path.join(tmp, "sp-out", "apps", "paint", "paint.bm")),
           "--apps: the app is served under apps/")
+    r = mkmarket(sp_games, "--apps", sp_apps, "--prefix", "bm/", "-o", os.path.join(tmp, "sp-pre"), "--serial", "1")
+    idx = open(os.path.join(tmp, "sp-pre", "index.txt"), "rb").read().decode("cp437") if r.returncode == 0 else ""
+    check(r.returncode == 0 and "file bm/apps/paint/paint.bm " in idx and "file bm/games/snake/snake.bm " in idx
+          and os.path.exists(os.path.join(tmp, "sp-pre", "bm", "apps", "paint", "paint.bm")),
+          "--prefix bm/: the catalog and the site use bm/games and bm/apps")
     r = mkmarket(sp_games, "--check")
     check(r.returncode == 0 and "2 games" in r.stdout, "old call (one folder): unchanged")
     game(sp_apps, "snake", "snake.bm", mkbm.pack(code, title="Snake 2", author="bm"), lic_mit)

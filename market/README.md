@@ -12,23 +12,23 @@ Everything is free: no accounts, no payments.
 
 ## Publishing a game or an app
 
-The Market has two folders with the same layout: `games/` for games and
-`apps/` for apps (editors and tools, such as bm Code or bm Pixel). Put your
-item in the correct folder. Every item in `apps/` is an app. The console
+The Market has two folders with the same layout: `bm/games/` for games and
+`bm/apps/` for apps (editors and tools, such as bm Code or bm Pixel). Put your
+item in the correct folder. Every item in `bm/apps/` is an app. The console
 lists the apps in the **Apps** page of the Market.
 
-Open a pull request that adds one folder to `games/` (or to `apps/`):
+Open a pull request that adds one folder to `bm/games/` (or to `bm/apps/`):
 
 ```
-games/my-game/my-game.bm     the cartridge (a .bm)
-games/my-game/info.txt       version, license, about
+bm/games/my-game/my-game.bm     the cartridge (a .bm)
+bm/games/my-game/info.txt       version, license, about
 ```
 
 One `.bm` per folder. Its header says which kernels it is for (`targets`). Both consoles list it; the one it is not for shows a faded cover and asks OK or Cancel before it starts.
 
 - **The folder's name is the game's id**: `a-z`, `0-9` and `-`, at most 23
   characters. It never changes: the console recognises updates by it. An id
-  exists in one folder only: `games/` or `apps/`, never both.
+  exists in one folder only: `bm/games/` or `bm/apps/`, never both.
 - **info.txt**:
 
   ```
@@ -62,7 +62,7 @@ python3 ../bm/scripts/mkmarket.py games --apps apps --add my-app.bm --kind app -
 
 ## How it works
 
-- `games/` and `apps/` are the catalog. The two folders give one
+- `bm/games/` and `bm/apps/` are the catalog. The two folders give one
   `index.txt`: an app has a `kind app` line, so a console that is not new
   sees the same format. On every push to `main` the workflow
   (`.github/workflows/market.yml`) runs `core/scripts/mkmarket.py` of bm: it
