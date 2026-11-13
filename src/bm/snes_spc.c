@@ -9,6 +9,12 @@
 
 #include <string.h>
 
+/* The Pi Zero W (ARMv6) has a 16 KB instruction cache that the CPU loop, the PPU and the S-DSP share. At -O2 the opcode switch (step) is 12 KB; at -Os it is 4.8 KB
+ * and runs about 12% more ARM instructions, a small part of a frame (docs/progress/snes-cpu.md, "I-cache work"). Only the 32-bit ARM build is changed. */
+#if defined(__arm__) && !defined(__aarch64__) && defined(__OPTIMIZE__) && !defined(__OPTIMIZE_SIZE__) && !defined(SNES_SPC_O2)
+#pragma GCC optimize("Os")
+#endif
+
 static uint8_t ram[65536];
 static uint8_t dsp[128];
 static uint8_t apu_in[4], apu_out[4];

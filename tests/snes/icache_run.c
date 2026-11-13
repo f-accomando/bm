@@ -9,6 +9,8 @@
 #include <string.h>
 __attribute__((noinline)) void icache_frame_mark(void) { __asm__ volatile("nop"); }
 __attribute__((noinline)) void icache_trace_end(void) { __asm__ volatile("nop; nop"); }
+static uint32_t hsum = 2166136261u;
+static void hmix(const void *d, unsigned n) { const uint8_t *p = d; while (n--) hsum = (hsum ^ *p++) * 16777619u; }
 static uint8_t *slurp(const char *p, long *n) { FILE *f = fopen(p, "rb"); if (!f) return 0; fseek(f, 0, SEEK_END); *n = ftell(f); fseek(f, 0, SEEK_SET); uint8_t *d = malloc(*n); if (fread(d, 1, *n, f) != (size_t)*n) return 0; fclose(f); return d; }
 int main(void)
 {
@@ -23,10 +25,10 @@ int main(void)
     static float abuf[2048];
     for (int frame = 0; frame < warm + tr; frame++) {
         int p = 0; for (int i = 0; i < ns; i++) if (frame >= f0[i] && frame <= f1[i]) p |= pd[i];
-        if (frame == warm) { snes_debug_t dd; snes_debug(&dd); printf("ICACHE_WAIT, 65816 instructions a frame %u\n", dd.instr); fflush(stdout); (void)getchar(); }
+        if (frame == warm) { snes_debug_t dd; snes_debug(&dd); printf("ICACHE_WAIT, 65816 instructions a frame %u, output hash %08x\n", dd.instr, hsum); fflush(stdout); (void)getchar(); }
         if (frame >= warm) { icache_frame_mark(); printf("frame %d\n", frame); fflush(stdout); }
         snes_frame((uint16_t)p, 0, 1);
-        snes_audio_mix(abuf, 800, 1.0f);
+        snes_audio_mix(abuf, 800, 1.0f); hmix(abuf, sizeof abuf); { int ln; const uint16_t *pic = snes_picture(&ln); hmix(pic, 256u * 2u * (unsigned)ln); }
     }
     icache_trace_end();
     { snes_debug_t dd; snes_debug(&dd); printf("icache_run: done, 65816 instructions a frame %u\n", dd.instr); }

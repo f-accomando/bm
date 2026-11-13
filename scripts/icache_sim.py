@@ -24,6 +24,7 @@ def main():
     ap.add_argument("--policy", default="rr")
     ap.add_argument("--out", default="build/icache")
     ap.add_argument("--cflags", default="")
+    ap.add_argument("--filefl", action="append", default=[], help="NAME=FLAGS: extra compiler flags for src/bm/NAME.c (for example snes_spc=-Os)")
     ap.add_argument("--hot", action="store_true", help="link with src/bm/snes_hot.ld (the hot SNES code in one block)")
     a = ap.parse_args()
     out = a.out
@@ -46,7 +47,8 @@ def main():
     names = "snes_bus snes_sa1 snes_sa1_cpu snes_ppu snes_spc snes_dsp snes_gsu snes_dsp77 snes_cpu".split()
     objs = []
     for n in names:
-        sh(f"{cc} -c src/bm/{n}.c -o {out}/{n}.c.o")
+        extra = " ".join(x.split("=", 1)[1] for x in a.filefl if x.split("=", 1)[0] == n)
+        sh(f"{cc} {extra} -c src/bm/{n}.c -o {out}/{n}.c.o")
         objs.append(f"{out}/{n}.c.o")
     sh(f"{cc} -c tests/snes/arm_mmu.c -o {out}/arm_mmu.c.o")
     sh(f"{cc} {defs} -c tests/snes/icache_run.c -o {out}/icache_run.c.o")
@@ -117,7 +119,8 @@ def main():
     if os.path.exists(fifo):
         os.remove(fifo)
     os.mkfifo(fifo)
-    sim = subprocess.Popen(f"{out}/icache_sim {out}/syms.txt {syms['icache_frame_mark']} {syms['icache_trace_end']} {a.policy} < {fifo}", shell=True)
+    sim = subprocess.Popen(f"{out}/icache_sim {out}/syms.txt {syms['icache_frame_mark']} {syms['icache_trace_end']} {a.policy} < {fifo}", shell=True,
+                           env=dict(os.environ, ICACHE_DUMP=os.environ.get("ICACHE_DUMP", f"{out}/trace.bin"), ICACHE_TOP=os.environ.get("ICACHE_TOP", "25")))
     q, mon = start(["-accel", "tcg,one-insn-per-tb=on", "-loadvm", "warm", "-S"])  # paused: the trace must be on before the guest runs
     time.sleep(1)
     hmp(mon, f"logfile {fifo}")
