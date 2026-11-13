@@ -37,7 +37,7 @@ class ConfigReadinTest(unittest.TestCase):
     def test_ok(self):
         toml = """[[key]]
 name = "foo"
-read_in = "src/x.c:2"
+read_in = "core/src/x.c:2"
 """
         c = "line 1\n\"foo\"\nline 3\n"
         self._setup_files(toml, c)
@@ -48,24 +48,24 @@ read_in = "src/x.c:2"
     def test_stale(self):
         toml = """[[key]]
 name = "foo"
-read_in = "src/x.c:2"
+read_in = "core/src/x.c:2"
 """
         c = "line 1\nother\n\"foo\"\nother\nconfig_get(\"foo\")\n"
         self._setup_files(toml, c)
         lines, stale = mod.check()
         self.assertEqual(stale, 1)
-        self.assertEqual(lines, ["STALE foo: src/x.c:2 -> 5"])
+        self.assertEqual(lines, ["STALE foo: core/src/x.c:2 -> 5"])
 
     def test_unchecked(self):
         toml = """[[key]]
 name = "bar"
-read_in = "src/x.c:2"
+read_in = "core/src/x.c:2"
 """
         c = "line 1\nother\nline 3\n"
         self._setup_files(toml, c)
         lines, stale = mod.check()
         self.assertEqual(stale, 0)
-        self.assertEqual(lines, ["UNCHECKED bar: src/x.c:2"])
+        self.assertEqual(lines, ["UNCHECKED bar: core/src/x.c:2"])
 
 
 if __name__ == "__main__":

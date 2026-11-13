@@ -154,7 +154,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # the agent relay (core/tools/bm_agent_relay.py): its own CA, a certificate for 127.0.0.1, a fake program
     relay_dir = os.path.join(tmp, "relay")
     relay = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                         "tools", "bm_agent_relay.py")
+                         "core", "tools", "bm_agent_relay.py")
     cert_out = subprocess.run([sys.executable, relay, "cert", "--ip", "127.0.0.1", "--dir", relay_dir],
                               check=True, capture_output=True, text=True).stdout
     code = [l.split()[1] for l in cert_out.splitlines() if l.strip().startswith("code:")][0]

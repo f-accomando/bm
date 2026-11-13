@@ -1636,7 +1636,7 @@ def apply_info(f, a, item=None):
 
 def project_copy_path(game):
     """The editable copy of a game: projects live in the /bme folder of the SD card
-    (docs/PROJECT-LAYOUT.md). A game in the SD card's bm/ or bm/ folder gets its copy in the
+    (docs/PROJECT-LAYOUT.md). A game in the SD card's bm/ or carts/ folder gets its copy in the
     bme/ folder next to it (made if needed); a loose file gets it next to the file."""
     folder = os.path.dirname(os.path.abspath(game))
     name = os.path.splitext(os.path.basename(game))[0] + ".bme"

@@ -77,7 +77,7 @@ static uint32_t sent, sent_at;          /* G: the bytes given to TCP, and when l
 /* S: the file received and checked, waiting to be written (one at a time:
  * the memory is the temporary copy, the card is written once) */
 static struct {
-    char path[72];              /* "/bm/PONG.BM" */
+    char path[72];              /* "/carts/PONG.BM" */
     uint8_t *data;              /* NULL: none */
     uint32_t len;
     int kernel;                 /* K: the PC waits for the answer, then the restart */

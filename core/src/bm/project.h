@@ -56,7 +56,7 @@ const char *bm_games_dir(void);
 int bm_project_path(const char *name, char *out, size_t n);
 
 /* The name the editable copy of a game takes: in /bme, the game's name
- * with .bme, or with a digit at the end if that is taken ("/bm/
+ * with .bme, or with a digit at the end if that is taken ("/carts/
  * pong.bm" -> "/bme/pong.bme", "/bme/pong1.bme"...). 0, or -1
  * if there is no free one. */
 int bm_copy_name(const char *game, char *out, size_t n);

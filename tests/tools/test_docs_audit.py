@@ -2,7 +2,7 @@
 import contextlib, io, os, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "core", "scripts"))
 import docs_audit
 
 

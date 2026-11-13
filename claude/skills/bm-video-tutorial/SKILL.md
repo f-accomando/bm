@@ -98,7 +98,7 @@ Branch `bm-core`. Read with the available tools; do not write from memory.
 - `tests/qemu_test.py`: existing QEMU harness (option `--shots DIR` for
   screenshots). Understand how it starts QEMU (`-M raspi0`), how it sends keys and how it
   captures frames **by reading the code**, then reuse it instead of writing a new one.
-- `bm/` and `sdk/`: example cartridges and tool READMEs.
+- `carts/` and `sdk/`: example cartridges and tool READMEs.
 
 ## Workflow
 

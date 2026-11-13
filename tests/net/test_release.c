@@ -143,7 +143,7 @@ int main(int argc, char **argv)
     check(parse_text(buf) == -1, "path with ..: refused");
     snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a/b.bm /carts/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "asset name with /: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm bm/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm carts/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "relative path: refused");
     snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %.63s\n", sha);
     check(parse_text(buf) == -1, "short SHA-256: refused");

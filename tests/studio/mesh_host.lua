@@ -460,7 +460,7 @@ local function goto_item(label)
   check(false, "the list has " .. label)
 end
 
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
 local function models_of(name) return mesh_models(section(file(name), 8)) end
 local function model_of(name, m)
   for _, x in ipairs(models_of(name)) do if x.name == m then return x end end

@@ -12,7 +12,7 @@
  * write error), KA (a kernel for another Pi), and for S QD (queued: the
  * file arrived whole and the console writes it from its menu, a game that
  * is running is replaced once it is closed; 2026-10-10). On both consoles a
- * .bm / .b16 for bm/ goes to bm/, the folder its menu lists.
+ * .bm / .b16 for carts/ goes to bm/, the folder its menu lists.
  */
 #ifndef NETXFER_H
 #define NETXFER_H
@@ -54,7 +54,7 @@ int  netxfer_kernel_state(uint32_t *done, uint32_t *total, int *secs);
 int  netxfer_write_tick(uint32_t until);
 void netxfer_write_pause(void);
 int  netxfer_write_pending(void);
-/* Whether the file at path ("/bm/PONG.BM", any case) is arriving or
+/* Whether the file at path ("/carts/PONG.BM", any case) is arriving or
  * waiting to be written (the menu shows a tag and does not start it). */
 enum { NETXFER_RECEIVING = 1, NETXFER_QUEUED, NETXFER_WRITING };
 int  netxfer_updating(const char *path);

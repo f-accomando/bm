@@ -1337,7 +1337,7 @@ function _init()
   show("w2", res_write("/bmm/tri.bmm", "model", { sections = { [8] = M, [2] = SHEET }, replace = true,
                                                   name = "Tri Two", author = "me" }))
   whole("r2", res_read("/BMM/TRI.BMM"))
-  for i, p in ipairs({ "/bmm/Tri.bmm", "/bm/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
+  for i, p in ipairs({ "/bmm/Tri.bmm", "/carts/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
                        "/bmm/../x.bmm", "/bmm/.bmm", "/bmm/sp ace.bmm", "/bmm" }) do
     show("path" .. i, res_write(p, 1, { sections = { [8] = M } }))
   end
@@ -6077,7 +6077,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("carts/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -6213,12 +6213,12 @@ def test_code_editor(b, opts):
         # the games stay as they were: the saves went into their editable copies
         game = os.path.join(tmp, "game.bm")
         subprocess.run(["mcopy", "-i", part, "::/BM/Il mio demo.bm", game], check=True, env=env)
-        assert open(game, "rb").read() == open(b("bm/mapkit.bm"), "rb").read(), "the demo (a game) changed"
+        assert open(game, "rb").read() == open(b("carts/mapkit.bm"), "rb").read(), "the demo (a game) changed"
         out = os.path.join(tmp, "demo.bm")
         subprocess.run(["mcopy", "-i", part, "::/BME/ILMIODEM.BME", out], check=True, env=env)
         sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
         new = open(out, "rb").read()
-        old = open(b("bm/mapkit.bm"), "rb").read()
+        old = open(b("carts/mapkit.bm"), "rb").read()
         def sections(d):
             import struct
             n = d[17]
@@ -7140,7 +7140,7 @@ def test_sdk_suite(b, opts):
     bm SDK"; the SDK comes back on the project."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
 
@@ -7230,7 +7230,7 @@ def test_sdk_elastic(b, opts):
     tab bar at the top, the hint row and the status bar at the bottom."""
     tmp = tempfile.mkdtemp(prefix="bm-elastic-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
     UP = "\x1b[A"
@@ -7315,7 +7315,7 @@ def test_suite_elastic(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nbm_screen=1280x720\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/testkit.bm"), "bm/testkit.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/testkit.bm"), "bm/testkit.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
         def k(s, gap=0.4):

@@ -11,7 +11,7 @@ import tempfile
 import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "core", "scripts"))
 import bmz  # noqa: E402
 
 exe = sys.argv[1]

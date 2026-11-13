@@ -173,7 +173,7 @@ def declare_both(data):
 
 
 def make_sd(tmp, files, declare=True):
-    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and bm/ are made
+    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and carts/ are made
     for both kernels (declare_both), so the menu starts them with no question; False leaves them as they are."""
     src = []
     for i, (dest, data) in enumerate(files.items()):
@@ -977,7 +977,7 @@ def test_games_in_bm_only(b, opts):
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": tryme_b16,
                        "bm/built.bm": built_bm,
-                       "bm/old.bm": old_bm})
+                       "carts/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)

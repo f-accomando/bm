@@ -18,7 +18,7 @@ Same script -> same video (to the frame, give or take a frame at a key).
 
   from qemurec import Recorder
   r = Recorder("out", kernel="build/kernel.img")
-  r.boot(sd_files=[("build/x.bm", "bm/x.bm")], config={"layout": "us"})
+  r.boot(sd_files=[("build/x.bm", "carts/x.bm")], config={"layout": "us"})
   r.record(input_lines, frames=3600, out="out/console.mkv")
   r.close()
 
@@ -447,7 +447,7 @@ def extract_sd(img, dest):
     os.makedirs(dest)
     env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
     subprocess.run(["mcopy", "-s", "-n", "-i", part, "::/", dest], check=True, env=env)
-    for name in os.listdir(dest):                       # FAT names come back in capitals: bm/, TROPIC.BME as the tools wrote them
+    for name in os.listdir(dest):                       # FAT names come back in capitals: carts/, TROPIC.BME as the tools wrote them
         if name != name.lower() and os.path.isdir(os.path.join(dest, name)):
             os.rename(os.path.join(dest, name), os.path.join(dest, name.lower()))
     os.remove(part)

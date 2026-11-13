@@ -22,7 +22,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(0, os.path.join(os.path.dirname(HERE), ".claude", "skills", "bm-forge"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), ".claude", "skills", "bm-forge"))
 import bmres  # noqa: E402
 from bm_core import container, imageio, preview  # noqa: E402
 

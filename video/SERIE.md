@@ -29,7 +29,7 @@ Note per chi continua:
 - Lo sheet di Kip è creato in bm Pixel e salvato come `.bm`; gli episodi 2–6 riprendono
   quella cartuccia (`out/sd/carts/`) e ci aggiungono mappa, suoni e codice. Per ripetere gli
   episodi in ordine, `record.py` di ogni puntata deve ripartire dal file lasciato dalla
-  puntata prima (da tenere nel repo quando sarà pronto: `bm/skyvale/`).
+  puntata prima (da tenere nel repo quando sarà pronto: `carts/skyvale/`).
 - Non si usano personaggi, sprite o musiche di giochi esistenti.
 - **bm Studio e bm Animator della console sono 3D**: non si usano. Le tessere e la mappa 2D stanno nell'SDK (pagina F3, di nuovo F3 la mappa).
 - Gli strumenti si registrano con `bmhost --tool` (come gli strumenti incorporati nel kernel: possono salvare su un `.bm` già presente); F5 dentro `bmhost` chiude la registrazione, quindi la prova del gioco è una seconda registrazione accodata.

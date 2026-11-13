@@ -292,7 +292,7 @@ def boot(build, cart, tmp):
     cpath = os.path.join(tmp, "myvill.bm")
     with open(cpath, "wb") as f:
         f.write(cart)
-    mksd.build(img, [(cpath, "bm/myvill.bm"), (cfg, "bm/config.txt")])
+    mksd.build(img, [(cpath, "carts/myvill.bm"), (cfg, "bm/config.txt")])
     q = qt.Qemu(os.path.join(build, "kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     q.expect(qt.MENU, timeout=40)
     time.sleep(1.0)

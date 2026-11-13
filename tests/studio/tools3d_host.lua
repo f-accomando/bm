@@ -665,7 +665,7 @@ run_cart(STUDIO)
 E._init()
 frames(2)
 check(sees("open a cartridge"), "at the start: the list of the files")
-check(sees("/bm/testkit.bm"), "the test kit is in the list")
+check(sees("/carts/testkit.bm"), "the test kit is in the list")
 
 -- open the test kit: 8 models; the models page lists them
 open_file("testkit.bm")
@@ -786,7 +786,7 @@ local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
-for _, s in ipairs(sections_of(read_file(SD .. "/bm/testkit.bm"))) do vil[s[1]] = s[2] end
+for _, s in ipairs(sections_of(read_file(SD .. "/carts/testkit.bm"))) do vil[s[1]] = s[2] end
 check(got[8] == orig8 and got[9] == orig9, "a copy with no edits keeps MESH and ANIM as they were")
 check(got[5] == vil[5] and got[1] == vil[1] and got[4] == vil[4], "and the sheet, the code and the cover (cart_write)")
 
@@ -1312,10 +1312,10 @@ check(sees("mixed with wave: 25%"), "b: mixed with the next one")
 key("f3")
 check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the walker's animations")
 menu_pick("Open in bm Studio", EXIT_A)
-check(tooled and tooled[1] == "studio" and tooled[2] == "/bm/testkit.bm", "Open in bm Studio: cart_tool")
+check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/testkit.bm", "Open in bm Studio: cart_tool")
 
 -- (a fresh bm Animator: the first one leaves the page when it opens bm Studio)
-run_cart(ANIMATOR, "/bm/testkit.bm")
+run_cart(ANIMATOR, "/carts/testkit.bm")
 E._init()
 frames(3)
 for _ = 2, vi do key("down") end
@@ -1506,7 +1506,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
+run_cart("/bm/studio/main.lua", "/carts/testkit.bm")
 E._init()
 frames(3)
 local mx, my = at("models", nil, 0)
@@ -1557,7 +1557,7 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "models", go = function() key("f2") end },
   } }
 
-run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
+run_cart("/bm/animator/main.lua", "/carts/testkit.bm")
 E._init()
 frames(3)
 mx, my = at("walker", 16)
@@ -1635,7 +1635,7 @@ do
   end
   local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
 
-  run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
+  run_cart("/bm/studio/main.lua", "/carts/testkit.bm")
   E._init()
   frames(3)
   local n0 = #cur_models()
@@ -1722,7 +1722,7 @@ do
   key("f2", "del", "del")
 
   -- bm Animator: the same list, a model with a skeleton opens on its page
-  run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
+  run_cart("/bm/animator/main.lua", "/carts/testkit.bm")
   E._init()
   frames(3)
   local a0 = #cur_models()

@@ -189,11 +189,11 @@ local bmui, bmlib
 env.require = function(name)
   if name == "assist" then return fake_assist end
   if name == "bmui" then                   -- the mouse, the real one (it takes keyp over)
-    bmui = bmui or assert(loadfile((SRC:match("^(.-)bm/") or "./") .. "core/src/script/bmui.lua", "t", env))()
+    bmui = bmui or assert(loadfile((SRC:match("^(.-)carts/") or "./") .. "core/src/script/bmui.lua", "t", env))()
     return bmui
   end
   if name == "bmlib" then
-    bmlib = bmlib or assert(loadfile((SRC:match("^(.-)bm/") or "./") .. "core/src/script/bmlib.lua", "t", env))()
+    bmlib = bmlib or assert(loadfile((SRC:match("^(.-)carts/") or "./") .. "core/src/script/bmlib.lua", "t", env))()
     return bmlib
   end
   error("no module " .. name)

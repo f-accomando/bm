@@ -439,7 +439,7 @@ local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
   return ""
 end
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
 
 -- the sprite being drawn and the colour, from the panel
 local function sprite_at()
@@ -464,7 +464,7 @@ local sample0 = file("mapkit.bm")
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/bm/testkit.bm"), "at the start: the list of the files")
+check(sees("open a cartridge") and sees("/carts/testkit.bm"), "at the start: the list of the files")
 key("down", "\n")
 check(status():find("testkit.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
       "the test kit: its sheet and the palette of its SHEET8: " .. status())

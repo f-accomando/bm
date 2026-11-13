@@ -19,7 +19,7 @@ link (`undefined reference to g16_to_rgb24`, `Makefile:1092`), before any luahos
 So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, without
 `test_meshcap`, into `build/forge-gold/`:
 
-(Historical record. `bm/stages3d` was removed on 25 Oct; the host sample with a map is now `build/bm/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
+(Historical record. `carts/stages3d` was removed on 25 Oct; the host sample with a map is now `build/bm/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
 
 ```sh
 make -j$(nproc) build/host/luahost build/host/test_bm build/bm/village.bm build/bm/astrowing.bm build/bm/stages3d.bm

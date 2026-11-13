@@ -26,10 +26,10 @@ def check(binary, size_mib, cluster_sectors):
     what = f"{cluster_sectors * 512} B clusters"
     with tempfile.TemporaryDirectory() as tmp:
         img = os.path.join(tmp, "sd.img")
-        mksd.build(img, [(readme, "bm/README.TXT"),
-                         (readme, "bm/Un gioco da cancellare.bm")], size_mib,
+        mksd.build(img, [(readme, "carts/README.TXT"),
+                         (readme, "carts/Un gioco da cancellare.bm")], size_mib,
                    cluster_sectors=cluster_sectors)
-        r = subprocess.run([binary, img, readme, "/bm/README.TXT"], cwd=tmp)
+        r = subprocess.run([binary, img, readme, "/carts/README.TXT"], cwd=tmp)
         if r.returncode:
             print(f"FAIL ({what})")
             return 1
@@ -59,10 +59,10 @@ def check(binary, size_mib, cluster_sectors):
         if "164 files" not in listing:          # 202 - 50 deleted + 10, "." and ".."
             print(f"FAIL mdir ({what}):\n" + listing)
             return 1
-        carts = subprocess.run(["mdir", "-i", part, "::/CARTS"],
+        carts = subprocess.run(["mdir", "-i", part, "::/BM"],
                                capture_output=True, text=True, env=env).stdout
         if "cancellare" in carts or "README" not in carts:
-            print(f"FAIL mdir /carts after the delete ({what}):\n" + carts)
+            print(f"FAIL mdir /bm after the delete ({what}):\n" + carts)
             return 1
         # what the writers at the ticks left (test_fat.c, nest_tick)
         mix = subprocess.run(["mdir", "-b", "-i", part, "::/MIX"],

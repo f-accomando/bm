@@ -880,37 +880,37 @@ key("esc")
 -- (/carts/OLD.BME) is still found; Save writes where the project is, and says so
 do
   local fi = assert(io.open(host("/bme/t1.bme"), "rb"))
-  local fo = assert(io.open(host("/bm/old.bme"), "wb"))
+  local fo = assert(io.open(host("/carts/old.bme"), "wb"))
   fo:write(fi:read("a"))
   fi:close()
   fo:close()
-  add_file("/bm/OLD.BME")
+  add_file("/carts/OLD.BME")
 end
 run_sdk({ path = "/bme/t1.bme" })
 frames(5)
 key("^o")
 check(sees("choose") or sees("open"), "Ctrl+O opens the list")
 check(sees("/bme/t1.bme"), "Ctrl+O lists the project in /bme (the stand-in card keeps lower case)")
-local seen_old = sees("/bm/old.bme")
+local seen_old = sees("/carts/old.bme")
 for _ = 1, 60 do                         -- (the list scrolls)
   if seen_old then break end
   key("down")
-  seen_old = sees("/bm/old.bme")
+  seen_old = sees("/carts/old.bme")
 end
 check(seen_old, "Ctrl+O still lists an old project next to its game")
 key("esc")
 key("^s")
 frames(2)
 check(last_save.path == "/bme/t1.bme" and status():find("saved /bme/t1.bme", 1, true), "Ctrl+S saves in /bme: " .. status())
-run_sdk({ path = "/bm/old.bme" })
+run_sdk({ path = "/carts/old.bme" })
 frames(5)
 key("^s")
 frames(2)
-check(last_save.path == "/bm/old.bme" and status():find("old place", 1, true), "an old project is saved where it is, and the status says so: " .. status())
+check(last_save.path == "/carts/old.bme" and status():find("old place", 1, true), "an old project is saved where it is, and the status says so: " .. status())
 
 -- the models of a project (testkit.bm): the 3D page, the code for one,
 -- the assistant's model joining them
-run_sdk({ path = "/bm/testkit.bm" })
+run_sdk({ path = "/carts/testkit.bm" })
 frames(10)
 local nmodels = #E.models()
 check(nmodels > 3, "the kit has models (" .. nmodels .. ")")
@@ -942,7 +942,7 @@ frames(1)
 if sees("file name") then key("\n") end
 check(tooled and tooled[1] == "studio", "3: bm Studio on the project: " .. tostring(tooled and tooled[1]))
 check(tooled[2] == "/bme/testkit.bme", "the game was saved first: its editable copy " .. tostring(tooled[2]))
-run_sdk({ path = "/bm/testkit.bm", from = "pixel" })
+run_sdk({ path = "/carts/testkit.bm", from = "pixel" })
 frames(2)
 check(status():find("back from bm Pixel", 1, true), "back from bm Pixel: " .. status())
 
@@ -969,7 +969,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_sdk({ path = "/bm/testkit.bm" })
+run_sdk({ path = "/carts/testkit.bm" })
 frames(400)
 -- the tabs: 2D (sprites), drawing, a colour, a flag, the sheet
 local mx, my = at("2D", nil, 0)

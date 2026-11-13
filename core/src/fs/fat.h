@@ -111,7 +111,7 @@ int fat_write_runs(int on);
  * does not write its last run's log over one before a restart. */
 int fat_writing(void);
 
-/* Deletes a file ("/bm/Il mio gioco.bm", long names too; not a
+/* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
  * directory). The directory entry goes first, then the clusters are
  * released (a FAT sector's worth at a time): a power cut in between only
  * leaves lost clusters. */

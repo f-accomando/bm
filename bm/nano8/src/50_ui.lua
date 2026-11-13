@@ -157,7 +157,7 @@ local function browser_draw()
   if count == 0 then
     center("No carts found.", W // 2, 140, C.text)
     center("Copy .p8 or .p8.png files to bm/nano8/ on the SD card", W // 2, 170, C.dim)
-    center("(or to bm/), then open nano8 again.", W // 2, 188, C.dim)
+    center("(or to carts/), then open nano8 again.", W // 2, 188, C.dim)
     return
   end
   local first = B.top * COLS + 1

@@ -15,7 +15,7 @@ import argparse, fnmatch, os, re, shutil, subprocess, sys
 EXCLUDE = [
     '.agents', '.antigravity', '.claude', '.github', 'claude', 'market', 'sync', 'video', 'art',
     'AGENTS.md', 'AI.md', 'ANTIGRAVITY.md', 'CLAUDE.md', 'GEMINI.md', 'SYNC.md',
-    *['bm/' + g for g in ('astrowing kitchen nano8 overbit pong shooter snake titan '
+    *['carts/' + g for g in ('astrowing kitchen nano8 overbit pong shooter snake titan '
                              'typing yharnam').split()],
     'bm/*/cover.png',
     'docs/agents', 'docs/archive', 'docs/design', 'docs/giochi', 'docs/img', 'docs/progress',
@@ -96,7 +96,7 @@ def forbidden_paths(root):
 
 def dangling(root):
     g = '|'.join(GAMES)
-    rx = re.compile(r'(?:bm/|test-|tests/)(?:%s)\b|\b(?:%s)\.(?:bm|b16|lua|bme)\b|[\'"](?:%s)[\'"]|%s'
+    rx = re.compile(r'(?:carts/|test-|tests/)(?:%s)\b|\b(?:%s)\.(?:bm|b16|lua|bme)\b|[\'"](?:%s)[\'"]|%s'
                     % (g, g, g, '|'.join(re.escape(f) for f in GONE_FILES)))
     out = []
     for rel, p in walk(root):
