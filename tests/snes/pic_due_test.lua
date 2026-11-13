@@ -2,7 +2,7 @@
 dofile("carts/snes/src/pic.lua")
 local fails = 0
 local function check(name, ok) if not ok then fails = fails + 1; print("FAIL " .. name) end end
-for ev = 1, 4 do
+for ev = 1, 6 do
   local pics, par = 0, { [0] = 0, [1] = 0 }
   local last, maxgap, mingap = nil, 0, 1e9
   local N = 12000

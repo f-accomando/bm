@@ -164,6 +164,7 @@ local snap                                         -- the test build's kept line
 --   level (`frame_ms`: CPU and sound of a frame plus PPU and draw of a picture, divided by the pictures) is under 14 ms for 1/1 and under 13 ms for the others.
 --   2026-11-11 (Super Mario World, Pi Zero W): the old rule took the cost of the update and the draw of a light scene at 1/2 (9.9 ms) and went to 1/1; the
 --   scene came back to a PPU of 9 ms and the loop fell to 37 pictures a second for two seconds. The predicted frame at 1/1 is 17.7 ms: it stays at 1/2.
+local MAX_EVERY = 6        -- the coarsest picture rate: 1/6 (10 pictures a second). Doom on the Pi Zero W (Super FX drawing the 3D view) is over budget at 1/4: PPU 8.8 ms and the draw 3.2 ms a picture
 local every, win_n, win_t, win_last, cooldown, good = 3, 0, 0, nil, 0, 0
 local win_dr, win_u, win_d, stepped = 0, 0, 0, false     -- draws, update ms and draw ms in the window; the last move was a step to a finer level
 local dbg, dbg_n = nil, 0                    -- the last debug table and a counter of draws
@@ -194,7 +195,7 @@ local function adapt()
     last_ups, last_dps = ups, dps
     if ups < 57 or dps < 50 then
       good = 0
-      if every < 4 then every = every + 1; cooldown = stepped and 3600 or 900 end
+      if every < MAX_EVERY then every = every + 1; cooldown = stepped and 3600 or 900 end
       stepped = false
     elseif ups >= 58.8 and dps >= 55 then
       good = good + 1

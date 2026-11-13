@@ -86,6 +86,7 @@ machine was written again in C. The RGB30 is not measured.
 
 ## Open work
 
+- Doom 3D scene on the Pi (kernel 130: 17 to 19 ms an update, Super FX 9 to 11 ms): the cart steps to `pic 1/5` and `1/6` under overload. Measure `upd`, `pic` and `fps` of scene `m3/13/10` on the next kernel. A real gain needs fewer Super FX dispatches (fused prefix pairs): [snes-doom.md](snes-doom.md), section "The slow 3D scene".
 - Doom on the Pi (kernel 129): read `mix` in scene `m3/13/10` (7.4 ms before the clip fast path) and `spc` (now counts the sound that runs ahead). Details: [snes-doom.md](snes-doom.md).
 - Doom on the Pi (kernel 123 test): the pad ports were fixed (`$4016` after the auto-read reads 1) and the sound now keeps the speakers' time in a slow frame. Check on the Pi: Up alone moves, fire and doors work without B; the music tempo holds in heavy scenes. Details: [snes-doom.md](snes-doom.md). Rule: after an auto-read the manual pad registers read 1 until a strobe loads the pad.
 - Mode 7 test ROM (`tests/snes/m7test/`, built by `tests/snes/build_m7test.sh`, tests `make test-snes-m7rom` and `test-snes-m7rom-arm`): the Pi numbers of its five variants with `snes_gpu_m7` on and off are not measured yet. Steps and what to read: [snes-gpu-pi.md](snes-gpu-pi.md), section "Mode 7 test ROM".

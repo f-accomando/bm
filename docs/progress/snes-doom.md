@@ -100,6 +100,14 @@ Cause: the sound CPU and the DSP ran in step with the emulated frames, so a fram
 - Firing: the frame at t=56 had `gins` 218655 and `gsu` 9.7 ms. The Super FX is the load (the chip is the limit in this scene, as in the section on the slowdown). The loop fell to 12 pictures a second because 4 updates run for each draw and `pic` is 1/4.
 - `mix 7.4 ms` in scene `m3/13/10`: Doom sets CGWSEL `$A2` (the colour window clips the main screen to black inside, maths with the sub screen), TM `$13`, TS `$10`, windows on BG1, BG2 and OBJ. A clip rule sent the line to the slow per-pixel loop (about 130 cycles a pixel). Now `snes_ppu.c` mixes with the fast paths and `clip_fix` redoes the clipped pixels (black, plus the sub colour when the pixel has the maths flag). Test: `make test-snes-ppu` (4000 cases against the reference) and `test-snes-ppu-arm`. Pi gain not measured: read `mix` in the `ppu us` field of the same scene (7.4 ms before).
 
+## The slow 3D scene on the Pi (kernel 130, 2026-11-13)
+
+Pi numbers (log `pi_doom_130`, scene `m3/13/10` while the Super FX draws the view): an update takes 17 to 19 ms: `gsu` 9 to 11 ms (about 190000 instructions), `spc` 3 to 4 ms, `dma` 1 to 1.8 ms (the GSU catches up inside the DMA timer, so this is mostly Super FX time), `cpu` under 1 ms, and the PPU 8.8 ms for a picture (bg 2.7, obj 1.4, comp 2.3, mix 2.3), 2.2 ms a frame at `pic 1/4`. The machine then makes 52 updates a second and the cart 13 pictures.
+
+Host profile of the Super FX in play (3600 frames, a counter in a copy of the C loop, not committed): the opcode mix is flat. PLOT 4.9%, ALT1 4.0%, COLOR 3.2%, BEQ 2.7%, FROM R4 2.7%, ALT3 2.6%, ALT2 2.4%, GETB 1.9%, LOOP 1.7%, then 1% to 1.6% each for about 30 more opcodes (151 million instructions). So no loop or opcode is worth an assembly fast path alone: PLOT, COLOR, GETB and GETC (the four that call C, 11% of the instructions) are about 20% of the Super FX time; making all four 40% faster gives about 0.5 ms. The ARM1176 does not predict `ldr pc` jumps, so a flat mix costs one pipeline flush for each Super FX instruction (about 46 cycles an instruction against 22 to 28 ARM instructions). The way to gain more is fewer dispatches: fuse prefix and operand pairs (ALT1/2/3 + opcode are 9% of the instructions; FROM/TO/WITH + opcode more). That is a change of the ARM loop and of `gsu_ref.c`; do it with the Yoshi's Island session that owns those files.
+
+What changed here: the cart may now go to `pic 1/5` and `1/6` when the machine is over budget (`MAX_EVERY` in `carts/snes/src/main.lua`): at 1/6 the picture costs 1.5 ms a frame instead of 2.2, and the sheet conversion and blit are made less often. `pic_due` is tested up to 1/6.
+
 ## Open work
 
 - Check on the Pi that the flicker is gone (kernel with the IRQ fix).
