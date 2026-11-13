@@ -7,6 +7,11 @@ Split from [tools](tools.md); open work and rules stay there.
   `assist.weights` built by `make ai-model`; format in `src/ai/kb/README.md`).
 - Recipes: sprites (`sprite.c`), low-poly models with skeletons (`mesh.c`), music
   (`music.c`). Panel shared by the tools (`require "assist"`).
+- Symbolic code synthesizer (`lisp.c`, `synth.c`, `ai.synth`): arena-allocated micro-Lisp (`512 KB`)
+  that composes parameterized `.b` (BML) and `Lua` functions from S-expressions, example pairs (`solve-expr`),
+  or hybrid INT8+slot queries. `assist.lua` strips target/numeric noise before `ai.ask`, verifies `.b` with
+  `native_compile` (`bmlc.c`) and `Lua` with `load`, and `carts/code/main.lua` (`BL.integrate_block`) places
+  synthesized functions before `_update()` with green gutter marks (`ai_marks`). Test: `tests/ai/synth_test.lua`.
 - Low poly help: `src/ai/kb/lowpoly.txt` (guide `guide.lowpoly_1200`, howto `howto.reduce_triangles`, tips
   `tip.tri_limits`, `tip.reduce_or_build`, `tip.reduce_lost_parts`): Studio's models page (F2), key `-`. Numbers from
   the mannequin test, `.claude/skills/bm-forge/references/DETAIL.md` (1200 triangles: 0.46 cm on a 1.8 m figure;

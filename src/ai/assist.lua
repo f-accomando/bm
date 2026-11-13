@@ -162,6 +162,18 @@ local function layout()
   st.detail_rows = st.rows - 5 - st.list_rows
 end
 
+local function verify_synth(code, tgt)
+  if tgt == "bml" then
+    if type(native_compile) == "function" then
+      local ok, err = pcall(native_compile, code)
+      return ok and "[.b OK]" or ("[.b ERR: " .. tostring(err) .. "]")
+    end
+    return "[.b]"
+  end
+  local fn, err = load(code)
+  return fn and "[Lua OK]" or ("[Lua ERR: " .. tostring(err) .. "]")
+end
+
 local function choose(i)
   local n = #st.hits
   if n == 0 then st.sel, st.entry, st.lines, st.sprite = 1, nil, {}, nil; return end
@@ -169,8 +181,17 @@ local function choose(i)
   if st.sel < st.top then st.top = st.sel end
   if st.sel >= st.top + st.list_rows then st.top = st.sel - st.list_rows + 1 end
   local hit = st.hits[st.sel]
-  st.entry = safe(ai.entry, hit.id)
   st.scroll, st.lines, st.sprite, st.model, st.pmesh, st.music = 0, {}, nil, nil, nil, nil
+  if hit.kind == "synth" and hit.synth then
+    local s = hit.synth
+    st.entry = { id = "synth", kind = "howto", title = hit.title, text = "", code = s.code, see = {}, synth = s }
+    local badge = verify_synth(s.code, s.target)
+    st.lines[#st.lines + 1] = { t = badge .. "  " .. (s.goal or ""), dim = true }
+    st.lines[#st.lines + 1] = { t = "" }
+    for l in (s.code .. "\n"):gmatch("(.-)\n") do st.lines[#st.lines + 1] = { t = l, code = true } end
+    return
+  end
+  st.entry = safe(ai.entry, hit.id)
   local e = st.entry
   if not e then return end
   if e.kind == "music" then
@@ -244,6 +265,11 @@ local function refresh()
           ask = ask:gsub("%f[%a]" .. no .. "%s+" .. what .. "%f[%A]", "")
         end
       end
+    elseif (st.mode == "code" or st.mode == "any") and q ~= "" then
+      -- strip target tags and numeric slots so the INT8 classifier sees the clean intent
+      ask = ask:gsub("%.b%f[%A]", " "):gsub("%f[%a]bml%f[%A]", " "):gsub("%f[%a]lua%f[%A]", " ")
+               :gsub("%f[%a]typed%f[%A]", " "):gsub("%f[%a]native%f[%A]", " ")
+               :gsub("%f[%d]%d+%f[%D]", " ")
     end
     st.hits, st.us = safe(ai.ask, ask, { n = 8, ctx = st.ctx, kinds = KINDS[st.mode] })
     st.hits = st.hits or {}
@@ -260,7 +286,19 @@ local function refresh()
         end
       end
     end
-    st.unsure = not st.hits[1] or st.hits[1].score < 0.3
+    if (st.mode == "code" or st.mode == "any") and q ~= "" and ai.synth then
+      local s = safe(ai.synth, q, { entry = best and best.id or nil, target = st.file_target })
+      if s and s.ok and s.code ~= "" then
+        local tag = s.target == "bml" and ".b" or "Lua"
+        local sh = { id = "synth", title = "Synth [" .. tag .. "]: " .. (s.goal or ""), kind = "synth", score = 1, synth = s }
+        if q:sub(1, 1) == "(" or q:find("%d") or q:find("%.b") or q:find("bml") or #st.hits == 0 then
+          table.insert(st.hits, 1, sh)
+        else
+          st.hits[#st.hits + 1] = sh
+        end
+      end
+    end
+    st.unsure = not st.hits[1] or (st.hits[1].kind ~= "synth" and st.hits[1].score < 0.3)
   end
   st.top = 1
   choose(1)
@@ -272,9 +310,16 @@ function M.is_open() return st ~= nil end
 
 function M.open(o)
   o = o or {}
+  local ftgt
+  if o.lang == "bml" or o.lang == ".b" then ftgt = "bml"
+  elseif o.lines then
+    for _, ln in ipairs(o.lines) do
+      if ln:match(":%s*i32") or ln:match(":%s*f32") or ln:match(":%s*bool") then ftgt = "bml"; break end
+    end
+  end
   st = {
     mode = KINDS[o.mode or "any"] and (o.mode or "any") or "any",
-    q = o.query or "", ctx = o.ctx ~= "" and o.ctx or nil,
+    q = o.query or "", ctx = o.ctx ~= "" and o.ctx or nil, file_target = ftgt,
     on_insert = o.on_insert, on_sprite = o.on_sprite, on_mesh = o.on_mesh, on_close = o.on_close,
     on_music = o.on_music, on_preview = o.on_preview, context = o.context,
     palette = o.palette, size = o.size or 16, seed = 1,
@@ -330,9 +375,9 @@ local function act()
       st.msg = "this tool takes no music (bm Sound does)"
     end
   elseif e.code ~= "" and st.on_insert then
-    local code, cb = e.code, st.on_insert
+    local code, cb, meta = e.code, st.on_insert, e.synth
     M.close()
-    cb(code)
+    cb(code, meta)
   elseif e.code ~= "" then
     st.msg = "this tool takes no code"
   end

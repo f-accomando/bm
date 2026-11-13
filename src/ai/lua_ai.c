@@ -41,6 +41,7 @@
 #include "mesh.h"
 #include "music.h"
 #include "lua_music.h"
+#include "synth.h"
 #include "drivers/timer.h"
 #include "lib/crc32.h"
 
@@ -527,10 +528,52 @@ static const char *music_pick(lua_State *L, const char *q)
     return NULL;
 }
 
+/* ai.synth(query, [{target="lua"|"bml", entry=id}]) -> {ok, code, target, goal, err, us} */
+static int l_synth(lua_State *L)
+{
+    const char *q = luaL_checkstring(L, 1);
+    const char *target = NULL;
+    const char *entry = NULL;
+    if (lua_istable(L, 2)) {
+        lua_getfield(L, 2, "target");
+        target = lua_tostring(L, -1);
+        lua_getfield(L, 2, "entry");
+        entry = lua_tostring(L, -1);
+    }
+
+    char code[4096];
+    char goal[512];
+    char err[256];
+    code[0] = goal[0] = err[0] = '\0';
+
+    uint32_t t0 = timer_ticks();
+    int rc = bm_synth_run(q, entry, target, code, sizeof(code),
+                          goal, sizeof(goal), err, sizeof(err));
+    uint32_t dt = timer_ticks() - t0;
+
+    lua_createtable(L, 0, 6);
+    lua_pushboolean(L, rc == 0);
+    lua_setfield(L, -2, "ok");
+    if (rc == 0) {
+        field_str(L, "code", code);
+        field_str(L, "goal", goal);
+        const char *used_tgt = target;
+        if (!used_tgt)
+            used_tgt = (strstr(q, ".b") || strstr(q, "bml") || strstr(q, "'bml")) ? "bml" : "lua";
+        field_str(L, "target", used_tgt);
+    } else {
+        field_str(L, "err", err);
+    }
+    lua_pushinteger(L, (lua_Integer)dt);
+    lua_setfield(L, -2, "us");
+    return 1;
+}
+
 static const luaL_Reg fns[] = {
     { "lang", l_lang }, { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
     { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh }, { "script", l_script },
     { "music", ai_lua_music }, { "music_recipes", ai_lua_music_recipes },
+    { "synth", l_synth },
     { NULL, NULL },
 };
 

@@ -1802,7 +1802,7 @@ test-docs:
 # The assistant (M30): C features and network against the Python reference,
 # answers to the held-out questions, sprite generator
 AI_SRCS := src/ai/assist.c src/ai/nn.c src/ai/text.c src/ai/sprite.c src/ai/mesh.c src/ai/mesh_chars.c src/ai/mesh_skin.c src/ai/mesh_script.c \
-           src/ai/music.c src/ai/music_net.c
+           src/ai/music.c src/ai/music_net.c src/ai/lisp.c src/ai/synth.c
 $(BUILD)/host/test_ai: tests/ai/test_ai.c $(AI_SRCS) src/ai/*.h src/lib/crc32.c
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O2 -Wall -Wextra -Isrc -o $@ tests/ai/test_ai.c $(AI_SRCS) src/lib/crc32.c -lm
@@ -1856,6 +1856,7 @@ test-ai: $(BUILD)/host/test_ai $(BUILD)/assist.bin $(BUILD)/host/luahost $(BUILD
 	$(BUILD)/host/luahost tests/ai/check_snippets.lua $(BUILD)/ai/snippets.txt
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/panel_test.lua $(BUILD)
 	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/act_test.lua
+	$(BUILD)/host/luaai $(BUILD)/assist.bin tests/ai/synth_test.lua
 	$(MAKE) test-img2mesh
 
 # tools/img2mesh.py offline: the recorded replies (the mech in the part

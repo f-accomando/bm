@@ -976,7 +976,42 @@ local function insert_block(t, v, code)
     n = n + 1
   end
   v.cy, v.cx = at + n - 1, #t.lines[at + n - 1]
+  t.ai_marks = { from = at, to = at + n - 1, ttl = 360 }
   say(n .. " lines inserted (Ctrl+Z undoes)", C_OK)
+end
+
+function BL.integrate_block(t, v, code, meta)
+  if not meta or not code:match("^%s*function%s+") then
+    insert_block(t, v, code)
+    return
+  end
+  snapshot(t, v)
+  local fname = code:match("^%s*function%s+([%w_]+)") or "helper"
+  -- find _update() or enclosing top-level function to place the new function above it
+  local upd_ln, ins_at
+  for idx, ln in ipairs(t.lines) do
+    if ln:match("^%s*function%s+_update%s*%(") then upd_ln = idx; break end
+  end
+  if upd_ln then
+    ins_at = upd_ln
+  else
+    -- place at cursor if top-level, else before enclosing function
+    ins_at = v.cy
+    for idx = v.cy, 1, -1 do
+      if t.lines[idx]:match("^function%s+") then ins_at = idx; break end
+    end
+  end
+  local n = 0
+  for code_line in (code .. "\n"):gmatch("(.-)\n") do
+    table.insert(t.lines, ins_at + n, code_line)
+    n = n + 1
+  end
+  table.insert(t.lines, ins_at + n, "")
+  local from_ln, to_ln = ins_at, ins_at + n - 1
+  v.cy = from_ln
+  v.cx = 0
+  t.ai_marks = { from = from_ln, to = to_ln, ttl = 420 }
+  say("Assistant: " .. fname .. " integrata r." .. from_ln .. "-" .. to_ln .. " (Ctrl+Z annulla)", C_OK, 360)
 end
 
 local DEDENT = { ["end"] = true, ["else"] = true, ["elseif"] = true, ["until"] = true, ["}"] = true }
@@ -1609,8 +1644,8 @@ local function back_to_sdk()
 end
 
 local function open_assistant(t, v)
-  assist.open{ mode = "code", ctx = word_at(t, v),
-               on_insert = function(code) insert_block(t, v, code) end }
+  assist.open{ mode = "code", ctx = word_at(t, v), lines = t.lines, cy = v.cy, lang = BL.tab_lang(t),
+               on_insert = function(code, meta) BL.integrate_block(t, v, code, meta) end }
 end
 
 -- Ctrl+Q / Y+X: the signature and text of the API function under the cursor
@@ -2451,6 +2486,9 @@ function _update()
   LY.poll()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
+  if focus and focus.tab and focus.tab.ai_marks and focus.tab.ai_marks.ttl > 0 then
+    focus.tab.ai_marks.ttl = focus.tab.ai_marks.ttl - 1
+  end
   riff_frame()
   mouse_frame()
   if assist.update() then return end
@@ -2632,8 +2670,10 @@ local function draw_pane(p, c0, ncols, r0, nrows)
     local num = tostring(i)
     local bp = t.breaks and t.breaks[i]
     if bp then rectfill(x0, y, digits * CW, CH, C_BP) end
+    local aim = t.ai_marks and t.ai_marks.ttl > 0 and i >= t.ai_marks.from and i <= t.ai_marks.to
+    if aim then rectfill(x0 + digits * CW - 2, y, 2, CH, C_OK) end
     local bad = not bp and t.lint_lines and t.lint_lines[i]
-    print(string.rep(" ", digits - #num) .. num, x0, y, bp and C_TEXT or bad and C_ERR or i == v.cy and C_GUTCUR or C_GUT)
+    print(string.rep(" ", digits - #num) .. num, x0, y, bp and C_TEXT or aim and C_OK or bad and C_ERR or i == v.cy and C_GUTCUR or C_GUT)
     local c = active and i == v.cy and comp_here(t, v)
     if c then l = l:sub(1, v.cx) .. c.rest .. l:sub(v.cx + 1) end
     if entry_request(l) then
