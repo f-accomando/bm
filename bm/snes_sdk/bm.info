@@ -7,3 +7,5 @@ license: LicenseRef-BM-Community-1.0
 version: 0.1
 tags: app, tool, snes
 resolution: 640x360
+targets: pi,rgb30
+input: pad,keyboard
