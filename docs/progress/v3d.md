@@ -80,3 +80,5 @@ Settings shows five graphics rows; every performance flag is a hidden key. Keys,
 6. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
 8. Sprite stacking on the Pi: measured on the Pi Zero W (22 Oct, 128 stacks of 8 slices): 18270 us a frame, about 58k slices/s at most, over the 16600 us of 60 fps. The Stack bench that took it was removed on 24 Oct 2026; run again with the 3D Bench scene `stack` (`b3d tests=stack`).
+
+- Freeze on 13 Nov 2026 (Pi Zero W, kernel v0.3.0-123-g612e494a): the previous run ended without a clean exit 25 s after boot, in the menu, before any game. The kernel had run before, so `newbuild_restart` (the extra restart at the first boot of a new build) did not apply. The watchdog restarted the Pi, and the next start used the ARM picture. A second restart gave the 1080p GPU menu. If it happens again, compare the boot count, the cause of the previous reset and the time after boot.
