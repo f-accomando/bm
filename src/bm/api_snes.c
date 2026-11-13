@@ -348,6 +348,38 @@ int l_snes_peek(lua_State *L)
     return 1;
 }
 
+/* snes_mem(space, addr, len) -> a string of the video memory: "vram" (65536 bytes), "cgram" (512), "oam" (544). It has no side effect and costs no clock. */
+int l_snes_mem(lua_State *L)
+{
+    const char *sp = luaL_checkstring(L, 1);
+    const lua_Integer a = luaL_checkinteger(L, 2), n = luaL_checkinteger(L, 3);
+    int size;
+    if (!strcmp(sp, "vram")) size = 65536;
+    else if (!strcmp(sp, "cgram")) size = 512;
+    else if (!strcmp(sp, "oam")) size = 544;
+    else return luaL_argerror(L, 1, "the space is vram, cgram or oam");
+    if (a < 0 || a >= size) return luaL_argerror(L, 2, "the address is outside the memory");
+    if (n < 0 || n > 65536) return luaL_argerror(L, 3, "the length is 0 to 65536");
+    const int cnt = (a + n > size) ? (int)(size - a) : (int)n;      /* it stops at the end of the memory */
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    if (!strcmp(sp, "oam")) {
+        static snes_debug_t d;
+        snes_debug(&d);
+        luaL_addlstring(&b, (const char *)d.oam + a, (size_t)cnt);
+    } else {
+        uint8_t t[256];
+        for (int done = 0; done < cnt;) {
+            const int c = cnt - done > 256 ? 256 : cnt - done;
+            if (size == 512) snes_cgram_peek((uint16_t)(a + done), t, c); else snes_vram_peek((uint16_t)(a + done), t, c);
+            luaL_addlstring(&b, (const char *)t, (size_t)c);
+            done += c;
+        }
+    }
+    luaL_pushresult(&b);
+    return 1;
+}
+
 /* snes_poke(addr24, byte) */
 int l_snes_poke(lua_State *L)
 {

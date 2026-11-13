@@ -29,6 +29,8 @@ return function(ctx)
   check(docs["main.s"] and docs["main.s"]:find("reset:", 1, true), "a build saves the source file")
   check(status():find("built snesdemo.sfc", 1, true), "the status line tells what was built: " .. status())
   check(not sees("1 error"), "the list is gone after a good build")
+  check(sees("RUNNING"), "a good build runs the ROM: the Run tab shows")
+  key("f1")                                      -- back to the Code tab
 
   -- F1 on an instruction
   key("^f")
@@ -77,10 +79,10 @@ return function(ctx)
   -- the mouse: a click puts the cursor, the wheel scrolls
   quiet()
   key("^home")
-  click(48 + 8 * 4, 32 + 8)
+  click(56 + 8 * 4, 32 + 8)
   quiet()
   check(status():find("line 1 of", 1, true) and status():find("column 5", 1, true), "a click puts the cursor: " .. status())
-  click(48 + 8 * 2, 32 + 16 * 2 + 8)
+  click(56 + 8 * 2, 32 + 16 * 2 + 8)
   quiet()
   check(status():find("line 3 of", 1, true) or status():find("sei:", 1, true), "a click on a line moves the cursor: " .. status())
   click(100, 16)            -- the file strip

@@ -17,6 +17,8 @@ local G = setmetatable({}, { __index = function(_, k) return (SNESGFX or require
 -- the same for the Code tab: carts/shared/snescode.lua (SNESCODE) and carts/shared/asmbuf.lua (ASMBUF)
 local SC = setmetatable({}, { __index = function(_, k) return (SNESCODE or require "snescode")[k] end })
 local BF = setmetatable({}, { __index = function(_, k) return (ASMBUF or require "asmbuf")[k] end })
+-- and for the Run tab: carts/shared/snesrun.lua (SNESRUN)
+local RR = setmetatable({}, { __index = function(_, k) return (SNESRUN or require "snesrun")[k] end })
 
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
@@ -54,6 +56,11 @@ local function code_reset()
   CD = { files = {}, order = {}, cur = nil, main = nil, errs = {}, esel = 0, show_errs = false, help = nil, find = "" }
 end
 code_reset()
+-- the Run tab: state "off" (nothing loaded), "run" or "stop"; set = the breakpoints { [addr24] = true }, info = where each
+-- one is in the source { [addr24] = {file, line} }; lines = the map of the last build (res.lines); built = the text of
+-- each file at the last build (the map is old when a text is not the same)
+local RN = { state = "off", set = {}, info = {}, lines = nil, built = {}, space = "ram", addr = 0x7E0000, regs = nil, mem = "",
+             pw = 0, ph = 0, rows = 8, bpr = 4 }
 local M = { bpp = 4, set = 0, large = false, cur = 1, sel = 2, ch = 1, fx = false, fy = false, prio = 0,
             pals = {}, tp = {} }                  -- the Sprites data of the project
 local sw, sh = 128, 128                          -- the sheet
@@ -729,7 +736,7 @@ end
 -- The project keeps only the names of the files and the main one (the line --code in its Lua section).
 -- The helpers are in carts/shared/snescode.lua (colours, F1 texts, errors in plain words, snippets) and
 -- carts/shared/asmbuf.lua (the text buffer); tests/snes/code_test.lua runs them on the PC.
-local GUT = 48
+local GUT = 56
 local CC = { mn = 0x80C0FF, dir = 0xC890FF, label = 0xFFC050, hex = 0x80E0A0, num = 0xF0A070, cmt = 0x6A7288,
              str = 0xE8D878, op = 0xA8B0C8, txt = C_TEXT }
 local C_ERRBG, C_CURLINE = 0x40202A, 0x1C2030
@@ -844,14 +851,16 @@ local function code_build()
     return
   end
   CD.errs, CD.show_errs = {}, false
+  RN.lines, RN.built = res.lines, files
   local name = rom_name()
-  if not doc_write then say("built, but this console cannot write the ROM file", C_ERR); return end
+  if not doc_write then say("built, but this console cannot write the ROM file", C_ERR); return rom end
   local ok, e = doc_write(name, rom)
-  if not ok then say("cannot write " .. name .. ": " .. tostring(e), C_ERR); return end
+  if not ok then say("cannot write " .. name .. ": " .. tostring(e), C_ERR); return rom end
   local code = 0
   for _, s in ipairs(res.segments) do code = code + #s.data end
   CD.rom = { name = name, size = #rom }
   say(string.format("built %s in /docs: %d KB, %d bytes of code, %d labels", name, #rom // 1024, code, #res.symlist), C_ACC, 400)
+  return rom
 end
 
 local function code_jump_error(d)
@@ -993,16 +1002,280 @@ local function code_files_menu()
   choose("source files (in /docs)", rows)
 end
 
+----------------------------------------------------------------- the Run tab
+-- Build the project of the Code tab, load the ROM in the machine and run it beside a debug panel. The helpers are in
+-- carts/shared/snesrun.lua (flags, registers, hex view, breakpoints, lines and addresses); tests/snes/run_test.lua runs them on the PC.
+-- With no breakpoint armed the loop is the normal one (snes_run is snes_frame then); the C core costs nothing more.
+local BTNS = { { "b", 0x8000 }, { "y", 0x4000 }, { "select", 0x2000 }, { "start", 0x1000 }, { "up", 0x0800 },
+               { "down", 0x0400 }, { "left", 0x0200 }, { "right", 0x0100 }, { "a", 0x0080 }, { "x", 0x0040 },
+               { "l1", 0x0020 }, { "r1", 0x0010 } }
+-- the keyboard (USB usages): WASD and the arrows move, U I O P are Y X B A, Q and E are L and R, "," Select, "." Start
+local KBD = { { 0x1A, 0x0800 }, { 0x16, 0x0400 }, { 0x04, 0x0200 }, { 0x07, 0x0100 }, { 0x52, 0x0800 }, { 0x51, 0x0400 }, { 0x50, 0x0200 }, { 0x4F, 0x0100 },
+              { 0x18, 0x4000 }, { 0x0C, 0x0040 }, { 0x12, 0x8000 }, { 0x13, 0x0080 }, { 0x14, 0x0020 }, { 0x08, 0x0010 }, { 0x36, 0x2000 }, { 0x37, 0x1000 } }
+
+local function rn_pad()
+  local v = 0
+  if keydown then for _, e in ipairs(KBD) do if keydown(e[1]) then v = v | e[2] end end end
+  for _, e in ipairs(BTNS) do if btn(e[1], 1) then v = v | e[2] end end
+  if v & 0x0300 == 0x0300 then v = v & ~0x0300 end
+  if v & 0x0C00 == 0x0C00 then v = v & ~0x0C00 end
+  return v
+end
+
+-- the panel: its geometry (the picture is left, the panel right), also used to size the memory window
+local function rn_geom()
+  local top = 32
+  local avail = HINT_Y - top - 4
+  local pw = max(64, min(W // 2 - 12, avail * 256 // 224))
+  local px = W // 2 + 4
+  local cols = max(16, (W - px - 4) // 8)
+  RN.bpr = clamp((cols - 10) // 4, 2, 16)
+  RN.rows = max(2, (HINT_Y - (top + 16 * 10)) // 16)
+  return top, pw, pw * 224 // 256, px, cols
+end
+
+local function rn_refresh()
+  if RN.state == "off" then return end
+  RN.regs = snes_regs()
+  rn_geom()
+  RN.mem = RR.read(RN.space, RN.addr, RN.rows * RN.bpr, { peek = snes_peek, mem = snes_mem }) or ""
+end
+
+local function rn_arm()
+  if RN.state == "off" then return end
+  snes_break(nil)
+  for _, a in ipairs(RR.list(RN.set)) do snes_break(a) end
+end
+
+-- after a build the breakpoints keep their source lines: the new addresses come from the new map
+local function rn_resolve()
+  local set, info = {}, {}
+  for a, i in pairs(RN.info) do
+    if i.file then
+      local na, l = RR.addr_of_line(RN.lines, i.file, i.line)
+      if na and not set[na] then set[na] = true; info[na] = { file = i.file, line = l } end
+    else
+      set[a] = true; info[a] = i
+    end
+  end
+  RN.set, RN.info = set, info
+end
+
+local function rn_build()
+  local rom = code_build()
+  if rom then rn_resolve() end
+  return rom
+end
+
+local function rn_fresh()
+  if not RN.lines then return false end
+  for n, b in pairs(CD.files) do if RN.built[n] ~= BF.text(b) then return false end end
+  return true
+end
+
+local function rn_toggle(addr, file, line)
+  local on, why = RR.toggle(RN.set, addr)
+  if on == nil then say(why, C_ERR); return nil end
+  RN.info[addr] = on and { file = file, line = line } or nil
+  rn_arm()
+  return on
+end
+
+local function rn_addr_text(a) return string.format("%02X:%04X", (a >> 16) & 0xFF, a & 0xFFFF) end
+
+-- the CPU stopped (a breakpoint, a step or a pause): the registers, the memory, the line in the Code tab
+local function rn_stopped(pc)
+  RN.state = "stop"
+  rn_refresh()
+  local file, line = RR.line_of_addr(RN.lines, pc)
+  RN.pcf, RN.pcln = file, line
+  if file then code_goto(file, line) end
+  say("stopped at " .. rn_addr_text(pc) .. (file and (" (" .. file .. " line " .. line .. ")") or ""), C_ACC, 300)
+end
+
+local function rn_run()
+  local rom = rn_build()
+  if not rom then tab = 1; return end
+  local ok, err = snes_load(rom)
+  if not ok then say("cannot load the ROM: " .. tostring(err), C_ERR); return end
+  RN.state, RN.pcf, RN.pcln = "run", nil, nil
+  rn_arm()
+  rn_refresh()
+  tab = 5
+end
+
+local function rn_step()
+  if RN.state == "off" then say("F5 builds the code and runs it", C_DIM); return end
+  if RN.state == "run" then rn_stopped(snes_regs().pc24); return end      -- the first F10 pauses
+  rn_stopped(snes_step())
+end
+
+local function rn_f5()
+  if RN.state == "stop" then RN.state = "run"; tab = 5; say("running", C_ACC, 100); return end
+  if RN.state == "off" or tab == 1 then rn_run() else tab = 5 end
+end
+
+local function rn_break_ask()
+  ask("breakpoint at (hex)", "", function(t)
+    local a = RR.parse_addr(t)
+    if not a then say("an address is hex: $8000 or 00:8000", C_ERR); return end
+    local f, l = RR.line_of_addr(RN.lines, a)
+    rn_toggle(a, f, l)
+  end)
+end
+
+local function rn_f9()
+  if tab == 1 then
+    local b = cur_buf()
+    if not b then say("Ctrl+E opens or makes a source file", C_DIM); return end
+    for a, i in pairs(RN.info) do
+      if i.file == CD.cur and i.line == b.cy then rn_toggle(a); say("breakpoint cleared", C_DIM); return end
+    end
+    if not rn_fresh() then
+      say("building to find the address", C_DIM)
+      if not rn_build() then return end
+      if RN.state ~= "off" then say("rebuilt: Ctrl+B runs the new ROM", C_ACC, 300) end
+    end
+    local a, l = RR.addr_of_line(RN.lines, CD.cur, b.cy)
+    if not a then say("no instruction on or after this line", C_ERR); return end
+    for _, i in pairs(RN.info) do if i.file == CD.cur and i.line == l then say("line " .. l .. " has a breakpoint already", C_DIM); return end end
+    if rn_toggle(a, CD.cur, l) then say("breakpoint at " .. rn_addr_text(a) .. ", line " .. l, C_ACC) end
+  elseif tab == 5 then
+    if RN.state == "stop" and RN.regs then
+      local a = RN.regs.pc24
+      local f, l = RR.line_of_addr(RN.lines, a)
+      rn_toggle(a, f, l)
+    else
+      rn_break_ask()
+    end
+  end
+end
+
+local function rn_poke(text)
+  local a, bytes = RR.parse_poke(text)
+  if not a then say(bytes, C_ERR); return end
+  for i, v in ipairs(bytes) do snes_poke(a + i - 1, v) end
+  rn_refresh()
+  say(string.format("wrote %d byte%s at %s", #bytes, #bytes == 1 and "" or "s", rn_addr_text(a)), C_ACC)
+end
+
+local function rn_goto(a)
+  local size = RR.space_size[RN.space]
+  a = clamp(a, 0, size - 1)
+  RN.addr = a
+  rn_refresh()
+end
+
+local function rn_space(name)
+  RN.space = name
+  RN.addr = name == "ram" and 0x7E0000 or 0
+  rn_refresh()
+end
+
+local function rn_update()
+  if RN.state ~= "run" or tab ~= 5 then return end      -- the machine runs while the Run tab shows
+  local pc = snes_run(rn_pad(), 0, true)
+  if pc then rn_stopped(pc) elseif frame % 4 == 0 then rn_refresh() end
+end
+
+local function rn_scroll(rows) rn_goto(RN.addr + rows * RN.bpr) end
+
+local function run_key(k)
+  if RN.state ~= "stop" then
+    if k == " " and RN.state == "run" then rn_stopped(snes_regs().pc24) end     -- Space pauses; the other keys are the pad
+    return
+  end
+  if k == "g" then
+    ask("go to (hex)", "", function(t) local a = RR.parse_addr(t); if a then rn_goto(a) else say("an address is hex: $7E0010", C_ERR) end end)
+  elseif k == "w" then ask("write address=bytes (hex)", "", rn_poke)
+  elseif k == "b" then rn_break_ask()
+  elseif k == "c" then RN.set, RN.info = {}, {}; rn_arm(); say("breakpoints cleared", C_DIM)
+  elseif k == "\t" then
+    local n = RR.spaces
+    for i, s in ipairs(n) do if s == RN.space then rn_space(n[i % #n + 1]); break end end
+  elseif k == "up" then rn_scroll(-1)
+  elseif k == "down" then rn_scroll(1)
+  elseif k == "pgup" then rn_scroll(-RN.rows)
+  elseif k == "pgdn" then rn_scroll(RN.rows)
+  elseif k == "^r" then snes_reset(); rn_stopped(snes_regs().pc24); RN.state = "run"
+  end
+end
+
+local function run_mouse()
+  if U.menu_open() then return end
+  local z = U.at()
+  if not z then return end
+  if U.wheel ~= 0 and RN.state ~= "off" then rn_scroll(-U.wheel * 2) end
+  if not U.pressed(0) then return end
+  if z.kind == "rspace" then rn_space(z.a)
+  elseif z.kind == "rgo" and RN.state ~= "off" then run_key("g")
+  elseif z.kind == "rpoke" and RN.state ~= "off" then ask("write address=bytes (hex)", "", rn_poke)
+  end
+end
+
+local function draw_run()
+  cls(C_BG)
+  local top, pw, ph, px, cols = rn_geom()
+  if RN.state ~= "off" then
+    if not RN.scr or RN.pw ~= pw then RN.scr = target_create(pw, ph); RN.pw, RN.ph = pw, ph end
+    snes_draw(RN.scr, pw, ph)
+    RN.scr:draw(8, top)
+    rect(7, top - 1, pw + 2, ph + 2, C_GRID8)
+  else
+    rectfill(8, top, pw, ph, C_PANEL)
+    print("F5 builds and runs", 16, top + 8, C_DIM)
+  end
+  local y = top
+  local st = RN.state == "run" and "RUNNING" or RN.state == "stop" and "STOPPED" or "NOT RUNNING"
+  print(st, px, y, RN.state == "stop" and C_ERR or RN.state == "run" and C_ACC or C_DIM)
+  if RN.state == "off" then
+    print("Press F5 (or Ctrl+B) to build the", px, y + 24, C_DIM)
+    print("project of the Code tab and run it.", px, y + 40, C_DIM)
+  elseif RN.regs then
+    local r = RN.regs
+    for i, l in ipairs(RR.regs_text(r)) do print(l, px, y + i * 16, i == 4 and C_ACC or C_TEXT) end
+    local words = RR.flags_words(r.p, r.e)
+    print(words:sub(1, cols), px, y + 80, C_DIM)
+    if #words > cols then print(words:sub(cols + 1, cols * 2), px, y + 96, C_DIM) end
+    local f, l = RR.line_of_addr(RN.lines, r.pc24)
+    local b = f and CD.files[f]
+    local txt = b and b.lines[l] and b.lines[l]:gsub("^%s+", "") or ""
+    print(((f and (l .. " ") or "") .. txt):sub(1, cols), px, y + 112, C_TEXT)
+    local bl = {}
+    for _, a in ipairs(RR.list(RN.set)) do bl[#bl + 1] = string.format("%04X", a & 0xFFFF) end
+    print(("break " .. (#bl > 0 and table.concat(bl, " ") or "none")):sub(1, cols), px, y + 128, C_ERR)
+  end
+  -- the memory
+  local my = y + 152
+  local x = px
+  for _, s in ipairs(RR.spaces) do
+    local label = s:upper()
+    local w = #label * 8 + 8
+    if s == RN.space then rectfill(x - 2, my, w, 16, C_SEL) end
+    U.zone(x - 2, my, w, 16, "rspace", s)
+    print(label, x + 2, my, s == RN.space and 0xFFFFFF or C_DIM)
+    x = x + w + 4
+  end
+  U.zone(x, my, 24, 16, "rgo"); print("go", x + 4, my, C_ACC); x = x + 32
+  U.zone(x, my, 40, 16, "rpoke"); print("poke", x + 4, my, C_ACC)
+  if RN.state ~= "off" then
+    for i, l in ipairs(RR.hexdump(RN.mem, RN.addr, RN.bpr)) do
+      if my + i * 16 + 16 > HINT_Y then break end
+      print(l:sub(1, cols), px, my + i * 16, C_TEXT)
+    end
+  end
+  hint({ { { "f5" }, RN.state == "stop" and "continue" or "run" }, { { "f9" }, "break" }, { { "f10" }, "step" }, { { "ctrl", "b" }, "build" },
+         { { "g" }, "go to" }, { { "w" }, "poke" }, { { "tab" }, "memory" }, { { "esc" }, "menu" } })
+end
+
 local function code_key(k)
   code_ensure()
-  if k == "^b" then code_build()
-  elseif k == "f1" then code_help()
+  if k == "f1" then code_help()
   elseif k == "^g" then code_labels_menu()
   elseif k == "^f" then code_find_ask()
   elseif k == "f6" then code_find_next(false)
   elseif k == "f7" then code_find_next(true)
   elseif k == "f8" then code_jump_error(1)
-  elseif k == "f9" then code_jump_error(-1)
   elseif k == "^j" then code_snippets()
   elseif k == "^e" then code_files_menu()
   elseif k == "^w" then close_source()
@@ -1082,6 +1355,9 @@ local function draw_code()
   else
     BF.scroll(b, rows, cols)
     local y0, x0, y1, x1 = BF.sel_range(b)
+    RN.bpl, RN.pcl = {}, nil
+    for _, i in pairs(RN.info) do if i.file == CD.cur then RN.bpl[i.line] = true end end
+    if RN.state == "stop" and RN.pcf == CD.cur then RN.pcl = RN.pcln end
     local err_at = {}
     for _, e in ipairs(CD.errs) do
       if e.file == CD.cur and e.line and not err_at[e.line] then err_at[e.line] = e end
@@ -1101,6 +1377,8 @@ local function draw_code()
       end
       print(string.format("%4d", ln), 4, y, err_at[ln] and C_ERR or C_DIM)
       if err_at[ln] then print("!", GUT - 12, y, C_ERR) end
+      if RN.bpl and RN.bpl[ln] then rectfill(GUT - 22, y + 4, 8, 8, 0xE03030) end      -- a breakpoint
+      if RN.pcl == ln then print(">", GUT - 12, y, C_ACC) end                          -- the line the CPU stopped at
       for _, t in ipairs(SC.tokens(l)) do
         local a, z = max(t[1], b.left + 1), min(t[2], b.left + cols)
         if z >= a then print(l:sub(a, z), GUT + (a - 1 - b.left) * 8, y, CC[t[3]] or C_TEXT) end
@@ -1125,7 +1403,7 @@ local function draw_code()
     for i, l in ipairs(CD.help) do print(l:sub(1, (W - 16) // 8), 8, bottom + i * 16, C_TEXT) end
   elseif pan > 0 then
     rectfill(0, bottom, W, pan * 16, C_BAR)
-    print(#CD.errs .. (#CD.errs == 1 and " error" or " errors") .. "   (F8 next, F9 previous, Esc closes)", 8, bottom, C_ERR)
+    print(#CD.errs .. (#CD.errs == 1 and " error" or " errors") .. "   (F8 next, Esc closes)", 8, bottom, C_ERR)
     for i = 1, pan - 1 do
       local e = CD.errs[i]
       local y = bottom + i * 16
@@ -1188,6 +1466,11 @@ MENU = {
 LY.screen_row = MENU[#MENU - 1]
 
 local function global_key(k)
+  if k == "^b" then rn_run(); return true
+  elseif k == "f5" then rn_f5(); return true
+  elseif k == "f9" and (tab == 1 or tab == 5) then rn_f9(); return true
+  elseif k == "f10" and (tab == 1 or tab == 5) then rn_step(); return true
+  end
   for i, t in ipairs(TABS) do
     if k == t[2] then
       if i == 1 and tab == 1 then return false end        -- F1 in the Code tab is the help of an instruction
@@ -1290,7 +1573,7 @@ local HELP = {
   { "f1", "help on the instruction under the cursor" },
   { "ctrl g / double click", "go to a label" },
   { "ctrl f / f6 / f7", "find; next; previous" },
-  { "f8 / f9", "next, previous error" },
+  { "f8", "next error" },
   { "ctrl j", "insert a snippet (reset, nmi, dma, joypad, colour)" },
   { "ctrl e / ctrl w", "the source files; close the file" },
   { "ctrl q", "start or stop a selection (the mouse drags one too)" },
@@ -1338,6 +1621,7 @@ function _update()
   if msg_t > 0 then msg_t = msg_t - 1 end
   if confirm_t > 0 then confirm_t = confirm_t - 1 end
   read_pad()
+  rn_update()
   U.update()
   if U.menu_update() then return end
   if U.on and not U.keys() then
@@ -1349,7 +1633,8 @@ function _update()
       elseif z and z.kind == "shade" then U.press("esc")
       elseif z and z.kind == "field" and input then U.line_click(input, input.x0 or 96, 8) end
     elseif tab == 2 then sprites_mouse()
-    elseif tab == 1 then code_mouse() end
+    elseif tab == 1 then code_mouse()
+    elseif tab == 5 then run_mouse() end
   end
   while true do
     local k = keyp()
@@ -1365,7 +1650,7 @@ function _update()
       elseif k == "esc" or k == "back" then pick = nil
       elseif k == "\n" or k == "ok" then pick = nil; p.rows[p.sel][2]() end
     elseif not global_key(k) then
-      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) end
+      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) elseif tab == 5 then run_key(k) end
     end
   end
   if input then
@@ -1380,7 +1665,7 @@ end
 function _draw()
   LY.poll()
   U.begin()
-  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() else draw_soon(tab) end
+  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() elseif tab == 5 then draw_run() else draw_soon(tab) end
 
   rectfill(0, 0, W, 16, C_BAR)                 -- the tabs: each with its key
   local x = U.bar_title("bm SNES SDK", C_ACC)

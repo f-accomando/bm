@@ -399,6 +399,10 @@ test-snes-sa1: $(BUILD)/host/snes_sa1_test
 test-snes-code: $(BUILD)/host/luahost src/script/snes_asm.lua carts/shared/snescode.lua carts/shared/asmbuf.lua tests/snes/code_test.lua
 	$(BUILD)/host/luahost tests/snes/code_test.lua .
 
+# the Run tab of bm SNES SDK: flags, registers, hex view, breakpoints, lines and addresses (carts/shared/snesrun.lua)
+test-snes-run: $(BUILD)/host/luahost src/script/snes_asm.lua carts/shared/snesrun.lua tests/snes/run_test.lua
+	$(BUILD)/host/luahost tests/snes/run_test.lua .
+
 # the SNES graphics converters (bm Pixel, bm SNES SDK) (carts/shared/snesgfx.lua)
 test-snes-gfx: $(BUILD)/host/luahost
 	$(BUILD)/host/luahost tests/snes/snesgfx_test.lua .
@@ -534,10 +538,10 @@ $(BUILD)/pixel/main.lua: carts/pixel/main.lua carts/shared/snesgfx.lua
 	{ cat carts/pixel/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/shared/snesgfx.lua; printf '\nend)()\n'; } > $@
 lua_pixel := $(BUILD)/pixel/main.lua
 
-# bm SNES SDK: main.lua, then the converter module as the global SNESGFX, the Code tab modules as SNESCODE and ASMBUF
-$(BUILD)/snes_sdk/main.lua: carts/snes_sdk/main.lua carts/shared/snesgfx.lua carts/shared/snescode.lua carts/shared/asmbuf.lua
+# bm SNES SDK: main.lua, then the converter module as the global SNESGFX, the Code tab modules as SNESCODE and ASMBUF, the Run tab module as SNESRUN
+$(BUILD)/snes_sdk/main.lua: carts/snes_sdk/main.lua carts/shared/snesgfx.lua carts/shared/snescode.lua carts/shared/asmbuf.lua carts/shared/snesrun.lua
 	@mkdir -p $(dir $@)
-	{ cat carts/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/shared/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat carts/shared/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat carts/shared/asmbuf.lua; printf '\nend)()\n'; } > $@
+	{ cat carts/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat carts/shared/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat carts/shared/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat carts/shared/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat carts/shared/snesrun.lua; printf '\nend)()\n'; } > $@
 lua_snes_sdk := $(BUILD)/snes_sdk/main.lua
 
 lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
@@ -1082,7 +1086,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-asm test-snes-gfx test-snes-code test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

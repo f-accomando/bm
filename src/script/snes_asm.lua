@@ -419,7 +419,7 @@ end
 function M.assemble(source, opts)
     opts = opts or {}
     local read = opts.read or default_read
-    local res = { ok = false, errors = {}, segments = {}, symbols = {}, symlist = {}, map = opts.map }
+    local res = { ok = false, errors = {}, segments = {}, symbols = {}, symlist = {}, lines = {}, map = opts.map }
     local errors = res.errors
     local syms = {}                    -- name -> {v, ast, pc, kind, busy}
     local items = {}                   -- the output of pass 1
@@ -868,6 +868,9 @@ function M.assemble(source, opts)
             return table.concat(t)
         end
         for _, it in ipairs(items) do
+            if it.k == "ins" and it.w and not it.w.macro then      -- res.lines: where each instruction line sits (the Run tab sets breakpoints with it)
+                res.lines[#res.lines + 1] = { file = it.w.file, line = it.w.line, pc = it.pc }
+            end
             local ok, e = pcall(function()
                 if it.k == "org" then new_seg(it.addr)
                 elseif it.k == "raw" then put(it.data)

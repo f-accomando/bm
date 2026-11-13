@@ -164,6 +164,10 @@ E.require = function(name)
     E._code = E._code or assert(loadfile(ROOT .. "/carts/shared/snescode.lua", "t", E))()
     return E._code
   end
+  if name == "snesrun" and not arg[3] then              -- the Run tab helpers
+    E._run = E._run or assert(loadfile(ROOT .. "/carts/shared/snesrun.lua", "t", E))()
+    return E._run
+  end
   if name == "asmbuf" and not arg[3] then
     E._buf = E._buf or assert(loadfile(ROOT .. "/carts/shared/asmbuf.lua", "t", E))()
     return E._buf
@@ -425,6 +429,38 @@ E.doc_list = function()
   return out
 end
 
+-- a stand-in for the SNES machine (the debug API of docs/api/snes.md): it walks the addresses of the instructions that the test
+-- gives it (FAKE.pcs), one frame is one walk from the first to the last. The real core is tested by tests/snes/debug_test.c.
+local FAKE = { pcs = {}, idx = 1, brk = {}, ram = {}, frames = 0, loads = 0, resets = 0, runs = 0, draws = 0 }
+local function fpc() return FAKE.pcs[FAKE.idx] or 0x8000 end
+E.keydown = function() return false end
+E.target_create = function(w, h) return { w = w, h = h, draw = function() end } end
+E.snes_load = function(rom) FAKE.rom, FAKE.idx, FAKE.loads = rom, 1, FAKE.loads + 1; return true end
+E.snes_reset = function() FAKE.idx, FAKE.resets = 1, FAKE.resets + 1 end
+E.snes_draw = function() FAKE.draws = FAKE.draws + 1; return 224 end
+E.snes_regs = function()
+  local p = fpc()
+  return { a = 0x1234, x = 0x56, y = 0x78, s = 0x1FF, d = 0, db = 0x7E, pb = p >> 16, pc = p & 0xFFFF, p = 0x30, e = false,
+           pc24 = p, cycle = 0, frames = FAKE.frames, wai = false, stp = false }
+end
+E.snes_break = function(a) if a == nil then FAKE.brk = {} else FAKE.brk[a] = true end; return 1 end
+E.snes_step = function() FAKE.idx = FAKE.idx % #FAKE.pcs + 1; return fpc() end
+E.snes_run = function()
+  FAKE.runs = FAKE.runs + 1
+  FAKE.idx = FAKE.idx + 1                           -- the instruction where it stopped runs first
+  if FAKE.idx > #FAKE.pcs then FAKE.idx, FAKE.frames = 1, FAKE.frames + 1; return nil end
+  if FAKE.brk[fpc()] then return fpc() end
+  return nil
+end
+E.snes_peek = function(a, n)
+  if not n then return FAKE.ram[a] or 0 end
+  local t = {}
+  for i = 0, n - 1 do t[#t + 1] = string.char(FAKE.ram[a + i] or 0) end
+  return table.concat(t)
+end
+E.snes_poke = function(a, v) FAKE.ram[a] = v end
+E.snes_mem = function(space, a, n) return string.rep(" ", n) end
+
 -- the third argument: the built main.lua (build/snes_sdk/main.lua, with the module as SNESGFX); none: the source
 local chunk = assert(loadfile(arg[3] or (ROOT .. "/carts/snes_sdk/main.lua"), "t", E))
 chunk()
@@ -494,7 +530,7 @@ frames(2)
 check(sees("bm SNES SDK") and sees("Sprites") and sees("Code") and sees("Map") and sees("Music") and sees("Run"),
       "the tab bar: Code, Sprites, Map, Music, Run")
 check(sees("4 bpp") and sees("sub-palette 1 of 8"), "it starts on Sprites: 4 bpp, 8 sub-palettes")
-for _, t in ipairs({ { "f3", "Map" }, { "f4", "Music" }, { "f5", "Run" } }) do
+for _, t in ipairs({ { "f3", "Map" }, { "f4", "Music" } }) do
   key(t[1])
   check(sees(t[2] .. " - coming soon"), "the " .. t[2] .. " tab says coming soon")
 end
@@ -600,6 +636,10 @@ key("esc")
 local code_checks = dofile(ROOT .. "/tests/studio/snes_sdk_code.lua")
 code_checks({ check = check, key = key, frames = frames, sees = sees, status = status, click = click, mouse = mouse,
               docs = docs, type_text = type_text })
+
+-- the Run tab
+dofile(ROOT .. "/tests/studio/snes_sdk_run.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
+                                                 docs = docs, type_text = type_text, fake = FAKE, asm = E.require("snes_asm") })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm SNES SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,

@@ -509,6 +509,7 @@ int l_snes_dsp_firmware(lua_State *L);
 int l_snes_sram(lua_State *L);
 int l_snes_debug(lua_State *L);
 int l_snes_peek(lua_State *L);
+int l_snes_mem(lua_State *L);
 int l_snes_poke(lua_State *L);
 int l_snes_regs(lua_State *L);
 int l_snes_step(lua_State *L);
