@@ -1104,7 +1104,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/carts/bench3d.bm tests/bench
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-m7rom test-snes-m7rom-arm test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
@@ -2102,6 +2102,25 @@ test-snes-g2: $(BUILD)/host/test_snes_m7 $(BUILD)/host/test_snes_gpu
 	$(BUILD)/host/test_snes_gpu 0
 	$(BUILD)/host/test_snes_gpu 1
 	$(BUILD)/host/test_snes_gpu 2
+
+# The Mode 7 test ROM (tests/snes/m7test/main.s, built by tests/snes/build_m7test.sh): the five variants in the core, the QPU path on the
+# V3D emulator against the ARM picture byte for byte, and the reject counters (tests/snes/m7test_run.c).
+$(BUILD)/host/snes_m7test_run: tests/snes/m7test_run.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h src/gpu/qpu_snes.c src/gpu/qpu_snes.h src/gpu/qpuprog_snes.h src/bm/snes_ppu.c $(SNES_PPU_SRCS) src/bm/snes_int.h
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O2 -g -Wall -Wextra -Isrc -Isrc/bm -Itests/gpu -DQPU_SNES_SCRATCH_ALWAYS -o $@ tests/snes/m7test_run.c src/gpu/qpu_snes.c tests/gpu/v3d_emu.c src/gpu/v3d_cl.c src/gpu/etc1.c src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+test-snes-m7rom: $(BUILD)/host/luahost $(BUILD)/host/snes_m7test_run src/script/snes_asm.lua tests/snes/asm_cli.lua tests/snes/build_m7test.sh tests/snes/m7test/main.s tests/snes/m7test/sintab.inc
+	tests/snes/build_m7test.sh $(BUILD)/m7test.sfc
+	$(BUILD)/host/snes_m7test_run $(BUILD)/m7test.sfc
+
+# The same ROM on the ARM1176 in QEMU (game_run_arm.c): the pictures of the five variants equal the host ones.
+test-snes-m7rom-arm: $(BUILD)/host/luahost $(BUILD)/host/snes_game_run tests/snes/game_run_arm.c tests/snes/game_run.c tests/snes/m7test_arm.py tests/snes/m7test/main.s src/bm/snes_ppu_arm.S src/bm/snes_cpu_arm.S src/bm/snes_gsu_arm.S src/bm/snes_int.h
+	@mkdir -p $(BUILD)/arm
+	tests/snes/build_m7test.sh $(BUILD)/m7test.sfc
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_ppu_arm.S -o $(BUILD)/arm/ppuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -c src/bm/snes_cpu_arm.S -o $(BUILD)/arm/cpuarm.o
+	arm-none-eabi-gcc -mcpu=arm1176jzf-s -marm -Isrc/bm -c src/bm/snes_gsu_arm.S -o $(BUILD)/arm/gsuarm.o
+	$(SNES_ARM_CC) -DSNES_TRACE -DGR_ROM='"rom.bin"' -DGR_FW='"-"' -DGR_FRAMES='"70"' -DGR_SCRIPT='"s.txt"' -DGR_OUT='"p"' -specs=rdimon.specs -Wl,-Ttext=0x10000 -o $(BUILD)/arm/m7test.elf tests/snes/game_run_arm.c src/bm/snes_cpu.c $(SNES_ARM_SRCS) $(BUILD)/arm/ppuarm.o $(BUILD)/arm/cpuarm.o $(BUILD)/arm/gsuarm.o -lm
+	$(PYTHON) tests/snes/m7test_arm.py $(BUILD)/m7test.sfc $(BUILD)/host/snes_game_run $(BUILD)/arm/m7test.elf
 
 HOSTCC ?= cc
 

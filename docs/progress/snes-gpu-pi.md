@@ -54,6 +54,24 @@ Play test, SMW2 (kernel 112, 76 log lines): the GPU drew 0 frames. The Mode 7 sc
 
 Next version (the user keeps it as a to-do, 2026-11-13): the QPU draws BG1 and gives the colour index of each pixel, and the ARM lays the sprites over it (G4 with a smaller scope), so Mode 7 scenes with sprites use the GPU. Build it only after a pure Mode 7 scene shows the real gain in play.
 
+## Mode 7 test ROM
+
+`tests/snes/m7test/main.s` is an original ROM (written with the SDK assembler, also an SDK example) that measures the GPU Mode 7 path on the Pi with the sprites and the other rules switched on and off. BG1 shows a 128x128 map of 16 tiles (8 bpp, made by the code: a checker and a colour gradient). Every frame the NMI turns the matrix by one step (the frame counter, 256 frames a turn), scrolls and sets the registers of the variant, so a run is the same every time.
+
+- Build: `tests/snes/build_m7test.sh` (WSL or Linux, from the repository root; `scripts/wsl-run.ps1 "tests/snes/build_m7test.sh"` on Windows) writes `build/m7test.sfc` (32 KB). The ROM is not in git. Copy it to the `snes` folder of the SD card.
+- Variants: the ROM starts in variant 1 and keeps the last variant that a key selected (it stays after the key is released). Pad keys: B or no input = 1, Y = 2, A = 3, X = 4, L = 5. In the cart use the keys that the cart maps to these pad buttons.
+- Test on the PC: `make test-snes-m7rom` (the five variants in the C core; the picture changes in every frame; two runs give the same hashes; the QPU path on the V3D emulator equals the ARM picture in every frame; the reject counters) and `make test-snes-m7rom-arm` (host pictures against an ARM1176 in QEMU).
+
+| Variant | Scene | What to read in the Pi log (`snes t=` line, key `snes_gpu_m7=1`, then 0 for the ARM figure) |
+|---|---|---|
+| 1 | BG1 alone, no sprites | `frames gpu` grows every frame, `frames arm` stays still, `gpu_m7 seen lines` = `lines gpu`, all four reject counters 0, `runs` = 1 a frame. Compare `frame` and `fps` with the key off: this is the best case of the GPU path. |
+| 2 | variant 1 plus one sprite | `frames gpu` stays still, `sprites` takes every line. `frame` is the same as with the key off (the cost of the gate alone). |
+| 3 | BG1 alone, the matrix changes on every line (HDMA, a floor) | `frames gpu` grows, `runs` grows by 224 a frame (one QPU job for each change), `job` is the cost of those jobs. This is the F-Zero case. |
+| 4 | BG1 alone with colour math | `math` takes every line, `frames gpu` stays still. |
+| 5 | BG1 and BG2 on | `other-bg` takes every line, `frames gpu` stays still. |
+
+Facts of the PC run: the V3D emulator counts, for 60 frames of each variant, 60 GPU frames and 60 runs (variant 1), 13440 sprite lines (2), 13440 runs (3, one for each line), 13440 math lines (4), 13440 other-bg lines (5). The core draws no BG2 in Mode 7 (EXTBG is not made), so variant 5 shows the same picture as variant 1 on the host. The Pi numbers of the variants are not measured yet.
+
 ## Plan for G3 to G6 (gates use the numbers above)
 
 All steps keep: the ARM PPU is the reference, `make test-snes-ppu` states compare byte for byte, no frame of delay (G7 only after a measured latency cost), RGB30 and host stay on the ARM.
