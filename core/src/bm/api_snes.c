@@ -305,14 +305,6 @@ int l_snes_debug(lua_State *L)
         n += snprintf(ml + n, sizeof ml - (size_t)n, " | bus ppuw %lu ppur %lu apu %lu wram %lu cpu %lu dmar %lu other %lu | dma runs %lu bytes %lu",
                       (unsigned long)d.bus_n[0], (unsigned long)d.bus_n[1], (unsigned long)d.bus_n[2], (unsigned long)d.bus_n[3], (unsigned long)d.bus_n[4],
                       (unsigned long)d.bus_n[5], (unsigned long)d.bus_n[6], (unsigned long)d.dma_runs, (unsigned long)d.dma_bytes);
-        if (d.gpu_on)                                  /* the V3D helper: the time of Mode 7 on the QPUs and the frames/lines each side drew */
-            n += snprintf(ml + n, sizeof ml - (size_t)n, " | gpu_m7 job %lu us copy %lu us frames gpu %lu arm %lu lines gpu %lu arm %lu copies %lu",
-                          (unsigned long)d.gpu_m7_us, (unsigned long)d.gpu_cp_us, (unsigned long)d.gpu_frames, (unsigned long)d.gpu_arm_frames,
-                          (unsigned long)d.gpu_lines, (unsigned long)d.gpu_arm_lines, (unsigned long)d.gpu_copies);
-        if (d.gpu_on)                                  /* why Mode 7 lines stayed on the ARM (cumulative lines) */
-            n += snprintf(ml + n, sizeof ml - (size_t)n, " | gpu_m7 seen lines %lu runs %lu kept by arm: other-bg %lu sprites %lu window %lu math %lu",
-                          (unsigned long)d.gpu_m7_lines, (unsigned long)d.gpu_runs, (unsigned long)d.gpu_rej[0], (unsigned long)d.gpu_rej[1],
-                          (unsigned long)d.gpu_rej[2], (unsigned long)d.gpu_rej[3]);
         lua_pushstring(L, ml); lua_setfield(L, -2, "us_ppu");
     }
     {

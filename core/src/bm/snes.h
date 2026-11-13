@@ -90,8 +90,6 @@ typedef struct {
     uint8_t bgmode, obsel, ts, sc[4];   /* the PPU registers that place the layers */
     uint16_t hofs[4], vofs[4];
     uint8_t oamrot; uint16_t oam_reload;        /* $2103 bit 7 and the OAM reload address */
-    uint32_t gpu_on;                    /* 1 when the V3D helper (config key snes_gpu_m7=1) is on */
-    uint32_t gpu_m7_us, gpu_cp_us, gpu_frames, gpu_arm_frames, gpu_lines, gpu_arm_lines, gpu_copies, gpu_runs, gpu_m7_lines, gpu_rej[4];   /* gpu_rej: Mode 7 lines kept by the ARM because of other BGs, sprites, a window, colour math */   /* Mode 7 on the V3D: the QPU run and the video RAM copy of a frame (averaged), then counts since the start */
 } snes_debug_t;
 void snes_debug(snes_debug_t *d);
 void snes_vram_peek(uint16_t addr, uint8_t *out, int n);     /* bytes of the video RAM, for the tests and the debug line */

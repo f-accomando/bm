@@ -2038,8 +2038,6 @@ test-qpu:
 	cmp $(BUILD)/shaders.h core/src/gpu/shaders.h
 	$(PYTHON) core/tools/qpuprogs.py -o $(BUILD)/qpuprog.h
 	cmp $(BUILD)/qpuprog.h core/src/gpu/qpuprog.h
-	$(PYTHON) core/tools/qpusnes.py -o $(BUILD)/qpuprog_snes.h
-	cmp $(BUILD)/qpuprog_snes.h core/src/gpu/qpuprog_snes.h
 
 # bm3d 7.x: the QPU programs (core/src/gpu/qpu.c) on the V3D emulator, three ways: they work,
 # the V3D never answers, the V3D stores wrong data
@@ -2068,24 +2066,17 @@ test-qpucheck: $(BUILD)/host/test_qpucheck
 	$< 2
 
 # G2 (docs/progress/snes-gpu.md): the Mode 7 layer of the SNES PPU on the QPUs, on the V3D emulator, against the reference PPU byte for byte
-$(BUILD)/host/test_snes_m7: tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h core/src/gpu/qpuprog_snes.h tests/snes/ppu_ref.c core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) core/src/bm/snes_int.h
+$(BUILD)/qpu_snes.h: core/tools/qpusnes.py core/tools/qpuprogs.py core/tools/qpuasm.py
+	@mkdir -p $(BUILD)
+	$(PYTHON) core/tools/qpusnes.py -o $@
+$(BUILD)/host/test_snes_m7: tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h $(BUILD)/qpu_snes.h tests/snes/ppu_ref.c core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) core/src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
 	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_m7_ref.o tests/snes/ppu_ref.c
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src -Icore/src/bm -Itests/gpu -o $@ tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c core/src/gpu/v3d_cl.c core/src/gpu/etc1.c $(BUILD)/host/snes_m7_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src -Icore/src/bm -Itests/gpu -I$(BUILD) -o $@ tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c core/src/gpu/v3d_cl.c core/src/gpu/etc1.c 	    $(BUILD)/host/snes_m7_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
 
-# the same in the shape of the kernel: snes_ppu.c with the V3D helper (core/src/gpu/qpu_snes.c) on the emulator, frames with changes in the middle,
-# QPUs that stop or lie, the micro-benchmark. BM_SNES_ROMS=<folder> adds a Mode 7 ROM.
-$(BUILD)/host/test_snes_gpu: tests/gpu/test_snes_gpu.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h core/src/gpu/qpu_snes.c core/src/gpu/qpu_snes.h core/src/gpu/qpuprog_snes.h tests/snes/ppu_ref.c core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) core/src/bm/snes_int.h
-	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_m7_ref.o tests/snes/ppu_ref.c
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src -Icore/src/bm -Itests/gpu -DQPU_SNES_SCRATCH_ALWAYS -o $@ tests/gpu/test_snes_gpu.c core/src/gpu/qpu_snes.c tests/gpu/v3d_emu.c core/src/gpu/v3d_cl.c core/src/gpu/etc1.c $(BUILD)/host/snes_m7_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
-
-test-snes-g2: $(BUILD)/host/test_snes_m7 $(BUILD)/host/test_snes_gpu
-	$(BUILD)/host/test_snes_m7
-	$(BUILD)/host/test_snes_m7 cost
-	$(BUILD)/host/test_snes_gpu 0
-	$(BUILD)/host/test_snes_gpu 1
-	$(BUILD)/host/test_snes_gpu 2
+test-snes-g2: $(BUILD)/host/test_snes_m7
+	$<
+	$< cost
 
 # The Mode 7 test ROM (tests/snes/m7test/main.s, built by tests/snes/build_m7test.sh): the five variants in the core, the QPU path on the
 # V3D emulator against the ARM picture byte for byte, and the reject counters (tests/snes/m7test_run.c).

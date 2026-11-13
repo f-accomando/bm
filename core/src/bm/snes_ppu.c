@@ -67,9 +67,8 @@ static void make_tables(void)
  * two words swapped and byte-reversed. There is one cache for each depth (2, 4 and 8 bits a pixel): a tile address is 16, 32 or 64 bytes apart. */
 static uint32_t tc2[4096][16], tc4[2048][16], tc8[1024][16];
 static uint8_t tv2[4096], tv4[2048], tv8[1024];
-static uint8_t gpu_snap_ok;              /* the GPU's copy of the video RAM is the video RAM */
-void ppu_vram_dirty(uint16_t a) { tv2[a >> 4] = 0; tv4[a >> 5] = 0; tv8[a >> 6] = 0; gpu_snap_ok = 0; }
-void ppu_vram_dirty_all(void) { memset(tv2, 0, sizeof tv2); memset(tv4, 0, sizeof tv4); memset(tv8, 0, sizeof tv8); gpu_snap_ok = 0; }
+void ppu_vram_dirty(uint16_t a) { tv2[a >> 4] = 0; tv4[a >> 5] = 0; tv8[a >> 6] = 0; }
+void ppu_vram_dirty_all(void) { memset(tv2, 0, sizeof tv2); memset(tv4, 0, sizeof tv4); memset(tv8, 0, sizeof tv8); }
 
 static void decode_tile(int bpp, uint32_t a, uint32_t *out)
 {
@@ -429,92 +428,6 @@ static void lut_update(int bright)
     }
 }
 
-/* ------------------------------------------------------------ the V3D helper (Mode 7) */
-/* A line of BG1 Mode 7 with nothing else on the screen is kept as X and Y (the set-up of draw_mode7); the lines of a
- * run with the same matrix words, palette and video RAM are drawn together by the GPU at the end of the run. The ARM
- * picture is made for every other line, and for every frame when no ops are given (the host, the RGB30, the key off). */
-static const snes_gpu_ops_t *gpu;
-static int gpu_on;                      /* between ppu_frame_begin and ppu_frame_end */
-static struct { int n, y0, a, c, sel, bright; uint32_t gen; } m7run;
-static struct { uint32_t us, cp, lines_gpu, lines_arm; } gframe;
-static ppu_gpu_stats_t gstats;
-_Static_assert(SNES_W == 256, "the GPU lines are 256 pixels");
-
-void snes_gpu_set(const snes_gpu_ops_t *ops) { gpu = ops; gpu_snap_ok = 0; m7run.n = 0; gpu_on = 0; }
-void ppu_gpu_stats(ppu_gpu_stats_t *st) { *st = gstats; }
-int ppu_gpu_on(void) { return gpu != NULL; }
-
-static void m7_flush(void)
-{
-    if (!m7run.n) return;
-    gstats.runs++;
-    const uint32_t t0 = gpu->us();
-    const int used = gpu->m7(&S.picture[m7run.y0 * SNES_W], m7run.n, m7run.a, m7run.c, m7run.sel);
-    gframe.us += gpu->us() - t0;
-    if (used) gframe.lines_gpu += (uint32_t)m7run.n; else gframe.lines_arm += (uint32_t)m7run.n;
-    m7run.n = 0;
-}
-
-void ppu_frame_begin(int render)
-{
-    gpu_on = gpu && render;
-    m7run.n = 0;
-    memset(&gframe, 0, sizeof gframe);
-}
-
-void ppu_frame_end(void)
-{
-    if (!gpu_on) return;
-    m7_flush();
-    gpu_on = 0;
-    if (gframe.lines_gpu) {
-        gstats.frames_gpu++;
-        gstats.m7_us = gstats.m7_us ? (uint32_t)((int32_t)gstats.m7_us + ((int32_t)gframe.us - (int32_t)gstats.m7_us) / 2) : gframe.us;
-        gstats.cp_us = (uint32_t)((int32_t)gstats.cp_us + ((int32_t)gframe.cp - (int32_t)gstats.cp_us) / 2);
-    } else gstats.frames_arm++;
-    gstats.lines_gpu += gframe.lines_gpu; gstats.lines_arm += gframe.lines_arm;
-}
-
-/* BG1 Mode 7 alone: no sprites, windows, colour math or sub screen */
-static inline int m7_eligible(void)
-{
-    if ((S.bgmode & 7) != 7) return 0;                  /* not Mode 7: not counted */
-    gstats.m7_lines++;
-    if ((S.tm & 0x0F) != 1) { gstats.rej_bg++; return 0; }
-    if (S.tm & 0x10) { gstats.rej_obj++; return 0; }
-    if (S.tmw & 1) { gstats.rej_win++; return 0; }
-    if ((S.cgadsub & 0x3F) || (S.cgwsel >> 6)) { gstats.rej_math++; return 0; }
-    return 1;
-}
-
-static void m7_defer(int y)
-{
-    const int bright = S.inidisp & 15;
-    lut_update(bright);
-    if (m7run.n && (S.m7a != m7run.a || S.m7c != m7run.c || S.m7sel != m7run.sel || pal_gen != m7run.gen || bright != m7run.bright ||
-                    y != m7run.y0 + m7run.n || !gpu_snap_ok || m7run.n >= 224))
-        m7_flush();
-    if (!m7run.n) {
-        if (!gpu_snap_ok) {
-            const uint32_t t0 = gpu->us();
-            memcpy(gpu->vram, S.vram, sizeof S.vram);
-            gframe.cp += gpu->us() - t0;
-            gstats.copies++;
-            gpu_snap_ok = 1;
-        }
-        memcpy(gpu->lut, lut, sizeof lut);
-        m7run.y0 = y; m7run.a = S.m7a; m7run.c = S.m7c; m7run.sel = S.m7sel; m7run.bright = bright; m7run.gen = pal_gen;
-    }
-    const int yy = (S.m7sel & 2) ? 255 - y : y;
-    const int vx = S.m7hofs - S.m7x, vy = S.m7vofs - S.m7y;
-    const int cx = (vx & 0x2000) ? (vx | ~0x3FF) : (vx & 0x3FF);
-    const int cy = (vy & 0x2000) ? (vy | ~0x3FF) : (vy & 0x3FF);
-    int32_t *t = &gpu->tab[m7run.n * 2];
-    t[0] = ((S.m7a * cx) & ~63) + ((S.m7b * cy) & ~63) + ((S.m7b * yy) & ~63) + (S.m7x << 8);
-    t[1] = ((S.m7c * cx) & ~63) + ((S.m7d * cy) & ~63) + ((S.m7d * yy) & ~63) + (S.m7y << 8);
-    m7run.n++;
-}
-
 /* The colour window clips the main screen to black (clipmode 1 outside, 2 inside, 3 everywhere) before the maths. After a fast mix, the clipped pixels are redone:
  * black, plus (or minus) the sub screen colour when the pixel has the maths flag (no half, as in the reference loop below). */
 static void clip_fix(uint16_t *dst, int clipmode, int use_sub, int add)
@@ -535,7 +448,6 @@ void ppu_line(int y)
 {
     uint16_t *dst = &S.picture[y * SNES_W];
     if (S.inidisp & 0x80) { memset(dst, 0, SNES_W * 2); return; }
-    if (gpu_on && m7_eligible()) { m7_defer(y); return; }
     T0;
     const int mode = S.bgmode & 7;
     const slot_t *ord;

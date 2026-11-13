@@ -506,8 +506,6 @@ static int qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us);
 /* One run at a time. The kernel's fibers are cooperative and this function
  * never yields, so a second caller can only come from another core or an
  * interrupt: it gets -2 (nothing started) and tries again later. */
-void (*v3d_qpu_idle)(void);
-
 int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
 {
     if (__atomic_exchange_n(&qpu_lock, 1, __ATOMIC_ACQUIRE)) {
@@ -561,8 +559,6 @@ static int qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
             qpu_why = "ok";
             break;
         }
-        if (v3d_qpu_idle)
-            v3d_qpu_idle();
         if (timer_ticks() - t0 > timeout_us) {
             qpu_why = "timeout";
             r = -1;

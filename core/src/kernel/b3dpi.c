@@ -20,7 +20,6 @@
 #include "fs/fat.h"
 #include "gpu/qpu.h"
 #include "gpu/qpucheck.h"
-#include "gpu/qpu_snes.h"
 #include "gpu/v3d.h"
 #include "lib/printf.h"
 #include "net/net.h"
@@ -176,12 +175,6 @@ static void gpu_qpu_row(char *line, size_t n)
     qpu_check_line(&r, all, line, (unsigned)n);
 }
 
-/* the SNES V3D micro-benchmark for the 3D Bench (b3d_platform_t.snes_row): one line */
-static void gpu_snes_row(char *line, size_t n)
-{
-    qpu_snes_bench(us, 0, 0, line, n);
-}
-
 void bm_bench3d(framebuffer_t *fb)
 {
     bm_bench3d_part(fb, NULL, NULL, 0);
@@ -223,7 +216,6 @@ int bm_bench3d_part(framebuffer_t *fb, const char *tests, const char *profiles, 
         .only_tests = tests, .only_profiles = profiles, .no_wait = no_wait, .clocks = real ? clocks : NULL,
         .stop = syskeys_test_stop,
         .qpu_row = gpu_qpu_key() ? gpu_qpu_row : NULL,      /* gpu3d_qpu=1 only (default off) */
-        .snes_row = snes_gpu_m7_key() ? gpu_snes_row : NULL,  /* snes_gpu_m7=1 only (default off) */
         .fade_qpu = gpu_qpu_key() ? qpu_fade_hook : NULL,   /* the fade test's QPU profile: gpu3d_qpu=1 only */
     };
     free(sent);                         /* (nothing left from a run before) */
