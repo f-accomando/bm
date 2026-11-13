@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the project that bm SDK saved in the recording of episode 4 (out/sd/carts/TROPIC.BME), without looking at a picture.
+"""Checks the project that bm SDK saved in the recording of episode 4 (out/sd/bm/TROPIC.BME), without looking at a picture.
 
   python3 video/3d/04-map/verify.py [SD_DIR]
 

@@ -587,9 +587,9 @@ job_send() {
         ok "sent: $to/$n83 on $name"
         # the console answers as soon as the file arrived whole and writes it
         # from its menu ("Updating" on the game meanwhile); a game that is
-        # open is replaced when it is closed. A game for /carts goes to bm/,
+        # open is replaced when it is closed. A game for /bm goes to bm/,
         # the folder the menus list.
-        [[ ${n83,,} != *.bm && ${n83,,} != *.b16 ]] || { [ "$to" != /bm ] && [ "$to" != /carts ]; } ||
+        [[ ${n83,,} != *.bm && ${n83,,} != *.b16 ]] || { [ "$to" != /bm ] && [ "$to" != /bm ]; } ||
             ok "the game is in its menu once written (Games, or Dev for a tool; if it is open: when you close it)"
     else
         warn "not sent: see above"

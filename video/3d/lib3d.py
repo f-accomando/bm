@@ -25,7 +25,7 @@ FPS = 60
 
 
 def fresh_sd(sd, files=()):
-    """A clean SD (an editor remembers page and file on it): carts/ with `files` [(src, name)] copied in."""
+    """A clean SD (an editor remembers page and file on it): bm/ with `files` [(src, name)] copied in."""
     shutil.rmtree(sd, ignore_errors=True)
     os.makedirs(os.path.join(sd, "bm"))
     for src, name in files:

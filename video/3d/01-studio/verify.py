@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the project bm Studio saved in the recording (out/sd/carts/TROPIC.BME) against the answer of video 1.
+"""Checks the project bm Studio saved in the recording (out/sd/bm/TROPIC.BME) against the answer of video 1.
 No pictures: the file is what the editor really wrote (core/scripts/bmres.py, core/scripts/bmmesh.py).
 
   python3 video/3d/01-studio/verify.py [SD_DIR] [--reference] [--chain]

@@ -50,7 +50,7 @@ typedef struct {
 /* 0 and the file's address on GitHub in url, or -1 with err. */
 int github_put(const gh_put_t *p, char *url, size_t url_len, char *err, size_t err_len);
 
-/* A Market id from a file name ("/carts/My Game.bm" -> "my-game"). */
+/* A Market id from a file name ("/bm/My Game.bm" -> "my-game"). */
 int github_id_from_name(const char *file, char *id, size_t n);
 
 #endif

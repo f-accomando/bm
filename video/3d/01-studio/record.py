@@ -5,7 +5,7 @@
   python3 video/3d/01-studio/record.py [--build-only] [--stage N] [--log] [--no-video] [--cart FILE]
 
 Writes video/3d/01-studio/out/: input.txt (the keys, frame at 60 fps), overlay.json (key caps, scenes, narration, chapters),
-shots/ (PNG after each shot-list row), sd/carts/TROPIC.BME (what the editor saved), and the mp4 when ffmpeg is there
+shots/ (PNG after each shot-list row), sd/bm/TROPIC.BME (what the editor saved), and the mp4 when ffmpeg is there
 (--no-video is the default where ffmpeg is missing: nothing else changes). Deterministic: the same script, the same run.
 
 The editor saves a PROJECT (.bme), not a .bm. The chain (video/3d/chain/) keeps both:
@@ -157,7 +157,7 @@ def build():
     s.chord("s", "Ctrl+S: save")
     s.sec(0.6)
     r.shot("r05")
-    r.name_box("MY3D.BME", "TROPIC.BME", "TROPIC.BME saved in /carts")  # Backspace x8: the box holds MY3D.BME
+    r.name_box("MY3D.BME", "TROPIC.BME", "TROPIC.BME saved in /bm")  # Backspace x8: the box holds MY3D.BME
     s.sec(1.0)
     r.shot("r07")
 

@@ -1854,28 +1854,28 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/bm/mapkit.bm $(BUILD)/host/luahost $
 	$(BUILD)/host/luahost tests/studio/write_host.lua .
 	$(BUILD)/host/luahost tests/studio/write_pdf_host.lua .
 	$(BUILD)/host/luahost tests/studio/import_host.lua .
-	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/carts $(BUILD)/studio3d-sd/bme
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/studio3d-sd/carts/
+	rm -rf $(BUILD)/studio3d-sd && mkdir -p $(BUILD)/studio3d-sd/bm $(BUILD)/studio3d-sd/bme
+	cp $(BUILD)/bm/testkit.bm $(BUILD)/studio3d-sd/bm/
 	$(BUILD)/host/luahost tests/studio/tools3d_host.lua . $(BUILD)/studio3d-sd
-	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/carts $(BUILD)/mesh-sd/bme
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/astrowing.bm $(BUILD)/mesh-sd/carts/
+	rm -rf $(BUILD)/mesh-sd && mkdir -p $(BUILD)/mesh-sd/bm $(BUILD)/mesh-sd/bme
+	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/astrowing.bm $(BUILD)/mesh-sd/bm/
 	$(BUILD)/host/luahost tests/studio/mesh_host.lua . $(BUILD)/mesh-sd
 	$(BUILD)/host/test_meshcap core/src/bm/runtime.c $(BUILD)/mesh-sd/bme/astrowin.bme ship \
 	    $(BUILD)/mesh-sd/bme/testkit.bme "" $(BUILD)/mesh-sd/bme/meshcopy.bme ""
 	$(PYTHON) core/scripts/bmmesh.py $(BUILD)/mesh-sd/bme/astrowin.bme $(BUILD)/mesh-sd/bme/testkit.bme >/dev/null
-	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/carts $(BUILD)/sdk-sd/bm $(BUILD)/sdk-sd/bme
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/sdk-sd/carts/
+	rm -rf $(BUILD)/sdk-sd && mkdir -p $(BUILD)/sdk-sd/bm $(BUILD)/sdk-sd/bm $(BUILD)/sdk-sd/bme
+	cp $(BUILD)/bm/testkit.bm $(BUILD)/sdk-sd/bm/
 	$(BUILD)/host/luahost tests/studio/sdk_host.lua . $(BUILD)/sdk-sd
-	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/mapkit.bm $(BUILD)/pixel-sd/carts/
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/bm $(BUILD)/pixel-sd/bme
+	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/mapkit.bm $(BUILD)/pixel-sd/bm/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd
-	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/carts $(BUILD)/pixel-sd/bme
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/mapkit.bm $(BUILD)/pixel-sd/carts/
+	rm -rf $(BUILD)/pixel-sd && mkdir -p $(BUILD)/pixel-sd/bm $(BUILD)/pixel-sd/bme
+	cp $(BUILD)/bm/testkit.bm $(BUILD)/bm/mapkit.bm $(BUILD)/pixel-sd/bm/
 	$(BUILD)/host/luahost tests/studio/pixel_host.lua . $(BUILD)/pixel-sd $(BUILD)/pixel/main.lua
-	rm -rf $(BUILD)/snes-sdk-sd && mkdir -p $(BUILD)/snes-sdk-sd/carts $(BUILD)/snes-sdk-sd/bme
+	rm -rf $(BUILD)/snes-sdk-sd && mkdir -p $(BUILD)/snes-sdk-sd/bm $(BUILD)/snes-sdk-sd/bme
 	$(BUILD)/host/luahost tests/studio/snes_sdk_host.lua . $(BUILD)/snes-sdk-sd $(BUILD)/snes_sdk/main.lua
 	$(BUILD)/host/test_meshcap core/src/bm/runtime.c $(BUILD)/pixel-sd/bme/testkit.bme "" $(BUILD)/pixel-sd/bme/newspr.bme ""
-	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/carts $(BUILD)/humanoid-sd/bme
+	rm -rf $(BUILD)/humanoid-sd && mkdir -p $(BUILD)/humanoid-sd/bm $(BUILD)/humanoid-sd/bme
 	$(BUILD)/host/luahost tests/studio/humanoid_host.lua . $(BUILD)/humanoid-sd
 	$(BUILD)/host/test_meshcap core/src/bm/runtime.c $(BUILD)/humanoid-sd/bme/humanoid.bme ""
 	$(PYTHON) tests/studio/check_files.py $(BUILD)/studio3d-sd $(BUILD)/mesh-sd $(BUILD)/pixel-sd $(BUILD)/bm/testkit.bm $(BUILD)/humanoid-sd

@@ -19,20 +19,20 @@ link (`undefined reference to g16_to_rgb24`, `Makefile:1092`), before any luahos
 So the luahost steps of the rule (`Makefile:1239-1257`) were run by hand, without
 `test_meshcap`, into `build/forge-gold/`:
 
-(Historical record. `carts/stages3d` was removed on 25 Oct; the host sample with a map is now `build/bm/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
+(Historical record. `bm/stages3d` was removed on 25 Oct; the host sample with a map is now `build/bm/mapkit.bm`, made by `tests/fixtures/mktestkit.py --map`.)
 
 ```sh
 make -j$(nproc) build/host/luahost build/host/test_bm build/bm/village.bm build/bm/astrowing.bm build/bm/stages3d.bm
 O=build/forge-gold; rm -rf $O; mkdir -p $O
-mkdir -p $O/studio3d-sd/carts && cp build/bm/village.bm $O/studio3d-sd/carts/
+mkdir -p $O/studio3d-sd/bm && cp build/bm/village.bm $O/studio3d-sd/bm/
 build/host/luahost tests/studio/tools3d_host.lua . $O/studio3d-sd      # 171/171 checks passed
-mkdir -p $O/mesh-sd/carts && cp build/bm/village.bm build/bm/astrowing.bm $O/mesh-sd/carts/
+mkdir -p $O/mesh-sd/bm && cp build/bm/village.bm build/bm/astrowing.bm $O/mesh-sd/bm/
 build/host/luahost tests/studio/mesh_host.lua . $O/mesh-sd             # 78/78 checks passed
-mkdir -p $O/pixel-sd/carts && cp build/bm/village.bm build/bm/stages3d.bm $O/pixel-sd/carts/
+mkdir -p $O/pixel-sd/bm && cp build/bm/village.bm build/bm/stages3d.bm $O/pixel-sd/bm/
 build/host/luahost tests/studio/pixel_host.lua . $O/pixel-sd           # 68/68 checks passed
 python3 tests/studio/anim_figure.py $O/anim-figure.bm
 python3 tests/studio/check_files.py $O/studio3d-sd $O/mesh-sd $O/pixel-sd build/bm/village.bm   # 62/62
-build/host/test_bm build/bm/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/carts/blocks.bme                  # 163/163
+build/host/test_bm build/bm/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/bm/blocks.bme                  # 163/163
 ```
 
 | Golden | Copied from | Writer |
@@ -40,10 +40,10 @@ build/host/test_bm build/bm/stages3d.bm $O/anim-figure.bm $O/studio3d-sd/carts/b
 | `village_models.bm` | the former `tests/fixtures/village/models.bm` (last changed in `14718bb`; removed, this is the only copy) | bm Studio / bmmesh history; reference file |
 | `anim_figure.bm` | `$O/anim-figure.bm` | `tests/studio/anim_figure.py` = `core/scripts/bmmesh.py` `encode_faces`/`encode`/`encode_anim` + `core/scripts/mkbm.py` `pack` |
 | `bmmesh_lit.bm` | `python3 gen_bmmesh_lit.py bmmesh_lit.bm` (in this folder) | `core/scripts/bmmesh.py` `encode`/`encode_anim` + `core/scripts/mkbm.py` `pack`: lit model, corner and 5-6-5 lights, material bits, step/linear clips |
-| `studio_blocks.bme` | `$O/studio3d-sd/carts/blocks.bme` | bm Studio + bm Animator (`bm/studio`, `bm/animator`, `core/src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
-| `studio_copy3d.bme` | `$O/studio3d-sd/carts/copy3d.bme` | bm Studio under luahost: the village saved with no edits |
-| `mesh_village.bme` | `$O/mesh-sd/carts/village.bme` | bm Mesh (`bm/mesh/main.lua`) under luahost: villager edited with its skeleton (`meshcopy.bme` is byte-identical, not copied) |
-| `mesh_astrowin.bme` | `$O/mesh-sd/carts/astrowin.bme` | bm Mesh under luahost: Astro Wing models from the game's meshes |
+| `studio_blocks.bme` | `$O/studio3d-sd/bm/blocks.bme` | bm Studio + bm Animator (`bm/studio`, `bm/animator`, `core/src/script/bm3d.lua`) under luahost: new project, skeleton, clip |
+| `studio_copy3d.bme` | `$O/studio3d-sd/bm/copy3d.bme` | bm Studio under luahost: the village saved with no edits |
+| `mesh_village.bme` | `$O/mesh-sd/bm/village.bme` | bm Mesh (`bm/mesh/main.lua`) under luahost: villager edited with its skeleton (`meshcopy.bme` is byte-identical, not copied) |
+| `mesh_astrowin.bme` | `$O/mesh-sd/bm/astrowin.bme` | bm Mesh under luahost: Astro Wing models from the game's meshes |
 
 SHA-256 at copy time: `village_models.bm 696fd1b2…`, `anim_figure.bm ae8faf77…`,
 `studio_blocks.bme cda056d6…`, `studio_copy3d.bme f1cdd674…`, `mesh_village.bme ecfcd3e4…`,

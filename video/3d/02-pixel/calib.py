@@ -7,7 +7,7 @@ position, centre, normal and colour of every face of every model (key `~`), and 
 algorithm (nav) in Python. The log copy also traces every key (`KEY ...`), which is how the plan is checked (trace()).
 
   calib.build_dbg(out_dir) -> path of studio_dbg.bm
-  calib.dump(sd, out_dir)  -> {"CRATE": {"hot": 6, "faces": [...]}, ...}   (Studio opens /carts/TROPIC.BME)
+  calib.dump(sd, out_dir)  -> {"CRATE": {"hot": 6, "faces": [...]}, ...}   (Studio opens /bm/TROPIC.BME)
   calib.nav(pos, cur, d)   -> the face the pointer goes to
   calib.route(pos, a, b)   -> list of arrow names from face a to face b (None: unreachable)
 """

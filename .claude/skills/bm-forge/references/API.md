@@ -56,7 +56,7 @@ bm/<game>/models.bm       optional 3D models + skeletons + animations (or models
 ## 3. Packing: core/scripts/mkbm.py
 
 ```sh
-python3 core/scripts/mkbm.py -o hello.bm --lua carts/hello/main.lua --title "Hello" --author "me"
+python3 core/scripts/mkbm.py -o hello.bm --lua bm/hello/main.lua --title "Hello" --author "me"
 ```
 (`docs/API.md:41`). Options (`core/scripts/mkbm.py:428-443`):
 

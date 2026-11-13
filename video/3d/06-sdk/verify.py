@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks what the recording of episode 6 left (out/sd/carts/TROPIC.BME, out/06-sdk.bm, out/shots/r2*.png), without looking at a picture.
+"""Checks what the recording of episode 6 left (out/sd/bm/TROPIC.BME, out/06-sdk.bm, out/shots/r2*.png), without looking at a picture.
 
   python3 video/3d/06-sdk/verify.py [SD_DIR]
 

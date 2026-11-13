@@ -895,20 +895,20 @@ def test_wifi_probe(b, opts):
 
 
 def test_sd_games_bm(b, opts):
-    """The Pi menu scans /bm and the root, not /carts (25 Oct 2026): a game in
-    /bm or in the root is listed, a game left in /carts is not."""
+    """The Pi menu scans /bm and the root only: a game in /bm or in the root is
+    listed, a game in another folder (/old) is not."""
     tmp = tempfile.mkdtemp(prefix="bm-sdbm-")
     img = os.path.join(tmp, "sd.img")
     mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm"),
                      (b("bm/snake.bm"), "snake.bm"),
-                     (b("bm/astrowing.bm"), "bm/rgbgame.bm")])
+                     (b("bm/astrowing.bm"), "old/rgbgame.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     try:
         out = q.boot().decode(errors="replace")
         assert "label BMSD; 2 cartridges" in out, out
         q.send(":carts list\r")
         out = q.expect("> ").decode(errors="replace")
-        assert "/snake.bm" in out and "/bm/rgbgame.bm" in out and "/bm/pong.bm" not in out, out
+        assert "/snake.bm" in out and "/bm/pong.bm" in out and "/old/rgbgame.bm" not in out, out
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -1337,7 +1337,7 @@ function _init()
   show("w2", res_write("/bmm/tri.bmm", "model", { sections = { [8] = M, [2] = SHEET }, replace = true,
                                                   name = "Tri Two", author = "me" }))
   whole("r2", res_read("/BMM/TRI.BMM"))
-  for i, p in ipairs({ "/bmm/Tri.bmm", "/carts/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
+  for i, p in ipairs({ "/bmm/Tri.bmm", "/bm/x.bmm", "/bmm/toolongname.bmm", "/bmm/a/b.bmm", "/bmm/x.bm",
                        "/bmm/../x.bmm", "/bmm/.bmm", "/bmm/sp ace.bmm", "/bmm" }) do
     show("path" .. i, res_write(p, 1, { sections = { [8] = M } }))
   end
@@ -3303,7 +3303,7 @@ def test_market(b, opts):
     tab shows placeholders at once, the catalog and the covers arrive while
     the menu runs, nothing loads while another tab is shown, a game
     downloads with its progress on the cover, is checked, installed in
-    /carts and plays; a game already on the card shows as installed; a file
+    /bm and plays; a game already on the card shows as installed; a file
     that is not the catalog's is refused; leaving the tab does not stop a
     download (dbf1c1c: it goes on in the background)."""
     tmp = tempfile.mkdtemp(prefix="bm-market-")
@@ -3476,7 +3476,6 @@ def test_update(b, opts):
         other = "/kernel.img" if KERNEL7 else "/kernel7.img"
         files = [(k6, "/kernel.img"), (k7, "/kernel7.img"),
                  (snake2, "/bm/snake.bm"), (b("bm/pong.bm"), "/bm/pong.bm"),
-                 (b("bm/shooter.bm"), "/bm/shooter.bm"),
                  (os.path.join(HERE, "..", "core", "boot", "ca.pem"), "/bm/ca.pem")]
         args = [sys.executable, os.path.join(HERE, "..", "core", "scripts", "mkrelease.py"), rel, "--version", "v9.9.9",
                 "--commit", "abc1234", "--key", key, "--pub", pub]
@@ -3533,7 +3532,6 @@ def test_update(b, opts):
             lines = {l.split()[0]: l for l in out.replace("\r", "").splitlines() if l.startswith("  /")}
             assert lines["/kernel.img"].endswith("changed") and lines["/kernel7.img"].endswith("new"), lines
             assert lines["/bm/snake.bm"].endswith("changed") and lines["/bm/pong.bm"].endswith("same"), lines
-            assert lines["/bm/shooter.bm"].endswith("not on the card (Market)"), lines
             assert lines["/bm/ca.pem"].endswith("changed"), lines
             # the menu stayed on the panel: the check's result, then what it would write
             screen(["Check for updates", "v9.9.9: 4 files", "/kernel.img", "changed", "/kernel7.img", "new"])
@@ -3548,7 +3546,7 @@ def test_update(b, opts):
             out = q.expect("Restarting in 1", timeout=90).decode(errors="replace")
             assert "v9.9.9 installed" in out and "Restarting in 3" in out, out   # counted down
             for w in ("all 4 files downloaded and checked", "/kernel.img kept in /bm/backup",
-                      "written /carts/snake.bm", "written /bm/ca.pem", "written /kernel7.img",
+                      "written /bm/snake.bm", "written /bm/ca.pem", "written /kernel7.img",
                       "written /kernel.img"):
                 assert w in out, out
             assert out.index("written " + other) < out.index("written " + own), "this board's kernel last"
@@ -3570,9 +3568,9 @@ def test_update(b, opts):
         assert read("/KERNEL.IMG") == open(k6, "rb").read(), "kernel.img installed"
         assert read("/KERNEL7.IMG") == open(k7, "rb").read(), "kernel7.img installed"
         assert read("/BM/BACKUP/KERNEL.IMG") == open(old_kernel, "rb").read(), "the old kernel kept"
-        assert read("/CARTS/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
-        assert read("/CARTS/PONG.BM") == open(b("bm/pong.bm"), "rb").read(), "the same game untouched"
-        assert read("/CARTS/SHOOTER.BM") is None, "a game not on the card stays off it"
+        assert read("/BM/SNAKE.BM") == open(snake2, "rb").read(), "the changed game"
+        assert read("/BM/PONG.BM") == open(b("bm/pong.bm"), "rb").read(), "the same game untouched"
+        assert read("/BM/SHOOTER.BM") is None, "a game not on the card stays off it"
         assert read("/BM/CA.PEM") == open(os.path.join(HERE, "..", "core", "boot", "ca.pem"), "rb").read(), "ca.pem"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -6077,7 +6075,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -6213,12 +6211,12 @@ def test_code_editor(b, opts):
         # the games stay as they were: the saves went into their editable copies
         game = os.path.join(tmp, "game.bm")
         subprocess.run(["mcopy", "-i", part, "::/BM/Il mio demo.bm", game], check=True, env=env)
-        assert open(game, "rb").read() == open(b("carts/mapkit.bm"), "rb").read(), "the demo (a game) changed"
+        assert open(game, "rb").read() == open(b("bm/mapkit.bm"), "rb").read(), "the demo (a game) changed"
         out = os.path.join(tmp, "demo.bm")
         subprocess.run(["mcopy", "-i", part, "::/BME/ILMIODEM.BME", out], check=True, env=env)
         sys.path.insert(0, os.path.join(HERE, "..", "core", "scripts"))
         new = open(out, "rb").read()
-        old = open(b("carts/mapkit.bm"), "rb").read()
+        old = open(b("bm/mapkit.bm"), "rb").read()
         def sections(d):
             import struct
             n = d[17]
@@ -7140,7 +7138,7 @@ def test_sdk_suite(b, opts):
     bm SDK"; the SDK comes back on the project."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
 
@@ -7230,7 +7228,7 @@ def test_sdk_elastic(b, opts):
     tab bar at the top, the hint row and the status bar at the bottom."""
     tmp = tempfile.mkdtemp(prefix="bm-elastic-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("carts/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
     UP = "\x1b[A"
@@ -7315,7 +7313,7 @@ def test_suite_elastic(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nbm_screen=1280x720\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("carts/testkit.bm"), "bm/testkit.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/testkit.bm"), "bm/testkit.bm")])
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
         def k(s, gap=0.4):
@@ -7431,7 +7429,7 @@ def test_nano8(b, opts):
         q.expect("playing nano8.bm", timeout=10)
         time.sleep(2.0)
         q.send(" ")                            # A: the first cart, api.p8
-        q.expect("nano8: playing /carts/nano8/api.p8", timeout=20)
+        q.expect("nano8: playing /bm/nano8/api.p8", timeout=20)
         out = q.expect("checks, ", timeout=60) + q.expect("\n", timeout=5)
         out += q.expect("api: all tests passed", timeout=5)
         assert b"fail " not in out, out
@@ -7453,7 +7451,7 @@ def test_nano8(b, opts):
         q.send("d")
         time.sleep(0.4)
         q.send(" ")                            # an _init longer than a frame allows
-        q.expect("nano8: playing /carts/nano8/heavy.p8", timeout=20)
+        q.expect("nano8: playing /bm/nano8/heavy.p8", timeout=20)
         out = q.expect("heavy: done 9000", timeout=180)
         assert b"timeout" not in out, out
         q.send("\r")
@@ -7468,7 +7466,7 @@ def test_nano8(b, opts):
         q.send("d")
         time.sleep(0.4)
         q.send(" ")                            # the next cart: a .p8.png
-        q.expect("nano8: playing /carts/nano8/sixlets2.p8.png", timeout=20)
+        q.expect("nano8: playing /bm/nano8/sixlets2.p8.png", timeout=20)
         time.sleep(4.0)
         assert b"nano8: Runtime error" not in q.buf, q.buf
         if opts.shots:

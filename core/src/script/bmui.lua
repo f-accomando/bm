@@ -511,7 +511,7 @@ if raw_keyp and _ENV.keyp == raw_keyp then _ENV.keyp = mkeyp end
 -- core/src/bm/project.h). New projects are written in /bme; a project found next to its game
 -- (an old SD card) is still read, and saved where it is.
 U.PROJECTS = "/bme"
-local OLD_DIRS = { "/bm", "/carts", "/" }     -- the games folder, then the places of an old card
+local OLD_DIRS = { "/bm", "/" }             -- the games folder, then the root
 
 -- "/bm/my game.bm", "mygame.bme" or "my game" -> "/bme/mygame.bme" (8.3)
 function U.project_path(name)

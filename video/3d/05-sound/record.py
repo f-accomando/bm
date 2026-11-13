@@ -7,7 +7,7 @@ console's own editor (bm/sound/main.lua) run by bmhost --tool on a clean SD that
 Writes video/3d/05-sound/out/: input.txt (the keys; frame = seconds * 60; frame 0 = 0:12 of the finished video),
 overlay.json (key caps, scenes, narration, chapters), events.json (when each effect / the pattern / the song plays: verify.py
 measures the volume there), shots/ (PNG of the key moments), sound.wav (what the console played, mono 48 kHz),
-sd/carts/TROPIC.BME (what the editor saved) and the mp4 when ffmpeg is there (--no-video is the default where it is missing:
+sd/bm/TROPIC.BME (what the editor saved) and the mp4 when ffmpeg is there (--no-video is the default where it is missing:
 nothing else changes). Deterministic: the same script, the same run.
 
 Where the file goes. bm Sound saves into a PROJECT: Ctrl+S on a .bm (a game, read only) asks "Save an editable copy:

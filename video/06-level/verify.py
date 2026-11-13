@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks episode 6 from the files: the map (out/sd/carts/SKYVALE.BM) has the three layers
+"""Checks episode 6 from the files: the map (out/sd/bm/SKYVALE.BM) has the three layers
 of art.py cell by cell; the tree (sprite 9), the flag (10) and its pole (11) are in the sheet;
 the code has the camera, the layers at three speeds, the flag and the two screens, and runs;
 the recorded game (game.txt, the bot's buttons) goes from the title to the flag without

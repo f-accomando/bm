@@ -3,7 +3,7 @@
 
   python3 video/3d/03-animator/verify.py [PROJECT.bme|.bm] [--start START.bm]
 
-PROJECT defaults to video/3d/chain/03-animator.bme (else out/sd/carts/TROPIC.BME). START is the cartridge the episode began with
+PROJECT defaults to video/3d/chain/03-animator.bme (else out/sd/bm/TROPIC.BME). START is the cartridge the episode began with
 (default: chain/02-pixel.bm when it exists, else the stand-in video/3d/out/assets/models.bm): the MESH must be the same.
 Reads with core/scripts/bmres.py and bm_core (bm-forge), runs `bm_forge.py check` and compares the key poses with the reference
 clips of video/3d/assets (tropic_assets.bm, the output of video/3d/assets/build.py).

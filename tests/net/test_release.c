@@ -130,24 +130,24 @@ int main(int argc, char **argv)
 
     const char *sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     char buf[512];
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == 0, "a small manifest");
-    snprintf(buf, sizeof buf, "bm release\r\nversion v1\r\nfuture line\r\nfile a.bm /carts/a.bm 0 %s\r\n", sha);
+    snprintf(buf, sizeof buf, "bm release\r\nversion v1\r\nfuture line\r\nfile a.bm /bm/a.bm 0 %s\r\n", sha);
     check(parse_text(buf) == 0, "\\r\\n line ends and unknown lines");
-    snprintf(buf, sizeof buf, "bm33 release\nversion v1\nfile a.bm /carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm33 release\nversion v1\nfile a.bm /bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "wrong first line: refused");
-    snprintf(buf, sizeof buf, "bm release\nfile a.bm /carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nfile a.bm /bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "no version: refused");
     check(parse_text("bm release\nversion v1\n") == -1, "no files: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/../kernel.img 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /bm/../kernel.img 0 %s\n", sha);
     check(parse_text(buf) == -1, "path with ..: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a/b.bm /carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a/b.bm /bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "asset name with /: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm carts/a.bm 0 %s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm bm/a.bm 0 %s\n", sha);
     check(parse_text(buf) == -1, "relative path: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %.63s\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /bm/a.bm 0 %.63s\n", sha);
     check(parse_text(buf) == -1, "short SHA-256: refused");
-    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /carts/a.bm 0 %s extra\n", sha);
+    snprintf(buf, sizeof buf, "bm release\nversion v1\nfile a.bm /bm/a.bm 0 %s extra\n", sha);
     check(parse_text(buf) == -1, "extra field: refused");
 
     /* the second key, from the SD card */

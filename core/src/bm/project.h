@@ -48,7 +48,7 @@ int bm_is_game(const char *path);
  * SD card) is still read, and saved where it is. */
 #define BM_PROJECTS_DIR "/bme"
 
-/* The folder that holds the games: "/bm" on both consoles (the folder their menus read; /carts is not read). */
+/* The folder that holds the games: "/bm" on both consoles (the folder their menus read). */
 const char *bm_games_dir(void);
 
 /* The project path of a name or a game path, 8.3: "/bm/Il mio gioco.bm"
@@ -56,7 +56,7 @@ const char *bm_games_dir(void);
 int bm_project_path(const char *name, char *out, size_t n);
 
 /* The name the editable copy of a game takes: in /bme, the game's name
- * with .bme, or with a digit at the end if that is taken ("/carts/
+ * with .bme, or with a digit at the end if that is taken ("/bm/
  * pong.bm" -> "/bme/pong.bme", "/bme/pong1.bme"...). 0, or -1
  * if there is no free one. */
 int bm_copy_name(const char *game, char *out, size_t n);

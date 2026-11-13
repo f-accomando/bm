@@ -7,11 +7,10 @@ Standard library only (Linux / macOS / WSL).
   bm_net.py 192.168.1.108             asks for the password
   bm_net.py 192.168.1.108 -p 123456   (or BM_PASSWORD=123456)
 
-  bm_net.py IP --send build/bm/pong.bm   saved on the SD card in /carts
-                                        (the RGB30: a game goes to bm/); the console
-                                        answers once it arrived and writes it from its
+  bm_net.py IP --send build/bm/pong.bm   saved on the SD card in /bm
+                                        (the console answers once it arrived and writes it from its
                                         menu (a game that is open: when it is closed)
-  bm_net.py IP --send x.bm --to /bm   (another folder)
+  bm_net.py IP --send x.bm --to /bme   (another folder)
   bm_net.py IP --play game.bm           played at once, not saved
   bm_net.py IP --kernel build/kernel.img written as kernel.img, then reboot
   bm_net.py IP --kernel build/kernel7.img   the same on a Pi Zero 2 W (kernel7.img)
@@ -545,7 +544,7 @@ def main():
     ap.add_argument("-P", "--port", type=int, default=PORT)
     ap.add_argument("-p", "--password", default=os.environ.get("BM_PASSWORD"))
     ap.add_argument("--send", metavar="FILE", help="save FILE on the SD card (folder --to)")
-    ap.add_argument("--to", default="/carts", help="folder for --send (default /carts)")
+    ap.add_argument("--to", default="/bm", help="folder for --send (default /bm)")
     ap.add_argument("--name", help="8.3 name on the SD card (default: the file's)")
     ap.add_argument("--play", metavar="FILE", help="play a .bm at once")
     ap.add_argument("--kernel", metavar="FILE",

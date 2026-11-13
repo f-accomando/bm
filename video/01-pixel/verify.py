@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the cartridge bm Pixel saved in the recording (out/sd/carts/SKYVALE.BM)
+"""Checks the cartridge bm Pixel saved in the recording (out/sd/bm/SKYVALE.BM)
 against the art of art.py: every frame of the run, the jump and the coin, pixel
 by pixel (transparent or the right colour of the palette, RGB565 rounding).
 No pictures needed: the file is what the editor really wrote.
@@ -57,5 +57,5 @@ if len(solid) < 80 or len(cols) < 4:
     bad += 1
 extra = [(x, y) for y in range(h) for x in range(w) if x >= cx + 16 and px(x, y)]
 print("pixels outside the sprites:", len(extra))
-print("sheet %dx%d, files in /carts: %s" % (w, h, os.listdir(os.path.join(sd, "bm"))))
+print("sheet %dx%d, files in /bm: %s" % (w, h, os.listdir(os.path.join(sd, "bm"))))
 sys.exit(1 if bad or extra else 0)

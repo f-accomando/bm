@@ -4,7 +4,7 @@ Free games and apps for **bm**, the bare metal console for the Raspberry Pi Zero
 ([f-accomando/bm](https://github.com/f-accomando/bm)).
 
 - On the console: the **Market** tab, first in the menu. A downloads a game,
-  checks it and installs it in `/carts`; A again plays it.
+  checks it and installs it in `/bm`; A again plays it.
 - From a PC: the catalog is on <https://f-accomando.github.io/bm-market/>;
   download a game and send it with `core/tools/bm_net.py IP --send game.bm`.
 
@@ -73,7 +73,7 @@ python3 ../bm/scripts/mkmarket.py games --apps apps --add my-app.bm --kind app -
 - The console checks the signature with the Market key built into its
   kernel (`core/keys/market-pub.pem` in bm), then each file with its SHA-256,
   before it writes anything to the SD card. Every game runs in bm's sandbox:
-  Lua only; it writes only its own save and new `.bm` files in `/carts`,
+  Lua only; it writes only its own save and new `.bm` files in `/bm`,
   changed again only while it runs (never one that was there, another
   game); it cannot read the console's
   settings, so never its keys or passwords, nor use the services that spend

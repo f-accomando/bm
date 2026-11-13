@@ -5,7 +5,7 @@ To carry into `docs/video/03-animator/{shot-list,script,input}.md` (not edited h
 
 ## Keys and numbers (closed `[DA VERIFICARE]`)
 
-- Rows 2-3: bmhost starts in the menu with the file list already open and one file (`/carts/TROPIC.BM`): no `↓`, just `Enter`.
+- Rows 2-3: bmhost starts in the menu with the file list already open and one file (`/bm/TROPIC.BM`): no `↓`, just `Enter`.
   `0x7f` arrives as Backspace in every name prompt (5 presses clear `bone2`..`bone9` / `anim1`..`anim5`).
 - F2 axes (camera yaw 0.5, the default of the page): `d` +x, `a` -x, `w` +y, `s` -y, `r` +z, `f` -z. Pico faces +z, `.L` is on +x.
 - `n` on the empty model: `root` from the floor (0, 0, -0.25) to (0, 0.625, -0.25): Pico's boxes are not centred on z (the tail
@@ -30,7 +30,7 @@ To carry into `docs/video/03-animator/{shot-list,script,input}.md` (not edited h
   twice (off, on). `b` cycles 0, 25, 50, 75, 100 %, then 0 (three more presses to reset). `<` `>` are x0.5 / x2 (1/8 .. 4).
 - Rows 73-74: Ctrl+S on a `.bm` opens a box in bmhost too: "TROPIC.BM is a game ... Save an editable copy: TROPIC.BME?
   [Enter] Copy [Esc] No". It blocks the editor until answered; in bmhost the answer is the pad `A` (`pad 1 a`), on a keyboard
-  Enter or Space. Not answered, the run ends with "no editable copy made". Then the status line says `saved /carts/TROPIC.BME`.
+  Enter or Space. Not answered, the run ends with "no editable copy made". Then the status line says `saved /bm/TROPIC.BME`.
 - Row 76: `Esc` in the menu goes back to the page it came from (F1).
 - `build/animator.bm` of this checkout (31 KB, 17:54) stops with `main.lua:1: unexpected symbol near '#'`; `record.py` compiles its own
   `out/animator.bm` with `core/scripts/mkbm.py`, so it does not depend on it (someone should rebuild it: `make build/animator.bm`).

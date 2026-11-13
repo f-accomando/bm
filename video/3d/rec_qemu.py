@@ -5,7 +5,7 @@
 
 Reads  video/3d/NN-name/out/input.txt     (bmhost `FRAME type CODES` / `pad` / `shot`; frame 0 = the tool just opened)
        video/3d/NN-name/out/overlay.json  (keys, scenes, narration, chapters; lib3d.write_overlay)
-       video/3d/NN-name/out/sd/carts/*    (the files of the clean SD that record.py prepared: the start project)
+       video/3d/NN-name/out/sd/bm/*    (the files of the clean SD that record.py prepared: the start project)
 Makes  out/qemu/console.mkv  (640x360, lossless, 60 fps of guest time)
        out/qemu/overlay.ass, subs.srt, epNN_qemu.mp4   (1920x1080)
        out/qemu/sd/                        (the files the tool saved on the card: for verify.py and the chain)
@@ -123,10 +123,10 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
     events = qemurec.parse_input(os.path.join(out, ("input-%s.txt" % take) if take else "input.txt"))
     ov = json.load(open(os.path.join(out, ("overlay-%s.json" % take) if take else "overlay.json"), encoding="utf-8"))
     sd_dir = os.path.join(out, "sd", "bm")
-    files = [(os.path.join(sd_dir, f), "carts/" + f) for f in sorted(os.listdir(sd_dir))] if os.path.isdir(sd_dir) else []
+    files = [(os.path.join(sd_dir, f), "bm/" + f) for f in sorted(os.listdir(sd_dir))] if os.path.isdir(sd_dir) else []
     start = os.path.join(out, "start.bme")             # record.py's start project (out/sd holds what its bmhost run SAVED)
     if os.path.exists(start):
-        files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "carts/TROPIC.BME")]
+        files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start, "bm/TROPIC.BME")]
     else:                                              # a start cartridge .BM (video 3): the .BME of the bmhost run is its RESULT, not the start
         stems = {name.upper()[:-3] for _, name in files if name.upper().endswith(".BM")}
         files = [(src, name) for src, name in files if not (name.upper().endswith(".BME") and name.upper()[:-1] in stems)]
@@ -134,7 +134,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
         src = start_file or (os.path.join(out, "start.bme") if take == "r1" else os.path.join(out, "qemu-r1", "sd", "bm", "TROPIC.BME"))
         if not os.path.exists(src):
             raise SystemExit("missing " + src)
-        files = [(src, "carts/TROPIC.BME")]
+        files = [(src, "bm/TROPIC.BME")]
     orig_events = events
     events, delta_at = retime(events, min_gap=0 if serial else 4, any_gap=any_gap)
     print("retime: the last event moved %d frames" % delta_at(10 ** 9), flush=True)
@@ -150,7 +150,7 @@ def run(n, shift=2, intro=True, limit_s=None, out_sub="qemu", hold=3, any_gap=0,
         ov["say"] = [dict(e, **{"from": e["from"] - a0, "to": None if e["to"] is None else e["to"] - a0}) for e in ov["say"] if a0 <= e["from"] < b0]
         parts = [(tool, 0, None)]
         if start_file:
-            files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start_file, "carts/TROPIC.BME")]
+            files = [(src, name) for src, name in files if not name.upper().endswith(".BME")] + [(start_file, "bm/TROPIC.BME")]
     parts = [(t, a, b if b is not None else 10 ** 9) for t, a, b in parts]
 
     # the timeline: each part is shifted by `extra` frames so that its tool is up when its first key comes

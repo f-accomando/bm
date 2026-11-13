@@ -3,7 +3,7 @@
 
   python3 video/3d/08-gameplay/record.py [--rebot] [--video]      (run in WSL/Linux: bmhost is a Linux binary)
 
-  1. out/sd/carts/TROPIC.BM = the game of video 7 (chain/07-code.bm, or video/3d/07-code/out/07-code.bm);
+  1. out/sd/bm/TROPIC.BM = the game of video 7 (chain/07-code.bm, or video/3d/07-code/out/07-code.bm);
   2. bot.py plays it -> replay.txt (the button script; only if it is missing or with --rebot);
   3. bmhost-bin runs the game with replay.txt, no --tool: shots out/shots/p*.png and out/play.wav;
   4. with --video (needs ffmpeg): out/game.mp4, 480x270 x4 = 1920x1080 nearest, a small box with the buttons, the game's own sound.

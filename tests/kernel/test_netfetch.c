@@ -28,13 +28,13 @@ static void no(const char *src, const char *name, const char *why)
 
 int main(void)
 {
-    ok("https://example.org/carts/pong.bm", NULL, "https://example.org/carts/pong.bm", "/bm/pong.bm", 0);
+    ok("https://example.org/bm/pong.bm", NULL, "https://example.org/bm/pong.bm", "/bm/pong.bm", 0);
     ok("https://example.org/dl?id=7", "Snake.BM", "https://example.org/dl?id=7", "/bm/snake.bm", 0);
     ok("https://example.org/p/yharnam.bme?raw=1", NULL, "https://example.org/p/yharnam.bme?raw=1", "/bme/yharnam.bme", 0);
     ok("gh:f-accomando/bm-market/games/pong/pong.bm", NULL,
        "https://raw.githubusercontent.com/f-accomando/bm-market/HEAD/games/pong/pong.bm", "/bm/pong.bm", 1);
-    ok("gh:f-accomando/bm/carts/yharnam/yharnam.bme@bm-core", NULL,
-       "https://raw.githubusercontent.com/f-accomando/bm/bm-core/carts/yharnam/yharnam.bme", "/bme/yharnam.bme", 1);
+    ok("gh:f-accomando/bm/bm/yharnam/yharnam.bme@bm-core", NULL,
+       "https://raw.githubusercontent.com/f-accomando/bm/bm-core/bm/yharnam/yharnam.bme", "/bme/yharnam.bme", 1);
     ok("gh:o/r/a/b/agent.bm@claude/x", "my-ai.bm", "https://raw.githubusercontent.com/o/r/claude/x/a/b/agent.bm",
        "/bm/my-ai.bm", 1);
     ok("gh:f-accomando/bm-market/bmk/island/island.bmk", NULL,

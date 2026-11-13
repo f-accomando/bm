@@ -8,7 +8,7 @@ Three recordings on the same SD (docs/video/07-code/input.md):
      indentation (bm Code indents), F6 asks the assistant `third person camera` and Enter inserts block 4c, Ctrl+S.
   R3 bm SDK (editor.bm): Ctrl+O the project, Ctrl+B builds the game.
   R2 the game (bmhost-bin, no --tool): the built .bm, a scripted pad (the full run with the bot is video 8).
-Needs out/start.bme = the project of video 6 (video/3d/06-sdk/out/sd/carts/TROPIC.BME)."""
+Needs out/start.bme = the project of video 6 (video/3d/06-sdk/out/sd/bm/TROPIC.BME)."""
 import os
 import re
 import shutil

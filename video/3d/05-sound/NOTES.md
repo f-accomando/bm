@@ -1,7 +1,7 @@
 # Video 5 (bm Sound): corrections for docs/video/05-sound/shot-list.md and script.md
 
 - Row 101: a new bank's song 0 already has slot 1 = pattern 00. `Enter` there opens the pattern page (and the following keys edit pattern 00). Drop `Enter`; build from `i`.
-- Row 115: the "Save an editable copy" question is a kernel modal that reads the keyboard (Enter held), not the typed queue: input line `FRAME keys 0x28` then `keys none`. `type \n` hangs bmhost (wav grows without end). Saved file: /carts/TROPIC.BME (a complete cartridge, project flag on).
+- Row 115: the "Save an editable copy" question is a kernel modal that reads the keyboard (Enter held), not the typed queue: input line `FRAME keys 0x28` then `keys none`. `type \n` hangs bmhost (wav grows without end). Saved file: /bm/TROPIC.BME (a complete cartridge, project flag on).
 - `--wav` is STEREO 48 kHz (pan audible), not mono as script.md limit 7 and input.md say.
 - Rows 85-98: `=` on a track header is sound +1, `-` is -1; track n starts on sound n-1 (6 `=` reach KICK..PAD, 5 `-` give APPLE on track 6). Closed.
 - Row 2: the bar says "Tropic Trail assets has no sounds yet: make them, then Save puts them in it". Closed.

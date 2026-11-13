@@ -9,7 +9,7 @@ and the game makes them there (MAP.objects). The creatures and the areas are sti
     python3 bm/yharnam/build/mkmap.py [--luahost build/host/luahost]
         the map made from the street plan of main.lua (the first one, or to start again):
         tests/yharnam/mapgen.lua in luahost (make build/host/luahost)
-    python3 bm/yharnam/build/mkmap.py --from /mnt/d/carts/YHARNAM.BME
+    python3 bm/yharnam/build/mkmap.py --from /mnt/d/bm/YHARNAM.BME
         the map of a project (or a game) saved on the console: the SDK's map page, then Ctrl+S
     python3 bm/yharnam/build/mkmap.py --png map.png [--scale 0.5] [--no-objects]
         a picture of the map (with sheet.png, the placeholders over it; needs Pillow and numpy)

@@ -24,7 +24,7 @@ local Ui = {}       -- screens
 local Cfg = {}      -- settings and saved data (cartdata), on the SD card
 
 -- where the carts are looked for, in this order
-local DIRS = { "/bm/nano8", "/nano8", "/carts", "/" }
+local DIRS = { "/bm/nano8", "/nano8", "/bm", "/" }
 
 -- the console's colours
 local C = {

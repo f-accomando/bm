@@ -314,7 +314,7 @@ static void test_policy(void)
         CHECK(web_file_name(good[i], n, err, sizeof err) == 0, "file name \"%s\" -> %s", good[i], n);
     CHECK(web_file_name("model.glb", n, err, sizeof err) == 0 && strcmp(n, "model.glb") == 0, "lower case");
     static const char *const badf[] = {
-        "../x.txt", "..", "a/../b.txt", "/etc/passwd", "/kernel.img", "/bm/config.txt", "carts/x.txt", "bm/web/sub/x.txt",
+        "../x.txt", "..", "a/../b.txt", "/etc/passwd", "/kernel.img", "/bm/config.txt", "bm/x.txt", "bm/web/sub/x.txt",
         "bm/web/../x.txt", "x\\y.txt", ".hidden", "game.bm", "GAME.BME", "game.b16", "Game.Bm", "toolongname1.txt",
         "name.toolong", "a.b.c", "sp ace.txt", "", "dir/", "bm/web/", "name.", "bm/web//x.txt",
     };

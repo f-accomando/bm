@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/testkit.bm and mapkit.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/bm/testkit.bm and mapkit.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/pixel-sd"
 local checks, fails = 0, 0
@@ -234,7 +234,7 @@ E.ai = {
 }
 
 local function host(path) return SD .. path:lower() end
-local on_sd = { ["/carts"] = { "mapkit.bm", "testkit.bm" } }
+local on_sd = { ["/bm"] = { "mapkit.bm", "testkit.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -439,7 +439,7 @@ local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
   return ""
 end
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 
 -- the sprite being drawn and the colour, from the panel
 local function sprite_at()
@@ -464,7 +464,7 @@ local sample0 = file("mapkit.bm")
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/testkit.bm"), "at the start: the list of the files")
+check(sees("open a cartridge") and sees("/bm/testkit.bm"), "at the start: the list of the files")
 key("down", "\n")
 check(status():find("testkit.bm: sheet", 1, true) and status():find("(the file's palette)", 1, true),
       "the test kit: its sheet and the palette of its SHEET8: " .. status())
@@ -659,7 +659,7 @@ check(select(2, E.cart_sheet()) == h0 + 64, "the sheet is 64 pixels taller")
 -- save: only the sheet changes in the file; first a frame that says so
 keyq[#keyq + 1] = "^s"
 frames(1)
-check(sees("saving /carts/testkit.bm ..."), "Ctrl+S: saving first")
+check(sees("saving /bm/testkit.bm ..."), "Ctrl+S: saving first")
 key()
 check(status():find("saved /bme/testkit.bme", 1, true), "Ctrl+S: " .. status())
 check(file("testkit.bm") == kit0, "the game stays as it was: the save went into its copy, TESTKIT.BME")

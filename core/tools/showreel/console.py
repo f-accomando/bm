@@ -292,7 +292,7 @@ def boot(build, cart, tmp):
     cpath = os.path.join(tmp, "myvill.bm")
     with open(cpath, "wb") as f:
         f.write(cart)
-    mksd.build(img, [(cpath, "carts/myvill.bm"), (cfg, "bm/config.txt")])
+    mksd.build(img, [(cpath, "bm/myvill.bm"), (cfg, "bm/config.txt")])
     q = qt.Qemu(os.path.join(build, "kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     q.expect(qt.MENU, timeout=40)
     time.sleep(1.0)
@@ -354,7 +354,7 @@ def scenes(build, out):
             c.keys("x", 0.5)                            # the options of "My Village"
             c.keys("s", 0.4)
             c.keys(ENTER, 0.3)                          # Open in the SDK
-            c.see(["opened /carts/myvill.bm"])
+            c.see(["opened /bm/myvill.bm"])
             cap.mark("map")
             c.keys(F3, 0.8)                             # the sprites, then the map page
             c.keys(F3, 0.8)
@@ -392,7 +392,7 @@ def scenes(build, out):
             rect(*FIELD, EARTH, WATER)
             time.sleep(0.6)
             c.keys(CTRL("s"), 0.5)
-            c.see(["saved /carts/MYVILL.BM"])
+            c.see(["saved /bm/MYVILL.BM"])
             time.sleep(0.8)
             cap.mark("map-end")
             c.esc()                                     # the menu: Exit editor
@@ -437,7 +437,7 @@ def scenes(build, out):
             q.expect("code: #entry", timeout=20)
             time.sleep(1.2)
             c.keys(CTRL("s"), 0.5)
-            q.expect("code: saved /carts/myvill.bm", timeout=20)
+            q.expect("code: saved /bm/myvill.bm", timeout=20)
             time.sleep(0.8)
 
             # ---------------------------------------------- the game
@@ -463,7 +463,7 @@ def scenes(build, out):
             f.seek(2048 * 512)
             o.write(f.read())
         env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-        subprocess.run(["mcopy", "-n", "-i", part, "::/CARTS/MYVILL.BM", os.path.join(out, "myvill.bm")],
+        subprocess.run(["mcopy", "-n", "-i", part, "::/BM/MYVILL.BM", os.path.join(out, "myvill.bm")],
                        check=True, env=env)
     lua = dict(sections(open(os.path.join(out, "myvill.bm"), "rb").read()))[mkbm.SEC_LUA].decode()
     with open(os.path.join(out, "main.lua"), "w") as f:

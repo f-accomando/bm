@@ -77,7 +77,7 @@ static uint32_t sent, sent_at;          /* G: the bytes given to TCP, and when l
 /* S: the file received and checked, waiting to be written (one at a time:
  * the memory is the temporary copy, the card is written once) */
 static struct {
-    char path[72];              /* "/carts/PONG.BM" */
+    char path[72];              /* "/bm/PONG.BM" */
     uint8_t *data;              /* NULL: none */
     uint32_t len;
     int kernel;                 /* K: the PC waits for the answer, then the restart */
@@ -205,27 +205,12 @@ static int get_allowed(const char *p)
     return strncasecmp(p, "bm/shots/", 9) == 0 && p[9] && !strchr(p + 9, '/') && !strstr(p, "..");
 }
 
-/* "bm/pong.bm" and "/CARTS/PONG.BM" are the same file */
+/* "bm/pong.bm" and "/BM/PONG.BM" are the same file */
 static int same_path(const char *a, const char *b)
 {
     while (*a == '/') a++;
     while (*b == '/') b++;
     return strcasecmp(a, b) == 0;
-}
-
-/* The menus list bm/ (core/src/kernel/library.c): a game sent to carts/ (what
- * older versions of bm_net.py and easy_install.sh say) goes there. */
-static void to_menu_folder(void)
-{
-    const char *p = path[0] == '/' ? path + 1 : path;
-    const char *dot = strrchr(p, '.');
-    if (strncasecmp(p, "carts/", 6) == 0 && !strchr(p + 6, '/') && dot &&
-        (strcasecmp(dot, ".bm") == 0 || strcasecmp(dot, ".b16") == 0)) {
-        char name[sizeof path];
-        strcpy(name, p + 6);
-        memcpy(path, "bm/", 3);
-        strcpy(path + 3, name);         /* shorter than it was */
-    }
 }
 
 /* V (29 Oct 2026): the stream. The path is "WxH" or "WxH@ms": the picture the PC wants (at most 640x360; the page on
@@ -523,8 +508,6 @@ static void feed(const uint8_t *p, unsigned len)
                 }
                 return;
             }
-            if (op == 'S')
-                to_menu_folder();
             if (op == 'S' && bridge_file_name(path)) {
                 kprintf("net: refused, the bridge file is the user's (Settings > System > Bridge)\n");
                 fail("BF");
@@ -647,7 +630,7 @@ static int keep_net(void)
     return 0;
 }
 
-/* "bm/pong.bm" -> "/carts", "pong.bm"; "/pong.bm" -> "/", "pong.bm" */
+/* "bm/pong.bm" -> "/bm", "pong.bm"; "/pong.bm" -> "/", "pong.bm" */
 static int save(const char *p, const uint8_t *data, uint32_t len)
 {
     char dir[66] = "/";

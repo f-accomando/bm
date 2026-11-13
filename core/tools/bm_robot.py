@@ -162,7 +162,7 @@ def classify_hook_event(data):
         if exit_code:
             return ("debug", f"exit {exit_code}: debugging")
         if re.search(r"\b(make|arm-none-eabi-gcc|aarch64-linux-gnu-gcc|mkbm\.py|mkassist\.py)\b", cmd):
-            return ("compile", "building kernel/carts")
+            return ("compile", "building kernel/bm")
         if re.search(r"\b(qemu|pytest|gdb|bm_net\.py|consistency\.py|docs_audit\.py|test)\b", cmd):
             return ("debug", "testing & debugging")
         short_cmd = cmd.split("\n")[0].strip()[:28]

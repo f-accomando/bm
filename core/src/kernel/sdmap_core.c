@@ -134,7 +134,7 @@ static void list_file(const char *folder, const char *name, uint32_t bytes)
 static void add_file(const frame_t *f, const fat_entry_t *e)
 {
     const int kern = is_kernel_file(f->path, e->name);
-    const int in_bm = under(f->path, "/bm") || under(f->path, "/carts");
+    const int in_bm = under(f->path, "/bm");
     const int in_bme = under(f->path, "/bme");
     const int in_glb = under(f->path, "/glb");
     const int in_bmm = under(f->path, "/bmm");

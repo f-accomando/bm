@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the cartridge the SDK saved in the recording (out/sd/carts/SKYVALE.BM):
+"""Checks the cartridge the SDK saved in the recording (out/sd/bm/SKYVALE.BM):
 Kip's frames of episode 1 are still there, the five tiles are drawn as art.py says,
 their flags are set, the map has the level on layer 1 and the clouds on layer 2,
 and the code draws the map. Reads the file, no pictures.

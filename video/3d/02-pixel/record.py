@@ -8,15 +8,15 @@ input-studio.txt. The keys come from ONE Script (continuous frames = the seconds
 split at the cut (Pixel 0:08-2:22 = frames 480-8520, Studio 2:24-3:30 = frames 8640-12600; each file restarts at 0).
 
 Writes video/3d/02-pixel/out/: input.txt (all the keys, montage frames), input-pixel.txt, input-studio.txt, overlay.json
-(lib3d.write_overlay), shots/, sd/ (the SD after both recordings: carts/TROPIC.BME is the project saved by the editors),
+(lib3d.write_overlay), shots/, sd/ (the SD after both recordings: bm/TROPIC.BME is the project saved by the editors),
 bin/ (the two editors built here) and, when ffmpeg exists, ep02.mp4 (--no-video: the default without ffmpeg).
 Deterministic: the same script gives the same keys and the same project.
 
 Start: --start chain (default when video/3d/chain/01-studio.bme exists) copies the project of video 1 as
-carts/TROPIC.BME; --start forge uses the stand-in of standin.py (the reference models of video/3d/assets, flat colours,
+bm/TROPIC.BME; --start forge uses the stand-in of standin.py (the reference models of video/3d/assets, flat colours,
 on a sheet with bm Studio's starter tiles).
 
-Result: out/sd/carts/TROPIC.BME (project) -> video/3d/chain/02-pixel.bme and chain/02-pixel.bm (the same cartridge
+Result: out/sd/bm/TROPIC.BME (project) -> video/3d/chain/02-pixel.bme and chain/02-pixel.bm (the same cartridge
 without the project flag: `bmres` rewrite, the editors never touch a .bm; the .bm is what the next video opens).
 
 Editors: build/pixel.bm and build/studio.bm are NOT used: the Makefile rules of the suite apps pass `$<` (= bm.info)

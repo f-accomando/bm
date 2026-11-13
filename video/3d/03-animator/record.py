@@ -12,13 +12,13 @@ editor are in NOTES.md (spin, signs of w/s, the dialog of the editable copy ...)
 What it does
   1. builds the Script (keys, captions, scenes, narration) -> out/input.txt (the bmhost script, deterministic) and
      out/overlay.json (the key overlay data, lib3d.write_overlay);
-  2. a clean SD (lib3d.fresh_sd) with the start cartridge as /carts/TROPIC.BM:
+  2. a clean SD (lib3d.fresh_sd) with the start cartridge as /bm/TROPIC.BM:
        --start chain  video/3d/chain/02-pixel.bm (default when it exists)
        --start forge  the stand-in: video/3d/out/assets/models.bm (python video/3d/assets/build.py): PICO, APPLE, CRATE
                       painted by bm-forge, NO skeleton, a .bm = a game, which the Animator opens read only
                       (the first Ctrl+S makes the editable copy TROPIC.BME, as in the video);
   3. bmhost --tool (lib3d.run_headless) with --shots: no video unless ffmpeg is there (then out/ep03_main.mp4);
-  4. the project the editor saved (out/sd/carts/TROPIC.BME) goes to video/3d/chain/03-animator.bme; the .bm
+  4. the project the editor saved (out/sd/bm/TROPIC.BME) goes to video/3d/chain/03-animator.bme; the .bm
      (chain/03-animator.bm) is that project built like bm SDK's Ctrl+B (core/src/bm/project.c bm_build: project bit cleared,
      "built from" name written, nothing else changed): the SDK is another program, so the same step is done here.
   5. verify.py is run on it.

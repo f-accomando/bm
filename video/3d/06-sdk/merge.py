@@ -3,7 +3,7 @@
 
   python3 video/3d/06-sdk/merge.py [MAP.bm] [SOUND.bm] [-o out/start.bm]
 
-Defaults: video/3d/chain/04-map.bm (else the video 4 run, video/3d/04-map/out/sd/carts/TROPIC.BM) and video/3d/chain/05-sound.bm.
+Defaults: video/3d/chain/04-map.bm (else the video 4 run, video/3d/04-map/out/sd/bm/TROPIC.BM) and video/3d/chain/05-sound.bm.
 Only the AUDIO section of the sound file is taken and the LUA section is replaced; every other section stays byte for byte.
 """
 import os

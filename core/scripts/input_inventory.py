@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only inventory of the input each cartridge in carts/ reads, against the
+"""Read-only inventory of the input each cartridge in bm/ reads, against the
 games' input standard (docs/design/games-input-standard.md).
 
   python core/scripts/input_inventory.py [--games]

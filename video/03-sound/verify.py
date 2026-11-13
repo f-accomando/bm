@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks what bm Sound saved in the recording (out/sd/carts/SKYVALE.BM) and what it
+"""Checks what bm Sound saved in the recording (out/sd/bm/SKYVALE.BM) and what it
 played (out/sound.wav): the three sounds and three effects of the script, a song
 with patterns from riff, the tiles and map of episode 2 still there, and sound in
 the wav (not silence). No pictures.

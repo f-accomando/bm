@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the project that bm Pixel and bm Studio saved in the recording of episode 2 (out/sd/carts/TROPIC.BME), without
+"""Checks the project that bm Pixel and bm Studio saved in the recording of episode 2 (out/sd/bm/TROPIC.BME), without
 looking at a picture: the file is what the editors really wrote.
 
   python3 video/3d/02-pixel/verify.py [SD_DIR] [--start START.bme]

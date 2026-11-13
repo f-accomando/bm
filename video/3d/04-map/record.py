@@ -97,7 +97,7 @@ def build_script():
     # Open project dialog: Ctrl+O, then Enter on TROPIC.BME
     s.chord("o", what="Open project dialog")
     s.wait(20)
-    s.key("enter", what="Confirm open /carts/TROPIC.BME", cap="Enter", hold=10)
+    s.key("enter", what="Confirm open /bm/TROPIC.BME", cap="Enter", hold=10)
     s.wait(25)
     # Open map editor: F3 once for sprites, F3 again for map
     s.key("f3", what="Switch to sprites", cap="F3", hold=8)

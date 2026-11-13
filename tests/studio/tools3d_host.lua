@@ -8,7 +8,7 @@
 --
 --   luahost tests/studio/tools3d_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/testkit.bm must be there (a copy of build/bm/testkit.bm).
+-- SDDIR/bm/testkit.bm must be there (a copy of build/bm/testkit.bm).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/studio3d-sd"
 local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
@@ -176,7 +176,7 @@ end
 
 ----------------------------------------------------------------- the SD card and the project (shared by the two programs)
 
-local on_sd = { ["/carts"] = { "testkit.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
+local on_sd = { ["/bm"] = { "testkit.bm" }, ["/pics"] = { "hero.png", "notes.txt" } }
 local function host(path) return SD .. path:lower() end
 local sec = {}                -- the project's MESH (8) and ANIM (9)
 local sheet = { w = 256, h = 256, px = {} }
@@ -630,8 +630,8 @@ local function type_text(t)
 end
 
 local function open_file(name)
-  local list = {}                        -- the picker's order: /bme, /carts, the root; sorted by path
-  for _, dir in ipairs({ "/bme", "/bmm", "/carts", "/" }) do
+  local list = {}                        -- the picker's order: /bme, /bm, the root; sorted by path
+  for _, dir in ipairs({ "/bme", "/bmm", "/bm", "/" }) do
     for _, f in ipairs(E.ls(dir)) do
       if f.name:match("%.bm$") or f.name:match("%.bme$") or (dir == "/bmm" and f.name:match("%.bmm$")) then
         list[#list + 1] = (dir == "/" and "" or dir) .. "/" .. f.name
@@ -665,7 +665,7 @@ run_cart(STUDIO)
 E._init()
 frames(2)
 check(sees("open a cartridge"), "at the start: the list of the files")
-check(sees("/carts/testkit.bm"), "the test kit is in the list")
+check(sees("/bm/testkit.bm"), "the test kit is in the list")
 
 -- open the test kit: 8 models; the models page lists them
 open_file("testkit.bm")
@@ -786,7 +786,7 @@ local copy = read_file(SD .. "/bme/copy3d.bme")
 local got = {}
 for _, s in ipairs(sections_of(copy)) do got[s[1]] = s[2] end
 local vil = {}
-for _, s in ipairs(sections_of(read_file(SD .. "/carts/testkit.bm"))) do vil[s[1]] = s[2] end
+for _, s in ipairs(sections_of(read_file(SD .. "/bm/testkit.bm"))) do vil[s[1]] = s[2] end
 check(got[8] == orig8 and got[9] == orig9, "a copy with no edits keeps MESH and ANIM as they were")
 check(got[5] == vil[5] and got[1] == vil[1] and got[4] == vil[4], "and the sheet, the code and the cover (cart_write)")
 
@@ -1312,10 +1312,10 @@ check(sees("mixed with wave: 25%"), "b: mixed with the next one")
 key("f3")
 check(sees("ANIMATIONS") and sees("BONES") and sees("idle  1/3"), "animate: the walker's animations")
 menu_pick("Open in bm Studio", EXIT_A)
-check(tooled and tooled[1] == "studio" and tooled[2] == "/carts/testkit.bm", "Open in bm Studio: cart_tool")
+check(tooled and tooled[1] == "studio" and tooled[2] == "/bm/testkit.bm", "Open in bm Studio: cart_tool")
 
 -- (a fresh bm Animator: the first one leaves the page when it opens bm Studio)
-run_cart(ANIMATOR, "/carts/testkit.bm")
+run_cart(ANIMATOR, "/bm/testkit.bm")
 E._init()
 frames(3)
 for _ = 2, vi do key("down") end
@@ -1506,7 +1506,7 @@ local function click(x, y, b)
   mouse(x, y, 0); mouse(x, y, b or 1); mouse(x, y, 0); frames(1)
 end
 
-run_cart("/bm/studio/main.lua", "/carts/testkit.bm")
+run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
 E._init()
 frames(3)
 local mx, my = at("models", nil, 0)
@@ -1557,7 +1557,7 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "models", go = function() key("f2") end },
   } }
 
-run_cart("/bm/animator/main.lua", "/carts/testkit.bm")
+run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
 E._init()
 frames(3)
 mx, my = at("walker", 16)
@@ -1635,7 +1635,7 @@ do
   end
   local function bmm_has(name) return MF.card["/bmm"][name .. ".bmm"] ~= nil end
 
-  run_cart("/bm/studio/main.lua", "/carts/testkit.bm")
+  run_cart("/bm/studio/main.lua", "/bm/testkit.bm")
   E._init()
   frames(3)
   local n0 = #cur_models()
@@ -1722,7 +1722,7 @@ do
   key("f2", "del", "del")
 
   -- bm Animator: the same list, a model with a skeleton opens on its page
-  run_cart("/bm/animator/main.lua", "/carts/testkit.bm")
+  run_cart("/bm/animator/main.lua", "/bm/testkit.bm")
   E._init()
   frames(3)
   local a0 = #cur_models()

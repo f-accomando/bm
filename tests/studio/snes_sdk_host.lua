@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/pixel_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/testkit.bm and mapkit.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/bm/testkit.bm and mapkit.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/pixel-sd"
 local checks, fails = 0, 0
@@ -250,7 +250,7 @@ E.ai = {
 }
 
 local function host(path) return SD .. path:lower() end
-local on_sd = { ["/carts"] = { "mapkit.bm", "testkit.bm" } }
+local on_sd = { ["/bm"] = { "mapkit.bm", "testkit.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -494,7 +494,7 @@ local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
   return ""
 end
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 
 -- the sprite being drawn and the colour, from the panel
 local function sprite_at()

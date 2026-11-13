@@ -370,9 +370,9 @@ static void test_sdmap(void)
 static void test_project(void)
 {
     char out[96], err[64];
-    CHECK(bm_project_path("/carts/Il mio gioco.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/ilmiogio.bme"));
+    CHECK(bm_project_path("/bm/Il mio gioco.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/ilmiogio.bme"));
     CHECK(bm_project_path("pong.bm", out, sizeof out) == 0 && !strcmp(out, "/bme/pong.bme"));
-    CHECK(bm_is_project("/bme/PONG.BME") && bm_is_project("/carts/old.bme") && !bm_is_project("/bm/pong.bm"));
+    CHECK(bm_is_project("/bme/PONG.BME") && bm_is_project("/bm/old.bme") && !bm_is_project("/bm/pong.bm"));
 
     /* a game in the games folder, as the card has it */
     uint8_t cart[BM_HEADER_SIZE + 16];
@@ -699,18 +699,18 @@ int main(int argc, char **argv)
     uint8_t *p1 = pattern(37, 101);
     CHECK(read_back("/bm/save/f0000001.sav", p1, 37));
     free(p1);
-    CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) == 0);
+    CHECK(fat_find("/bm/Un gioco da cancellare.bm", &fe) == 0);
     /* a long name keeps its name when its content is replaced */
     uint8_t *p2 = pattern(9000, 77);
-    CHECK(fat_replace("/carts/un gioco da cancellare.bm", p2, 9000) == 0);
-    CHECK(read_back("/carts/Un gioco da cancellare.bm", p2, 9000));
+    CHECK(fat_replace("/bm/un gioco da cancellare.bm", p2, 9000) == 0);
+    CHECK(read_back("/bm/Un gioco da cancellare.bm", p2, 9000));
     free(p2);
-    CHECK(fat_replace("/carts/nessuno.bm", "x", 1) != 0);
+    CHECK(fat_replace("/bm/nessuno.bm", "x", 1) != 0);
     CHECK(fat_replace("/bm/save", "x", 1) != 0);
-    CHECK(fat_delete("/carts/un gioco da CANCELLARE.bm") == 0);
-    CHECK(fat_find("/carts/Un gioco da cancellare.bm", &fe) != 0);
+    CHECK(fat_delete("/bm/un gioco da CANCELLARE.bm") == 0);
+    CHECK(fat_find("/bm/Un gioco da cancellare.bm", &fe) != 0);
     CHECK(read_back(argv[3], orig, orig_len));
-    CHECK(fat_delete("/carts/Un gioco da cancellare.bm") != 0);    /* gone already */
+    CHECK(fat_delete("/bm/Un gioco da cancellare.bm") != 0);    /* gone already */
     CHECK(fat_delete("/bm/save") != 0);                           /* a directory */
     for (int i = 0; i < 10; i++) {
         char name[16];

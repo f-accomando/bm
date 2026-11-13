@@ -1,5 +1,5 @@
---- a/carts/editor/main.lua
-+++ b/carts/editor/main.lua
+--- a/bm/editor/main.lua
++++ b/bm/editor/main.lua
 @@ -2158,10 +2158,10 @@
        local tx0, tx1 = mx // 2 * 1.0, (mx // 2 + 1) * 1.0
        local tz0, tz1 = my // 2 * 1.0, (my // 2 + 1) * 1.0

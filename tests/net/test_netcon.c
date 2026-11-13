@@ -581,7 +581,7 @@ int main(int argc, char **argv)
         memset(b, 'b', sizeof b);
         client_t x;
         w_name[0] = 0;
-        xfer(&x, 'S', "secret", "carts/game.bm", a, sizeof a, 0, 4);
+        xfer(&x, 'S', "secret", "bm/game.bm", a, sizeof a, 0, 4);
         check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "file: QD once checked, nothing written yet");
         check(netxfer_write_pending() && netxfer_updating("/BM/GAME.BM") == NETXFER_QUEUED &&
               !netxfer_updating("/bm/other.bm"), "  queued: the menu tags that game only");
@@ -589,11 +589,11 @@ int main(int argc, char **argv)
         uint32_t d = 1, t = 0;
         check(netxfer_file_state(nm, sizeof nm, &d, &t) == NETXFER_QUEUED && strcmp(nm, "game.bm") == 0 &&
               d == 0 && t == sizeof a, "  its name and size");
-        xfer(&x, 'S', "secret", "carts/other.bm", b, sizeof b, 0, 2);
+        xfer(&x, 'S', "secret", "bm/other.bm", b, sizeof b, 0, 2);
         check(strcmp(x.got, "BY") == 0, "  another file meanwhile: BY, refused after the header");
         xfer(&x, 'K', "secret", "kernel.img", b, sizeof b, 0, 2);
         check(strcmp(x.got, "BY") == 0, "  a kernel meanwhile: BY");
-        xfer(&x, 'S', "secret", "/carts/GAME.BM", b, sizeof b, 0, 4);
+        xfer(&x, 'S', "secret", "/bm/GAME.BM", b, sizeof b, 0, 4);
         check(strcmp(x.got, "OKQD") == 0 && w_name[0] == 0, "  the same game again: QD, it replaces the copy waiting");
         netxfer_write_pause();
         check(w_name[0] == 0 && netxfer_write_pending(), "  a pause before the write started: still waiting");
@@ -731,7 +731,7 @@ int main(int argc, char **argv)
     struct { char op; const char *pw, *path; uint32_t crc_xor; const char *answer, *what, *mark; int arm64; } cases[] = {
         { 'S', "secret", "bm/pong.bm", 0, "OKQD", "file saved on the SD card", NULL, 0 },
         { 'S', "nope", "bm/pong.bm", 0, "PW", "wrong password refused", NULL, 0 },
-        { 'S', "secret", "carts/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
+        { 'S', "secret", "bm/bad.bm", 1, "OKCE", "damaged file refused", NULL, 0 },
         { 'P', "secret", "x.bm", 0, "OKOK", "cartridge to play received", NULL, 0 },
         { 'K', "secret", "kernel7.img", 0, "OKKA", "the Pi Zero 2 W's kernel refused", "bmK7", 0 },
         { 'K', "secret", "kernel8.img", 0, "OKKA", "the RGB30's kernel refused", "\x10\0\0\x14", 1 },

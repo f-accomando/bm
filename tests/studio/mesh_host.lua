@@ -7,7 +7,7 @@
 --
 --   luahost tests/studio/mesh_host.lua ROOT SDDIR     (make test-studio)
 --
--- SDDIR/carts/astrowing.bm and testkit.bm must be there (games: the saves go into their .bme copies).
+-- SDDIR/bm/astrowing.bm and testkit.bm must be there (games: the saves go into their .bme copies).
 
 local ROOT, SD = arg[1] or ".", arg[2] or "build/mesh-sd"
 local MF = dofile(ROOT .. "/tests/studio/model_card.lua")      -- /bmm and /glb (APP-9)
@@ -218,7 +218,7 @@ end
 
 local function host(path) return SD .. path:lower() end
 
-local on_sd = { ["/carts"] = { "astrowing.bm", "testkit.bm" } }
+local on_sd = { ["/bm"] = { "astrowing.bm", "testkit.bm" } }
 E.ls = function(dir)
   local out = {}
   for _, n in ipairs(on_sd[dir] or {}) do out[#out + 1] = { name = n, size = 0, dir = false } end
@@ -460,7 +460,7 @@ local function goto_item(label)
   check(false, "the list has " .. label)
 end
 
-local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/carts/") .. name) end
+local function file(name) return read_file(SD .. (name:lower():match("%.bme$") and "/bme/" or "/bm/") .. name) end
 local function models_of(name) return mesh_models(section(file(name), 8)) end
 local function model_of(name, m)
   for _, x in ipairs(models_of(name)) do if x.name == m then return x end end
@@ -489,7 +489,7 @@ local lua0 = section(astro0, 1)
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/carts/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
+check(sees("open a cartridge") and sees("/bm/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
 -- no file: New file makes a cube (a model alone); n adds another; Ctrl+S names it in /bmm
 key("\n")
 check(sees("VERTICES") and status():find("new file", 1, true) ~= nil, "New file: the cube in the edit page: " .. status())
@@ -674,10 +674,10 @@ check(section(file("astrowin.bme"), 1) == lua0, "no code meshes left: the code i
 key("f5")
 check(ran and ran:upper() == "/BME/ASTROWIN.BME", "F5: the project runs: " .. tostring(ran))
 
--- the test kit: a model with a skeleton keeps it (the list: astrowin.bme,
--- astrowing.bm, testkit.bm)
+-- the test kit: a model with a skeleton keeps it (the picker: the project in /bme, then /bm/astrowing.bm,
+-- /bm/testkit.bm)
 key("esc", "down", "down", "\n")
-for _ = 1, 6 do key("down") end
+for _ = 1, 7 do key("down") end
 key("\n")
 check(status():find("8 models", 1, true), "the test kit: " .. status())
 goto_item("M walker")
@@ -2388,7 +2388,7 @@ do
     key("f2")
     for _ = 1, 3 do if sees("VERTICES:") then break end key("\t") end
     key("^s")
-    local file_name = status():match("saved /bme/(%S+)") or status():match("saved /carts/(%S+)")
+    local file_name = status():match("saved /bme/(%S+)") or status():match("saved /bm/(%S+)")
     return file_name
   end
   local fname = new_cube("cmf")
@@ -3195,7 +3195,7 @@ do
     key("f2")
     for _ = 1, 3 do if sees("VERTICES:") then break end key("\t") end
     key("^s")
-    return status():match("saved /bme/(%S+)") or status():match("saved /carts/(%S+)")
+    return status():match("saved /bme/(%S+)") or status():match("saved /bm/(%S+)")
   end
   local function edges_mode() for _ = 1, 3 do if sees("EDGES:") then return end key("\t") end end
   local fname = new_cube("bvl")

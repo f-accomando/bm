@@ -11,10 +11,10 @@ Build first: `make build/kernel.img` (the kernel holds the editors; after a `git
 
 ## Run
 
-1. `python3 video/3d/NN-name/record.py --no-video` (bmhost, seconds): writes `out/input.txt`, `out/overlay.json`, `out/sd/carts/*`, the answer of `verify.py`.
+1. `python3 video/3d/NN-name/record.py --no-video` (bmhost, seconds): writes `out/input.txt`, `out/overlay.json`, `out/sd/bm/*`, the answer of `verify.py`.
 2. `python3 video/3d/rec_qemu.py NN --shift 1` -> `out/qemu/{console.mkv, overlay.ass, subs.srt, epNN_qemu.mp4, sd/}`.
    Tests: `--limit-s 40` (first 40 s of the script), `--part 2 --start-file X.bme` (one tool of a several-tool episode, `PARTS` in rec_qemu.py).
-3. `python3 video/3d/NN-name/verify.py out/qemu/sd/carts/TROPIC.BME` (episode 5: a folder with `sd/`, `sound.wav`, `events.json`).
+3. `python3 video/3d/NN-name/verify.py out/qemu/sd/bm/TROPIC.BME` (episode 5: a folder with `sd/`, `sound.wav`, `events.json`).
 4. Chain: copy the saved project to `video/3d/chain/NN-name.bme` and export the `.bm` as the episode's record.py does.
 
 ## What is true (measured; do not rediscover)

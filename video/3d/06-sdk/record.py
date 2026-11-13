@@ -7,7 +7,7 @@ The video is three recordings of bmhost --tool (docs/video/06-sdk/input.md): R1 
 R2 the cartridge running by itself (12 s, no keys). This script writes the key scripts and overlays of R1 and R3 and runs them:
   - out/start.bm              the map of video 4 + the sound of video 5 + preview.lua (merge.py)
   - out/input-r1.txt, out/overlay-r1.json, out/input-r3.txt, out/overlay-r3.json
-  - out/sd/                   a clean SD card with start.bme (the project) as /carts/TROPIC.BME (R1 and R3 share it)
+  - out/sd/                   a clean SD card with start.bme (the project) as /bm/TROPIC.BME (R1 and R3 share it)
 The cursor moves to each marker of preview.lua by counting its lines, so the six lines go under the right marker.
 Keys proven with bmhost screenshots (proto.py): Ctrl+O Enter, F1, F2, End, Enter, arrows, typed text."""
 import os
@@ -93,7 +93,7 @@ def build_r1():
     s.sec(0.5)
     s.chord("o", what="Open")
     s.wait(25)
-    k(s, "enter", "Open /carts/TROPIC.BME", "Enter", 40)
+    k(s, "enter", "Open /bm/TROPIC.BME", "Enter", 40)
     s.until(4, "F1")
     k(s, "f1", "The project page", "F1", 30)
     s.until(7, "F4")

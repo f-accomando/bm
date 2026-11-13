@@ -173,11 +173,11 @@ def declare_both(data):
 
 
 def make_sd(tmp, files, declare=True):
-    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and carts/ are made
+    """files: {"bm/name": bytes}; returns the image path. declare: the .bm carts of bm/ and bm/ are made
     for both kernels (declare_both), so the menu starts them with no question; False leaves them as they are."""
     src = []
     for i, (dest, data) in enumerate(files.items()):
-        if declare and dest.lower().endswith(".bm") and dest.split("/")[0] in ("bm", "carts"):
+        if declare and dest.lower().endswith(".bm") and dest.split("/")[0] in ("bm", "bm"):
             data = declare_both(data)
         path = os.path.join(tmp, f"f{i}")
         with open(path, "wb") as f:
@@ -931,17 +931,16 @@ def test_game_send(b, opts):
 
 
 def test_games_in_bm_only(b, opts):
-    """The Games tab lists the games of bm/ and not those of /carts (25 Oct 2026: both
-    kernels stop scanning /carts): a cartridge built by the SDK or sent over the network is in
-    bm/; one left in /carts is not listed."""
+    """The Games tab lists the games of bm/ and not those of another folder (/old):
+    a cartridge sent over the network is in bm/; one left in /old is not listed."""
     tmp = tempfile.mkdtemp(prefix="bm64carts-")
     built_bm = mkbm.pack(TRY_ME.encode(), title="Built in bm", author="tests", res=(360, 360))
-    old_bm = mkbm.pack(TRY_ME.encode(), title="Left in carts", author="tests", res=(360, 360))
+    old_bm = mkbm.pack(TRY_ME.encode(), title="Left in old", author="tests", res=(360, 360))
     tryme_b16 = mkbm.pack(TRY_ME.encode(), title="Try me", author="tests", res=(360, 360))
     sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n",
                        "bm/tryme.b16": tryme_b16,
                        "bm/built.bm": built_bm,
-                       "carts/old.bm": old_bm})
+                       "old/old.bm": old_bm})
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         out = boot(q)
@@ -951,7 +950,7 @@ def test_games_in_bm_only(b, opts):
         keys(q, "d")
         time.sleep(0.5)
         text += screen_all(q.screendump())
-        assert "Built in bm" in text and "Try me" in text and "Left in carts" not in text, text
+        assert "Built in bm" in text and "Try me" in text and "Left in old" not in text, text
     finally:
         q.close()
 

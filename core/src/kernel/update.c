@@ -48,8 +48,8 @@
 #define WHERE_INSTALL "Settings > System > Install the update"
 #endif
 
-enum { F_SKIP, F_SAME, F_NEW, F_CHANGED, F_ABSENT_GAME };
-static const char *const words[] = { "", "same", "new", "changed", "not on the card (Market)" };
+enum { F_SKIP, F_SAME, F_NEW, F_CHANGED };
+static const char *const words[] = { "", "same", "new", "changed" };
 
 static struct {
     int checked, ok;
@@ -242,9 +242,8 @@ static void plan(void)
         size_t len;
         int w;
         if (fat_find(f->path, &e) != 0 || e.is_dir) {
-            /* a game deleted from the card stays deleted (the Market has
-             * it); a kernel or the certificates go there anyway */
-            w = strncmp(f->path, "/carts/", 7) == 0 ? F_ABSENT_GAME : F_NEW;
+            /* a file the card does not have: a kernel or the certificates go there anyway */
+            w = F_NEW;
         } else if (e.size == f->size && fat_load(&e, &d, &len) == 0) {
             w = check_timed(f, d, len) == 0 ? F_SAME : F_CHANGED;
             free(d);

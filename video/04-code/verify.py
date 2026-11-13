@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks episode 4 from the files: the code bm Code saved in the cartridge
-(out/sd/carts/SKYVALE.BM) has the three functions, indented by the editor, and
+(out/sd/bm/SKYVALE.BM) has the three functions, indented by the editor, and
 runs; the recorded game (out/game.txt) shows what the narrator says: Kip stands on a
 platform after the hop, falls on the spikes once and goes back to the start, then
 jumps the pit and ends on the far side; the sound of the game recording is not

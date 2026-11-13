@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks what the recording of episode 7 left (out/sd/carts/TROPIC.BME, out/07-code.bm, out/shots/g*.png).
+"""Checks what the recording of episode 7 left (out/sd/bm/TROPIC.BME, out/07-code.bm, out/shots/g*.png).
 
   python3 video/3d/07-code/verify.py [SD_DIR]
 

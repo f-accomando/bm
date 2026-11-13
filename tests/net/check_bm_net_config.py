@@ -258,8 +258,8 @@ def main():
           "--send still the same (bm/CHECK.PY)")
 
     new = Console(queues=True)
-    rc, out = run(new, job=("--send", __file__, "--name", "CHECK.PY", "--to", "/carts"))
-    check(rc == 0 and "writes it from its menu" in out and new.got[-1][:2] == (b"S", "carts/CHECK.PY"),
+    rc, out = run(new, job=("--send", __file__, "--name", "CHECK.PY", "--to", "/bm"))
+    check(rc == 0 and "writes it from its menu" in out and new.got[-1][:2] == (b"S", "bm/CHECK.PY"),
           "--send to a newer kernel: QD, received, written from its menu")
     busy = Console(busy=True)
     rc, out = run(busy, job=("--send", __file__, "--name", "CHECK.PY"))

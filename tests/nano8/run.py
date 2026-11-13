@@ -30,7 +30,7 @@ def main():
     a = ap.parse_args()
     host = os.path.join(a.build, "host")
     main_lua = os.path.join(a.build, "nano8", "main.lua")
-    api = os.path.join(HERE, "bm", "api.p8")
+    api = os.path.join(HERE, "carts", "api.p8")
     carts = [api] + a.carts
     fails = 0
 

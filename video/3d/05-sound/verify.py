@@ -3,7 +3,7 @@
 
   python3 video/3d/05-sound/verify.py [OUT_DIR] [--start forge|chain]
 
-Reads OUT_DIR/sd/carts/TROPIC.BME (OUT_DIR default: video/3d/05-sound/out; what the editor saved), the cartridge of the chain
+Reads OUT_DIR/sd/bm/TROPIC.BME (OUT_DIR default: video/3d/05-sound/out; what the editor saved), the cartridge of the chain
 (video/3d/chain/05-sound.bm / .bme, when record.py put them there), OUT_DIR/sound.wav (what the console played) and
 OUT_DIR/events.json (the frames where record.py plays an effect or the song). The answers are the recipes of
 docs/video/05-sound/script.md, written here again as raw editor values (not taken from record.py).

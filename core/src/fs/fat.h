@@ -47,7 +47,7 @@ uint32_t fat_total_clusters(void);
 typedef struct { uint32_t next, free; } fat_free_t;
 int fat_free_step(fat_free_t *st, uint32_t max_sectors);
 
-/* Opens a directory by path ("/" or "/carts", case insensitive). */
+/* Opens a directory by path ("/" or "/bm", case insensitive). */
 int fat_opendir(fat_dir_t *d, const char *path);
 /* Next entry (skips volume labels, "." and ".."). Returns 1, or 0 at the end. */
 int fat_readdir(fat_dir_t *d, fat_entry_t *e);
@@ -111,7 +111,7 @@ int fat_write_runs(int on);
  * does not write its last run's log over one before a restart. */
 int fat_writing(void);
 
-/* Deletes a file ("/carts/Il mio gioco.bm", long names too; not a
+/* Deletes a file ("/bm/Il mio gioco.bm", long names too; not a
  * directory). The directory entry goes first, then the clusters are
  * released (a FAT sector's worth at a time): a power cut in between only
  * leaves lost clusters. */
