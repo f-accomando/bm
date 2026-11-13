@@ -1,0 +1,75 @@
+bm report
+kind: freeze
+kernel: v0.3.0-123-g612e494a
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-98bb59_freeze_pi-zero-w_v0.3.0-123-g612e494a.txt
+
+the Pi froze (the watchdog restarted it) while: cartart: the log to the SD, frame 0, 263 s after boot, kernel v0.3.0-123-g612e494a, ring 161191, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+nes gpu 0 arm 0 copies 0 | gpu_m7 seen lines 924323 runs 0 kept by arm: other-bg 923910 sprites 413 window 0 math 0
+bm: "bm SNES" suspended (A on its cover resumes it)
+bm: "bm SNES" 12007 frames, 56.0 fps, 707 dropped
+     update+draw avg 14.49 ms (86% of frame), max 99.31 ms, Lua 191 KB
+     dev kit: Lua peak 1202 KB, data 516 KB, busiest frame 3k instructions, 5186 frames over 16.7 ms, 4523 tokens
+     GPU 3D 404 jobs, 128 triangles a frame, 0.36 ms a frame (bin 6%), max job 16570 us
+report: session_bm-snes_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 9.2 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+fiber: reports did not yield: 103.9 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-coreasured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (ridle: 300/300 frames, 533 of 7000 ep 85 mps 64 every 2ms, report desc 27
+usb: keyboard 05ac:02676/128K, stop 18.2); min slack -6ayout it
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 4/10
+boot: restarting once more (newbuild_restart=0 in bm/config.txt turns this off)
+rt: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 100 of 245 ms taken, 21.1 ms past a frame; reports 87 ms (+21.4, stk 7.6/128K); min slack -15851 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 14532 us, enlarge 0 us, flip 96 us, free time used 335 us (300 frames)
+menu frame: 1x, a frame averages draw 14491 us, enlarge 0 us, flip 93 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 14719 us, enlarge 0 us, flip 95 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 14642 us, enlarge 0 us, flip 93 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 14541 us, enlarge 0 us, flip 95 us, free time used 44 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 265626 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 265635 ms, 1 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
+report: 20261113-141943_log_pi-zero-w_v0.3.0-116-g8cdf25ec.txt saved as bm/reports/rpt00001.txt
+report: sending 20261113-141943_log_pi-zero-w_v0.3.0-116-g8cdf25ec.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-141943_log_pi-zero-w_v0.3.0-116-g8cdf25ec.txt
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (6956996 bytes)...
+net: kernel 0% (0 of 6793 KB)
+net: kernel 10% (679 of 6793 KB)
+net: kernel 20% (1359 of 6793 KB)
+net: kernel 30% (2039 of 6793 KB)
+net: kernel 40% (2723 of 6793 KB)
+net: kernel 50% (3401 of 6793 KB)
+net: kernel 60% (4077 of 6793 KB)
+net: kernel 70% (4757 of 6793 KB)
+net: kernel 80% (5435 of 6793 KB)
+net: kernel 90% (6115 of 6793 KB)
