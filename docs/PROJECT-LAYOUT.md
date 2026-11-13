@@ -1,3 +1,16 @@
+# Repository layout
+
+The repository separates the platform from the applications.
+
+| Folder | Content |
+|---|---|
+| `core/` | the kernel and the platform: `src/` (kernel, drivers, runtime), `boot/`, `chainloader/`, `third_party/`, `keys/`, `tools/`, `scripts/`, `lua/` (Lua modules shared by the apps), `linker.ld`, `rgb30.mk` |
+| `bm/` | the apps and games, one folder each (`bm/<id>/`); the `.bm` files on the SD card are built from them |
+| `bmf/`, `art/`, `video/`, `web/` | media and assets |
+| `docs/`, `manuals/`, `tests/` | documents, manuals, tests |
+
+The SD card has the same split: the kernel files in the root, the apps and games in `bm/`, the ROMs of bm SNES in `snes/`. `Makefile` is at the root. Build output goes to `build/` (`build/bm/*.bm`).
+
 # Project layout: games and apps
 
 Common layout for `bm/<id>/` (games and apps). Migration is gradual: a folder without

@@ -1,7 +1,7 @@
 # Tools and SDK
 
 The on-console suite (bm SDK and editors), the assistant, the PC scripts, the Market, the
-tutorial videos and CI. User guide: [`sdk/README.md`](../../sdk/README.md); resources:
+tutorial videos and CI. User guide: [`sdk-readme.md`](../sdk-readme.md); resources:
 [`docs/RISORSE.md`](../RISORSE.md).
 
 ## How it is today

@@ -59,8 +59,8 @@ def has(p, want):
 def main():
     host, cart = sys.argv[1:3]
     tmp = tempfile.mkdtemp(prefix="snes-test-")
-    os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/sd/sfc"); os.makedirs(tmp + "/shots")
-    subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/sfc/bmtest.sfc"],   # the ROM folder
+    os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/sd/snes"); os.makedirs(tmp + "/shots")
+    subprocess.check_call([sys.executable, HERE + "/make_testrom.py", tmp + "/sd/snes/bmtest.sfc"],   # the ROM folder
                           stdout=subprocess.DEVNULL)
     script = ("5 shot browse\n10 pad 1 a\n12 pad 1 none\n60 shot f60\n200 shot f200\n"
               "210 pad 1 l2 r2\n260 pad 1 none\n330 shot menu\n"
@@ -110,9 +110,9 @@ def main():
         shutil.copy(tmp + "/shots/after.png", os.environ.get("SNES_DBG", "build/snes_fail.png"))
     # a long list: ten times down, the highlighted row must be on the screen (the list scrolls with the selector)
     sd2 = tmp + "/sd2"
-    os.makedirs(sd2 + "/sfc"); os.makedirs(sd2 + "/docs"); os.makedirs(tmp + "/shots2")
+    os.makedirs(sd2 + "/snes"); os.makedirs(sd2 + "/docs"); os.makedirs(tmp + "/shots2")
     for i in range(14):
-        shutil.copy(tmp + "/sd/sfc/bmtest.sfc", sd2 + "/sfc/rom%02d.sfc" % i)
+        shutil.copy(tmp + "/sd/snes/bmtest.sfc", sd2 + "/snes/rom%02d.sfc" % i)
     script2 = "5 shot top" + chr(10) + "".join("%d pad 1 down" % (10 + 4 * k) + chr(10) + "%d pad 1 none" % (12 + 4 * k) + chr(10) for k in range(10)) + "80 shot low" + chr(10)
     open(tmp + "/in2.txt", "w").write(script2)
     subprocess.check_call([host, cart, "--sd", sd2, "--seconds", "3", "--shots", tmp + "/shots2",

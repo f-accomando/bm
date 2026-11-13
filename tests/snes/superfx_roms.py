@@ -77,8 +77,8 @@ def diff(a, b):
 def play(host, cart, rom, seconds):
     tmp = tempfile.mkdtemp(prefix="superfx-")
     try:
-        os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/sd/sfc"); os.makedirs(tmp + "/shots")
-        shutil.copy(rom, tmp + "/sd/sfc/game.sfc")
+        os.makedirs(tmp + "/sd/docs"); os.makedirs(tmp + "/sd/snes"); os.makedirs(tmp + "/shots")
+        shutil.copy(rom, tmp + "/sd/snes/game.sfc")
         lines = ["5 shot browse", "10 pad 1 a", "12 pad 1 none"]
         f = 300
         while f < seconds * 60 - 60:                       # START, then A, now and then
