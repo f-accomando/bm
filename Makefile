@@ -1447,7 +1447,7 @@ MARKET_GAMES := $(filter-out $(MARKET_APPS_OF_GAMES),$(GAMES))
 # The apps (the bm editors): each one is a built-in cartridge, built as
 # build/<id>.bm and seeded in the apps/ folder of the Market. The RGB30 gets
 # the RGB30's SDK is not in the Market for now (the new SDK .bm for both kernels comes later).
-MARKET_APPS := editor code pixel studio animator mesh sound assistant
+MARKET_APPS := editor code pixel studio animator mesh sound assistant snes_sdk
 MARKET_APP_CARTS := $(patsubst %,$(BUILD)/%.bm,$(MARKET_APPS))
 MKMARKET_ADD = $(PYTHON) core/scripts/mkmarket.py $(MARKET)/games --apps $(MARKET)/apps --add
 market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
