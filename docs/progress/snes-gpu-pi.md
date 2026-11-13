@@ -51,7 +51,7 @@ Risk: the V3D start changed the boot of the Pi before (see `v3d-flags.md`; an of
 |---|---|---|
 | `job` above 1000 us | 4 us | passes (the estimate was 300 us) |
 | `copy64k` above 400 us | 186 us | passes |
-| `arm-slowdown` above 25% | 10% | passes |
+| `arm-slowdown` above 25% | 10% | provisional: the first bench read the same addresses in every job, so the L2 cache served the reads; the 10%, `gather8M` and `stream` are too good. Read the bench again with the new kernel |
 | Mode 7 gain per frame, at least 1.5 ms | 3.7 ms (ARM) - (5 us + 170000 x 8 ns + 186 us) = about 2.1 ms | passes, as an estimate (not measured in play) |
 | G5 gate, `gather64k` under 2.7 ns/word | 8 ns/word | FAILS: Mode 1 on the GPU would take about 9 ms against `bg` 3 to 4.5 ms on the ARM |
 
