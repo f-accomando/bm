@@ -432,6 +432,7 @@ int ppu_gpu_on(void) { return gpu != NULL; }
 static void m7_flush(void)
 {
     if (!m7run.n) return;
+    gstats.runs++;
     const uint32_t t0 = gpu->us();
     const int used = gpu->m7(&S.picture[m7run.y0 * SNES_W], m7run.n, m7run.a, m7run.c, m7run.sel);
     gframe.us += gpu->us() - t0;
@@ -462,7 +463,13 @@ void ppu_frame_end(void)
 /* BG1 Mode 7 alone: no sprites, windows, colour math or sub screen */
 static inline int m7_eligible(void)
 {
-    return (S.bgmode & 7) == 7 && (S.tm & 0x1F) == 1 && !(S.tmw & 1) && !(S.cgadsub & 0x3F) && !(S.cgwsel >> 6);
+    if ((S.bgmode & 7) != 7) return 0;                  /* not Mode 7: not counted */
+    gstats.m7_lines++;
+    if ((S.tm & 0x0F) != 1) { gstats.rej_bg++; return 0; }
+    if (S.tm & 0x10) { gstats.rej_obj++; return 0; }
+    if (S.tmw & 1) { gstats.rej_win++; return 0; }
+    if ((S.cgadsub & 0x3F) || (S.cgwsel >> 6)) { gstats.rej_math++; return 0; }
+    return 1;
 }
 
 static void m7_defer(int y)

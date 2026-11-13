@@ -1046,7 +1046,8 @@ void snes_debug(snes_debug_t *d)
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->us_gsu = avg_gsu; d->gsu_instr = avg_gsu_i; d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
     { ppu_gpu_stats_t g; ppu_gpu_stats(&g); d->gpu_on = ppu_gpu_on(); d->gpu_m7_us = g.m7_us; d->gpu_cp_us = g.cp_us; d->gpu_frames = g.frames_gpu; d->gpu_arm_frames = g.frames_arm;
-      d->gpu_lines = g.lines_gpu; d->gpu_arm_lines = g.lines_arm; d->gpu_copies = g.copies; }
+      d->gpu_lines = g.lines_gpu; d->gpu_arm_lines = g.lines_arm; d->gpu_copies = g.copies;
+      d->gpu_runs = g.runs; d->gpu_m7_lines = g.m7_lines; d->gpu_rej[0] = g.rej_bg; d->gpu_rej[1] = g.rej_obj; d->gpu_rej[2] = g.rej_win; d->gpu_rej[3] = g.rej_math; }
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;

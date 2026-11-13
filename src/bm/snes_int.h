@@ -177,6 +177,9 @@ typedef struct {
     uint32_t frames_gpu, frames_arm;    /* rendered frames with a GPU line / without */
     uint32_t lines_gpu, lines_arm;      /* Mode 7 lines the GPU drew / the ARM version drew after a failed run */
     uint32_t copies;                    /* copies of the video RAM */
+    uint32_t runs;                      /* runs of lines sent to the GPU (more than one a frame: the matrix, palette or video RAM changed) */
+    uint32_t m7_lines;                  /* lines seen in Mode 7 with the helper on */
+    uint32_t rej_obj, rej_bg, rej_win, rej_math;   /* Mode 7 lines kept by the ARM: sprites on (the first reason), another or no BG, a window on BG1, colour math or clip rule */
 } ppu_gpu_stats_t;
 void snes_gpu_set(const snes_gpu_ops_t *ops);
 void ppu_frame_begin(int render);       /* a frame of lines starts: ppu_line may keep Mode 7 lines */
