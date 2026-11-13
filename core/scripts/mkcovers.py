@@ -336,7 +336,7 @@ def write():
     return c
 
 
-COVERS = (("editor", editor), ("sound", sound), ("write", write), ("snes", snes))   # games: core/scripts/mkartcovers.py
+COVERS = (("editor", editor), ("sound", sound), ("write", write))   # games: core/scripts/mkartcovers.py; emulators: core/scripts/mkemucovers.py
 
 
 def main():
