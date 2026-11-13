@@ -278,6 +278,7 @@ void kernel_main(uint32_t atags)
     }
     if (gpu_qpu_key())                  /* gpu3d_qpu=1 (default off): Yharnam's darkness on the QPUs, ARM fallback */
         bm_fade_accel = qpu_fade_hook;
+    snes_gpu_enable();                  /* snes_gpu_m7=1 (default off): the SNES PPU's Mode 7 on the QPUs */
     if (board_is_pi1()) {
         const char *lg = config_get("lcd_gpio");
         if (lg && strcmp(lg, "1") == 0) {

@@ -28,6 +28,12 @@ int gpu_qpu_key(void)
     return v && strcmp(v, "1") == 0;
 }
 
+int snes_gpu_m7_key(void)
+{
+    const char *v = config_get("snes_gpu_m7");
+    return v && strcmp(v, "1") == 0;
+}
+
 const char *config_get(const char *key)
 {
     for (int i = 0; i < nkv; i++)

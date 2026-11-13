@@ -39,6 +39,10 @@ size_t config_list(char *out, size_t len);
 /* 1 if bm/config.txt has gpu3d_qpu=1 (default 0). Only then the kernel runs the QPU programs
  * (the fade hook at boot, the 3D Bench QPU row). */
 int gpu_qpu_key(void);
+/* 1 if bm/config.txt has snes_gpu_m7=1 (default 0, Pi only): the SNES PPU draws Mode 7 (BG1 alone) on the QPUs, the ARM picture otherwise. */
+int snes_gpu_m7_key(void);
+/* Starts the V3D helper of the SNES PPU when the key is on (once, at boot); the 3D Bench row with its micro-benchmark. */
+void snes_gpu_enable(void);
 
 /* A key whose value never goes out (..._token, _psk, _password, _key) */
 int config_secret(const char *key);

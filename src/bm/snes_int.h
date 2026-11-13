@@ -162,4 +162,26 @@ void ppu_vram_dirty_all(void);              /* the video RAM changed everywhere 
 extern uint32_t (*snes_now_us)(void);
 extern uint32_t ppu_us[5], ppu_n[5];   /* the time of the parts of ppu_line (layers, sprites, windows, compose, mix) in the timed frame, and the laps: snes_bus.c makes a drawn-frame average of them */
 
+
+/* The V3D helper (docs/progress/snes-gpu.md, Pi Zero W only). The kernel gives ops with config key snes_gpu_m7=1; the host and the
+ * RGB30 never do, and ppu_line makes every line itself. With ops, a run of Mode 7 BG1 lines is kept and drawn by m7 at the end of the run. */
+typedef struct {
+    uint8_t *vram;                      /* buffers the GPU reads: a copy of S.vram, 256 colours as RGB565, X and Y of each line */
+    uint16_t *lut;
+    int32_t *tab;
+    int (*m7)(uint16_t *dst, int lines, int a, int c, int sel);   /* the lines from the buffers: 1 the GPU did it, 0 the ARM version */
+    uint32_t (*us)(void);
+} snes_gpu_ops_t;
+typedef struct {
+    uint32_t m7_us, cp_us;              /* averaged over the frames the GPU drew: the QPU run, the copy of the video RAM */
+    uint32_t frames_gpu, frames_arm;    /* rendered frames with a GPU line / without */
+    uint32_t lines_gpu, lines_arm;      /* Mode 7 lines the GPU drew / the ARM version drew after a failed run */
+    uint32_t copies;                    /* copies of the video RAM */
+} ppu_gpu_stats_t;
+void snes_gpu_set(const snes_gpu_ops_t *ops);
+void ppu_frame_begin(int render);       /* a frame of lines starts: ppu_line may keep Mode 7 lines */
+void ppu_frame_end(void);               /* the lines kept are drawn now: S.picture is complete */
+void ppu_gpu_stats(ppu_gpu_stats_t *st);
+int ppu_gpu_on(void);                   /* 1 when ops are set */
+
 #endif

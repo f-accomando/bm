@@ -800,6 +800,7 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
     S.joy1 = pad1; S.joy2 = pad2;
     S.lines = (S.setini & 4) ? 239 : 224;
     int cont = resume;                             /* the first line of a resumed frame: its start was done */
+    if (!resume) ppu_frame_begin(render);
     for (int L = resume ? rs_line : 0; L < 262; L++) {
         int ia = -1;
         if (cont) ia = rs_ia, rs_line = -1;
@@ -881,6 +882,7 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
             }
         } else if (L < S.lines && render) ppu_line(L);
     }
+    ppu_frame_end();
     gsu_done -= 262 * LINE_CLK;
     if (S.sa1) sa1_frame_end();
     dsp_done -= 262 * LINE_CLK;
@@ -1043,6 +1045,8 @@ void snes_debug(snes_debug_t *d)
     d->us_bg = avg_part[0]; d->us_obj = avg_part[1]; d->us_win = avg_part[2]; d->us_comp = avg_part[3]; d->us_mix = avg_part[4];
     d->us_frame = avg_frame; d->us_ppu = avg_ppu; d->us_spc = avg_spc;
     d->us_gsu = avg_gsu; d->gsu_instr = avg_gsu_i; d->us_cpu = avg_cpu; d->us_dma = avg_dma; d->us_hdma = avg_hdma; d->instr = avg_instr;
+    { ppu_gpu_stats_t g; ppu_gpu_stats(&g); d->gpu_on = ppu_gpu_on(); d->gpu_m7_us = g.m7_us; d->gpu_cp_us = g.cp_us; d->gpu_frames = g.frames_gpu; d->gpu_arm_frames = g.frames_arm;
+      d->gpu_lines = g.lines_gpu; d->gpu_arm_lines = g.lines_arm; d->gpu_copies = g.copies; }
     d->inidisp = S.inidisp; d->tm = S.tm; d->nmitimen = S.nmitimen; d->frames = S.frames;
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;

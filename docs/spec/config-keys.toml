@@ -336,6 +336,15 @@ settings = ""
 read_in = "src/bm/runtime.c:1889"
 
 [[key]]
+name = "snes_gpu_m7"
+scope = "pi"
+values = "1 = the SNES PPU draws a frame of Mode 7 with BG1 alone on the QPUs of the V3D (the ARM picture for every other frame); anything else = off"
+default = "off (no V3D start for the SNES, the ARM PPU)"
+meaning = "G2 of docs/progress/snes-gpu.md: Mode 7 on the QPUs, byte for byte equal to the ARM picture. The snes t= line gets the gpu_m7 time and the frames each side drew. Also adds the V3D micro-benchmark row to the 3D Bench."
+settings = ""
+read_in = "src/kernel/config.c"
+
+[[key]]
 name = "gpu3d_qpu"
 scope = "pi"
 values = "1 = the 3D Bench runs the QPU programs against the ARM versions, and the games' dark_end() (Yharnam) runs on the QPUs; anything else = off"
