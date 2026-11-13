@@ -13,6 +13,7 @@ SECTIONS
 
     .text : {
         KEEP(*(.text.boot))
+        INCLUDE src/bm/snes_hot.ld
         *(.text .text.*)
         __text_end = .;     /* the crash screen's return addresses */
     }

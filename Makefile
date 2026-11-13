@@ -1141,7 +1141,7 @@ $(BUILD)/l/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(LCFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld
+$(BUILD)/kernel.elf: $(KERNEL_OBJS) linker.ld src/bm/snes_hot.ld
 	$(CC) $(LDFLAGS) -T linker.ld -Wl,-Map=$(BUILD)/kernel.map $(KERNEL_OBJS) $(LDLIBS) -o $@
 
 $(BUILD)/kernel7.elf: $(KERNEL7_OBJS) linker.ld

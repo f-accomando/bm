@@ -553,28 +553,28 @@ static cpu_t *cur;
 static int pend_of(const cpu_t *cu) { return S.nmi_pending || (S.irq_pending && !cu->i) || cpu_waiting || cpu_stopped; }
 int cpu_run_asm(cpu_t *cu, int limit, int pend);        /* snes_cpu_arm.S: returns the count of instructions */
 /* the slow bus (a register, not plain memory), called by the assembly with the clock of the moment */
-__attribute__((noinline, section(".text.snes_cpu_cold"))) uint8_t cpu_sr(uint32_t a, int clk, int start)
+__attribute__((noinline, section(".text.snes_cpu_sr"))) uint8_t cpu_sr(uint32_t a, int clk, int start)
 {
     snes_clk = clk; S.line_clk = start;
     const uint8_t v = snes_read(a);
     cpu_rc = snes_clk; cpu_pg = pend_of(cur);
     return v;
 }
-__attribute__((noinline, section(".text.snes_cpu_cold"))) void cpu_sw(uint32_t a, uint8_t v, int clk, int start)
+__attribute__((noinline, section(".text.snes_cpu_sw"))) void cpu_sw(uint32_t a, uint8_t v, int clk, int start)
 {
     snes_clk = clk; S.line_clk = start;
     snes_write(a, v);
     cpu_rc = snes_clk; cpu_pg = pend_of(cur);
 }
 /* an opcode that the assembly does not do: the registers are in the struct, the clock is after the fetch of the opcode; returns the attention flag */
-__attribute__((noinline, section(".text.snes_cpu_cold"))) int cpu_cold(cpu_t *cu, int op, int start)
+__attribute__((noinline, section(".text.snes_cpu_cc"))) int cpu_cold(cpu_t *cu, int op, int start)
 {
     S.line_clk = start;
     exec_op(cu, (uint8_t)op);
     return pend_of(cu);
 }
 /* an interrupt, WAI or STP is pending: the top of the C loop; returns 1 when this step only idles; the attention flag goes to cpu_pg */
-__attribute__((noinline, section(".text.snes_cpu_cold"))) int cpu_attn(cpu_t *cu, int start)
+__attribute__((noinline, section(".text.snes_cpu_attn"))) int cpu_attn(cpu_t *cu, int start)
 {
     int skip = 0;
     S.line_clk = start;
