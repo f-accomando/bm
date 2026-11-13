@@ -79,6 +79,10 @@ Test build with no hands (`SNES_M7TEST=1`):
 
 Facts of the PC run: the V3D emulator counts, for 60 frames of each variant, 60 GPU frames and 60 runs (variant 1), 13440 sprite lines (2), 13440 runs (3, one for each line), 13440 math lines (4), 13440 other-bg lines (5). The core draws no BG2 in Mode 7 (EXTBG is not made), so variant 5 shows the same picture as variant 1 on the host. The Pi numbers of the variants are not measured yet.
 
+## Mode 7 test on the Pi (2026-11-13, suspended)
+
+The user ran `m7test.sfc` with `snes_gpu_m7=1` (kernel 123). Scene m7/01 (BG1 only, GPU path): fps 55, frame 12160 us, ppu about 120 us, GPU job 1897 us, 171 GPU frames. Scene m7/03 (not eligible): fps 49, frame 12626 us, ppu 6787 us, all frames on the ARM. The user saw an unreadable pixel pattern and sometimes a flash of squares on screen. This can be a draw bug of the GPU path. The test is suspended. Open: compare with `snes_gpu_m7=0` and check the picture of the GPU frames.
+
 ## Plan for G3 to G6 (gates use the numbers above)
 
 All steps keep: the ARM PPU is the reference, `make test-snes-ppu` states compare byte for byte, no frame of delay (G7 only after a measured latency cost), RGB30 and host stay on the ARM.
