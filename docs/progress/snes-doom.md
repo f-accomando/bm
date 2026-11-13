@@ -94,6 +94,12 @@ Cause: a core bug in the joypad ports. The auto-read loaded the manual shift reg
 
 Cause: the sound CPU and the DSP ran in step with the emulated frames, so a frame of 25 ms made 533 samples while the speakers took 800: the ring ran dry and the music slowed with the game. Fix in `snes_frame_break` (`snes_bus.c`): when an output plays the ring (`snes_audio_queued() >= 0`) and less than two frames of samples wait, the sound runs up to 3 frames more at the start of the frame. `spc_done` keeps the lead, so the CPU's own syncs run the sound only when the CPU passes the lead; the lead is held under 2 seconds. The total sound work per emulated second does not change. The game still slows when the Pi falls below 60 frames; only the music keeps time. Test: `audio_lead_tests`.
 
+## Pi log of kernel 129 (2026-11-13): firing, `spc 1`, `mix 7.4 ms`
+
+- `spc 1` us in the 3D scene was an accounting gap: the sound that runs ahead (section above) ran outside the timers. It is counted in `spc` now. The sound was not starved. Its cost is about the same per second of real time as before (about 2 ms in 16.7 ms), so it adds little to a slow frame.
+- Firing: the frame at t=56 had `gins` 218655 and `gsu` 9.7 ms. The Super FX is the load (the chip is the limit in this scene, as in the section on the slowdown). The loop fell to 12 pictures a second because 4 updates run for each draw and `pic` is 1/4.
+- `mix 7.4 ms` in scene `m3/13/10`: Doom sets CGWSEL `$A2` (the colour window clips the main screen to black inside, maths with the sub screen), TM `$13`, TS `$10`, windows on BG1, BG2 and OBJ. A clip rule sent the line to the slow per-pixel loop (about 130 cycles a pixel). Now `snes_ppu.c` mixes with the fast paths and `clip_fix` redoes the clipped pixels (black, plus the sub colour when the pixel has the maths flag). Test: `make test-snes-ppu` (4000 cases against the reference) and `test-snes-ppu-arm`. Pi gain not measured: read `mix` in the `ppu us` field of the same scene (7.4 ms before).
+
 ## Open work
 
 - Check on the Pi that the flicker is gone (kernel with the IRQ fix).

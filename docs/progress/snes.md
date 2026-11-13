@@ -86,6 +86,7 @@ machine was written again in C. The RGB30 is not measured.
 
 ## Open work
 
+- Doom on the Pi (kernel 129): read `mix` in scene `m3/13/10` (7.4 ms before the clip fast path) and `spc` (now counts the sound that runs ahead). Details: [snes-doom.md](snes-doom.md).
 - Doom on the Pi (kernel 123 test): the pad ports were fixed (`$4016` after the auto-read reads 1) and the sound now keeps the speakers' time in a slow frame. Check on the Pi: Up alone moves, fire and doors work without B; the music tempo holds in heavy scenes. Details: [snes-doom.md](snes-doom.md). Rule: after an auto-read the manual pad registers read 1 until a strobe loads the pad.
 - Mode 7 test ROM (`tests/snes/m7test/`, built by `tests/snes/build_m7test.sh`, tests `make test-snes-m7rom` and `test-snes-m7rom-arm`): the Pi numbers of its five variants with `snes_gpu_m7` on and off are not measured yet. Steps and what to read: [snes-gpu-pi.md](snes-gpu-pi.md), section "Mode 7 test ROM".
 - Speed of the 65C816 core: C1, C2 and C3 are done (Pi play 2026-11-13: `cpu` 2.4 to 2.5 ms a frame); C4 and C5 are dropped; the instruction-cache work and the V3D path (G2 onwards) are the next steps. See [snes-cpu.md](snes-cpu.md) (items C0 to C7) and [snes-gpu.md](snes-gpu.md) (items G1 to G11). See also [snes-convert.md](snes-convert.md) and the resources to learn the 65C816 in [snes-resources.md](snes-resources.md). Each item has P (priority 0 to 9, 0 is the highest) and T (time 0 to 9). First step: C0, C1 and G1 (P 0): measure.

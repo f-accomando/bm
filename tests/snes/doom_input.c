@@ -34,7 +34,7 @@ int main(int argc, char **argv)
     for (frame = 0; frame < maxf; frame++) {
         padnow = (frame >= start && frame < start + hold) ? pad : 0;
         if (frame == start) { pad_frame = frame; }
-        snes_frame(padnow, 0, frame % 4 == 0);
+        snes_frame(padnow, 0, (getenv("ALLDRAW") || frame % 4 == 0));
         if (frame % 300 == 299) { clock_t t1 = clock(); printf("frames %d-%d: %.2f ms a frame, polls %d\n", pf, frame, 1000.0 * (t1 - t0) / CLOCKS_PER_SEC / 300, polls); t0 = t1; pf = frame + 1; polls = 0; snes_debug_t g; snes_debug(&g); printf("  instr %u gsu %u  us cpu %u gsu %u ppu %u spc %u\n", g.instr, g.gsu_instr, g.us_cpu, g.us_gsu, g.us_ppu, g.us_spc); }
     }
     if (start >= 0) printf("pad %04X set at frame %d: first frame the ROM reads it: %d\n", pad, start, seen_frame);

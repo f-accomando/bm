@@ -515,6 +515,22 @@ static void m7_defer(int y)
     m7run.n++;
 }
 
+/* The colour window clips the main screen to black (clipmode 1 outside, 2 inside, 3 everywhere) before the maths. After a fast mix, the clipped pixels are redone:
+ * black, plus (or minus) the sub screen colour when the pixel has the maths flag (no half, as in the reference loop below). */
+static void clip_fix(uint16_t *dst, int clipmode, int use_sub, int add)
+{
+    for (int x = 0; x < SNES_W; x++) {
+        const int cw = win_on[5] ? winm[5][x] : 0;
+        if (!(clipmode == 3 || (clipmode == 1 && !cw) || (clipmode == 2 && cw))) continue;
+        unsigned r = 0, g = 0, b = 0;
+        if (m_lay[x] && add) {
+            if (use_sub && s_idx[x]) { const unsigned sc = S.pal[s_idx[x]]; r = sc & 31; g = (sc >> 5) & 31; b = (sc >> 10) & 31; }
+            else { r = S.fixr; g = S.fixg; b = S.fixb; }
+        }
+        dst[x] = (uint16_t)(rt[r] | gt[g] | bt[b]);
+    }
+}
+
 void ppu_line(int y)
 {
     uint16_t *dst = &S.picture[y * SNES_W];
@@ -547,7 +563,7 @@ void ppu_line(int y)
     const int clipmode = S.cgwsel >> 6, premode = (S.cgwsel >> 4) & 3, use_sub = S.cgwsel & 2;
     const int add = !(S.cgadsub & 0x80), half = (S.cgadsub & 0x40) != 0;
     const unsigned mb = S.cgadsub & 0x3F;
-    const int fastmix = math_on && !clipmode;           /* colour maths with no clip rule: the maths flag of a pixel goes in m_lay */
+    const int fastmix = math_on;                        /* colour maths: the maths flag of a pixel goes in m_lay; a clip rule (clipmode) is applied to the finished line by clip_fix */
     uint8_t lmap[6];
     for (int l = 0; l < 6; l++) lmap[l] = (uint8_t)((mb >> l) & 1);
     compose(mlist, nm, m_idx, m_lay, m_om, fastmix ? lmap : NULL);
@@ -569,7 +585,7 @@ void ppu_line(int y)
     if (fastmix) {                                      /* colour maths with no clip rule: the pixels with the flag are mixed, the others are a lookup */
         int any = 0;                                    /* a flag in the line? (a few cycles against a mix of the line) */
         for (int x = 0; x < SNES_W; x += 4) any |= (ld(m_lay + x) != 0);
-        if (!any) { for (int x = 0; x < SNES_W; x++) dst[x] = lut[m_idx[x]]; TLAP(4); return; }
+        if (!any) { for (int x = 0; x < SNES_W; x++) dst[x] = lut[m_idx[x]]; if (clipmode) clip_fix(dst, clipmode, use_sub, add); TLAP(4); return; }
         int sub_any = 0;
         if (use_sub) {
             compose(slist, ns, s_idx, NULL, NULL, NULL);
@@ -592,6 +608,7 @@ void ppu_line(int y)
             }
             const uint16_t *tab[2] = { lut, mlut };
             for (int x = 0; x < SNES_W; x++) dst[x] = tab[m_lay[x]][m_idx[x]];
+            if (clipmode) clip_fix(dst, clipmode, use_sub, add);
             TLAP(4);
             return;
         }
@@ -601,6 +618,7 @@ void ppu_line(int y)
         {
             const mixctx_t cx = { pal8, lut, rt32, gt32, bt32, fix8, (uint32_t)mode_k | (bright == 15 ? 4u : 0u) };
             ppu_mix_sub_arm(dst, &mbuf, &cx);
+            if (clipmode) clip_fix(dst, clipmode, use_sub, add);
             TLAP(4);
             return;
         }
@@ -618,6 +636,7 @@ void ppu_line(int y)
             }
             dst[x] = (uint16_t)(rt[(v >> 3) & 31] | gt[(v >> 11) & 31] | bt[(v >> 19) & 31]);
         }
+        if (clipmode) clip_fix(dst, clipmode, use_sub, add);
         TLAP(4);
         return;
     }

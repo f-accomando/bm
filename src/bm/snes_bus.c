@@ -810,7 +810,9 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
         if (q >= 0 && q < 1066 && spc_done < 65 * 262 * 120) {
             int want = (1066 - q) * 32;                    /* sound cycles: 32 for each sample */
             if (want > 3 * 65 * 262) want = 3 * 65 * 262;      /* a frame that took 50 ms makes up its sound in one go */
+            const uint32_t t0 = snes_now_us ? snes_now_us() : 0;
             spc_done += spc_run(want);
+            if (snes_now_us) { acc_spc += snes_now_us() - t0; n_spc_sync++; }      /* counted as sound time in the debug line */
         }
     }
     for (int L = resume ? rs_line : 0; L < 262; L++) {
