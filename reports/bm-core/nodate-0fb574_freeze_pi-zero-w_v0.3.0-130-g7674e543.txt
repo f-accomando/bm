@@ -1,0 +1,185 @@
+bm report
+kind: freeze
+kernel: v0.3.0-130-g7674e543
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-0fb574_freeze_pi-zero-w_v0.3.0-130-g7674e543.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a line, frame 0, 309 s after boot, kernel v0.3.0-130-g7674e543, ring 45253, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ <dir>  DOCS/
+   <dir>  bm/
+ 3022740  kernel7.img
+   <dir>  apps/
+   <dir>  bmm/
+   <dir>  bmf/
+   <dir>  code-b/
+   <dir>  glb/
+   <dir>  snes/
+   <dir>  psx/
+   <dir>  nes/
+6 files, 9397828 bytes; 12 folders
+bm: cd bmf
+bm: ls
+    4128  terminus.bmf
+    4128  inter.bmf
+    3104  6x12.bmf
+    3616  8x14.bmf
+    2080  console.bmf
+5 files, 17056 bytes; 0 folders
+bm: cd..
+'cd..': not a command of the line; did you mean: cd ('help' lists the commands)
+bm: ls
+    4128  terminus.bmf
+    4128  inter.bmf
+    3104  6x12.bmf
+    3616  8x14.bmf
+    2080  console.bmf
+5 files, 17056 bytes; 0 folders
+bm: c cd ..
+bm: ;
+bm: ld
+'ld': not a command of the line; did you mean: ls ('help' lists the commands)
+bm: ls
+   <dir>  System Volume Information/
+   52624  bootcode.bin
+    1439  config.txt
+    7381  fixup.dat
+ 3290540  kernel.img
+ 3023104  start.elf
+   <dir>  carts/
+   <dir>  DOCS/
+   <dir>  bm/
+ 3022740  kernel7.img
+   <dir>  apps/
+   <dir>  bmm/
+   <dir>  bmf/
+   <dir>  code-b/
+   <dir>  glb/
+   <dir>  snes/
+   <dir>  psx/
+   <dir>  nes/
+6 files, 9397828 bytes; 12 folders
+bm: cd dpc  co  ocs
+bm: ;s  ls
+   24368  HEROCART.TXT
+   <dir>  herocart.cfg/
+     339  webbench.txt
+   19828  hero.txt
+    2048  smw.srm
+    8192  alttp.srm
+    8192  z1.nsv
+   32768  smw2.srm
+    2048  f-zero.srm
+8 files, 97783 bytes; 1 folders
+bm: cd ..
+bm: ls
+   <dir>  System Volume Information/
+   52624  bootcode.bin
+    1439  config.txt
+    7381  fixup.dat
+ 3290540  kernel.img
+ 3023104  start.elf
+   <dir>  carts/
+   <dir>  DOCS/
+   <dir>  bm/
+ 3022740  kernel7.img
+   <dir>  apps/
+   <dir>  bmm/
+   <dir>  bmf/
+   <dir>  code-b/
+   <dir>  glb/
+   <dir>  snes/
+   <dir>  psx/
+   <dir>  nes/
+6 files, 9397828 bytes; 12 folders
+bm: cdapp    apps
+bm: ls
+  492240  bmweb.bm
+1 files, 492240 bytes; 0 folders
+bm: cd ..
+bm: cd ..
+bm: ls
+   <dir>  System Volume Information/
+   52624  bootcode.bin
+    1439  config.txt
+    7381  fixup.dat
+ 3290540  kernel.img
+ 3023104  start.elf
+   <dir>  carts/
+   <dir>  DOCS/
+   <dir>  bm/
+ 3022740  kernel7.img
+   <dir>  apps/
+   <dir>  bmm/
+   <dir>  bmf/
+   <dir>  code-b/
+   <dir>  glb/
+   <dir>  snes/
+   <dir>  psx/
+   <dir>  nes/
+6 files, 9397828 bytes; 12 folders
+bm: cd b, m
+bm: ls
+   <dir>  SAVE/
+    1497  CONFIG.TXT
+   30049  BCM43430A1.hcd
+  399344  brcmfmac43430-sdio.bin
+    4733  brcmfmac43430-sdio.clm_blob
+    1121  brcmfmac43430-sdio.txt
+   27701  ca.pem
+   46979  SYN43430A1.hcd
+   44376  SYN43430B0.hcd
+  416101  brcmfmac43436-sdio.bin
+   11209  brcmfmac43436-sdio.clm_blob
+    1706  brcmfmac43436-sdio.txt
+  442211  brcmfmac43436s-sdio.bin
+    1185  brcmfmac43436s-sdio.txt
+   <dir>  BACKUP/
+   <dir>  BENCH/
+   <dir>  REPORTS/
+   <dir>  MARKET/
+    7406  BOOTPREV.TXT
+    3184  BOOTLOG.TXT
+   62891  LASTRUN.TXT
+   <dir>  SHOTS/
+   <dir>  VIDBENCH/
+    1106  sdmap.txt
+   <dir>  staging/
+  451932  bench3d.bm
+ 1723888  titan-cl.bm
+   <dir>  web/
+ 6430584  yharnam.bm
+   54468  astrowin.bm
+  895588  kitchen.bm
+ 1713280  titan.bm
+ 2374032  overbit.bm
+   85244  ko2.bm
+       5  bridge.txt
+ 1316116  assistan.bm
+   46288  agent.bm
+     262  ai.txt
+  724368  res-publ.bm
+   <dir>  carts/
+ 2193120  darknigh.bm
+  111776  animator.bm
+  187508  mesh.bm
+ 2583736  tape.bm
+   86632  font.bm
+   66864  snes.bm
+   57768  snes16.bm
+   40804  psx.bm
+   50556  nes.bm
+39 files, 22697618 bytes; 10 folders
+bm: bm: ls  bm: cd bm     bm: lsbm: cd ..bm: lsbm: cd appsbm: lsbm: cd ..bm: ls  bm: cd docsbm: lsbm: ld  - cd ..
+bm: 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+menu idle: sd first word <1ms 119 <3ms 4 (max 1.5 ms)
+menu stalls: tls handshake 1x last 300.1 worst 300.1 ms
+menu frame: 1x, a frame averages draw 9867 us, enlarge 1 us, flip 96 us, free time used 22 us (3
