@@ -47,6 +47,14 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - Special: `brk`, `cop` and `wdm` are two bytes (`brk` gives signature 0; `brk #n` sets it). `mvn src,dst` and `mvp src,dst` are written source first. `pea` takes `$1234` or `#$1234`. Aliases: `bge` `blt` `ina` `dea` `tad` `tda` `tas` `tsa` `swa`.
 - Errors: each has the file and the line. An error in a macro also names the macro and the line of the call. The assembler reports up to 200 errors.
 
+## Sprite page (bm Pixel, F7)
+
+- Converters: `carts/pixel/src/snesgfx.lua` (no UI, no bm API). Test: `make test-snes-gfx` (`tests/snes/snesgfx_test.lua`: known tile bytes for 2, 4 and 8 bpp, round trips, BGR555 edge values, OAM bytes, quantiser).
+- The build adds the module after `main.lua` as the global `SNESGFX` (`build/pixel/main.lua`, rule in the Makefile; a cart has no other Lua file). The page calls `SNESGFX or require "snesgfx"`; the host test uses `require`.
+- The page: depth 2/4/8 bpp, size pairs 8/16, 8/32, 8/64, 16/32, 16/64, 32/64 (small or large), 8 sub-palettes of BGR555 (colour 0 clear), 5-bit channel bars with a live 8-bit and 5-bit preview, the sub-palette of each tile on the grid, an OAM preview (flip X, flip Y, priority, palette bits), PNG import with the quantiser (15 colours + clear), and export of `.chr` and `.pal` to `/docs`.
+- `.chr`: planar tiles in the SNES order, tile rows padded to 16 tiles (the OAM name table is 16 tiles wide): use a sheet 128 pixels wide. `.pal`: all sub-palettes, 2 bytes a colour, low byte first.
+- The tab shows only while the page is open (the bar has no room for a seventh tab); the key is F7 and the menu has a row.
+
 ## Rules (do not break)
 
 - The assembler is original code. The references (PVSnesLib, the ersanio course, the SMW disassembly, libSFX, the WDC datasheet) are read only: no code and no data from them enters the repository.
@@ -54,13 +62,16 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - One module `snes_asm` holds the assembler and the builder. Register a new built-in library in the same places as `snes_asm` (`src/bm/require.c`, `src/script/embed.S`, `src/rgb30/bm_embed.S`, `tests/host/libs.S`, `rgb30.mk`, `Makefile`, `scripts/mkweblibs.py`).
 - The opcode test of `asm_test.lua` lists the 256 opcodes in the order of the opcode map, apart from the table of the assembler. Keep it so: the two lists check each other.
 - Pass 1 decides the size of each instruction and pass 2 only writes bytes. A change to the size rules must keep the two passes equal.
+- Keep the SNES converters in `snesgfx.lua` and the page in the table `snp` of `carts/pixel/main.lua` (the main chunk has 200 locals at most).
 - Write the text of docs and comments in ASD-STE100.
 
 ## Open work
 
+- Sprite page: sizes 16x32 and 32x64 (OBSEL 6 and 7), recolour of the OAM preview by sub-palette, `.pal` and tile sub-palettes saved in the project (now: export and re-read with shift L), `.chr` import. A `.bme` is one file: `.chr` and `.pal` go to `/docs` until the project layout has a `gfx/` folder.
+
 - Code tab on `carts/code`: a 65C816 language mode with the errors of `A.assemble` (Phase 1, step 3).
 - A project layout: `src/*.s`, `gfx/*.png`, `snes.bme`, with `.include` read from the project (Phase 1, steps 2 and 6).
-- The sprite tab and the code tab: other sessions. The debug API is done (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md) rules).
+- The code tab: another session. The sprite page is done (see above). The debug API is done (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md) rules).
 - The assembler has no listing file, no `.struct`, no `.enum`, no anonymous labels (`+`, `-`) and no linker. Add them when a game needs them.
 - A disassembler that follows M and X (Phase 2), built on `A.opcodes`.
 - Measure the speed of `A.assemble` on the Pi Zero W with a large source. The tests run on the PC only.

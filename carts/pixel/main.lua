@@ -2019,7 +2019,7 @@ function draw_snes()
   rectfill(PX + 208, by0, 24, 16, dc and G.snap_rgb(dc) or C_PANEL)
   rectfill(PX + 240, by0, 24, 16, G.to_rgb(v))
   print("8bit  5bit  entry", PX + 176, by0 + 16, C_DIM)
-  print("t: entry = F1 colour", PX + 176, by0 + 32, C_DIM)
+  print("t: take F1 colour", PX + 176, by0 + 32, C_DIM)
   y = y + 8
   -- the OAM preview of the sprite
   local pz = max(1, 80 // rs)
