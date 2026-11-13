@@ -132,13 +132,28 @@ static inline uint32_t nz_mask(uint32_t v) { return (((((v & 0x7F7F7F7Fu) + 0x7F
 static inline uint32_t eq_mask(uint32_t a, uint32_t b) { return ~nz_mask(a ^ b); }
 static inline uint32_t ld(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
 static inline void st(uint8_t *p, uint32_t v) { memcpy(p, &v, 4); }
+/* memset for a block of whole words at a word address, as word stores: the libc memset needs about 170 instructions for 256 bytes and the PPU clears about 15 such
+ * blocks a line; other blocks go to memset. The result is the same bytes. */
+static inline void pfill(void *d, int v, size_t n)
+{
+    if ((((uintptr_t)d | n) & 3) == 0) {
+        const uint32_t w = (uint32_t)(v & 255) * 0x01010101u;
+        typedef uint32_t __attribute__((may_alias)) u32a;
+        u32a *p = (u32a *)d;
+        size_t k = n >> 2;
+        for (; k >= 8; k -= 8, p += 8) { p[0] = w; p[1] = w; p[2] = w; p[3] = w; p[4] = w; p[5] = w; p[6] = w; p[7] = w; }
+        while (k--) *p++ = w;
+        return;
+    }
+    memset(d, v, n);
+}
 
 /* ------------------------------------------------------------------ backgrounds */
 static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
 {
     uint8_t *oi = bgi[n], *op = bgp[n];
     bgany[n] = 0;
-    memset(oi, 0, 256); memset(op, 0, 256);
+    pfill(oi, 0, 256); pfill(op, 0, 256);
     if (!((S.tm | S.ts) & (1 << n))) return;            /* the layer is on neither screen: nothing to draw */
     if (!tables_ready) make_tables();
     const int big = (S.bgmode >> (4 + n)) & 1, tsh = big ? 4 : 3;        /* tsh: log2 of the tile size (the ARM1176 has no divide) */
@@ -159,7 +174,7 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     const int hofs = S.hofs[n] & 0x3FF, px0 = hofs & 7;
     int sx = hofs & ~7, any = 0;
     uint8_t *ti = tbi[n], *tp = tbp[n];
-    memset(ti, 0, 264); memset(tp, 0, 264);
+    pfill(ti, 0, 264); pfill(tp, 0, 264);
     for (int k = 0; k < 33; k++, sx = (sx + 8) & 0x3FF) {      /* one tile column of 8 pixels per turn, on the grid of the tiles; the scroll is a shift at the end */
         const int tcol = sx >> tsh;
         const uint32_t ea = (base_a + (uint32_t)(tcol & 31) * 2 + (uint32_t)(tcol & 32) * wsh) & 0xFFFF;
@@ -197,7 +212,7 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
 static void draw_mode7(int y)
 {
     uint8_t *oi = bgi[0], *op = bgp[0];
-    memset(oi, 0, 256); memset(op, 0, 256);
+    pfill(oi, 0, 256); pfill(op, 0, 256);
     bgany[0] = 1;
     const int yy = (S.m7sel & 2) ? 255 - y : y;
     const int vx = S.m7hofs - S.m7x, vy = S.m7vofs - S.m7y;
@@ -227,7 +242,7 @@ static const uint8_t obj_h[8][2] = { {8,16}, {8,32}, {8,64}, {16,32}, {16,64}, {
 
 static void draw_obj(int y)
 {
-    memset(obi, 0, 256); memset(obp, 0, 256); memset(obmath, 0, 256);
+    pfill(obi, 0, 256); pfill(obp, 0, 256); pfill(obmath, 0, 256);
     obany = 0;
     if (!((S.tm | S.ts) & 16)) return;
     if (!tables_ready) make_tables();
@@ -285,7 +300,7 @@ static void draw_obj(int y)
 /* one window as a row of 0 and 1: 1 inside [lo, hi] (nothing when lo > hi), the other way round with inv; made with two or three runs, not a test per pixel */
 static void win_row(uint8_t *a, int lo, int hi, int inv)
 {
-    memset(a, inv, 256);
+    pfill(a, inv, 256);
     if (lo <= hi) memset(a + lo, !inv, (size_t)(hi - lo + 1));
 }
 static void window_mask(int layer, int en1, int inv1, int en2, int inv2, int log)
@@ -360,9 +375,9 @@ static _Alignas(4) mixbuf_t mbuf;
 /* lmap NULL: lay gets the layer number (5 = backdrop) and om the sprite flag; lmap: lay gets lmap[layer] and a sprite pixel that forbids maths gets 0; lay NULL: no layer array */
 static void compose(const fslot_t *o, int n, uint8_t *idx, uint8_t *lay, uint8_t *om, const uint8_t *lmap)
 {
-    memset(idx, 0, 256);
-    if (lay) memset(lay, lmap ? lmap[5] : 5, 256);
-    if (om) memset(om, 1, 256);
+    pfill(idx, 0, 256);
+    if (lay) pfill(lay, lmap ? lmap[5] : 5, 256);
+    if (om) pfill(om, 1, 256);
     for (int i = n - 1; i >= 0; i--) {
         const int l = o[i].layer, pr = o[i].prio;
         if (l == OB ? !obany : !bgany[l]) continue;                    /* the layer has no pixel on this line */

@@ -350,13 +350,32 @@ enum { K_SH = 8, K_TSB = 14, K_TRB, K_BIT, K_LDY, K_LDX, K_STY, K_STX, K_STZ, K_
 #else
 #define EXEC AI
 #endif
+/* The opcodes that a game runs often and the assembly loop does not do (REP, SEP, PLP, PHP, PHB, PLB, XBA, the transfers with D and S, BIT #).
+ * They are in one macro so that exec_op (the C loop) and exec_fast (the assembly path) share the code, and the fast ones sit together in the hot block. */
+#define FAST_OPS \
+    case 0x89: bit(cu, fetchM(cu), 1); return; \
+    case 0x1B: cu->s = cu->e ? (uint16_t)(0x100 | (cu->a & 0xFF)) : cu->a; return; \
+    case 0x3B: cu->a = cu->s; nz16(cu, cu->a); return; \
+    case 0x5B: cu->d = cu->a; nz16(cu, cu->d); return; \
+    case 0x7B: cu->a = cu->d; nz16(cu, cu->a); return; \
+    case 0xEB: cu->a = (uint16_t)((cu->a << 8) | (cu->a >> 8)); nz8(cu, (uint8_t)cu->a); return; \
+    case 0x08: push8(cu, getP(cu)); return; \
+    case 0x28: setP(cu, pull8(cu)); return; \
+    case 0x0B: pushN16(cu, cu->d); return; \
+    case 0x2B: { uint16_t l = pullN(cu); cu->d = (uint16_t)(l | (pullN(cu) << 8)); stk_fix(cu); nz16(cu, cu->d); return; } \
+    case 0x8B: push8(cu, (uint8_t)(cu->db >> 16)); return; \
+    case 0xAB: { uint8_t b = pullN(cu); stk_fix(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); return; } \
+    case 0x4B: push8(cu, (uint8_t)(cu->pb >> 16)); return; \
+    case 0xC2: setP(cu, (uint8_t)(getP(cu) & ~fetch8(cu))); return; \
+    case 0xE2: setP(cu, (uint8_t)(getP(cu) | fetch8(cu))); return; \
+
 EXEC void exec_op(cpu_t *cu, uint8_t op)
 {
     uint32_t a;
     uint16_t v;
     int kind, mode;
     switch (op) {
-    case 0x89: bit(cu, fetchM(cu), 1); return;
+    FAST_OPS
     /* the operations on a memory operand: the opcode gives a mode and a kind, the address and the operation are computed once, below */
     case 0x06: MEM(M_DP, K_SH + 0);   case 0x0A: accshift(cu, 0); return;   case 0x0E: MEM(M_ABS, K_SH + 0);
     case 0x16: MEM(M_DPX, K_SH + 0);  case 0x1E: MEM(M_ABSX, K_SH + 0);
@@ -417,11 +436,6 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0x8A: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->x & 0xFF); nz8(cu, (uint8_t)cu->x); } else { cu->a = cu->x; nz16(cu, cu->a); } return;
     case 0x98: if (cu->m) { cu->a = (cu->a & 0xFF00) | (cu->y & 0xFF); nz8(cu, (uint8_t)cu->y); } else { cu->a = cu->y; nz16(cu, cu->a); } return;
     case 0x9A: cu->s = cu->e ? (uint16_t)(0x100 | (cu->x & 0xFF)) : cu->x; return;
-    case 0x1B: cu->s = cu->e ? (uint16_t)(0x100 | (cu->a & 0xFF)) : cu->a; return;
-    case 0x3B: cu->a = cu->s; nz16(cu, cu->a); return;
-    case 0x5B: cu->d = cu->a; nz16(cu, cu->d); return;
-    case 0x7B: cu->a = cu->d; nz16(cu, cu->a); return;
-    case 0xEB: cu->a = (uint16_t)((cu->a << 8) | (cu->a >> 8)); nz8(cu, (uint8_t)cu->a); return;
     /* the stack */
     case 0x48: if (cu->m) push8(cu, (uint8_t)cu->a); else push16(cu, cu->a); return;
     case 0x68: if (cu->m) { uint8_t b = pull8(cu); cu->a = (cu->a & 0xFF00) | b; nz8(cu, b); } else { cu->a = pull16(cu); nz16(cu, cu->a); } return;
@@ -429,13 +443,6 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0x5A: if (cu->xf) push8(cu, (uint8_t)cu->y); else push16(cu, cu->y); return;
     case 0xFA: if (cu->xf) { cu->x = pull8(cu); nz8(cu, (uint8_t)cu->x); } else { cu->x = pull16(cu); nz16(cu, cu->x); } return;
     case 0x7A: if (cu->xf) { cu->y = pull8(cu); nz8(cu, (uint8_t)cu->y); } else { cu->y = pull16(cu); nz16(cu, cu->y); } return;
-    case 0x08: push8(cu, getP(cu)); return;
-    case 0x28: setP(cu, pull8(cu)); return;
-    case 0x0B: pushN16(cu, cu->d); return;
-    case 0x2B: { uint16_t l = pullN(cu); cu->d = (uint16_t)(l | (pullN(cu) << 8)); stk_fix(cu); nz16(cu, cu->d); return; }
-    case 0x8B: push8(cu, (uint8_t)(cu->db >> 16)); return;
-    case 0xAB: { uint8_t b = pullN(cu); stk_fix(cu); cu->db = (uint32_t)b << 16; nz8(cu, b); return; }
-    case 0x4B: push8(cu, (uint8_t)(cu->pb >> 16)); return;
     case 0xF4: pushN16(cu, fetch16(cu)); return;
     case 0xD4: { const uint16_t p = (uint16_t)(cu->d + fetch8(cu)); pushN16(cu, rd16b0(cu, p)); return; }
     case 0x62: { uint16_t o = fetch16(cu); pushN16(cu, (uint16_t)(cu->pc + o)); return; }
@@ -447,8 +454,6 @@ EXEC void exec_op(cpu_t *cu, uint8_t op)
     case 0xB8: cu->v = 0; return;
     case 0xD8: cu->dec = 0; return;
     case 0xF8: cu->dec = 1; return;
-    case 0xC2: setP(cu, (uint8_t)(getP(cu) & ~fetch8(cu))); return;
-    case 0xE2: setP(cu, (uint8_t)(getP(cu) | fetch8(cu))); return;
     case 0xFB: { int e = cu->e; cu->e = cu->cf; cu->cf = e; if (cu->e) { cu->m = cu->xf = 1; cu->x &= 0xFF; cu->y &= 0xFF; cu->s = 0x100 | (cu->s & 0xFF); } return; }
     case 0xEA: return;
     case 0x42: fetch8(cu); return;
@@ -567,10 +572,18 @@ __attribute__((noinline, section(".text.snes_cpu_sw"))) void cpu_sw(uint32_t a, 
     cpu_rc = snes_clk; cpu_pg = pend_of(cur);
 }
 /* an opcode that the assembly does not do: the registers are in the struct, the clock is after the fetch of the opcode; returns the attention flag */
+/* the opcodes of FAST_OPS in a small function (the 32 KB exec_op spreads them over many cache lines); the others go to exec_op */
+__attribute__((noinline, section(".text.snes_cpu_fast"))) static void exec_fast(cpu_t *cu, uint8_t op)
+{
+    switch (op) {
+    FAST_OPS
+    default: exec_op(cu, op); return;
+    }
+}
 __attribute__((noinline, section(".text.snes_cpu_cc"))) int cpu_cold(cpu_t *cu, int op, int start)
 {
     S.line_clk = start;
-    exec_op(cu, (uint8_t)op);
+    exec_fast(cu, (uint8_t)op);
     return pend_of(cu);
 }
 /* an interrupt, WAI or STP is pending: the top of the C loop; returns 1 when this step only idles; the attention flag goes to cpu_pg */
