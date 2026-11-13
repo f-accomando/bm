@@ -60,7 +60,7 @@ The header gives the chip kind: chipset byte $FFD6 = $03 (DSP), $04 (DSP + RAM),
 
 ## Firmware files
 
-The firmware is read from the `sfc` folder of the SD card, next to the ROMs, by `load_dsp_fw` in the cart. The file name is not case sensitive.
+The firmware is read from the `snes` folder of the SD card (or `sfc`, the old name, when the cart uses it), next to the ROMs, by `load_dsp_fw` in the cart. The file name is not case sensitive.
 
 | Chip | File names, in the order tried |
 |---|---|
@@ -105,7 +105,7 @@ Done 2026-11-12. 192 checks in `tests/snes/dsp77_test.c` (programs of my own, no
 
 ## Open work
 
-- Pi Zero W and RGB30: Super Mario Kart with the firmware in `/sfc` (the track, the karts and the map must draw; read the log line `snes dsp1 firmware ...`). The DSP time on the Pi is not measured: Mario Kart calls the chip about 10 times a frame.
+- Pi Zero W and RGB30: Super Mario Kart with the firmware in `/snes` (the track, the karts and the map must draw; read the log line `snes dsp1 firmware ...`). The DSP time on the Pi is not measured: Mario Kart calls the chip about 10 times a frame.
 - Test DSP-2 (Dungeon Master), DSP-3 (SD Gundam GX) and DSP-4 (Top Gear 3000) the same way. The DSP-2 to DSP-4 firmware may use the serial port or a DR mode that the code does not do.
 - Measure `dsp77_run` on the Pi Zero W: add the chip time to `snes_debug` as the GSU does (`us_gsu`) if a game keeps it busy.
 - A small time check of the real chip (clock, one instruction per clock) is needed only if a game depends on it.

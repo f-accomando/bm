@@ -1,5 +1,5 @@
 -- bm SNES: the user interface of the Super Nintendo emulator. The machine itself is in C (src/bm/snes_*.c); this
--- cartridge lists the ROMs of /sfc, loads one, passes the pads to it every frame, draws its picture, keeps the
+-- cartridge lists the ROMs of /snes, loads one, passes the pads to it every frame, draws its picture, keeps the
 -- battery RAM in /docs and has the menu. Original code.
 
 local SW, SH = 256, 240
@@ -191,16 +191,32 @@ local function adapt()
 end
 local srm = ""
 
-local function list_roms()
-  files = {}
-  msg = nil
-  local l, why = doc_list("sfc")
-  if not l then msg = why or "the player did not allow the files"; return end
+-- The ROM folder is /snes. A card that still has the old /sfc folder and no ROM in /snes keeps working: rom_dir is "sfc" then.
+local rom_dir = "snes"
+
+local function rom_files(dir)
+  local out = {}
+  local l, why = doc_list(dir)
+  if not l then return nil, why end
   for _, d in ipairs(l) do
     local ext = d.name:match("%.([^.]+)$")
     ext = ext and ext:lower()
-    if ext == "sfc" or ext == "smc" or ext == "swc" or ext == "fig" then files[#files + 1] = d end
+    if ext == "sfc" or ext == "smc" or ext == "swc" or ext == "fig" then out[#out + 1] = d end
   end
+  return out
+end
+
+local function list_roms()
+  files = {}
+  msg = nil
+  local l, why = rom_files("snes")
+  rom_dir = "snes"
+  if l and #l == 0 then
+    local old = rom_files("sfc")
+    if old and #old > 0 then l, rom_dir = old, "sfc" end
+  end
+  if not l then msg = why or "the player did not allow the files"; return end
+  files = l
   table.sort(files, function(a, b) return a.name < b.name end)
   if sel > #files then sel = math.max(1, #files) end
 end
@@ -210,16 +226,16 @@ local function save_sram()
   if s and srm ~= "" then doc_write(srm, s) end
 end
 
--- A DSP-1/2/3/4 cartridge needs the firmware of the chip (not in the repository): dspN.rom (8192 bytes), dsp1b.rom, or N.program.rom with N.data.rom, in /sfc.
+-- A DSP-1/2/3/4 cartridge needs the firmware of the chip (not in the repository): dspN.rom (8192 bytes), dsp1b.rom, or N.program.rom with N.data.rom, in /snes (or /sfc, the old folder).
 local dsp_note = nil
 local function load_dsp_fw(n)
-  local l = doc_list("sfc") or {}
+  local l = doc_list(rom_dir) or {}
   local have = {}
   for _, f in ipairs(l) do have[f.name:lower()] = f.name end
   local names = n == 1 and { "dsp1b.rom", "dsp1.rom", "dsp1a.rom" } or { "dsp" .. n .. ".rom" }
   for _, nm in ipairs(names) do
     if have[nm] then
-      local b = doc_read(have[nm], "sfc")
+      local b = doc_read(have[nm], rom_dir)
       if b then
         local ok, why = snes_dsp_firmware(b)
         if ok then log("snes dsp" .. n .. " firmware " .. nm); return end
@@ -231,7 +247,7 @@ local function load_dsp_fw(n)
   end
   local pn, dn = have["dsp" .. n .. ".program.rom"], have["dsp" .. n .. ".data.rom"]
   if pn and dn then
-    local pb, db = doc_read(pn, "sfc"), doc_read(dn, "sfc")
+    local pb, db = doc_read(pn, rom_dir), doc_read(dn, rom_dir)
     if pb and db then
       local ok, why = snes_dsp_firmware(pb, db)
       if ok then log("snes dsp" .. n .. " firmware " .. pn); return end
@@ -240,12 +256,12 @@ local function load_dsp_fw(n)
       return
     end
   end
-  dsp_note = "No DSP-" .. n .. " firmware: put " .. names[#names] .. " in /sfc. The game runs without the chip."
+  dsp_note = "No DSP-" .. n .. " firmware: put " .. names[#names] .. " in /snes. The game runs without the chip."
   log("snes dsp" .. n .. " no firmware")
 end
 
 local function open_rom(d)
-  local data, why = doc_read(d.name, "sfc")
+  local data, why = doc_read(d.name, rom_dir)
   if not data then msg = why or "cannot read the file"; return end
   local ok, err = snes_load(data)
   if not ok then msg = err; return end
@@ -434,7 +450,7 @@ function _draw()
   if state == "browse" then
     cls(0x101820)
     print("bm SNES", 16, 12, 0xFFD050, 2)
-    print("Put .sfc or .smc files in the /sfc folder of the SD card.", 16, 56, 0x8090A0)
+    print("Put .sfc or .smc files in the /snes folder of the SD card.", 16, 56, 0x8090A0)
     if #files == 0 then print("No ROM found.", 16, 100, 0xFFFFFF) end
     local y = 90
     rom_scroll()
