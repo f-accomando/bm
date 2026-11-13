@@ -310,7 +310,7 @@ void gsu_run(int clocks)
         goto out;
     L_nop: goto clr;
     L_cache: {                                                  /* CACHE */
-        const uint16_t nb = (uint16_t)((pc - 1) & 0xFFF0);
+        const uint16_t nb = (uint16_t)(pc & 0xFFF0);
         if (g.cbr != nb) { g.cbr = nb; g.cvalid = 0; ip = 0; }
         goto clr;
     }
@@ -342,9 +342,9 @@ void gsu_run(int clocks)
         SZ(v);
         if (v) { jt = R[13] | JF; goto jclr; }
         goto clr;
-    L_alt1: alt |= 1; goto fin;
-    L_alt2: alt |= 2; goto fin;
-    L_alt3: alt |= 3; goto fin;
+    L_alt1: alt = (alt & 3) | 1; goto fin;
+    L_alt2: alt = (alt & 3) | 2; goto fin;
+    L_alt3: alt = 3; goto fin;
     L_ld:                                                       /* LDW / LDB */
         g.ramaddr = (uint16_t)R[n];
         v = (alt & 1) ? RDB(R[n]) : RDW(R[n]);
@@ -418,7 +418,7 @@ void gsu_run(int clocks)
     L_ibt: {                                                    /* IBT / LMS / SMS */
         const unsigned a = alt & 3;
         k = FETCH8();
-        if (a == 1) { g.ramaddr = (uint16_t)(k << 1); v = RDW(k << 1); budget -= g.ramcyc + 2 * mul; }
+        if (a & 1) { g.ramaddr = (uint16_t)(k << 1); v = RDW(k << 1); budget -= g.ramcyc + 2 * mul; }
         else if (a == 2) { g.ramaddr = (uint16_t)(k << 1); WRW(k << 1, R[n]); budget -= 2 * mul; goto clr; }
         else v = (unsigned)(int)(int8_t)k & 0xFFFF;
         goto wr_n;
@@ -458,7 +458,7 @@ void gsu_run(int clocks)
     L_iwt: {                                                    /* IWT / LM / SM */
         const unsigned a = alt & 3;
         k = FETCH16();
-        if (a == 1) { g.ramaddr = (uint16_t)k; v = RDW(k); budget -= g.ramcyc + 3 * mul; }
+        if (a & 1) { g.ramaddr = (uint16_t)k; v = RDW(k); budget -= g.ramcyc + 3 * mul; }
         else if (a == 2) { g.ramaddr = (uint16_t)k; WRW(k, R[n]); budget -= 3 * mul; goto clr; }
         else v = k;
         goto wr_n;

@@ -310,13 +310,15 @@ clr_fin:
 h_nop:
     b clr_fin
 h_alt1:
+    and r11, r11, #3
     orr r11, r11, #1
     FIN
 h_alt2:
+    and r11, r11, #3
     orr r11, r11, #2
     FIN
 h_alt3:
-    orr r11, r11, #3
+    mov r11, #3
     FIN
 h_with:
     and r9, r0, #15
@@ -354,8 +356,7 @@ h_stop:
     mov r5, #0
     b exit
 h_cache:
-    sub r1, r6, #1
-    bic r1, r1, #15
+    bic r1, r6, #15
     uxth r1, r1
     ldrh r2, [r4, #G_CBR]
     cmp r1, r2
@@ -739,8 +740,8 @@ h_ibt:
     and r2, r0, #15
     FETCH r1
     and r3, r11, #3
-    cmp r3, #1
-    beq ibt_lms
+    tst r3, #1
+    bne ibt_lms
     cmp r3, #2
     beq ibt_sms
     sxtb r1, r1
@@ -768,8 +769,8 @@ h_iwt:
     FETCH r3
     orr r1, r1, r3, lsl #8
     and r3, r11, #3
-    cmp r3, #1
-    beq iwt_lm
+    tst r3, #1
+    bne iwt_lm
     cmp r3, #2
     beq iwt_sm
     b wr_n

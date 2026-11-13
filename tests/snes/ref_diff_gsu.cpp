@@ -202,8 +202,8 @@ static void gen(Trial &t)
   int carry = 0;
   int units = (rnd() & 1) ? 1 : 1 + rnd() % 5;
   for (int u = 0; u < units; u++) {
-    /* RD_GSU_ALT_AFTER=1 lets ALT follow WITH/TO/FROM: ours keeps B there, ares and Snes9x clear it (listed in docs/progress/snes-superfx.md) */
-    static const bool altAfter = getenv("RD_GSU_ALT_AFTER") != 0;
+    /* ALT may follow WITH/TO/FROM (it clears B in ares, Snes9x and ours) */
+    static const bool altAfter = true;
     int ualt = carry;
     int nalt = (int)(rnd() % 3 == 0 ? 1 + rnd() % 2 : 0), pre = (int)(rnd() % 3);
     for (int k = 0; k < nalt + pre; k++) {
@@ -221,6 +221,7 @@ static void gen(Trial &t)
       op = rnd() & 0xFF;
       if (op == 0x00 || op == 0x3C || (op >= 0x98 && op <= 0x9D)) continue;
       if ((op == 0xAF || op == 0xFF) && ualt != 2) continue;                    /* IBT, IWT and LMS, LM of R15 jump to a random place; SMS and SM of R15 only store it */
+      if (op == 0x2F) continue;                                                /* WITH R15 followed by TO or MOVES writes R15: a jump to a random place */
       if (op == 0x1F) continue;                                                /* TO R15 is a jump to a random place */
       if (!altAfter && ((op >= 0x20 && op <= 0x2F) || (op >= 0x3D && op <= 0x3F))) continue;      /* WITH and ALT are prefixes, not programs */    /* STOP, LOOP, JMP and LJMP: not in the random stream */
       break;
@@ -253,7 +254,7 @@ int main(int argc, char **argv)
   const int trials = argc > 1 ? atoi(argv[1]) : 20000;
   if (argc > 2) rs ^= (uint64_t)strtoull(argv[2], 0, 0) * 0x2545F4914F6CDD1Dull;
   static uint8_t romImg[0x20000], ramImg[0x10000];
-  long known1 = 0, known2 = 0, known3 = 0, known4 = 0, unexplained = 0, bad = 0, badopc[256] = {0}, seen[256] = {0}, cycdiff = 0, instdiff = 0, sseen[1024] = {0}, sbad[1024] = {0};
+  long known2 = 0, unexplained = 0, bad = 0, badopc[256] = {0}, seen[256] = {0}, cycdiff = 0, instdiff = 0, sseen[1024] = {0}, sbad[1024] = {0};
   bool shown[1024] = {false};
   Trial t;
   for (int n = 0; n < trials; n++) {
@@ -264,6 +265,7 @@ int main(int argc, char **argv)
     memset(romImg + 0x7FC0, ' ', 21); memcpy(romImg + 0x7FC0, "GSU REF DIFF", 12);
     romImg[0x7FD5] = 0x20; romImg[0x7FD6] = 0x14; romImg[0x7FD7] = 0x09; romImg[0x7FD8] = 6;
     romImg[0x7FDC] = 0xFF; romImg[0x7FDD] = 0xFF; romImg[0x7FDE] = 0; romImg[0x7FDF] = 0;
+    romImg[0x7FDA] = 0x01;                                         /* not 0x33: no extended header with a random RAM size */
     romImg[0x7FFC] = 0x00; romImg[0x7FFD] = 0x80;
     memset(romImg + t.len, 0x00, 96);                              /* a branch that jumps past the end lands on STOP */
     for (size_t i = 0; i < sizeof ramImg; i++) ramImg[i] = (uint8_t)rnd();
@@ -318,15 +320,9 @@ int main(int argc, char **argv)
       int cls = 0;
       for (auto &u : t.units) {
         const int op = u.first, al = u.second;
-        if (((op >= 0xA0 && op <= 0xAF) || (op >= 0xF0 && op <= 0xFF)) && al == 3) cls |= 1;
         if ((op == 0xAF || op == 0xFF) && al == 2) cls |= 2;
-        if (op == 0xDF && al == 3) cls |= 4;                                   /* ROMB: the ROM buffer after a bank change */
-        if (op == 0x02 && !strncmp(what, "CBR", 3)) cls |= 8;                /* CACHE: R15 of the CACHE opcode itself or the next byte */
       }
-      if (cls & 1) known1++;
       if (cls & 2) known2++;
-      if (cls & 4) known3++;
-      if (cls & 8) known4++;
       if (!cls) {
         unexplained++;
         if (unexplained <= 12) {
@@ -354,7 +350,7 @@ int main(int argc, char **argv)
   }
   printf("\nopcode/ALT state: programs of this one opcode with its prefixes, mismatches / programs\n");
   for (int k = 0; k < 1024; k++) if (sbad[k]) printf("  %02X alt%d: %ld / %ld\n", k >> 2, k & 3, sbad[k], sseen[k]);
-  printf("compared %d programs: %ld mismatches (ALT3 on A0-AF and F0-FF: %ld, SMS and SM of R15 in ALT2: %ld, GETB after ROMB without R14: %ld, CBR of CACHE at xxxF: %ld, unexplained: %ld); instruction-count differences %ld\n", trials, bad, known1, known2, known3, known4, unexplained, instdiff);
+  printf("compared %d programs: %ld mismatches (known, SMS and SM of R15 in ALT2: %ld; unexplained: %ld); instruction-count differences %ld\n", trials, bad, known2, unexplained, instdiff);
   (void)cycdiff;
   return unexplained ? 1 : 0;
 }

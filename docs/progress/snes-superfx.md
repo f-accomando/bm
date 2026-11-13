@@ -103,7 +103,7 @@ The ARM1176 has no indirect branch prediction for a `switch`, and the loop head 
 
 ## Checked against ares
 
-Our GSU was run against the GSU module of ares (ISC licence) on random programs: `make test-snes-ref ARES=/path/to/ares`. Five differences are open; the table, the method and the rules of the harness are in [snes-superfx-ares.md](snes-superfx-ares.md). Short list: (1) ALT3 on `A0-AF` and `F0-FF` is LMS and LM, ours runs IBT and IWT; (2) SMS and SM of R15 store R15 before or after the operand (references disagree); (3) ALT after WITH, TO or FROM clears B, ours keeps it; (4) CACHE uses R15 after the fetch, ours uses the opcode address; (5) GETB after ROMB without a write of R14 (fixed 2026-11-12: now as ares; Doom needs it). Fix 1, 3 and 4 in `snes_gsu.c` after the speed work is merged.
+Our GSU was run against the GSU module of ares (ISC licence) on random programs: `make test-snes-ref ARES=/path/to/ares`. Four of the five differences are fixed (ALT3 on `A0-AF` and `F0-FF` is LMS and LM; ALT1-3 clear B; CACHE uses R15 after the fetch; GETB after ROMB keeps the old buffer). One is open: SMS and SM of R15 store R15 before or after the operand byte (ares and Snes9x disagree and no hardware document exists; the harness lists it as `known`). The table, the method and the rules of the harness are in [snes-superfx-ares.md](snes-superfx-ares.md).
 
 ## Open work
 

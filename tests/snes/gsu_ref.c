@@ -249,7 +249,7 @@ void gsu_run(int clocks)
             goto out;
         case 0x01: goto clr;                                    /* NOP */
         case 0x02: {                                            /* CACHE */
-            const uint16_t nb = (uint16_t)((pc - 1) & 0xFFF0);
+            const uint16_t nb = (uint16_t)(pc & 0xFFF0);
             if (g.cbr != nb) { g.cbr = nb; g.cvalid = 0; }
             goto clr;
         }
@@ -280,9 +280,9 @@ void gsu_run(int clocks)
             SZ(v);
             if (v) { jpend = 1; jaddr = r[13]; jpbr = -1; }
             goto clr;
-        case 0x3D: alt |= 1; goto fin;
-        case 0x3E: alt |= 2; goto fin;
-        case 0x3F: alt = 3; goto fin;
+        case 0x3D: alt = (alt & 3) | 1; b = 0; goto fin;
+        case 0x3E: alt = (alt & 3) | 2; b = 0; goto fin;
+        case 0x3F: alt = 3; b = 0; goto fin;
         case 0x40 ... 0x4B:                                     /* LDW / LDB */
             g.ramaddr = r[n];
             v = (alt & 1) ? ram_rd(g.ramaddr) : ram_rw(g.ramaddr);
@@ -354,7 +354,7 @@ void gsu_run(int clocks)
         }
         case 0xA0 ... 0xAF:                                     /* IBT / LMS / SMS */
             k = FETCH8();
-            if (alt == 1) { g.ramaddr = (uint16_t)(k << 1); v = ram_rw(g.ramaddr); cyc += ram_c + 2 * mul; }
+            if (alt & 1) { g.ramaddr = (uint16_t)(k << 1); v = ram_rw(g.ramaddr); cyc += ram_c + 2 * mul; }
             else if (alt == 2) { g.ramaddr = (uint16_t)(k << 1); ram_ww(g.ramaddr, r[n]); cyc += 2 * mul; goto clr; }
             else v = (uint16_t)(int16_t)(int8_t)k;
             goto wr_n;
@@ -389,7 +389,7 @@ void gsu_run(int clocks)
         }
         case 0xF0 ... 0xFF:                                     /* IWT / LM / SM */
             k = FETCH16();
-            if (alt == 1) { g.ramaddr = (uint16_t)k; v = ram_rw(g.ramaddr); cyc += ram_c + 3 * mul; }
+            if (alt & 1) { g.ramaddr = (uint16_t)k; v = ram_rw(g.ramaddr); cyc += ram_c + 3 * mul; }
             else if (alt == 2) { g.ramaddr = (uint16_t)k; ram_ww(g.ramaddr, r[n]); cyc += 3 * mul; goto clr; }
             else v = (uint16_t)k;
             goto wr_n;
