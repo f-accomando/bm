@@ -70,13 +70,21 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 
 ## Open work
 
-- Tabs Code, Map, Music, Run (Phase 1 steps 3 and 6, Phase 2, 3). Register `snes_sdk` in the console's app list and the Market when the Code tab works.
-- Sprites tab: sizes 16x32 and 32x64 (OBSEL 6 and 7), recolour of the OAM preview by sub-palette, `.pal` and tile sub-palettes saved in the project as files of the project, `.chr` import, a rectangle select and animation. A `.bme` is one file: `.chr` and `.pal` go to `/docs` until the project layout has a `gfx/` folder. Remove the duplicate F7 page of bm Pixel when the user agrees.
+First, the Sprites tab (done; the rest of it is here). Then the tabs below, in this order. Do not start a tab before the one above it works.
 
-- Code tab on `carts/code`: a 65C816 language mode with the errors of `A.assemble` (Phase 1, step 3).
+- Sprites tab: sizes 16x32 and 32x64 (OBSEL 6 and 7), recolour of the OAM preview by sub-palette, `.pal` and tile sub-palettes as files of the project, `.chr` import, a rectangle select and animation. A `.bme` is one file: `.chr` and `.pal` go to `/docs` until the project layout has a `gfx/` folder. Remove the duplicate F7 page of bm Pixel when the user agrees.
+1. Code tab on `snes_asm`: the errors of the assembler in plain words, and F1 on an opcode shows its flags, cycles and addressing. Register `snes_sdk` in the console's app list and the Market when this tab works.
+2. Run tab with debug: F5 run, F9 break, F10 step, the registers and the memory (`snes_regs`, `snes_peek`, `snes_poke`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md)).
+3. Learn tab ("Impara"): original lessons in Italian and English, kept as data files in the project, with projects that work. Each lesson can link to an outside source (SNESdev Wiki, ersanio, PVSnesLib, the SMW disassembly). Use links only. Never copy their text or code.
+4. Step-by-step run as a teaching tool: the registers have colours, and the one that changed shows.
+5. A disassembler that follows M and X: the true flags from `snes_regs` when the CPU is stopped, and `REP` and `SEP` when it is not. It uses the opcode table of the assembler (`A.opcodes`).
+6. OAM view: the table of the 128 sprites (from `snes_debug` or `snes_peek`) and boxes on the screen; a click on a box selects the sprite.
+7. A watch on the writes to one address. Measure the cost on the Pi Zero W before you keep it.
+8. Map and Music tabs (Phase 2 and 3).
+
+Other open work:
+
 - A project layout: `src/*.s`, `gfx/*.png`, `snes.bme`, with `.include` read from the project (Phase 1, steps 2 and 6).
-- The code tab: another session. The sprite page is done (see above). The debug API is done (`snes_peek`, `snes_poke`, `snes_regs`, `snes_step`, `snes_break`, `snes_run`; see [snes.md](snes.md) rules).
 - The assembler has no listing file, no `.struct`, no `.enum`, no anonymous labels (`+`, `-`) and no linker. Add them when a game needs them.
-- A disassembler that follows M and X (Phase 2), built on `A.opcodes`.
 - Measure the speed of `A.assemble` on the Pi Zero W with a large source. The tests run on the PC only.
 - Super FX opcodes (GSU) and the DSP, SA-1 modes (Phase 4).
