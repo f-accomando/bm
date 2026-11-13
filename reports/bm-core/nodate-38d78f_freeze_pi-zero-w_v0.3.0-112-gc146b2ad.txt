@@ -1,0 +1,77 @@
+bm report
+kind: freeze
+kernel: v0.3.0-112-gc146b2ad
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-38d78f_freeze_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+
+the Pi froze (the watchdog restarted it) while: cartridge menu, frame 0, 141 s after boot, kernel v0.3.0-112-gc146b2ad, ring 31685, sink on
+--- the last lines printed ---
+report: sending 20261113-125739_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-125739_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:log
+: log
+report: 20261113-125756_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt saved as bm/reports/rpt00001.txt
+report: sending 20261113-125756_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-125756_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+the line is done
+> 
+net: console closed
+net: receiving settings (14 bytes)...
+config: snes_gpu_m7=1
+net: settings from the PC: 1 changed in bm/config.txt
+
+net: console opened from 192.168.1.115
+> :
+:sys reboot
+: sys reboot
+rebooting...
+wifi: left "FASTWEB-36AB12"ion_bm-snes_pi-zero-w.txlog in bm/lastrun.txt
+pt00001.txt
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+menu idle: 300/300 frames, 1173 of 1652 ms taken, 19.0 ms past a frame; reports 1161 ms (+22.4, stk 7.6/128K); min slack -12776 us, paced 0
+menu idle: sd first word <1ms 160 <3ms 15 (max 1.4 ms)
+menu stalls: tls handshake 1x last 3284.4 worst 3284.4 ms
+menu frame: 1x, a frame averages draw 9900 us, enlarge 1 us, flip 91 us, free time used 3911 us (300 frames)
+fiber: reports did not yield: 104.3 ms past its slice
+report: sending session_bm-snes_pi-zero-w.txt
+report: not sent (PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.txt: cancelled): it waits in bm/reports
+report: on the SD card: PUT /repos/f-accomando/bm/contents/reports/bm-core/session_bm-snes_pi-zero-w.tx
+bm: "bm SNES" closed, memory freed
+menu: closed snes.bm
+report: sending session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 1914 of 1919 ms taken, 106.9 ms past a frame; reports 1885 ms (+104.3, stk 7.6/128K, stop 15.4); min slack -15368 us, paced 0
+menu idle: sd first word <1ms 83 (max 1.4 ms)
+menu stalls: tls handshake 2x last 279.7 worst 318.8 ms
+menu frame: 1x, a frame averages draw 8777 us, enlarge 1 us, flip 93 us, free time used 6381 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/bm-core/session_bm-snes_pi-zero-w.txt
+menu idle: 300/300 frames, 414 of 2050 ms taken, 14.9 ms past a frame; reports 402 ms (+14.9, stk 7.6/128K); min slack -6965 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 8207 us, enlarge 1 us, flip 93 us, free time used 1380 us (300 frames)
+menu frame: 1x, a frame averages draw 8243 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8198 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8404 us, enlarge 1 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8316 us, enlarge 1 us, flip 94 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8230 us, enlarge 1 us, flip 93 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8232 us, enlarge 1 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8381 us, enlarge 1 us, flip 92 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8292 us, enlarge 1 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8207 us, enlarge 1 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8290 us, enlarge 1 us, flip 93 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8369 us, enlarge 1 us, flip 92 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8280 us, enlarge 1 us, flip 93 us, free time used 40 us (300 frames)
+
+net: console opened from 192.168.1.115
+> back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
