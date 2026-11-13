@@ -53,6 +53,8 @@ def main():
     lua = "\n".join(open(p).read() for p in parts)
     if os.environ.get("SNES_PLAY") == "1":         # a build for the bridge: plays the first ROM by itself; the logger is on
         lua = lua.replace("local AUTOPLAY = false", "local AUTOPLAY = true")
+    if os.environ.get("SNES_M7TEST") == "1":       # a build for the bridge: opens m7test.sfc and presses the keys of its five variants by itself; the logger is on
+        lua = lua.replace("local M7TEST = false", "local M7TEST = true")
     if os.environ.get("SNES_TEST") == "1":         # a test build for the bridge: the first ROM opens by itself, the FPS line is on
         lua = lua.replace("local AUTO = false", "local AUTO = true").replace("local show_fps = false", "local show_fps = true")
         if os.environ.get("SNES_ADAPT") == "1":    # the speed controller on in the test build (no fixed range of frames: the cart plays on)

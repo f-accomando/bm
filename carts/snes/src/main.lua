@@ -4,6 +4,7 @@
 
 local SW, SH = 256, 240
 local AUTOPLAY = false        -- a build for the bridge (SNES_PLAY=1): opens the first ROM and plays by itself, with no test screen; the logger writes the speed
+local M7TEST = false          -- a build for the bridge (SNES_M7TEST=1): opens m7test.sfc and presses the keys of its five variants by itself (docs/progress/snes-gpu-pi.md)
 local AUTO = false            -- a test build opens the first ROM by itself (the bridge cannot press keys)
 
 -- the SNES buttons as bits (snes.h): B Y Select Start Up Down Left Right A X L R
@@ -59,7 +60,23 @@ local ok_armed = false
 local function ok_held() return btn("a") or keydown(0x28) or keydown(0x2C) end
 local function ok_arm() if not ok_armed and not ok_held() then ok_armed = true end end
 
+-- The Mode 7 test ROM script: 20 s of emulated time (1200 frames) for each variant 1 2 3 4 5 1. The keys are B or none, Y, A, X, L.
+local M7_KEYS = { 0, 0x4000, 0x0080, 0x0040, 0x0020, 0 }
+local M7_STEP = 1200
+local m7f, m7v = 0, 0
+local function m7_pad()
+  local k = m7f // M7_STEP + 1
+  if k > #M7_KEYS then k = #M7_KEYS end
+  if k ~= m7v then
+    m7v = k
+    log(string.format("m7test variant %d step=%d t=%.1f", k == 6 and 1 or k, k, m7f / 60))
+  end
+  m7f = m7f + 1
+  return M7_KEYS[k]
+end
+
 local function readpad(p)
+  if M7TEST and p == 1 then return m7_pad() end
   if (AUTO or AUTOPLAY) and p == 1 then return auto_pad(frames) end
   local v = 0
   if p == kbp then for i = 1, #KB do if keydown(KB[i][1]) then v = v | KB[i][2] end end end
@@ -391,6 +408,15 @@ function _init()
   if rawkeys then rawkeys(true) end
   list_roms()
   if (AUTO or AUTOPLAY) and files[1] then open_rom(files[1]) end
+  if M7TEST then
+    local pick
+    for _, f in ipairs(files) do
+      local n = f.name:lower()
+      if n == "m7test.sfc" then pick = f; break end
+      if not pick and n:sub(1, 6) == "m7test" then pick = f end
+    end
+    if pick then open_rom(pick) else log("m7test no ROM named m7test* in " .. rom_dir) end
+  end
 end
 
 function _exit()

@@ -70,6 +70,13 @@ Next version (the user keeps it as a to-do, 2026-11-13): the QPU draws BG1 and g
 | 4 | BG1 alone with colour math | `math` takes every line, `frames gpu` stays still. |
 | 5 | BG1 and BG2 on | `other-bg` takes every line, `frames gpu` stays still. |
 
+Test build with no hands (`SNES_M7TEST=1`):
+
+- Build: `SNES_M7TEST=1 python3 carts/snes/build/build.py build/snes-m7` writes `build/snes-m7/snes.bm`. The normal cart is not changed (`M7TEST = false`). Send it with `tools/pi.py send`. Put `m7test.sfc` in the `snes` folder of the SD card first.
+- The cart opens `m7test.sfc` by itself (if it is not there, the first ROM named `m7test*`). The logger is on. The cart injects the pad 1 keys itself, only in this build: variant 1 (no key), 2 (Y), 3 (A), 4 (X), 5 (L), then 1 again. Each step lasts 20 s of emulated time (1200 frames, counted in updates, so a slow Pi stretches the real time). The whole run is about 2 minutes of emulated time. After the script the ROM keeps running in variant 1.
+- Log lines: `m7test variant N step=S t=T` when the variant changes (N = variant, S = step 1 to 6, T = emulated seconds since the ROM started: 0, 20, 40, 60, 80, 100). Take the `snes t=` lines between two `m7test variant` lines as the figures of that variant. Read the log with `pi.py line log`. Run the whole script twice: with `snes_gpu_m7=1` and with 0.
+- PC test: `make test-snes-m7` builds the ROM and the cart, runs it in bmhost for 135 s of emulated time and checks that the log lines go 1 2 3 4 5 1 at 0, 20 ... 100 s, that the ROM runs, and that the flag off leaves the normal cart as it was.
+
 Facts of the PC run: the V3D emulator counts, for 60 frames of each variant, 60 GPU frames and 60 runs (variant 1), 13440 sprite lines (2), 13440 runs (3, one for each line), 13440 math lines (4), 13440 other-bg lines (5). The core draws no BG2 in Mode 7 (EXTBG is not made), so variant 5 shows the same picture as variant 1 on the host. The Pi numbers of the variants are not measured yet.
 
 ## Plan for G3 to G6 (gates use the numbers above)

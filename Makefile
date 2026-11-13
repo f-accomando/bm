@@ -281,6 +281,11 @@ test-snes: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost $(BUILD)/carts/snes.bm
 	$(BUILD)/host/luahost tests/snes/pic_due_test.lua
 	$(PYTHON) tests/snes/render_test.py $< $(BUILD)/carts/snes.bm
 
+# The SNES cart test build SNES_M7TEST=1 (opens m7test.sfc, runs the script of its five variants): docs/progress/snes-gpu-pi.md, "Mode 7 test ROM".
+test-snes-m7: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost tests/snes/m7test_cart_test.py tests/snes/m7test/main.s carts/snes/src/main.lua carts/snes/build/build.py
+	tests/snes/build_m7test.sh $(BUILD)/m7test.sfc
+	$(PYTHON) tests/snes/m7test_cart_test.py $< $(BUILD)/m7test.sfc
+
 # bm SNES SDK: the 65C816 assembler and the ROM builder (src/script/snes_asm.lua). The unit tests run in the Lua of the
 # repository; the second test builds tests/snes/testrom.s, compares it with the ROM of make_testrom.py and runs it in the core.
 SNES_CORE_SRCS := src/bm/snes_bus.c src/bm/snes_sa1.c src/bm/snes_sa1_cpu.c src/bm/snes_gsu.c src/bm/snes_dsp77.c src/bm/snes_cpu.c src/bm/snes_ppu.c src/bm/snes_spc.c src/bm/snes_dsp.c
