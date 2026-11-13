@@ -113,6 +113,7 @@ Rule that the repo already follows: a C reference, an assembly version, and an e
 
 Next measurement to consider: a threaded assembly interpreter for the CPU, before a full JIT.
 
-The conversion of a ROM to ARM (items C4 and C5) is in [snes-convert.md](snes-convert.md).
+The conversion of a ROM to ARM (items C4 and C5) is in [snes-convert.md](snes-convert.md). The PPU and the GPU ideas are in [snes-gpu.md](snes-gpu.md).
 
-The PPU and the GPU ideas are in [snes-gpu.md](snes-gpu.md).
+## I-cache work
+Done 2026-11-13 (PC and QEMU; the Pi is not read yet): the hot SNES code in one linker block (`src/bm/snes_hot.ld`), `exec_fast`, `pfill`, the SPC700 at `-Os`. Model: 47% (SMW) and 36% (SMW2) fewer misses. Stages, table, what to read in the Pi log, rules and open work: [snes-icache.md](snes-icache.md).
