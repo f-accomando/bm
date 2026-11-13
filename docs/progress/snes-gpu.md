@@ -55,7 +55,7 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 ## Work items (development codes)
 
-Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and measured with the 3D Bench on the Pi (job 4 us and copy 186 us pass the gates; the ARM slowdown of 10% is provisional, the bench is run again with a fix; the gain in play is not measured, because SMW2 has sprites in its Mode 7 scene and the GPU drew no frame); G8 done for Mode 7 lines only; G5 and G6 fail the gather gate (8 ns/word, need 2.7) and wait for another way to read tiles; G4 in a smaller scope (the ARM lays the sprites over the GPU picture of BG1) is the next version, to do; G3, G7, G9, G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
+Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and measured with the 3D Bench on the Pi (job 4 us and copy 189 us pass the gates; the second bench run gives: ARM slowdown 63% with QPU reads over SDRAM and 6% over the 64 KB, gather 12 ns/word, Mode 7 gain about 1.5 ms (on the gate); the gain in play is not measured, because SMW2 has sprites in its Mode 7 scene and the GPU drew no frame); G8 done for Mode 7 lines only; G5 and G6 fail the gather gate (12 ns/word, need 2.7) and wait for another way to read tiles; G4 in a smaller scope (the ARM lays the sprites over the GPU picture of BG1) is the next version, to do; G3, G7, G9, G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
 
 P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
