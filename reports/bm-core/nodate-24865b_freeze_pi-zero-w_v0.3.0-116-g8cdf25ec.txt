@@ -1,0 +1,81 @@
+bm report
+kind: freeze
+kernel: v0.3.0-116-g8cdf25ec
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-24865b_freeze_pi-zero-w_v0.3.0-116-g8cdf25ec.txt
+
+the Pi froze (the watchdog restarted it) while: moniart: the log to the SD, frame 0, 619 s after boot, kernel v0.3.0-112-gc146b2ad, ring 113312, sink on
+--- the last lines printed ---
+net: restarting with the new kernel in 3 s
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ tls handshake 2x last 286.9 worst 470.1 ms
+menu frame: 1x, a frame averages draw 14484 us, enlarge 0 us, flip 98 us, free time used 2411 us (300 frames)
+ren
+audio: HDMI 48 kHz
+usb: if0 class 03/00/00 ep 81 mps 16 every 8ms, report desc 83
+usb: if1 class 03/01/01 ep 82 mps 16 every 8ms, report desc 182 keyboard (report id)
+usb: if2 class 03/00/00 ep 85 mps 64 every 2ms, report 
+menu idle: sd first word <1ms 15 <3ms 2 (max 8.2 ms)
+menu frame: 1x, a frame averages draw 13796 us, enlarge 0 us, flip 96 us,  cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 4/10
+boot: restarting once more (newbuild_restart=0 in bm/config.txt turns this off)
+draw 13871 us, enlarge 0 us, flip 95 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 13784 us, enlarge 0 us, flip 95 us, free time used 47 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00003000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00003100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 280849 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 280858 ms, 1 jobs)
+back to the monitor
+> :
+:log
+: log
+report: 20261113-131543_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt saved as bm/reports/rpt00001.txt
+report: sending 20261113-131543_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-131543_log_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+the line is done
+> 
+net: console closed
+
+net: console opened from 192.168.1.115
+> :
+:b3d
+: b3d
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 336358 ms, 1 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 336368 ms, 1 jobs)
+v3d: ERRSTAT 00001030 -> 00007100 after job 2 (t 406873 ms)
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+gpu3d: 3D drawn after 2D in a frame: its depth is kept from the next frame
+net: not served for 1963 ms (up 621500 ms), while: monitor line "b3d"
+net:   pc at 1s: 00143778
+3D Bench: done (ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 47.0 C, throttled 00000); the report is in bm/bench on the SD card
+report: 20261113-132129_bench3d_pi-zero-w_v0.3.0-112-gc146b2ad.txt saved as bm/reports/rpt00001.txt
+report: sending 20261113-132129_bench3d_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+report: sent to f-accomando/bm, branch reports: reports/bm-core/20261113-132129_bench3d_pi-zero-w_v0.3.0-112-gc146b2ad.txt
+the line is done
+> 
+net: console closed
+net: receiving a new kernel (6957348 bytes)...
+net: kernel 0% (0 of 6794 KB)
+net: kernel 10% (684 of 6794 KB)
+net: kernel 20% (1362 of 6794 KB)
+net: kernel 30% (2038 of 6794 KB)
+net: kernel 40% (2727 of 6794 KB)
+net: kernel 50% (3403 of 6794 KB)
+net: kernel 60% (4083 of 6794 KB)
+net: kernel 70% (4756 of 6794 KB)
+net: kernel 80% (5444 of 6794 KB)
+net: kernel 90% (6119 of 6794 KB)
