@@ -489,7 +489,7 @@ local lua0 = section(astro0, 1)
 
 E._init()
 frames(2)
-check(sees("open a cartridge") and sees("/bm/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
+check(sees("open a cartridge") and sees("/carts/astrowing.bm") and sees("New file"), "at the start: New file and the list of the files")
 -- no file: New file makes a cube (a model alone); n adds another; Ctrl+S names it in /bmm
 key("\n")
 check(sees("VERTICES") and status():find("new file", 1, true) ~= nil, "New file: the cube in the edit page: " .. status())

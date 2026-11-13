@@ -37,7 +37,7 @@ EXPECT_RE = re.compile(
     r"""\bexpect\(\s*(["'])((?:\\.|(?!\1).)*?)\1\s*,[^()]*?\btimeout\s*=\s*(\d+)(?![\d.])"""
 )
 DEF_RE = re.compile(r"^\s*def\s+(\w+)\s*\(")
-GAME_REF_RE = re.compile(r"carts/(\w+)\.bm")
+GAME_REF_RE = re.compile(r"bm/(\w+)\.bm")
 
 problems = []
 

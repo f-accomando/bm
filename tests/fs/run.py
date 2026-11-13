@@ -59,10 +59,10 @@ def check(binary, size_mib, cluster_sectors):
         if "164 files" not in listing:          # 202 - 50 deleted + 10, "." and ".."
             print(f"FAIL mdir ({what}):\n" + listing)
             return 1
-        carts = subprocess.run(["mdir", "-i", part, "::/BM"],
+        carts = subprocess.run(["mdir", "-i", part, "::/CARTS"],
                                capture_output=True, text=True, env=env).stdout
         if "cancellare" in carts or "README" not in carts:
-            print(f"FAIL mdir /bm after the delete ({what}):\n" + carts)
+            print(f"FAIL mdir /carts after the delete ({what}):\n" + carts)
             return 1
         # what the writers at the ticks left (test_fat.c, nest_tick)
         mix = subprocess.run(["mdir", "-b", "-i", part, "::/MIX"],

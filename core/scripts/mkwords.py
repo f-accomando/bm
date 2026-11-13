@@ -239,7 +239,7 @@ def main():
     games = ['pong', 'snake', 'shooter', 'astrowing']
     lua = [open(os.path.join(ROOT, 'bm', g, 'main.lua'), encoding='utf-8').read() for g in games]
     for d in ('kitchen', 'titan'):
-        lua += [open(f, encoding='utf-8').read() for f in sorted(glob.glob(os.path.join(ROOT, 'bm', d, 'core', 'src', '*.lua')))]
+        lua += [open(f, encoding='utf-8').read() for f in sorted(glob.glob(os.path.join(ROOT, 'bm', d, 'src', '*.lua')))]
     lua.append(kb_code())
     api = tsv_api()
 
