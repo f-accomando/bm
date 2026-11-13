@@ -1,0 +1,45 @@
+# bm SNES GPU: stage 1 on the Pi, the numbers to read and the plan for G3 to G6
+
+Part of [snes-gpu.md](snes-gpu.md) (items G1 to G11, rules and open work are there).
+
+## Stage 1 (2026-11-13): what runs in the kernel
+
+Status: built and tested on the PC (V3D emulator and QEMU build). Nothing is measured on the Pi yet. Default off.
+
+- Config key `snes_gpu_m7=1` (Pi only; the RGB30 and the host never see the code). At boot `snes_gpu_enable` (`src/kernel/snes_gpu.c`) starts the V3D, loads `qp_snes_mode7` (`src/gpu/qpu_snes.c`) and runs a probe: a synthetic Mode 7 picture of 24 lines, QPU against the ARM version. If the probe fails, the log says why and the ARM PPU draws everything.
+- `snes_ppu.c` keeps the lines of a frame that show BG1 Mode 7 alone (`bgmode` 7, `tm` = 1, no window on BG1, no colour math, no clip rule). It writes X and Y of the line (the ARM set-up of `draw_mode7`) in a table. A run of lines ends, and the QPUs draw it, when the matrix words or `m7sel` change, the palette or the brightness change, the video RAM is written, the lines are not in sequence (forced blank), or the frame ends (`ppu_frame_end` in `snes_bus.c`). Every other line goes through the normal ARM path (rule G8: the ARM picture is the reference and the fallback).
+- A copy of the 64 KB of video RAM is made only when `ppu_vram_dirty` was called since the last copy (a Mode 7 game that writes VRAM only in the blank pays the copy once or never).
+- `qpu_snes_m7` runs the lines in up to 12 jobs. If a run fails (timeout, queue error), the ARM version of the same lines draws them from the same buffers (the picture is correct). Two failed runs in a row turn the QPUs off for the session. A run skipped because a 3D job runs is not a failure.
+- Log: the `snes t=` line has, after the `ppu us:` part, ` | gpu_m7 job N us copy N us frames gpu N arm N lines gpu N arm N copies N`. `job` is the time of the QPU run of a frame (average over the frames the GPU drew, 2 samples a step), `copy` is the 64 KB copy. `frames gpu` counts rendered frames with at least one GPU line, `frames arm` the other rendered frames. `lines arm` counts lines that the ARM version drew after a failed run. The `ppu` time of the line no longer holds the lines the GPU takes: read `job` + `copy` as their cost and `frame` for the sum.
+- 3D Bench: with `snes_gpu_m7=1` the report (and the kernel log) gets one line `snes gpu bench: ...` from `qpu_snes_bench`. The numbers are in the table below.
+- Tests: `make test-snes-g2` (the 56 states of G2, `test_snes_gpu 0` with the states as whole frames, frames with changes in the middle (HDMA on the matrix, palette, brightness, video RAM, forced blank, sprites, colour math, a Mode 1 end), the micro-benchmark programs on the emulator, and a Mode 7 ROM when `BM_SNES_ROMS` holds one; `test_snes_gpu 1` QPUs that stop; `test_snes_gpu 2` QPUs that store wrong data), `make test-snes-ppu`, `make test-snes`, `make test-qpu` (the generated header is current).
+- Measured on the PC: the program is 143 instructions for each block of 32 pixels (256732 instructions for 224 lines). No time of the Pi is known.
+
+### The numbers to read on the Pi
+
+| Where | Field | What it decides |
+|---|---|---|
+| 3D Bench row | `job` | Fixed cost of one QPU job (launch, whole-cache clean and invalidate, wait). Above 1000 us: every GPU pass must be a single job a frame. |
+| 3D Bench row | `jobs12` | The same with 12 jobs (what Mode 7 launches). |
+| 3D Bench row | `copy64k` | The ARM copy of the video RAM for the V3D. Above 400 us: G7 needs a list of changed ranges. |
+| 3D Bench row | `gather64k` and `gather8M` ns/word | Time for a word that one lane gathers, all 12 QPUs together. Mode 7 reads 170000 words: its QPU time is about `jobs12` + 170000 x `gather64k`. |
+| 3D Bench row | `stream` MB/s | Sequential reading of SDRAM by the QPUs. |
+| 3D Bench row | `arm chunks/ms` alone, qpu-l2, qpu-sdram, `arm-slowdown` | How much work the ARM does with no QPU job, with the QPUs busy in the L2 cache, and with the QPUs reading SDRAM. The slowdown is the loss of the second against the first. Above 25%: the ARM loses what the GPU saves, so stop after Mode 7. |
+| `snes t=` line | `gpu_m7 job`, `copy`, `frames gpu/arm`, `lines gpu/arm` | The real gain of Mode 7 on a Mode 7 scene: compare `frame` (and `fps`) with `snes_gpu_m7=0`. |
+
+How to run (the user): put `snes_gpu_m7=1` in `bm/config.txt`, install `dist/kernel.img` with `./easy_install.sh`, boot, run the 3D Bench once (its row and the report `bm/bench/3dNNNN.txt` hold the line), then play a Mode 7 scene (Super Castlevania IV rotating room, F-Zero, Super Mario Kart) for 20 seconds with Log on and send the `snes t=` lines. Then do the same with the key off, same scene, for the A/B. If the boot log says `snes gpu: Mode 7 on the QPUs is off (...)`, send that line.
+
+Risk: the V3D start changed the boot of the Pi before (see `v3d-flags.md`; an off/on power cycle of the QPUs hung `probe_index`). The key is the guard: with the key off nothing starts.
+
+## Plan for G3 to G6 (gates use the numbers above)
+
+All steps keep: the ARM PPU is the reference, `make test-snes-ppu` states compare byte for byte, no frame of delay (G7 only after a measured latency cost), RGB30 and host stay on the ARM.
+
+1. Decision after the Pi numbers. Mode 7 gain per frame = `ppu` ARM Mode 7 time (3.7 ms) - (`job` + `copy`). If the gain is under 1.5 ms, or `arm-slowdown` is above 25%, the GPU path stops at G2 and the code stays as an option. Otherwise go on.
+2. G3, register log for each line. Today a run ends when a register changes, so an HDMA effect on the matrix (F-Zero, Mario Kart) gives one job per change. Build: a per-line array of the registers that the shader reads (matrix words, `m7sel`, scroll, `inidisp`), filled by `ppu_line` instead of ending the run. The QPU program reads `a` and `c` from the table (two more words a line) in place of uniforms. Gate: the mid-frame states of `test_snes_gpu` with an HDMA on every line equal the reference; one job per frame whatever the HDMA does. Cost to compare: `jobs12` x number of runs against one job.
+3. G4, sprite lists. The ARM walks the OAM (branchy, 128 entries) and gives each line up to 32 sprites with x, tile address, palette, flips and priority; the QPU program draws them. Build only when the Pi shows `obj` above 1.5 ms in the target scene. Gate: the sprite-limit states of `ppu_equiv` (32 sprites, 34 tiles) equal the reference. Read `gather64k` first: a sprite pixel costs 2 gathers.
+4. G5, Mode 1 (BG1 to BG3 with the priority lists of `ord1`). One program for the three layers and the sprite list result of G4: per pixel the tile map and the tile data of each layer, then the priority pick. Build only if `gather64k` x (about 20 words a pixel x 57344 pixels = 1.1 million) is under 3 ms, i.e. `gather64k` under 2.7 ns/word, against `bg` 3 to 4.5 ms on the ARM. Gate: Mode 1 states equal the reference; Super Mario World frames from the ROM test.
+5. G6, colour math and windows. The compose step and the mix move into the same program. Build after G5, because colour math needs the layers as an input. Gate: all of `test-snes-ppu` equals the reference on the GPU path. Compare with `comp` + `mix` (2.5 to 4 ms on the ARM).
+6. G7 (pipeline) and G11 (the GPU writes the target) stay behind a measured latency cost: do not enable G7 without a measurement of the input-to-picture time on the Pi.
+
+If any step fails its gate on the Pi, its frames go back to the ARM by the G8 rule that stage 1 already has for Mode 7.

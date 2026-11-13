@@ -1,6 +1,6 @@
 # bm SNES: exploration of the PPU on the GPU
 
-Status: notes from a talk on 2026-11-11. Nothing is built. Pi Zero W only (V3D). The figures are estimates, not measurements. Work-item codes C0 to C7 are in [snes-cpu.md](snes-cpu.md).
+Status (2026-11-13): G1 done; G2 runs in the kernel behind the key `snes_gpu_m7` (default off) and in a V3D micro-benchmark, tested on the PC only: see [snes-gpu-pi.md](snes-gpu-pi.md). Nothing is measured on the Pi. Pi Zero W only (V3D). The figures in the design notes are estimates, not measurements. Work-item codes C0 to C7 are in [snes-cpu.md](snes-cpu.md).
 
 Start point: the "native 256x256" mode (no GPU scale). The GPU would write the 256x224 RGB565 picture itself.
 
@@ -55,29 +55,29 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 ## Work items (development codes)
 
-Status of every item (2026-11-13): G1 done; G2 done on the PC (V3D emulator), the port to the Pi and the Pi benchmark are in progress; G3 to G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
+Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and a V3D micro-benchmark, both tested on the PC and waiting for the Pi numbers; G8 done for Mode 7 lines only; G3 to G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
 
 P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
 | G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; tables of Super Mario World (layers 43%, colour math 29%, sprites 17%, priority list 11%) and of Super Castlevania IV in `snes-measure.md`. Left: Mode 7 and HDMA scenes of SMW | 0 | 2 | a table for the scenes that drop |
-| G2 | Prototype: Mode 7 shader for one frame, checked in `v3d_emu.c`. Done on the PC (see "G2 result"); the Pi port is the next step | 3 | 6 | byte for byte against `ppu_ref.c` |
+| G2 | Mode 7 on the QPUs. Done on the PC and in the kernel behind `snes_gpu_m7=1` (see "G2 result" and [snes-gpu-pi.md](snes-gpu-pi.md)); not run on the Pi | 3 | 6 | byte for byte against `ppu_ref.c` |
 | G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
 | G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |
 | G5 | Mode 1 shader (BG1 to BG3, sprites) | 4 | 8 | same, Super Mario World frames |
 | G6 | Colour math and windows in the shader | 5 | 8 | same, `make test-snes-ppu` states |
 | G7 | Pipeline with a frame of delay and a VRAM copy | 7 | 7 | no tearing; the time of a frame measured on the Pi |
-| G8 | Fallback to the ARM PPU for each frame | 5 | 5 | a frame with an unported feature gives the ARM picture |
+| G8 | Fallback to the ARM PPU for each frame. Done for Mode 7: a line with sprites, windows, colour math or another mode goes the ARM path; a failed QPU run gives the ARM version of the lines. Left: the rule for each new GPU path | 5 | 5 | a frame with an unported feature gives the ARM picture |
 | G9 | Modes 0, 2, 3, 4 (offset-per-tile) | 8 | 8 | same |
 | G10 | Modes 5, 6, interlace, mosaic: decide if they stay on the ARM | 8 | 1 | a written decision |
 | G11 | The GPU writes the 256x224 target directly, no blit (native mode only) | 7 | 5 | the draw cost measured before and after |
 
 ## G2 result (prototype, PC only)
 
-Status: done on the V3D emulator. Nothing runs on the Pi, and the cart still uses the ARM PPU.
+Status: done on the V3D emulator; the kernel path is in [snes-gpu-pi.md](snes-gpu-pi.md). Nothing runs on the Pi.
 
-- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is not in `src/gpu/qpuprog.h` and the kernel does not load it.
+- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is in `src/gpu/qpuprog_snes.h` (made by `tools/qpusnes.py`, checked by `make test-qpu`).
 - What it does: the picture of Mode 7 for a frame with only BG1 on. Each of 16 lanes makes two pixels of a block of 32. The ARM does the set-up of each line (X and Y at the start of the line, as `draw_mode7` does). The `mul24` of the QPU is unsigned and has 24 bits, so the 16-bit by 13-bit products of the set-up stay on the ARM. In the loop `a * xx` is `(a + 32768) * xx - (xx << 15)`.
 - Gate: 56 states give the same 57344 pixels as `ppu_line` of `ppu_ref.c`: identity, scroll, rotation, zoom out to the corner, mirrors, the four screen-over modes (wrap, wrap, clear, tile 0), the largest and the smallest matrix words, and 40 random states with any 16-bit matrix (16 fixed states, `make test-snes-g2` runs them and the 40).
 - What the QPU needs from the ARM: the 64 KB of video RAM in memory the V3D reads (a copy for each frame, or a change list), the colour table `lut` of `ppu_line` (256 halves, brightness applied), two words for each line, and the matrix words. The VRAM tile map (even bytes) and the 8-bit tiles (odd bytes) are read as they are.
@@ -86,3 +86,21 @@ Status: done on the V3D emulator. Nothing runs on the Pi, and the cart still use
 - Value: Super Mario World uses Mode 7 only in a few boss fights, so G2 helps few scenes there. The Mode 7 games gain most. The 72% of the PPU time in Super Mario World is Mode 1 (layers and colour math): G5 and G6.
 
 Order: G1, G2, G3, G4, G5, G6, G8, G7, G11, then G9 and G10.
+
+## Stage 1 and the plan for G3 to G6
+
+The kernel path, the log fields, the numbers to read on the Pi and the plan for G3 to G6 with their gates are in [snes-gpu-pi.md](snes-gpu-pi.md).
+
+## Rules (do not break)
+
+- The ARM PPU (`ppu_line`) is the reference and the fallback of every GPU path. Every GPU picture equals it byte for byte (`make test-snes-g2`, `make test-snes-ppu`).
+- The key is off by default. With the key off nothing starts the V3D for the SNES. The RGB30 and the host never contain GPU code of the PPU (`src/kernel/snes_gpu.c` and `src/gpu/` are Pi only).
+- A failed QPU run draws the same lines with the ARM version. Two failed runs in a row turn the QPUs off for the session.
+- No frame of delay (G7) without a measured latency cost.
+- The ARM keeps the registers, the video RAM and the timing. The GPU never changes the emulated behaviour.
+
+## Open work
+
+- Run the micro-benchmark and a Mode 7 scene on the Pi (steps in [snes-gpu-pi.md](snes-gpu-pi.md)), then fill the numbers in this file and take the decision of step 1 of the plan.
+- G3 to G6 as in the plan of [snes-gpu-pi.md](snes-gpu-pi.md), only after the decision.
+- G7, G9, G10, G11: unchanged (ideas).
