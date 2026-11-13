@@ -1,160 +1,295 @@
 #!/usr/bin/env python3
 """Draws the 88x88 covers of the emulators (bm/nes, bm/snes, bm/psx /cover.png).
 
-Retro 1990s pixel art: a 44x44 grid scaled 2x, a small palette, dark outlines.
+Retro 1990s pixel art at the native 88x88: every shape is a pixel mask, shaded with a bevel
+(light top-left, dark bottom-right), a 1-pixel dark outline and ordered dithering on the gradients.
 Original artwork. Run `python3 core/scripts/mkemucovers.py` (or with names: `nes snes psx`).
 """
-import os, struct, sys, zlib
+import math, os, sys
+
+from PIL import Image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-N, S = 44, 2
-FONT = {  # 3x5 glyphs
-    "N": ["1001", "1101", "1011", "1001", "1001"], "E": ["111", "100", "110", "100", "111"],
-    "S": ["111", "100", "111", "001", "111"], "P": ["110", "101", "110", "100", "100"],
-    "X": ["101", "101", "010", "101", "101"],
+W = 88
+INK = (18, 12, 28)
+BAYER = ((0, 8, 2, 10), (12, 4, 14, 6), (3, 11, 1, 9), (15, 7, 13, 5))
+FONT = {
+    "N": ("10001", "11001", "11101", "10111", "10011", "10001", "10001"),
+    "E": ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
+    "S": ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
+    "P": ("11110", "10001", "10001", "11110", "10000", "10000", "10000"),
+    "X": ("10001", "10001", "01010", "00100", "01010", "10001", "10001"),
 }
-OUT = (16, 12, 24)
 
 
-class Pix:
-    def __init__(self, bg):
-        self.p = [[bg] * N for _ in range(N)]
+class Canvas:
+    def __init__(self):
+        self.im = Image.new("RGBA", (W, W), INK + (255,))
+        self.px = self.im.load()
 
     def set(self, x, y, c):
-        if 0 <= x < N and 0 <= y < N:
-            self.p[y][x] = c
+        if 0 <= x < W and 0 <= y < W:
+            self.px[x, y] = tuple(c[:3]) + (255,)
 
-    def rect(self, x, y, w, h, c):
-        for j in range(y, y + h):
-            for i in range(x, x + w):
-                self.set(i, j, c)
+    def get(self, x, y):
+        return self.px[x, y][:3]
 
-    def box(self, x, y, w, h, fill, hi=None, lo=None):
-        """A filled box with a 1-pixel dark outline and an optional bevel."""
-        self.rect(x, y, w, h, OUT)
-        self.rect(x + 1, y + 1, w - 2, h - 2, fill)
-        if hi:
-            self.rect(x + 1, y + 1, w - 2, 1, hi); self.rect(x + 1, y + 1, 1, h - 2, hi)
-        if lo:
-            self.rect(x + 1, y + h - 2, w - 2, 1, lo); self.rect(x + w - 2, y + 1, 1, h - 2, lo)
+    def dither_v(self, y0, y1, stops, x0=0, x1=W):
+        """A vertical gradient through the colour stops, dithered (no smooth blends: real pixel steps)."""
+        stops = [mix(stops[min(i // 4, len(stops) - 2)], stops[min(i // 4, len(stops) - 2) + 1], (i % 4) / 4)
+                 for i in range(4 * (len(stops) - 1))] + [stops[-1]]
+        n = len(stops) - 1
+        for y in range(y0, y1):
+            t = (y - y0) / max(1, y1 - y0 - 1) * n
+            i = min(int(t), n - 1)
+            f = t - i
+            for x in range(x0, x1):
+                self.set(x, y, stops[i + 1] if f * 16 > BAYER[y & 3][x & 3] + 0.5 else stops[i])
 
-    def disc(self, cx, cy, r, c, outline=True):
-        for y in range(N):
-            for x in range(N):
-                d = (x - cx) ** 2 + (y - cy) ** 2
-                if d <= r * r:
-                    self.set(x, y, c)
-                elif outline and d <= (r + 1) ** 2:
-                    self.set(x, y, OUT)
+    def fill(self, mask, c):
+        for (x, y) in mask:
+            self.set(x, y, c)
 
-    def text(self, s, x, y, c, shadow=OUT):
-        for ch in s:
+    def body(self, mask, base, hi, lo, outline=INK, depth=1):
+        """Fills a shape with a bevel and an outline."""
+        self.fill(outline_of(mask), outline) if outline else None
+        for (x, y) in mask:
+            c = base
+            if any((x - d, y) not in mask or (x, y - d) not in mask for d in range(1, depth + 1)):
+                c = hi
+            if any((x + d, y) not in mask or (x, y + d) not in mask for d in range(1, depth + 1)):
+                c = lo
+            self.set(x, y, c)
+
+    def title(self, text, y, top, bottom, shade):
+        """Bold 2x title, gradient fill, outline and a drop shadow."""
+        w = len(text) * 12 - 2
+        x0 = (W - w) // 2
+        mask = set()
+        for k, ch in enumerate(text):
             for j, row in enumerate(FONT[ch]):
                 for i, b in enumerate(row):
                     if b == "1":
-                        self.set(x + i + 1, y + j + 1, shadow)
-                        self.set(x + i, y + j, c)
-            x += len(FONT[ch][0]) + 1
+                        for dx in (0, 1):
+                            for dy in (0, 1):
+                                mask.add((x0 + k * 12 + i * 2 + dx, y + j * 2 + dy))
+        self.fill(outline_of({(x + 1, y + 2) for x, y in mask} | mask), INK)
+        self.fill({(x + 1, y + 2) for x, y in mask} - mask, shade)
+        for (x, yy) in mask:
+            t = yy - y
+            self.set(x, yy, top if t < 6 else mix(top, bottom, 0.5) if t < 8 else bottom)
 
-    def ctext(self, s, y, c):
-        self.text(s, (N - sum(len(FONT[ch][0]) + 1 for ch in s) + 1) // 2, y, c)
+    def stars(self, pts):
+        for i, (x, y) in enumerate(pts):
+            if i % 3 == 0:
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    self.set(x + dx, y + dy, (150, 140, 220))
+                self.set(x, y, (255, 255, 255))
+            else:
+                self.set(x, y, (200, 200, 255) if i % 2 else (255, 230, 180))
 
     def save(self, path):
-        raw = b""
-        for y in range(N * S):
-            raw += b"\x00" + b"".join(bytes(self.p[y // S][x // S]) + b"\xff" for x in range(N * S))
-        def chunk(t, d):
-            return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
-        open(path, "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", N * S, N * S, 8, 6, 0, 0, 0))
-                               + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+        self.im.save(path)
 
 
-def bg_stripes(p, c0, c1):
-    for y in range(N):
-        for x in range(N):
-            p.set(x, y, c0 if ((x + y) // 3) % 2 else c1)
+def outline_of(mask):
+    out = set()
+    for (x, y) in mask:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if (x + dx, y + dy) not in mask:
+                    out.add((x + dx, y + dy))
+    return out
 
+
+def rect(x, y, w, h):
+    return {(i, j) for i in range(x, x + w) for j in range(y, y + h)}
+
+
+def rrect(x, y, w, h, r=2):
+    m = rect(x, y, w, h)
+    for i in range(r):
+        for j in range(r - i):
+            for (cx, cy) in ((x + i, y + j), (x + w - 1 - i, y + j), (x + i, y + h - 1 - j), (x + w - 1 - i, y + h - 1 - j)):
+                m.discard((cx, cy))
+    return m
+
+
+def circle(cx, cy, r):
+    return {(x, y) for x in range(int(cx - r - 1), int(cx + r + 2)) for y in range(int(cy - r - 1), int(cy + r + 2))
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r + r * 0.6}
+
+
+def mix(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+STARS = [(6, 24), (80, 20), (12, 40), (78, 44), (4, 60), (84, 66), (18, 80), (70, 84), (40, 22), (60, 26), (26, 28)]
+
+
+# --------------------------------------------------------------------------------------------- NES
 
 def nes():
-    """A grey cartridge; its label shows a sunset over green hills."""
-    p = Pix(0)
-    bg_stripes(p, (52, 24, 30), (64, 30, 36))
-    p.box(7, 4, 30, 37, (150, 150, 158), (196, 196, 204), (100, 100, 110))     # the shell
-    for y in range(7, 13, 2):
-        p.rect(10, y, 24, 1, (110, 110, 120))                                      # the grip ridges
-    p.box(10, 14, 24, 18, (60, 120, 220))                                          # the label
-    for y, c in ((15, (250, 140, 60)), (16, (250, 140, 60)), (17, (250, 110, 70)), (18, (220, 80, 90))):
-        p.rect(11, y, 22, 1, c)                                                    # the sunset sky
-    p.disc(26, 21, 3, (255, 220, 80), outline=False)                               # the sun
-    for x in range(11, 33):                                                        # the hills
-        h1 = 24 - (2 if 13 <= x <= 19 else 1 if x in (12, 20) else 0)
-        h2 = 26 - (2 if 23 <= x <= 30 else 1 if x in (22, 31) else 0)
-        for y in range(h1, 31):
-            p.set(x, y, (40, 150, 60))
-        for y in range(h2, 31):
-            p.set(x, y, (24, 104, 48))
-    p.rect(11, 24 - 2, 1, 0, OUT)
-    p.rect(9, 34, 26, 7, (210, 40, 50))                                            # the red title band
-    p.rect(9, 34, 26, 1, (240, 90, 90))
-    p.ctext("NES", 35, (255, 255, 255))
-    return p
+    """A grey cartridge; its label shows a sunset, mountains and a castle on a hill."""
+    c = Canvas()
+    c.dither_v(0, W, [(30, 14, 40), (70, 20, 50), (120, 30, 50)])
+    c.stars(STARS)
+    c.title("NES", 3, (255, 240, 240), (240, 70, 70), (110, 20, 30))
+    # the shell
+    x, y, w, h = 17, 22, 54, 64
+    shell = rrect(x, y, w, h, 3)
+    c.body(shell, (150, 150, 160), (205, 205, 214), (96, 96, 108), depth=2)
+    # the label: a recessed frame
+    lx, ly, lw, lh = x + 6, y + 6, w - 12, 34
+    c.fill(rect(lx - 1, ly - 1, lw + 2, lh + 2), (90, 90, 100))
+    c.fill(rect(lx, ly, lw, lh), INK)
+    sx, sy, sw, sh = lx + 1, ly + 1, lw - 2, lh - 2
+    c.dither_v(sy, sy + 20, [(40, 30, 110), (190, 60, 120), (250, 150, 70)], sx, sx + sw)
+    sun_x, sun_y = sx + sw // 2 + 6, sy + 16
+    for (px, py) in circle(sun_x, sun_y, 7):
+        if sy <= py < sy + 22 and sx <= px < sx + sw and not (py > sun_y and (py - sun_y) % 3 == 0):
+            c.set(px, py, mix((255, 240, 120), (255, 120, 60), (py - sun_y + 7) / 14))
+    def ridge(base, peaks, col, cap=None):
+        for px in range(sx, sx + sw):
+            top = base
+            for (pxc, ph, pw) in peaks:
+                top = min(top, base - ph + abs(px - pxc) * ph // pw)
+            for py in range(max(top, sy), sy + sh):
+                c.set(px, py, col)
+            if cap and top < base - 3:
+                for py in range(top, min(top + 2, sy + sh)):
+                    c.set(px, py, cap)
+    ridge(sy + 22, [(sx + 6, 10, 8), (sx + 18, 8, 7), (sx + 34, 11, 9)], (70, 50, 120), (220, 210, 240))
+    ridge(sy + 26, [(sx + 10, 6, 10), (sx + 28, 5, 8)], (40, 90, 110))
+    # the castle on the front hill
+    hill = lambda px: sy + 25 + abs(px - (sx + 12)) // 4
+    for px in range(sx, sx + sw):
+        for py in range(hill(px), sy + sh):
+            c.set(px, py, (40, 140, 70) if py - hill(px) < 2 else (24, 96, 52))
+    cx0 = sx + 6
+    for (bx, by, bw, bh) in ((cx0, sy + 17, 12, 8), (cx0 - 1, sy + 13, 4, 12), (cx0 + 9, sy + 13, 4, 12), (cx0 + 4, sy + 10, 4, 8)):
+        for px in range(bx, bx + bw):
+            for py in range(by, by + bh):
+                c.set(px, py, (34, 24, 50))
+        for px in range(bx, bx + bw, 2):
+            c.set(px, by - 1, (34, 24, 50))
+    for (wx, wy) in ((cx0 + 5, sy + 13), (cx0 + 1, sy + 16), (cx0 + 10, sy + 16), (cx0 + 5, sy + 20)):
+        c.set(wx, wy, (255, 220, 90)); c.set(wx, wy + 1, (255, 180, 60))
+    c.set(cx0 + 6, sy + 7, (240, 60, 60)); c.set(cx0 + 7, sy + 7, (240, 60, 60)); c.set(cx0 + 6, sy + 8, (60, 40, 60))
+    # the grip ridges and the arrow
+    for i in range(5):
+        ry = ly + lh + 4 + i * 3
+        c.fill(rect(x + 8, ry, w - 16, 1), (100, 100, 112))
+        c.fill(rect(x + 8, ry + 1, w - 16, 1), (190, 190, 200))
+    ax, ay = x + w // 2, y + h - 6
+    for i in range(3):
+        c.fill(rect(ax - 2 + i, ay - 2 + i, 5 - 2 * i, 1), (110, 110, 122))
+    return c
 
+
+# -------------------------------------------------------------------------------------------- SNES
 
 def snes():
-    """A grey pad with the four coloured buttons over a purple night."""
-    p = Pix(0)
-    for y in range(N):
-        c = (40 + y, 24 + y // 2, 80 + y)
-        p.rect(0, y, N, 1, c)
-    for x, y in ((4, 3), (13, 7), (36, 4), (40, 11), (30, 9), (8, 12), (21, 3)):
-        p.set(x, y, (255, 255, 220))                                               # the stars
-    p.ctext("SNES", 4, (255, 230, 120))
-    p.disc(11, 25, 9, (186, 186, 196))                                             # the two grips
-    p.disc(32, 25, 9, (186, 186, 196))
-    p.rect(11, 16, 22, 19, (186, 186, 196))
-    p.rect(11, 15, 22, 1, OUT); p.rect(13, 35, 18, 1, OUT)
-    p.rect(13, 34, 18, 1, (150, 150, 160))
-    p.rect(9, 21, 7, 3, (40, 40, 48)); p.rect(11, 19, 3, 7, (40, 40, 48))         # the cross
-    p.set(12, 22, (80, 80, 92))
-    for (x, y), c in (((32, 18), (90, 70, 200)), ((37, 23), (60, 170, 80)),
-                      ((27, 23), (230, 200, 40)), ((32, 28), (210, 50, 60))):
-        p.disc(x, y, 2, c)                                                         # X A Y B
-        p.set(x - 1, y - 1, (255, 255, 255))
-    p.rect(18, 26, 3, 1, (100, 100, 112)); p.rect(23, 26, 3, 1, (100, 100, 112))   # select start
-    p.rect(10, 38, 24, 2, (90, 70, 200)); p.rect(10, 40, 24, 1, (210, 50, 60))
-    return p
+    """A grey pad with four coloured buttons over a purple night and a 90s grid floor."""
+    c = Canvas()
+    c.dither_v(0, 58, [(16, 10, 40), (60, 24, 100), (150, 50, 140)])
+    c.stars(STARS[:8])
+    # the sunset sun behind the grid
+    for (px, py) in circle(44, 58, 16):
+        if py < 58 and not (py > 47 and (py - 47) % 3 == 0):
+            c.set(px, py, mix((255, 220, 100), (250, 80, 140), (py - 42) / 16))
+    c.dither_v(58, W, [(40, 10, 60), (20, 6, 36)])
+    for gy in (59, 61, 64, 68, 73, 79, 86):                       # the grid: rows closer near you
+        c.fill(rect(0, gy, W, 1), (230, 60, 200))
+    for k in range(-8, 9):
+        for py in range(58, W):
+            px = int(44 + k * 5 * (1 + (py - 58) / 6))
+            c.set(px, py, (230, 60, 200))
+    c.title("SNES", 3, (255, 250, 220), (250, 190, 40), (120, 60, 20))
+    # the pad
+    pad = circle(24, 54, 15) | circle(64, 54, 15) | rect(24, 40, 40, 29)
+    c.body(pad, (196, 196, 206), (236, 236, 244), (130, 130, 144), depth=2)
+    # the dark well under the buttons
+    well = circle(64, 54, 12)
+    c.body(well, (120, 110, 150), (90, 80, 120), (160, 150, 190), outline=None)
+    # the cross
+    cross = rect(15, 51, 18, 6) | rect(21, 45, 6, 18)
+    c.body(cross, (50, 50, 60), (90, 90, 104), (24, 24, 30))
+    c.fill(circle(24, 54, 1.2), (36, 36, 44))
+    # the four buttons
+    for (bx, by, base) in ((64, 46, (110, 90, 220)), (72, 54, (60, 190, 90)), (56, 54, (240, 200, 50)), (64, 62, (220, 50, 60))):
+        b = circle(bx, by, 3.4)
+        c.body(b, base, mix(base, (255, 255, 255), 0.45), mix(base, (0, 0, 0), 0.4))
+        c.set(bx - 1, by - 2, (255, 255, 255))
+    # select and start
+    for sxp in (37, 46):
+        pill = rrect(sxp, 61, 7, 3, 1)
+        c.body(pill, (110, 110, 124), (150, 150, 164), (70, 70, 84))
+    # the logo dots
+    for i, col in enumerate(((220, 50, 60), (240, 200, 50), (60, 190, 90), (110, 90, 220))):
+        c.fill(rect(38 + i * 3, 47, 2, 2), col)
+    return c
 
+
+# --------------------------------------------------------------------------------------------- PSX
 
 def psx():
-    """A rainbow compact disc and the four face symbols on a dark grid."""
-    p = Pix((20, 20, 30))
-    for i in range(0, N, 4):
-        p.rect(i, 0, 1, N, (30, 30, 44)); p.rect(0, i, N, 1, (30, 30, 44))
-    p.disc(22, 19, 14, (200, 205, 215))                                            # the disc
-    import math
-    ring = [(240, 80, 90), (250, 170, 60), (240, 230, 90), (90, 210, 120), (80, 160, 240), (170, 100, 230)]
-    for y in range(N):
-        for x in range(N):
-            dx, dy = x - 22, y - 19
-            r = math.hypot(dx, dy)
-            a = math.degrees(math.atan2(dy, dx)) % 360
-            if 6.5 < r < 12.5 and (200 <= a <= 250 or 20 <= a <= 70):
-                p.set(x, y, ring[min(5, int((r - 6.5)))])                           # the shine
-    p.disc(22, 19, 4, (120, 120, 132))
-    p.disc(22, 19, 1, (20, 20, 30), outline=False)
-    # the face symbols
-    g, r, b, k = (60, 200, 140), (240, 80, 90), (100, 150, 240), (240, 130, 200)
-    for j in range(5):                                                             # triangle
-        p.set(5 - j + 0, 33 + j, g); p.set(5 + j, 33 + j, g)
-    p.rect(1, 37, 9, 1, g)
-    for (dx, dy) in ((-2, -1), (-2, 0), (-2, 1), (2, -1), (2, 0), (2, 1), (-1, -2), (0, -2), (1, -2), (-1, 2), (0, 2), (1, 2)):
-        p.set(16 + dx, 35 + dy, r)                                                 # circle
-    for j in range(5):                                                             # cross
-        p.set(25 + j, 33 + j, b); p.set(29 - j, 33 + j, b)
-    p.rect(35, 33, 5, 1, k); p.rect(35, 37, 5, 1, k); p.rect(35, 33, 1, 5, k); p.rect(39, 33, 1, 5, k)  # square
-    p.rect(0, 38, N, 6, (12, 12, 18))
-    p.ctext("PSX", 39, (230, 230, 240))
-    return p
+    """A silver compact disc with an iridescent shine, over a dark field of face symbols."""
+    c = Canvas()
+    c.dither_v(0, W, [(14, 14, 24), (30, 30, 52), (14, 14, 24)])
+    cols = ((60, 200, 140), (240, 80, 90), (100, 150, 240), (240, 130, 200))
+    def sym(kind, x, y, col):
+        if kind == 0:
+            for j in range(5):
+                c.set(x + 2 - j // 2, y + j, col); c.set(x + 2 + j // 2, y + j, col)
+            c.fill(rect(x, y + 4, 5, 1), col)
+        elif kind == 1:
+            for (dx, dy) in ((1, 0), (2, 0), (3, 0), (0, 1), (4, 1), (0, 2), (4, 2), (0, 3), (4, 3), (1, 4), (2, 4), (3, 4)):
+                c.set(x + dx, y + dy, col)
+        elif kind == 2:
+            for j in range(5):
+                c.set(x + j, y + j, col); c.set(x + 4 - j, y + j, col)
+        else:
+            c.fill(rect(x, y, 5, 1) | rect(x, y + 4, 5, 1) | rect(x, y, 1, 5) | rect(x + 4, y, 1, 5), col)
+    for gy in range(0, W, 11):                                 # the faint pattern
+        for gx in range(0, W, 11):
+            k = (gx // 11 + gy // 11) % 4
+            sym(k, gx + 3 + (gy // 11 % 2) * 5 % 11, gy + 3, mix(cols[k], (14, 14, 24), 0.78))
+    # the disc
+    cx, cy, R = 44, 52, 31
+    disc = circle(cx, cy, R)
+    hole = circle(cx, cy, 4)
+    hub = circle(cx, cy, 10)
+    c.fill(outline_of(disc), INK)
+    rainbow = [(250, 90, 110), (255, 170, 80), (250, 240, 120), (120, 230, 150), (100, 190, 250), (170, 130, 250)]
+    for (x, y) in disc - hole:
+        dx, dy = x - cx, y - cy
+        r = math.hypot(dx, dy)
+        a = math.atan2(dy, dx)
+        if r <= 10.5:
+            v = 150 if r > 9 else 210 if r > 6 else 180
+            col = (v, v, v + 10)
+        else:
+            # silver from a light top-left to a darker bottom-right
+            t = (1 - math.cos(a + math.pi * 0.75)) / 2
+            col = mix((236, 238, 246), (140, 144, 164), t)
+            # two iridescent bands, opposite each other
+            for centre in (-2.2, 0.95):
+                d = abs((a - centre + math.pi) % (2 * math.pi) - math.pi)
+                if d < 0.5:
+                    band = rainbow[min(5, int((r - 11) / (R - 11) * 6))]
+                    col = mix(col, band, 0.75 if d < 0.3 else 0.4)
+            if abs(r - R) < 1.2:
+                col = mix(col, (255, 255, 255), 0.5)
+        c.set(x, y, col)
+    c.fill(outline_of(hole) & disc, (90, 90, 104))
+    c.fill(outline_of(hub) & disc - hub, (110, 110, 126))
+    for (x, y) in ((cx - 18, cy - 20), (cx - 17, cy - 21), (cx - 19, cy - 19), (cx - 21, cy - 14), (cx - 22, cy - 12)):
+        c.set(x, y, (255, 255, 255))                           # the glint
+    for (x, y) in ((cx - 19, cy - 21), (cx - 18, cy - 22), (cx - 20, cy - 20)):
+        c.set(x, y, (255, 255, 255))
+    c.title("PSX", 3, (240, 244, 255), (130, 150, 210), (40, 40, 80))
+    return c
 
 
 COVERS = {"nes": nes, "snes": snes, "psx": psx}
