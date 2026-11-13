@@ -17,3 +17,5 @@ Result of the run with seeds 1 to 5, about 300000 programs each (all other opcod
 | 5 | `EF` (GETB) or `DF` (GETC) after `ROMB` (ALT3 `DF`) without a write of R14 | `3F DF 10 EF` (R0 = 1, R14 = 0x00EE) | reads the new bank at once | returns the byte buffered from the old bank | Fixed 2026-11-12: ares and Snes9x keep the old buffer; Doom needs it ([snes-doom.md](snes-doom.md)). |
 
 Number 2 needs a hardware document first. After a change of the GSU run `make test-snes-ref ARES=...`: `unexplained` must stay 0 and `known` must hold only number 2.
+
+Found by a game, not by the random programs (2026-11-13): a write of R14 with the SAME value after ROMB must reload the ROM buffer from the new bank (ares: every write of R14 starts a load). The random programs never wrote R14 twice with one value after a ROMB. Fixed in the C loop, the ARM loop and the reference.

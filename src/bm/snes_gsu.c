@@ -41,13 +41,14 @@ typedef struct {                            /* the first 256 bytes are reached b
     uint16_t ramaddr;
     uint8_t alt, b, sreg, dreg;             /* alt: bit 0 ALT1, bit 1 ALT2 */
     uint8_t cfgr, rombr, dirty, pbr;
-    uint8_t pad_[128];
+    uint8_t rbuf_ok;                        /* the ROM buffer is loaded and no write of R14 came since (at byte 128: the assembly loop clears it on a write of R14) */
+    uint8_t pad_[127];
     uint8_t cache[512] __attribute__((aligned(16)));
     uint32_t rmask;
     uint16_t latch;
     uint8_t rambr, scbr, clsr, scmr, colr, por, bramr;
     uint8_t go, irq, irq_line;
-    uint8_t rbuf, rbuf_bank, rbuf_ok;       /* the ROM buffer, and the bank and R14 it was read with (a change of R14 reloads it; ROMB does not) */
+    uint8_t rbuf, rbuf_bank;                /* the ROM buffer, and the bank and R14 it was read with (a write of R14, with any value, reloads it; ROMB does not) */
     uint16_t rbuf_r14;
     uint8_t pmask, pcx, pcy;                /* the pixel cache: one row of 8 pixels (X & $F8, Y); pw: the bit planes of the 8 pixels, a byte for each plane (planes 0-3 in pw[0], 4-7 in pw[1]) */
     uint32_t pw[2];
@@ -59,6 +60,7 @@ _Static_assert(offsetof(gsu_t, budget) == G_BUDGET && offsetof(gsu_t, mul) == G_
 _Static_assert(offsetof(gsu_t, cvalid) == G_CVALID && offsetof(gsu_t, rm) == G_RM && offsetof(gsu_t, rbase) == G_RBASE && offsetof(gsu_t, ipn) == G_IPN, "gsu_t offsets");
 _Static_assert(offsetof(gsu_t, insns) == G_INSNS && offsetof(gsu_t, cbr) == G_CBR && offsetof(gsu_t, ramaddr) == G_RAMADDR && offsetof(gsu_t, alt) == G_ALT, "gsu_t offsets");
 _Static_assert(offsetof(gsu_t, b) == G_B && offsetof(gsu_t, sreg) == G_SREG && offsetof(gsu_t, dreg) == G_DREG && offsetof(gsu_t, cfgr) == G_CFGR, "gsu_t offsets");
+_Static_assert(offsetof(gsu_t, rbuf_ok) == G_RBOK, "gsu_t offsets");
 _Static_assert(offsetof(gsu_t, rombr) == G_ROMBR && offsetof(gsu_t, dirty) == G_DIRTY && offsetof(gsu_t, pbr) == G_PBR && offsetof(gsu_t, cache) == G_CACHE, "gsu_t offsets");
 #endif
 
@@ -192,7 +194,7 @@ static uint8_t do_rpix(void)
 }
 
 /* ------------------------------------------------------------------ the registers */
-/* the ROM buffer: GETB reads it. It reloads when R14 or ROMBR changed since the last load (the real chip reloads at each write of R14). Returns the byte and, in bits 8 and up, the extra clocks. */
+/* the ROM buffer: GETB reads it. It reloads after each write of R14, even one with the same value (the real chip starts a load at each write of R14; a MOVE or TO R14 after ROMB with the same R14 reads the new bank: Yoshi's Island decompresses its sprites that way). The test of the value stays for the writes that the loop does not see. Returns the byte and, in bits 8 and up, the extra clocks. */
 static unsigned rom_buffer(void)
 {
     unsigned c = 0;
@@ -470,10 +472,12 @@ void gsu_run(int clocks)
     }
     wr_n:
         if (n == 15) { jt = (uint16_t)v | JF; goto jclr; }
+        if (n == 14) g.rbuf_ok = 0;
         WR16(n << 2, v);
         goto clr;
     wr_d:
         if (d4 == 60) { jt = (uint16_t)v | JF; goto jclr; }
+        if (d4 == 56) g.rbuf_ok = 0;
         WR16(d4, v);
     clr:
         alt = sreg = d4 = 0;
@@ -602,6 +606,7 @@ void gsu_write(uint16_t off, uint8_t v)
         const unsigned n = (off >> 1) & 15;
         if (!(off & 1)) { g.latch = v; return; }
         g.r[n] = (uint16_t)(g.latch | (v << 8));
+        if (n == 14) g.rbuf_ok = 0;
         if (n == 15) start();
         return;
     }

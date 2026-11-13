@@ -25,5 +25,6 @@
 #define G_ROMBR   125
 #define G_DIRTY   126
 #define G_PBR     127
+#define G_RBOK    128       /* uint8_t: the ROM buffer is loaded and R14 was not written since */
 #define G_CACHE   256       /* uint8_t cache[512], 16-aligned */
 #endif

@@ -232,6 +232,9 @@ fm_c:
 wr_n:
     cmp r2, #15
     beq wrn_j
+    cmp r2, #14                     /* a write of R14 reloads the ROM buffer (GETB) */
+    moveq r3, #0
+    strbeq r3, [r4, #G_RBOK]
     mov r2, r2, lsl #2
     strh r1, [r4, r2]
     CLRP
@@ -245,6 +248,9 @@ wrn_j:
 wr_d:
     cmp r10, #60
     beq wrd_j
+    cmp r10, #56
+    moveq r3, #0
+    strbeq r3, [r4, #G_RBOK]
     strh r1, [r4, r10]
     CLRP
     FIN

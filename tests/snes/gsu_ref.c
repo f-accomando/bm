@@ -401,10 +401,10 @@ void gsu_run(int clocks)
         goto fin;
     }
     wr_n:
-        if (n == 15) { jpend = 1; jaddr = v; jpbr = -1; } else r[n] = v;
+        if (n == 15) { jpend = 1; jaddr = v; jpbr = -1; } else { r[n] = v; if (n == 14) g.rbuf_ok = 0; }
         goto clr;
     wr_d:
-        if (dreg == 15) { jpend = 1; jaddr = v; jpbr = -1; } else r[dreg] = v;
+        if (dreg == 15) { jpend = 1; jaddr = v; jpbr = -1; } else { r[dreg] = v; if (dreg == 14) g.rbuf_ok = 0; }
     clr:
         b = alt = sreg = dreg = 0;
     fin:
@@ -490,6 +490,7 @@ void gsu_write(uint16_t off, uint8_t v)
         const unsigned n = (off >> 1) & 15;
         if (!(off & 1)) { g.latch = v; return; }
         g.r[n] = (uint16_t)(g.latch | (v << 8));
+        if (n == 14) g.rbuf_ok = 0;
         if (n == 15) start();
         return;
     }

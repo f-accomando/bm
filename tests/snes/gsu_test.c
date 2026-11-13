@@ -207,6 +207,13 @@ static void rom_tests(void)
     CHECKV("romb keeps buffer", R(3), rom[0x10]);
     RUN(0, IWT(14, 0x8010), IBT(1, 1), FROM(1), ALT3, 0xDF, IWT(14, 0x8011), TO(3), 0xEF, STOP);   /* R14 written after ROMB: the new bank */
     CHECKV("romb then r14", R(3), rom[0x8000 + 0x11]);
+    /* R14 written after ROMB with the SAME value reloads the buffer from the new bank (Yoshi's Island: ROMB, then MOVES R14, then GETB; the old rule kept the stale byte) */
+    RUN(0, IWT(14, 0x8010), TO(2), 0xEF, IBT(1, 1), FROM(1), ALT3, 0xDF, IWT(14, 0x8010), TO(3), 0xEF, STOP);
+    CHECKV("romb then same r14 (IWT)", R(3), rom[0x8000 + 0x10]);
+    RUN(0, IWT(14, 0x8010), TO(2), 0xEF, IBT(1, 1), FROM(1), ALT3, 0xDF, WITH(14), TO(14), TO(3), 0xEF, STOP);
+    CHECKV("romb then same r14 (MOVES)", R(3), rom[0x8000 + 0x10]);
+    RUN(0, IWT(14, 0x8010), TO(2), 0xEF, IBT(1, 1), FROM(1), ALT3, 0xDF, IWT(5, 0x8010), WITH(5), TO(14), TO(3), 0xEF, STOP);
+    CHECKV("romb then same r14 (MOVE)", R(3), rom[0x8000 + 0x10]);
     /* the 64 KB banks $40-$5F: the same bytes */
     RUN(0, IBT(1, 0x40), FROM(1), ALT3, 0xDF, IWT(14, 0x0012), TO(3), 0xEF, STOP);
     CHECKV("rom bank 40", R(3), rom[0x12]);
