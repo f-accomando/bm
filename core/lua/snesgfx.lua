@@ -1,5 +1,5 @@
--- snesgfx: the SNES graphics converters of bm Pixel. No UI and no bm API: plain Lua 5.4, so the PC tests
--- (tests/snes/snesgfx_test.lua) run it as it is. bm Pixel gets it with require "snesgfx".
+-- snesgfx: the SNES graphics converters of bm SNES SDK (bm Pixel uses them too). No UI and no bm API: plain Lua 5.4, so the PC tests
+-- (tests/snes/snesgfx_test.lua) run it as it is. bm SNES SDK and bm Pixel get it with require "snesgfx".
 --
 -- Words: a tile is 8x8 pixels. A pixel is an index (0 = transparent) into a sub-palette. A sub-palette has
 -- 2^bpp colours (4, 16 or 256); colour 0 is transparent. A colour is BGR555: bit 0-4 red, 5-9 green,

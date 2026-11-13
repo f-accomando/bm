@@ -1,4 +1,4 @@
--- snesgfx_test.lua: the SNES graphics converters of bm Pixel (core/lua/snesgfx.lua), on the PC.
+-- snesgfx_test.lua: the SNES graphics converters of bm SNES SDK and bm Pixel (core/lua/snesgfx.lua), on the PC.
 --   build/host/luahost tests/snes/snesgfx_test.lua [ROOT]     (make test-snes-gfx)
 -- It needs plain Lua 5.4 only: lua5.4 tests/snes/snesgfx_test.lua [ROOT] works too.
 local ROOT = arg[1] or "."
