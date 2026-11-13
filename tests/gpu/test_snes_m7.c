@@ -17,7 +17,7 @@
 #include "snes_int.h"
 #include "v3d_emu.h"
 
-#include "gpu/qpuprog_snes.h"                           /* made by tools/qpusnes.py */
+#include "qpu_snes.h"                                   /* made by tools/qpusnes.py */
 
 void ppu_reset_ref(void);
 void ppu_line_ref(int y);

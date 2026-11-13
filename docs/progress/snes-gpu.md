@@ -55,7 +55,7 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 ## Work items (development codes)
 
-Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and measured with the 3D Bench on the Pi (job 4 us and copy 189 us pass the gates; the second bench run gives: ARM slowdown 63% with QPU reads over SDRAM and 6% over the 64 KB, gather 12 ns/word, Mode 7 gain about 1.5 ms (on the gate); the gain in play is not measured, because SMW2 has sprites in its Mode 7 scene and the GPU drew no frame); G8 done for Mode 7 lines only; G5 and G6 fail the gather gate (12 ns/word, need 2.7) and wait for another way to read tiles; G4 in a smaller scope (the ARM lays the sprites over the GPU picture of BG1) is the next version, to do; G3, G7, G9, G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
+Status of every item (2026-11-13): G1 done; G2 is a prototype on the PC (`tools/qpusnes.py`, `make test-snes-g2`). The kernel path (key `snes_gpu_m7`) was built, measured on the Pi and removed on 2026-11-13: see [snes-gpu-pi.md](snes-gpu-pi.md) for the numbers (gain about 1.5 ms in Mode 7 without sprites; gather 12 ns/word, so G5 and G6 fail; the real games have sprites in Mode 7). G3 to G11 are ideas, not started and not planned. Nothing here is dropped as knowledge: the code is in git (a479a1e8 to cba2750f).
 
 P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
@@ -77,7 +77,7 @@ P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 Status: done on the V3D emulator; the kernel path is in [snes-gpu-pi.md](snes-gpu-pi.md). Nothing runs on the Pi.
 
-- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is in `src/gpu/qpuprog_snes.h` (made by `tools/qpusnes.py`, checked by `make test-qpu`).
+- Files: `tools/qpusnes.py` (the QPU program `qp_snes_mode7`), `tests/gpu/test_snes_m7.c`, and `make test-snes-g2`. The program is in `qpuprog_snes.h` (made by `tools/qpusnes.py`, checked by `make test-qpu`).
 - What it does: the picture of Mode 7 for a frame with only BG1 on. Each of 16 lanes makes two pixels of a block of 32. The ARM does the set-up of each line (X and Y at the start of the line, as `draw_mode7` does). The `mul24` of the QPU is unsigned and has 24 bits, so the 16-bit by 13-bit products of the set-up stay on the ARM. In the loop `a * xx` is `(a + 32768) * xx - (xx << 15)`.
 - Gate: 56 states give the same 57344 pixels as `ppu_line` of `ppu_ref.c`: identity, scroll, rotation, zoom out to the corner, mirrors, the four screen-over modes (wrap, wrap, clear, tile 0), the largest and the smallest matrix words, and 40 random states with any 16-bit matrix (16 fixed states, `make test-snes-g2` runs them and the 40).
 - What the QPU needs from the ARM: the 64 KB of video RAM in memory the V3D reads (a copy for each frame, or a change list), the colour table `lut` of `ppu_line` (256 halves, brightness applied), two words for each line, and the matrix words. The VRAM tile map (even bytes) and the 8-bit tiles (odd bytes) are read as they are.
@@ -91,17 +91,14 @@ Order: G1, G2, G3, G4, G5, G6, G8, G7, G11, then G9 and G10.
 
 The kernel path, the log fields, the numbers to read on the Pi and the plan for G3 to G6 with their gates are in [snes-gpu-pi.md](snes-gpu-pi.md).
 
-## Rules (do not break)
+## Rules for a new try (the code is removed)
 
 - The ARM PPU (`ppu_line`) is the reference and the fallback of every GPU path. Every GPU picture equals it byte for byte (`make test-snes-g2`, `make test-snes-ppu`).
-- The key is off by default. With the key off nothing starts the V3D for the SNES. The RGB30 and the host never contain GPU code of the PPU (`src/kernel/snes_gpu.c` and `src/gpu/` are Pi only).
+- The key is off by default. With the key off nothing starts the V3D for the SNES. The RGB30 and the host never contain GPU code of the PPU (`snes_gpu.c` and `src/gpu/` are Pi only).
 - A failed QPU run draws the same lines with the ARM version. Two failed runs in a row turn the QPUs off for the session.
 - No frame of delay (G7) without a measured latency cost.
 - The ARM keeps the registers, the video RAM and the timing. The GPU never changes the emulated behaviour.
 
 ## Open work
 
-- Install the kernel with the reject counters (25f65724 on) and play a Mode 7 scene without sprites (Super Castlevania IV): read `frames gpu`, `job`, `frame` and `fps` against `snes_gpu_m7=0` (steps in [snes-gpu-pi.md](snes-gpu-pi.md), "Pi numbers and decision").
-- Next version (to do, user 2026-11-13): sprites over the GPU picture of BG1, so Mode 7 scenes with sprites (SMW2, Mario Kart, F-Zero) use the GPU. After the play measure above.
-- G5 and G6 wait for a faster way to read the tiles (the gather gate failed).
-- G7, G9, G10, G11: unchanged (ideas).
+- None. The GPU path is removed. A new try needs a different way to read the tiles (gather 12 ns/word is four times too slow for Mode 1) and a path with sprites; see [snes-gpu-pi.md](snes-gpu-pi.md).

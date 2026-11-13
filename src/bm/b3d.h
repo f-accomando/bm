@@ -61,9 +61,6 @@ typedef struct {
      * text (the QPU programs against the ARM versions); NULL: no row, and
      * the bench does nothing more than it did before */
     void (*qpu_row)(char *line, size_t n);
-    /* the SNES V3D micro-benchmark (config key snes_gpu_m7=1): one line of numbers (job cost, copy of 64 KB, gather speed,
-     * what the ARM loses while the QPUs read SDRAM); NULL: none */
-    void (*snes_row)(char *line, size_t n);
     /* the fade test's QPU profile (key gpu3d_qpu=1): g16_fade_apply on g, by the QPUs when they can, else by the
      * ARM; 1 if the QPUs did it, 0 if the ARM did. NULL: the profile runs the ARM's fade and says so */
     int (*fade_qpu)(g16_t *g, const g16_fade_t *f);

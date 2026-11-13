@@ -1507,7 +1507,6 @@ float b3d_slope(const float *x, const float *y, int count, float *at0)
     return (float)b;
 }
 
-static char snes_line[480];             /* the SNES V3D micro-benchmark row (snes_gpu_m7=1); empty without the key */
 static char qpu_line[256];              /* the QPU row (bm3d 7.x); empty without the key */
 
 /* the user stopped the run (P->stop): the ramps end, nothing is saved */
@@ -2391,8 +2390,6 @@ static void report(void)
     report_stress();
     if (qpu_line[0])
         put("qpu row (gpu3d_qpu=1): %s\n", qpu_line);
-    if (snes_line[0])
-        put("%s\n", snes_line);
     report_qpufade();
     /* the score (its S lines read by the next run) and the triangles at 60 fps */
     int sc[NDRV], nt[NDRV];
@@ -2929,12 +2926,6 @@ int b3d_run(const b3d_platform_t *plat)
         P->qpu_row(qpu_line, sizeof qpu_line);
         if (P->log && qpu_line[0])
             P->log(qpu_line);
-    }
-    snes_line[0] = 0;
-    if (P->snes_row && !stopping()) {   /* the SNES V3D micro-benchmark: snes_gpu_m7=1 only */
-        P->snes_row(snes_line, sizeof snes_line);
-        if (P->log && snes_line[0])
-            P->log(snes_line);
     }
     if (stopping()) {                   /* stopped (or the key came with the last frame): no report */
         if (P->log)

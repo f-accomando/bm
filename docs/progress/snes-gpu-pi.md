@@ -1,12 +1,14 @@
 # bm SNES GPU: stage 1 on the Pi, the numbers to read and the plan for G3 to G6
 
+**Status (2026-11-13): REMOVED from the code.** The user dropped this path: on the Pi the gain was about 1.5 ms only in Mode 7 scenes without sprites, and the real games (SMW2, Mario Kart, F-Zero) have sprites in Mode 7, so the GPU drew no frame. The code was in `bm-core` from a479a1e8 to cba2750f (`qpu_snes.c`, `snes_gpu.c`, the hook in `snes_ppu.c`, key `snes_gpu_m7`, the V3D micro-benchmark row, `test_snes_gpu.c`, `qpuprog_snes.h`). Get it back with `git show cba2750f:<path>`. What stays in the repository: the G2 prototype (`tools/qpusnes.py`, `tests/gpu/test_snes_m7.c`, `make test-snes-g2`) and these notes with the numbers. The text below describes the removed code.
+
 Part of [snes-gpu.md](snes-gpu.md) (items G1 to G11, rules and open work are there).
 
 ## Stage 1 (2026-11-13): what runs in the kernel
 
 Status: built and tested on the PC (V3D emulator and QEMU build). Nothing is measured on the Pi yet. Default off.
 
-- Config key `snes_gpu_m7=1` (Pi only; the RGB30 and the host never see the code). At boot `snes_gpu_enable` (`src/kernel/snes_gpu.c`) starts the V3D, loads `qp_snes_mode7` (`src/gpu/qpu_snes.c`) and runs a probe: a synthetic Mode 7 picture of 24 lines, QPU against the ARM version. If the probe fails, the log says why and the ARM PPU draws everything.
+- Config key `snes_gpu_m7=1` (Pi only; the RGB30 and the host never see the code). At boot `snes_gpu_enable` (`snes_gpu.c`) starts the V3D, loads `qp_snes_mode7` (`qpu_snes.c`) and runs a probe: a synthetic Mode 7 picture of 24 lines, QPU against the ARM version. If the probe fails, the log says why and the ARM PPU draws everything.
 - `snes_ppu.c` keeps the lines of a frame that show BG1 Mode 7 alone (`bgmode` 7, `tm` = 1, no window on BG1, no colour math, no clip rule). It writes X and Y of the line (the ARM set-up of `draw_mode7`) in a table. A run of lines ends, and the QPUs draw it, when the matrix words or `m7sel` change, the palette or the brightness change, the video RAM is written, the lines are not in sequence (forced blank), or the frame ends (`ppu_frame_end` in `snes_bus.c`). Every other line goes through the normal ARM path (rule G8: the ARM picture is the reference and the fallback).
 - A copy of the 64 KB of video RAM is made only when `ppu_vram_dirty` was called since the last copy (a Mode 7 game that writes VRAM only in the blank pays the copy once or never).
 - `qpu_snes_m7` runs the lines in up to 12 jobs. If a run fails (timeout, queue error), the ARM version of the same lines draws them from the same buffers (the picture is correct). Two failed runs in a row turn the QPUs off for the session. A run skipped because a 3D job runs is not a failure.
