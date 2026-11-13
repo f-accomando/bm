@@ -67,8 +67,6 @@ static void make_tables(void)
  * two words swapped and byte-reversed. There is one cache for each depth (2, 4 and 8 bits a pixel): a tile address is 16, 32 or 64 bytes apart. */
 static uint32_t tc2[4096][16], tc4[2048][16], tc8[1024][16];
 static uint8_t tv2[4096], tv4[2048], tv8[1024];
-void ppu_vram_dirty(uint16_t a) { tv2[a >> 4] = 0; tv4[a >> 5] = 0; tv8[a >> 6] = 0; }
-void ppu_vram_dirty_all(void) { memset(tv2, 0, sizeof tv2); memset(tv4, 0, sizeof tv4); memset(tv8, 0, sizeof tv8); }
 
 static void decode_tile(int bpp, uint32_t a, uint32_t *out)
 {
@@ -148,17 +146,75 @@ static inline void pfill(void *d, int v, size_t n)
 }
 
 /* ------------------------------------------------------------------ backgrounds */
-static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
+/* Layer planes: each layer's whole tile map as pixels (colour index and priority, one byte each), made a row at a time when a line needs it and kept
+ * while the video RAM and the layer's registers stay. A line is then two copies of 256 bytes at the scroll. A row is made again when the tile map entries
+ * of its tiles are written (pl_mapm), when a tile it uses is written (pl_used*: the whole layer), or when the layer's registers change (pl_key). A layer
+ * whose registers change more than once in a frame (HDMA) draws without its plane for 60 frames. A map larger than PL_MAX pixels has no plane. */
+#define PL_MAX (512 * 512)
+static uint8_t pli[4][PL_MAX], plp[4][PL_MAX];
+static uint8_t pl_dirty[4][1024], pl_any[4][1024];
+static uint32_t pl_key[4], pl_map[4];
+static int pl_w[4], pl_h[4], pl_tsh[4], pl_wide[4], pl_tall[4], pl_lasty[4];
+static uint8_t pl_chg[4], pl_hot[4];
+static uint8_t pl_used2[4096], pl_used4[2048], pl_used8[1024];     /* the layers whose plane has a row made from the tile */
+static uint8_t pl_mapm[32];                                         /* for each 2 KB of video RAM: the layers whose tile map is there */
+
+static void pl_unuse(int n)
 {
-    uint8_t *oi = bgi[n], *op = bgp[n];
-    bgany[n] = 0;
-    pfill(oi, 0, 256); pfill(op, 0, 256);
-    if (!((S.tm | S.ts) & (1 << n))) return;            /* the layer is on neither screen: nothing to draw */
-    if (!tables_ready) make_tables();
+    const uint8_t k = (uint8_t)~(1u << n);
+    for (int i = 0; i < 4096; i++) pl_used2[i] &= k;
+    for (int i = 0; i < 2048; i++) pl_used4[i] &= k;
+    for (int i = 0; i < 1024; i++) pl_used8[i] &= k;
+}
+static void pl_all_dirty(int n)
+{
+    memset(pl_dirty[n], 1, sizeof pl_dirty[n]);
+    pl_unuse(n);
+}
+static void pl_drop(int n)
+{
+    pl_key[n] = 0;
+    for (int i = 0; i < 32; i++) pl_mapm[i] &= (uint8_t)~(1u << n);
+    pl_unuse(n);
+}
+/* a write to a tile map: the plane rows of that entry's tiles are made again */
+static void pl_map_write(unsigned m, uint16_t a)
+{
+    for (int n = 0; n < 4; n++) {
+        if (!(m & (1u << n))) continue;
+        const uint32_t off = ((uint32_t)a - pl_map[n]) & 0xFFFF;
+        const unsigned s = off >> 11, ns = (pl_wide[n] ? 2u : 1u) * (pl_tall[n] ? 2u : 1u);
+        if (s >= ns) continue;
+        const int blk = pl_tall[n] ? (pl_wide[n] ? (int)(s >> 1) : (int)s) : 0;
+        const int trow = blk * 32 + (int)((off & 0x7FF) >> 6), h = 1 << pl_tsh[n];
+        memset(&pl_dirty[n][trow * h], 1, (size_t)h);
+    }
+}
+
+void ppu_vram_dirty(uint16_t a)
+{
+    tv2[a >> 4] = 0; tv4[a >> 5] = 0; tv8[a >> 6] = 0;
+    const unsigned m = pl_mapm[a >> 11];
+    if (m) pl_map_write(m, a);
+    const unsigned u = pl_used2[a >> 4] | pl_used4[a >> 5] | pl_used8[a >> 6];
+    if (u)
+        for (int n = 0; n < 4; n++)
+            if (u & (1u << n)) pl_all_dirty(n);
+}
+void ppu_vram_dirty_all(void)
+{
+    memset(tv2, 0, sizeof tv2); memset(tv4, 0, sizeof tv4); memset(tv8, 0, sizeof tv8);
+    memset(pl_key, 0, sizeof pl_key); memset(pl_mapm, 0, sizeof pl_mapm);
+    memset(pl_used2, 0, sizeof pl_used2); memset(pl_used4, 0, sizeof pl_used4); memset(pl_used8, 0, sizeof pl_used8);
+}
+
+/* ncols tile columns of the map row at line sy, from x = sx, into ti and tp (8 bytes a column, zero where clear); 1 if a pixel was set. use: record in
+ * pl_used* that layer n's plane holds the tiles. */
+static int bg_row(int n, int sy, int sx, int ncols, int bpp, int pal_base_mode0, uint8_t *ti, uint8_t *tp, int use)
+{
     const int big = (S.bgmode >> (4 + n)) & 1, tsh = big ? 4 : 3;        /* tsh: log2 of the tile size (the ARM1176 has no divide) */
     const int sc = S.sc[n], wide = sc & 1, tall = sc & 2;
     const uint32_t chr_base = S.nba[n];
-    const int sy = (y + S.vofs[n]) & 0x3FF;
     const int ty = sy >> tsh;
     /* the tile map: the address of the entry of tile column tcol is base_a + (tcol & 31) * 2 + (tcol & 32) * wsh, all modulo 64 KB */
     const uint32_t map_base = (uint32_t)(sc & 0xFC) << 9;
@@ -170,11 +226,10 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     uint8_t *tv = bpp == 2 ? tv2 : bpp == 4 ? tv4 : tv8;
     const uint32_t pbase = (bpp == 2 && pal_base_mode0) ? (uint32_t)n * 32 : 0;
     const int py0 = sy & (big ? 15 : 7);
-    const int hofs = S.hofs[n] & 0x3FF, px0 = hofs & 7;
-    int sx = hofs & ~7, any = 0;
-    uint8_t *ti = tbi[n], *tp = tbp[n];
-    pfill(ti, 0, 264); pfill(tp, 0, 264);
-    for (int k = 0; k < 33; k++, sx = (sx + 8) & 0x3FF) {      /* one tile column of 8 pixels per turn, on the grid of the tiles; the scroll is a shift at the end */
+    uint8_t *used = bpp == 2 ? pl_used2 : bpp == 4 ? pl_used4 : pl_used8;
+    const uint8_t ubit = (uint8_t)(1u << n);
+    int any = 0;
+    for (int k = 0; k < ncols; k++, sx = (sx + 8) & 0x3FF) {   /* one tile column of 8 pixels per turn, on the grid of the tiles */
         const int tcol = sx >> tsh;
         const uint32_t ea = (base_a + (uint32_t)(tcol & 31) * 2 + (uint32_t)(tcol & 32) * wsh) & 0xFFFF;
         const unsigned e = S.vram[ea] | (S.vram[ea + 1] << 8);
@@ -192,6 +247,7 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
         if (vflip) py = 7 - (py & 7);
         const uint32_t chunk = ((chr_base + tile * (1u << tshift)) & 0xFFFF) >> tshift;
         if (!tv[chunk]) { decode_tile(bpp, chunk << tshift, tc[chunk]); tv[chunk] = 1; }
+        if (use) used[chunk] |= ubit;
         uint32_t lo = tc[chunk][(py & 7) * 2], hi = tc[chunk][(py & 7) * 2 + 1];
         if (!(lo | hi)) continue;                       /* a clear row of a tile writes nothing */
         if (hflip) { const uint32_t t = __builtin_bswap32(hi); hi = __builtin_bswap32(lo); lo = t; }
@@ -202,10 +258,63 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
         st(ti + k * 8, (lo + pb) & ml);     st(ti + k * 8 + 4, (hi + pb) & mh);
         st(tp + k * 8, pr & ml);            st(tp + k * 8 + 4, pr & mh);
     }
-    if (any) {
-        bgany[n] = 1;
-        memcpy(oi, ti + px0, 256); memcpy(op, tp + px0, 256);
+    return any;
+}
+
+static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
+{
+    uint8_t *oi = bgi[n], *op = bgp[n];
+    bgany[n] = 0;
+    if (!((S.tm | S.ts) & (1 << n))) { pfill(oi, 0, 256); pfill(op, 0, 256); return; }   /* the layer is on neither screen: nothing to draw */
+    if (!tables_ready) make_tables();
+    const int big = (S.bgmode >> (4 + n)) & 1, tsh = big ? 4 : 3;
+    const int sc = S.sc[n], wide = sc & 1, tall = sc & 2;
+    const int sy = (y + S.vofs[n]) & 0x3FF;
+    const int hofs = S.hofs[n] & 0x3FF;
+    const int W = (wide ? 64 : 32) << tsh, H = (tall ? 64 : 32) << tsh;
+    if (y < pl_lasty[n]) {                                  /* a new frame */
+        pl_chg[n] = 0;
+        if (pl_hot[n]) pl_hot[n]--;
     }
+    pl_lasty[n] = y;
+    const uint32_t key = 0x80000000u | (uint32_t)sc | (uint32_t)big << 8 | (uint32_t)bpp << 9 | (uint32_t)(pal_base_mode0 != 0) << 13 |
+                         (uint32_t)(S.nba[n] >> 12) << 14;
+    if (key != pl_key[n] && W * H <= PL_MAX && !pl_hot[n]) {
+        if (++pl_chg[n] > 1) {                              /* a second change in this frame: no plane for a while */
+            pl_hot[n] = 60;
+            pl_drop(n);
+        } else {
+            pl_drop(n);
+            pl_key[n] = key; pl_w[n] = W; pl_h[n] = H; pl_tsh[n] = tsh; pl_wide[n] = wide; pl_tall[n] = tall;
+            pl_map[n] = (uint32_t)(sc & 0xFC) << 9;
+            const int pages = (wide ? 2 : 1) * (tall ? 2 : 1);
+            for (int i = 0; i < pages; i++) pl_mapm[((pl_map[n] >> 11) + (uint32_t)i) & 31] |= (uint8_t)(1u << n);
+            memset(pl_dirty[n], 1, sizeof pl_dirty[n]);
+        }
+    }
+    if (key != pl_key[n]) {                                 /* no plane: the 33 tile columns at the scroll, as before */
+        uint8_t *ti = tbi[n], *tp = tbp[n];
+        pfill(ti, 0, 264); pfill(tp, 0, 264);
+        if (bg_row(n, sy, hofs & ~7, 33, bpp, pal_base_mode0, ti, tp, 0)) {
+            bgany[n] = 1;
+            memcpy(oi, ti + (hofs & 7), 256); memcpy(op, tp + (hofs & 7), 256);
+        } else {
+            pfill(oi, 0, 256); pfill(op, 0, 256);
+        }
+        return;
+    }
+    const int r = sy & (H - 1);
+    uint8_t *ri = &pli[n][(size_t)r * (size_t)W], *rp = &plp[n][(size_t)r * (size_t)W];
+    if (pl_dirty[n][r]) {
+        pfill(ri, 0, (size_t)W); pfill(rp, 0, (size_t)W);
+        pl_any[n][r] = (uint8_t)bg_row(n, r, 0, W >> 3, bpp, pal_base_mode0, ri, rp, 1);
+        pl_dirty[n][r] = 0;
+    }
+    if (!pl_any[n][r]) { pfill(oi, 0, 256); pfill(op, 0, 256); return; }
+    bgany[n] = 1;
+    const int x0 = hofs & (W - 1), first = W - x0 < 256 ? W - x0 : 256;
+    memcpy(oi, ri + x0, (size_t)first); memcpy(op, rp + x0, (size_t)first);
+    if (first < 256) { memcpy(oi + first, ri, (size_t)(256 - first)); memcpy(op + first, rp, (size_t)(256 - first)); }
 }
 
 static void draw_mode7(int y)
