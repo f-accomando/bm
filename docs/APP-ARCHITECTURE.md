@@ -120,7 +120,7 @@ tool  --cart_run(path)--> game (tool_mode 0) --exit--> cart_arg() back into the 
 tool  --cart_tool(name, path)--> another tool (cart_arg().from = the caller)
 
 resource files  <--bmres.py extract/add/convert-->  .bm/.bme       the editors open them
-Market: repo bm-market  games/<id>/{id.bm, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
+Market: repo bm-market  bm/games/<id>/ and bm/apps/<id>/ {id.bm, info.txt} --CI: mkmarket.py--> index.txt (SHA-256) signed ECDSA P-256
         console: verifies the signature (core/keys/market-pub.pem) then each file's SHA-256, then writes /carts or /bm
         Apps page: installs tools on the SD, which override the embedded ones (load_sd_tool)
 monitor (UART/keyboard): play NAME, set key=value (bm/config.txt)
