@@ -32,6 +32,24 @@ How to run (the user): put `snes_gpu_m7=1` in `bm/config.txt`, install `dist/ker
 
 Risk: the V3D start changed the boot of the Pi before (see `v3d-flags.md`; an off/on power cycle of the QPUs hung `probe_index`). The key is the guard: with the key off nothing starts.
 
+## Pi numbers and decision (2026-11-13, Pi Zero W, kernel v0.3.0-112)
+
+3D Bench row, run by the lead session through the bridge: `job 4 us, jobs12 5 us, copy64k 186 us, gather64k 8 ns/word, gather8M 17 ns/word, stream 2904 MB/s, arm chunks/ms alone 51 qpu-l2 47 qpu-sdram 46, arm-slowdown 10%`.
+
+| Gate | Value | Result |
+|---|---|---|
+| `job` above 1000 us | 4 us | passes (the estimate was 300 us) |
+| `copy64k` above 400 us | 186 us | passes |
+| `arm-slowdown` above 25% | 10% | passes |
+| Mode 7 gain per frame, at least 1.5 ms | 3.7 ms (ARM) - (5 us + 170000 x 8 ns + 186 us) = about 2.1 ms | passes, as an estimate (not measured in play) |
+| G5 gate, `gather64k` under 2.7 ns/word | 8 ns/word | FAILS: Mode 1 on the GPU would take about 9 ms against `bg` 3 to 4.5 ms on the ARM |
+
+Decision (step 1): the Mode 7 path stays (key `snes_gpu_m7`, default off). G5 and G6 are not built as planned: the gather speed is three times too slow. They return only with a different way to read the tiles (for example the tiles decoded into the 4 bpp texture format, or a cache in the QPU's own memory). G3 stays useful only for Mode 7 with HDMA on the matrix.
+
+Play test, SMW2 (kernel 112, 76 log lines): the GPU drew 0 frames. The Mode 7 scene has `tm=$11` (BG1 and sprites) and stage 1 takes BG1 alone, so every line stays on the ARM. SMW2, Mario Kart and F-Zero have sprites in Mode 7. A frame drawn by the GPU is not measured yet: it needs a Mode 7 scene without sprites (Super Castlevania IV, the rotating room).
+
+Next version (the user keeps it as a to-do, 2026-11-13): the QPU draws BG1 and gives the colour index of each pixel, and the ARM lays the sprites over it (G4 with a smaller scope), so Mode 7 scenes with sprites use the GPU. Build it only after a pure Mode 7 scene shows the real gain in play.
+
 ## Plan for G3 to G6 (gates use the numbers above)
 
 All steps keep: the ARM PPU is the reference, `make test-snes-ppu` states compare byte for byte, no frame of delay (G7 only after a measured latency cost), RGB30 and host stay on the ARM.

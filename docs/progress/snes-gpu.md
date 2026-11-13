@@ -55,14 +55,14 @@ A gain in every mode is not realistic. Go step by step: Mode 7 and Mode 1 first,
 
 ## Work items (development codes)
 
-Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and a V3D micro-benchmark, both tested on the PC and waiting for the Pi numbers; G8 done for Mode 7 lines only; G3 to G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
+Status of every item (2026-11-13): G1 done; G2 built in the kernel behind `snes_gpu_m7=1` and measured with the 3D Bench on the Pi (job 4 us, copy 186 us, ARM slowdown 10%: the gates pass; the gain in play is not measured, because SMW2 has sprites in its Mode 7 scene and the GPU drew no frame); G8 done for Mode 7 lines only; G5 and G6 fail the gather gate (8 ns/word, need 2.7) and wait for another way to read tiles; G4 in a smaller scope (the ARM lays the sprites over the GPU picture of BG1) is the next version, to do; G3, G7, G9, G11 are ideas, not started. G10 waits for a decision (ARM or GPU). Nothing here is dropped.
 
 P (priority) and T (time) are explained in [snes-cpu.md](snes-cpu.md).
 
 | Code | Item | P | T | Gate |
 |---|---|---|---|---|
 | G1 | Measure which part of `ppu_line` costs most in which scene (`bg`, `obj`, `win`, `comp`, `mix`). Done: the logger prints them as averages of a drawn frame; tables of Super Mario World (layers 43%, colour math 29%, sprites 17%, priority list 11%) and of Super Castlevania IV in `snes-measure.md`. Left: Mode 7 and HDMA scenes of SMW | 0 | 2 | a table for the scenes that drop |
-| G2 | Mode 7 on the QPUs. Done on the PC and in the kernel behind `snes_gpu_m7=1` (see "G2 result" and [snes-gpu-pi.md](snes-gpu-pi.md)); not run on the Pi | 3 | 6 | byte for byte against `ppu_ref.c` |
+| G2 | Mode 7 on the QPUs. Done on the PC and in the kernel behind `snes_gpu_m7=1`; the Pi bench passes the gates (see [snes-gpu-pi.md](snes-gpu-pi.md)); the gain in play waits for a scene without sprites | 3 | 6 | byte for byte against `ppu_ref.c` |
 | G3 | Register log for each line (fixes HDMA) | 3 | 6 | same, with a test ROM that uses HDMA |
 | G4 | Sprite lists for each line made by the ARM and given to the GPU | 4 | 6 | same, with the sprite limits (32 sprites, 34 tiles a line) |
 | G5 | Mode 1 shader (BG1 to BG3, sprites) | 4 | 8 | same, Super Mario World frames |
@@ -101,6 +101,7 @@ The kernel path, the log fields, the numbers to read on the Pi and the plan for 
 
 ## Open work
 
-- Run the micro-benchmark and a Mode 7 scene on the Pi (steps in [snes-gpu-pi.md](snes-gpu-pi.md)), then fill the numbers in this file and take the decision of step 1 of the plan.
-- G3 to G6 as in the plan of [snes-gpu-pi.md](snes-gpu-pi.md), only after the decision.
+- Install the kernel with the reject counters (25f65724 on) and play a Mode 7 scene without sprites (Super Castlevania IV): read `frames gpu`, `job`, `frame` and `fps` against `snes_gpu_m7=0` (steps in [snes-gpu-pi.md](snes-gpu-pi.md), "Pi numbers and decision").
+- Next version (to do, user 2026-11-13): sprites over the GPU picture of BG1, so Mode 7 scenes with sprites (SMW2, Mario Kart, F-Zero) use the GPU. After the play measure above.
+- G5 and G6 wait for a faster way to read the tiles (the gather gate failed).
 - G7, G9, G10, G11: unchanged (ideas).
