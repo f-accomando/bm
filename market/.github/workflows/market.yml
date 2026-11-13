@@ -34,10 +34,10 @@ jobs:
           ref: ${{ env.BM_REF }}
           path: bm
           sparse-checkout: |
-            scripts
-            keys
+            core/scripts
+            core/keys
       - name: Check the games and apps
-        run: python3 bm/scripts/mkmarket.py games --apps apps --check
+        run: python3 bm/core/scripts/mkmarket.py games --apps apps --check
 
   publish:
     needs: check
@@ -58,8 +58,8 @@ jobs:
           ref: ${{ env.BM_REF }}
           path: bm
           sparse-checkout: |
-            scripts
-            keys
+            core/scripts
+            core/keys
       # until the key is set up (README.md, "Setting it up") the games are
       # checked but nothing is published: a warning, not a failure
       - name: The key
@@ -70,7 +70,7 @@ jobs:
           if [ -z "$BM_MARKET_KEY" ]; then
             echo "::warning::no secret BM_MARKET_KEY yet: the catalog is not published (README.md, Setting it up)"
             echo "ok=false" >> "$GITHUB_OUTPUT"
-          elif ! grep -q "BEGIN PUBLIC KEY" bm/keys/market-pub.pem; then
+          elif ! grep -q "BEGIN PUBLIC KEY" bm/core/keys/market-pub.pem; then
             echo "::warning::bm ($BM_REF) has no core/keys/market-pub.pem yet: the catalog is not published"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
@@ -80,7 +80,7 @@ jobs:
         if: steps.key.outputs.ok == 'true'
         env:
           BM_MARKET_KEY: ${{ secrets.BM_MARKET_KEY }}
-        run: python3 bm/scripts/mkmarket.py games --apps apps -o site --require-key --pub bm/keys/market-pub.pem
+        run: python3 bm/core/scripts/mkmarket.py games --apps apps -o site --require-key --pub bm/core/keys/market-pub.pem
       - uses: actions/upload-pages-artifact@v5
         if: steps.key.outputs.ok == 'true'
         with:
