@@ -3,33 +3,33 @@ kind: session
 kernel: v0.3.0-123-g612e494a
 branch: bm-core
 board: Pi Zero W
-date: 2026-11-13 15:47:16
+date: 2026-11-13 15:47:32
 file: session_bm-snes_pi-zero-w.txt
 
 session of "bm SNES" since it was resumed (the last one: the next run of this game replaces this file)
 options bm3d 7.36 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
-screen 256x256, 34 frames in 0.5 s, 59.9 fps
+screen 256x256, 579 frames in 13.0 s, 44.2 fps
 3D: ARM or none
 
-time of _update + _draw (+ the 3D's wait): avg 15.3 ms, max 17.0 ms, 8 frames over 16.7 ms
-memory: Lua peak 197 KB, data 516 KB; code 4523 tokens; busiest frame 3k Lua instructions
-frames that were shown after more than 1.5 frames: 0
+time of _update + _draw (+ the 3D's wait): avg 21.5 ms, max 66.6 ms, 314 frames over 16.7 ms
+memory: Lua peak 198 KB, data 516 KB; code 4523 tokens; busiest frame 3k Lua instructions
+frames that were shown after more than 1.5 frames: 176
 
 time from one picture to the next:
-  <= 18 ms (60 fps)    34
-  <= 25 ms             0
-  <= 34 ms (30 fps)    0
-  <= 50 ms             0
-  <= 100 ms            0
+  <= 18 ms (60 fps)    314
+  <= 25 ms             89
+  <= 34 ms (30 fps)    115
+  <= 50 ms             39
+  <= 100 ms            22
   > 100 ms (a freeze)  0
 
-the frame in its parts (as the overlay, 33 frames; ms a frame, % of the 16.7 ms of a frame):
-  update          11.6   69%
-  draw (no 3D)     3.3   19%
+the frame in its parts (as the overlay, 578 frames; ms a frame, % of the 16.7 ms of a frame):
+  update          16.4   98%
+  draw (no 3D)     4.2   25%
   3D calls         0.0    0%
   audio            0.2    1%
-  GPU wait         0.3    2%
-  all             15.4   92%
+  GPU wait         0.7    4%
+  all             21.7  130%
 the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
   map        0.0 ms  0.0 calls
   spr        0.0 ms  0.0 calls
@@ -37,6 +37,22 @@ the 2D calls of the draw (ms a frame, calls a frame; the time of each call as th
   stack      0.0 ms  0.0 calls
   print      0.0 ms  0.0 calls
   shapes     0.0 ms  2.0 calls
-  all        0.0 ms  2.0 calls (of the draw's 3.3 ms: the rest is Lua, the light, the 3D)
-audio interrupt: 1.2% of the CPU's time (mean), 0.0% at most in a second
-GPU wait: 2.1% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+  all        0.0 ms  2.0 calls (of the draw's 4.2 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 1.2% of the CPU's time (mean), 1.2% at most in a second
+GPU wait: 3.6% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 10.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+   1504    28.5    67.5   66.4  22.6   43.7   0.0   0.0     1.1        2      117        2
+   1465    27.5    67.4   66.6  22.5   44.0   0.0   0.0     0.8        1      101        2
+   1425    26.5    67.1   66.4  22.7   43.7   0.0   0.0     0.6        1       94        2
+   1545    29.6    66.9   66.4  22.3   44.0   0.0   0.0     0.5        2      118        2
+   1664    32.6    66.5   66.1  22.3   43.7   0.0   0.0     0.4        1      140        2
+   1585    30.6    66.5   66.1  22.2   43.8   0.0   0.0     0.4        2      123        2
+   1626    31.6    58.0   56.8  53.6    3.1   0.0   0.0     1.2        2      125        4
+   1586    30.6    57.8   56.7  53.5    3.1   0.0   0.0     1.0        2      124        4
+   1426    26.6    57.4   56.9  53.7    3.1   0.0   0.0     0.5        3       95        4
+   1466    27.6    57.3   57.0  53.8    3.1   0.0   0.0     0.3        3      102        4
+   1546    29.6    57.3   56.6  53.4    3.1   0.0   0.0     0.6        3      119        4
+   1505    28.6    56.9   56.3  53.0    3.2   0.0   0.0     0.5        3      118        4
