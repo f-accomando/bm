@@ -28,7 +28,7 @@ int main(void)
         if (frame == warm) { snes_debug_t dd; snes_debug(&dd); printf("ICACHE_WAIT, 65816 instructions a frame %u, output hash %08x\n", dd.instr, hsum); fflush(stdout); (void)getchar(); }
         if (frame >= warm) { icache_frame_mark(); printf("frame %d\n", frame); fflush(stdout); }
         snes_frame((uint16_t)p, 0, 1);
-        snes_audio_mix(abuf, 800, 1.0f); hmix(abuf, sizeof abuf); { int ln; const uint16_t *pic = snes_picture(&ln); hmix(pic, 256u * 2u * (unsigned)ln); }
+        snes_audio_mix(abuf, 800, 1.0f); if (frame < warm) { hmix(abuf, sizeof abuf); int ln; const uint16_t *pic = snes_picture(&ln); hmix(pic, 256u * 2u * (unsigned)ln); }   /* the hash covers the warm-up frames only: the traced frames run the core alone */
     }
     icache_trace_end();
     { snes_debug_t dd; snes_debug(&dd); printf("icache_run: done, 65816 instructions a frame %u\n", dd.instr); }
