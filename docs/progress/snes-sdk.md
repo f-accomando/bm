@@ -104,6 +104,12 @@ First, the Sprites tab (done; the rest of it is here). Then the tabs below, in t
 6. OAM view: the table of the 128 sprites (from `snes_debug` or `snes_peek`) and boxes on the screen; a click on a box selects the sprite.
 7. A watch on the writes to one address. Measure the cost on the Pi Zero W before you keep it.
 8. Map and Music tabs (Phase 2 and 3).
+9. Code assistant for 65C816 (later, after the tabs above; user decision 2026-11-13: not now). Extend the symbolic synthesizer of bm (`bm_lisp` in `src/ai/lisp.c`, `src/ai/synth.c`, `ai.synth` in `src/ai/lua_ai.c`, panel F6 in `src/ai/assist.lua`, commit f93bafd0; today it has the targets `.b` BML and Lua 5.4) with a target `65816`. Steps:
+   1. An emitter in `src/ai/synth.c` that writes plain 65C816 text for `snes_asm`: registers A, X, Y; the flags M and X with `REP` and `SEP` and the `.a8/.a16/.i8/.i16` lines; DMA and OAM set-up; PPU register writes; NMI and V-blank handlers; loops; sprite and AABB tests. The output is ordinary assembly text. It adds no Lisp syntax, no Lua macros and no `.lua` blocks to `snes_asm` or to the Code tab (user decision 2026-11-13).
+   2. The target `65816` in `ai.synth` and in F6 (`src/ai/assist.lua`), with a check on the console: the result assembles with `snes_asm` (`A.assemble`), and a short program runs a few frames in the SNES core with `snes_step`/`snes_regs` (`src/bm/snes_cpu.c`, `carts/snes/`).
+   3. A hook in the Code tab of `carts/snes_sdk`: the F6 result goes in at the cursor, with the same marks as `bm Code` (`BL.integrate_block`, `ai_marks`), and the lessons of the Learn tab are the first examples for the query set.
+   4. Tests: assemble every emitted pattern and compare the bytes with the opcode table (`A.opcodes`); run each pattern in the core (`tests/snes/`, as `make test-snes-m7rom` does) and check A, X, Y, P and memory; add the cases to `tests/ai/synth_test.lua` (`make test-ai`).
+   Rules: offline, no PC at run time, the arena of 512 KB, the step and depth budget of `lisp.c`; the Pi Zero W is the benchmark. Not started.
 
 Other open work:
 
