@@ -323,6 +323,52 @@ static void pad_latency_tests(void)
     CHECK("pad released is read in the next frame", S.wram[2] == 0 && S.wram[3] == 0);
 }
 
+/* The manual pad port after the auto-read: the shift register is empty (reads 1), as on the console. Doom reads $4016 after the auto-read and takes a 0 for "no pad"
+ * (it moved only while B was held). A strobe loads the pad again, and a read while the strobe is high gives the B button. */
+static void manual_pad_tests(void)
+{
+    static const uint8_t main_code[] = { 0xA9, 0x81, 0x8D, 0x00, 0x42, 0x80, 0xFE };
+    static const uint8_t nmi_code[] = { 0xAD, 0x16, 0x40, 0x85, 0x02, 0x40 };          /* $02 = $4016 (no strobe); RTI */
+    static uint8_t rom[0x8000];
+    memset(rom, 0, sizeof rom);
+    memcpy(rom, main_code, sizeof main_code);
+    memcpy(rom + 0x100, nmi_code, sizeof nmi_code);
+    rom[0x7FFA] = 0x00; rom[0x7FFB] = 0x81; rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80;
+    snes_load(rom, sizeof rom, NULL);
+    for (int f = 0; f < 3; f++) snes_frame(0x0800, 0, 0);
+    CHECK("$4016 after the auto-read reads 1 with no B held", (S.wram[2] & 1) == 1);
+    snes_write(0x4016, 1); snes_write(0x4016, 0);
+    CHECK("a strobe loads the pad: first bit is B (up only: 0)", (snes_read(0x4016) & 1) == 0);
+    for (int i = 0; i < 3; i++) snes_read(0x4016);
+    CHECK("fifth bit is Up (1)", (snes_read(0x4016) & 1) == 1);
+}
+
+extern int snes_dsp_pop(int16_t out[2]);
+/* The sound runs at the speed of the speakers: a frame of the game that takes 25 ms (800 samples at 32 kHz leave the ring) while the machine makes 533 a frame.
+ * With an output that plays the ring, the ring still holds what the output needs; without one (the tests) a frame makes 533 samples. */
+extern int snes_dsp_pop(int16_t out[2]);
+static void audio_lead_tests(void)
+{
+    static uint8_t rom[0x8000];
+    memset(rom, 0, sizeof rom);
+    rom[0] = 0x80; rom[1] = 0xFE;
+    rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80;
+    snes_load(rom, sizeof rom, NULL);
+    snes_frame(0, 0, 0);
+    int n1 = 0; int16_t smp[2]; while (snes_dsp_pop(smp)) n1++;
+    CHECK("no output: a frame makes one frame of samples (533)", n1 > 520 && n1 < 550);
+    float out[2] = { 0, 0 };
+    snes_audio_mix(out, 1, 1.0f);                       /* an output plays the ring from now on */
+    int starved = 0;
+    for (int f = 0; f < 60; f++) {
+        snes_frame(0, 0, 0);
+        int got = 0; for (; got < 800 && snes_dsp_pop(smp); got++) {}      /* the speakers take 800 samples in a slow frame */
+        if (f >= 3 && got < 800) starved++;
+    }
+    CHECK("a slow frame (800 samples leave the ring): the ring does not run dry", starved == 0);
+    if (starved) printf("  %d frames of 57 starved\n", starved);
+}
+
 int main(void)
 {
     scroll_tests();
@@ -330,6 +376,8 @@ int main(void)
     vcounter_tests();
     htime_rewrite_tests();
     pad_latency_tests();
+    manual_pad_tests();
+    audio_lead_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();

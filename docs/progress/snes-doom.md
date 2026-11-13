@@ -86,11 +86,20 @@ Key response: the core is not late. The pad that `snes_frame` gets is copied at 
 
 Cart fix: `frame_ms` (the predictor of the picture rate in `carts/snes/src/main.lua`) did not count the Super FX time (`us_cpu` leaves it out). For Doom it saw a cheap frame and stepped to a finer picture, which cost more time and slowed the game more. It now adds the `gsu` field of the `us` line.
 
+## Keys that worked only with B held (fixed 2026-11-13, Pi test of kernel 123)
+
+Cause: a core bug in the joypad ports. The auto-read loaded the manual shift register of `$4016` with the pad. Doom reads `$4016` bit 0 after the auto-read to tell a pad from other devices (code at `7E:2818`-`7E:2820`): a 0 sends it to the "no pad" path (`7E:2867`). On the console the register is empty after an auto-read and reads 1. In our core bit 0 was the B button, so the game took the normal path only while B was held (the PS "X" of the Pi pad). Host check: the "no pad" path ran 1442 times in 600 frames with no key and 993 times with B; with the fix it runs 0 times (tool: `WATCHPC=7E2867 doom_input rom 3000 2400 600 <pad>`). Fix in `snes_bus.c`: the auto-read sets both registers to `$FFFF`; a read of `$4016`/`$4017` while the strobe is high returns the B bit. Tests: `manual_pad_tests`; `cpu_golden.c` case 1 hash changed on purpose.
+
+## Music tempo follows the frame time (fixed 2026-11-13, not verified on the Pi)
+
+Cause: the sound CPU and the DSP ran in step with the emulated frames, so a frame of 25 ms made 533 samples while the speakers took 800: the ring ran dry and the music slowed with the game. Fix in `snes_frame_break` (`snes_bus.c`): when an output plays the ring (`snes_audio_queued() >= 0`) and less than two frames of samples wait, the sound runs up to 3 frames more at the start of the frame. `spc_done` keeps the lead, so the CPU's own syncs run the sound only when the CPU passes the lead; the lead is held under 2 seconds. The total sound work per emulated second does not change. The game still slows when the Pi falls below 60 frames; only the music keeps time. Test: `audio_lead_tests`.
+
 ## Open work
 
 - Check on the Pi that the flicker is gone (kernel with the IRQ fix).
 - The 3D view of the first level shows one band of walls with dark floor and ceiling (indices 156-177 are dark grays in CGRAM). Compare with a picture of a real console: the first room may look like this.
 - Speed on the Pi Zero W with the IRQ fix: not measured yet. Run Doom on the next kernel and read the log line (`pi.py line log`): `upd` (emulated frames a second), `pic 1/N`, `gsu` (us), `gins` (about 187000 expected), `us frame`. If `upd` is under 57, the Super FX loop is the limit: the next step is to speed up the hot loop of Doom (ROM `00:E1B6`-`E1C7`: `FROM`, `ROMB`, `GETB`) in `snes_gsu_arm.S` (another session owns that file now, see [snes-superfx.md](snes-superfx.md)).
+- Pi: check that the music keeps its tempo in heavy scenes (log: `audio: ... under N` should stay low) and that Up alone moves the player.
 - Speed on the RGB30 is not measured for Doom.
 - Compare the section map of a retail ROM with `RL.SEC` (the retail build may differ from the source of 1995).
 - If a disassembler is needed for the Super FX code of the ROM: write a SLEIGH module or a small script on the opcode table of [snes-superfx-isa.md](snes-superfx-isa.md).

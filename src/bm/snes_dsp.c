@@ -102,6 +102,7 @@ static const uint16_t rate_off[32] = { 0, 0, 1040, 536, 0, 1040, 536, 0, 1040, 5
 static int16_t ring[RING][2];
 static volatile uint32_t ring_rd, ring_wr;
 static uint32_t n_under, n_over;
+static volatile int audio_live;                 /* the output has asked for samples: real hardware plays the ring (the tests never do) */
 
 static void ring_push(int l, int r)
 {
@@ -110,6 +111,9 @@ static void ring_push(int l, int r)
     ring[ring_wr & (RING - 1)][1] = (int16_t)r;
     ring_wr++;
 }
+
+/* The samples waiting in the ring, or -1 when no output plays the ring (a host test): snes_frame uses it to keep the sound at real time. */
+int snes_audio_queued(void) { return audio_live ? (int)(ring_wr - ring_rd) : -1; }
 
 void snes_audio_stats(uint32_t *under, uint32_t *over, uint32_t *kons)
 {
@@ -137,6 +141,7 @@ int snes_audio_mix(float *out, unsigned n, float gain)
 {
     static float prev_l, prev_r, cur_l, cur_r, phase = 1.0f;
     int sound = 0;
+    audio_live = 1;
     const float k = gain * (0.8f / 32768.0f);
     /* the ring too full is a delay the game does not need: keep the last 30 ms */
     if (ring_wr - ring_rd > 3 * 1024) ring_rd = ring_wr - 1024;

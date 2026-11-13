@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+static unsigned wpc; static long wcount;
 static int frame, polls, pad_frame = -1, seen_frame = -1, nlog;
 static uint16_t padnow;
 static void on_op(uint32_t pc)
 {
+    if (wpc && pc == wpc) wcount++;
     uint8_t o = snes_read(pc), a = snes_read(pc + 1), b = snes_read(pc + 2);
     if (a == 0x18 && b == 0x42 && (o == 0xAD || o == 0xAE || o == 0xAC || o == 0xCD || o == 0xED || o == 0x2D || o == 0x0D || o == 0x4D)) {
         polls++;
@@ -26,6 +28,7 @@ int main(int argc, char **argv)
     const char *why; if (snes_load(d, n, &why)) { printf("load: %s\n", why); return 1; }
     int maxf = atoi(argv[2]), start = argc > 3 ? atoi(argv[3]) : -1, hold = argc > 4 ? atoi(argv[4]) : 0;
     uint16_t pad = argc > 5 ? (uint16_t)strtoul(argv[5], 0, 16) : 0;
+    if (getenv("WATCHPC")) wpc = (unsigned)strtoul(getenv("WATCHPC"), 0, 16);
     snes_trace.op = on_op;
     clock_t t0 = clock(); int pf = 0;
     for (frame = 0; frame < maxf; frame++) {
@@ -35,5 +38,6 @@ int main(int argc, char **argv)
         if (frame % 300 == 299) { clock_t t1 = clock(); printf("frames %d-%d: %.2f ms a frame, polls %d\n", pf, frame, 1000.0 * (t1 - t0) / CLOCKS_PER_SEC / 300, polls); t0 = t1; pf = frame + 1; polls = 0; snes_debug_t g; snes_debug(&g); printf("  instr %u gsu %u  us cpu %u gsu %u ppu %u spc %u\n", g.instr, g.gsu_instr, g.us_cpu, g.us_gsu, g.us_ppu, g.us_spc); }
     }
     if (start >= 0) printf("pad %04X set at frame %d: first frame the ROM reads it: %d\n", pad, start, seen_frame);
+    if (wpc) printf("pc %06X run %ld times\n", wpc, wcount);
     return 0;
 }

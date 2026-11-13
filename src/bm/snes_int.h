@@ -98,6 +98,9 @@ typedef struct {
 extern snes_trace_t snes_trace;
 #endif
 
+/* snes_dsp.c: the samples in the ring, -1 when no output plays it */
+int snes_audio_queued(void);
+
 /* snes_bus.c */
 uint8_t snes_read(uint32_t a);
 void snes_write(uint32_t a, uint8_t v);

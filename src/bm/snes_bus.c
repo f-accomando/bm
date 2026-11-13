@@ -147,8 +147,8 @@ static uint8_t raw_read(uint32_t a)
         if (off < 0x2100) return 0;
         if (off < 0x2200) return snes_ppu_read((uint16_t)off);
         if (off < 0x4000) return 0;
-        if (off == 0x4016) { uint8_t b = S.joyshift1 >> 15 & 1; S.joyshift1 = (uint16_t)((S.joyshift1 << 1) | 1); return b; }
-        if (off == 0x4017) { uint8_t b = S.joyshift2 >> 15 & 1; S.joyshift2 = (uint16_t)((S.joyshift2 << 1) | 1); return b | 0x1C; }
+        if (off == 0x4016) { if (S.joystrobe) return (uint8_t)(S.joy1 >> 15 & 1); uint8_t b = S.joyshift1 >> 15 & 1; S.joyshift1 = (uint16_t)((S.joyshift1 << 1) | 1); return b; }
+        if (off == 0x4017) { if (S.joystrobe) return (uint8_t)((S.joy2 >> 15 & 1) | 0x1C); uint8_t b = S.joyshift2 >> 15 & 1; S.joyshift2 = (uint16_t)((S.joyshift2 << 1) | 1); return b | 0x1C; }
         if (off < 0x4200) return 0;
         if (off < 0x4380) return cpu_reg_read((uint16_t)off);
         if (off < 0x6000) return 0;
@@ -801,6 +801,18 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
     S.lines = (S.setini & 4) ? 239 : 224;
     int cont = resume;                             /* the first line of a resumed frame: its start was done */
     if (!resume) ppu_frame_begin(render);
+    /* The sound follows the clock of the speakers, not the clock of the frames: when a frame takes longer than 1/60 s (Doom on the Pi Zero W) the ring runs dry
+     * and the music slows with the game. When the output has less than two frames queued, the sound CPU and the DSP run up to three frames more; spc_done counts
+     * this lead, so the CPU's own syncs run the sound only when the CPU's clock passes the lead. The sound then keeps the time of the speakers while the game
+     * is slow. The lead is held under 2 seconds (the game's sound commands reach the sound CPU that late at most). */
+    if (!resume) {
+        const int q = snes_audio_queued();
+        if (q >= 0 && q < 1066 && spc_done < 65 * 262 * 120) {
+            int want = (1066 - q) * 32;                    /* sound cycles: 32 for each sample */
+            if (want > 3 * 65 * 262) want = 3 * 65 * 262;      /* a frame that took 50 ms makes up its sound in one go */
+            spc_done += spc_run(want);
+        }
+    }
     for (int L = resume ? rs_line : 0; L < 262; L++) {
         int ia = -1;
         if (cont) ia = rs_ia, rs_line = -1;
@@ -813,7 +825,7 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
         } else if (L == S.lines) {
             S.vblank = 1; S.nmiflag = 1;
             if (S.nmitimen & 0x80) S.nmi_pending = 1;
-            if (S.nmitimen & 1) { S.joyauto1 = S.joy1; S.joyauto2 = S.joy2; S.joyshift1 = S.joy1; S.joyshift2 = S.joy2; S.joybusy = 1; }
+            if (S.nmitimen & 1) { S.joyauto1 = S.joy1; S.joyauto2 = S.joy2; S.joyshift1 = S.joyshift2 = 0xFFFF; S.joybusy = 1; }   /* the auto-read empties the pads' shift registers: a manual $4016 read without a new strobe gives 1s (Doom tests this to tell a pad from a mouse) */
         } else if (L == S.lines + 3) {
             S.joybusy = 0;
         }

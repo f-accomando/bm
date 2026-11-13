@@ -75,7 +75,7 @@ static uint64_t run_case(int c)
 
 static const uint64_t GOLDEN[CASES] = {
     0x861B1CCFC965A768ull,
-    0xC2C016BC75C0DE6Full,
+    0x2F7BA108A6B90E94ull,   /* case 1 changed on purpose 2026-11-13: after the auto-read $4016 reads 1 (empty shift register), as on the console; was C2C016BC75C0DE6F */
     0xFF72B9F64C1EF3A0ull,
     0xEFCA827F1BB0B298ull,
     0xD7FC27EBF5A63521ull,
