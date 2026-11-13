@@ -1,0 +1,65 @@
+title: Tiles and DMA
+goal: Copy a tile from the ROM to the video RAM with DMA, and know how a tile is stored.
+link: SNESdev Wiki, DMA registers | https://snes.nesdev.org/wiki/DMA_registers
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+## Tiles
+Every picture on the SNES is made of tiles of 8 by 8 pixels. A pixel is a number: it is the index of a colour in the palette. A 2 bit tile has 4 colours (0 to 3). It takes 16 bytes: 2 bytes for each row.
+
+The two bytes of a row are two bit planes. The first byte has the low bit of each pixel, the second byte has the high bit. The leftmost pixel is bit 7. In the first row of the example below, the bytes are $FF and $00. All 8 pixels have the low bit 1 and the high bit 0, so they are colour 1.
+
+## DMA
+Copying many bytes with a loop is slow. The DMA unit copies a block while the CPU waits. It has 8 channels. For a channel n you set these registers:
+
+- $43n0 DMAP: how to copy. The value $01 sends two bytes to two ports in turn.
+- $43n1 BBAD: the port. The value $18 is $2118, the VRAM data port.
+- $43n2 to $43n4: the address of the source (low, high, bank).
+- $43n5 and $43n6: the number of bytes.
+
+Then you write the channel bit to MDMAEN ($420B). The copy runs at once.
+
+```asm expect=v0=ff,v1=00,v2=81,v3=00,v0e=ff
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank
+    lda #$80
+    sta $2115           ; VMAIN: the address grows after the high byte
+    rep #$20
+    stz $2116           ; VRAM word address 0
+    lda #$1801          ; low byte = mode 1, high byte = $18 (the port $2118)
+    sta $4300           ; DMAP0 and BBAD0 together
+    lda #tile           ; source address
+    sta $4302
+    sep #$20
+    lda #^tile          ; source bank
+    sta $4304
+    rep #$20
+    lda #tile_end-tile  ; number of bytes: 16
+    sta $4305
+    sep #$20
+    lda #$01
+    sta $420B           ; start channel 0
+    lda #$0F
+    sta $2100           ; screen on
+forever:
+    bra forever
+tile:
+    .byte $FF, $00, $81, $00, $81, $00, $81, $00
+    .byte $81, $00, $81, $00, $81, $00, $FF, $00
+tile_end:
+```
+The tile is a square with an empty middle. The VRAM view shows its 16 bytes at address 0.
+
+try: Change the byte count to 32 and add 16 more bytes. The second tile follows the first in VRAM.
+
+## What you learned
+A tile is a block of bytes in bit planes. DMA copies blocks to the VRAM without the CPU.

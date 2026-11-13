@@ -1,0 +1,64 @@
+title: Reset and the NMI
+goal: Write the start of a program, and run code once for each frame with the NMI.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+link: Assembly for the SNES (ersanio) | https://ersanio.gitbook.io/assembly-for-the-snes/
+---
+## The reset routine
+When the console starts, the CPU is in emulation mode and reads the reset vector. Your reset routine must do the same few steps every time:
+
+1. SEI blocks the IRQ while you set things up.
+2. CLC and XCE change to native mode.
+3. REP #$38 makes A, X and Y 16 bit and turns decimal mode off.
+4. LDX #$1FFF and TXS put the stack in the work RAM.
+5. Write $8F to INIDISP ($2100). This is forced blank: the screen is off, and you can write to the video memory safely.
+
+## The frame and the NMI
+The picture is drawn line by line, 60 times each second. After the last line there is a short time with no picture: the vertical blank. At the start of it the console can call the NMI routine. This is the best place to move graphics, because the video memory is free then.
+
+To use the NMI you turn it on: write $81 to NMITIMEN ($4200). Bit 7 is the NMI. Bit 0 reads the joypads for you. In the NMI routine you must read RDNMI ($4210) once. That tells the console that you answered.
+
+The main program then waits with WAI. WAI sleeps the CPU until an interrupt. The NMI wakes it, the routine runs, and the program goes on.
+
+```asm expect=w10>0a,w11=00
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce                 ; native mode
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank: the screen is off
+    stz $4200           ; no NMI for now
+    stz $10             ; the frame counter, 16 bit at $10
+    stz $11
+    lda #$0F
+    sta $2100           ; screen on, full brightness
+    lda #$81
+    sta $4200           ; NMI on, joypad read on
+forever:
+    wai                 ; sleep until the next NMI
+    bra forever
+nmi:
+    rep #$30            ; save A, X and Y
+    pha
+    phx
+    phy
+    sep #$20
+    lda $4210           ; RDNMI: say "I got it"
+    rep #$20
+    inc $10             ; one more frame
+    ply                 ; get A, X and Y back
+    plx
+    pla
+    rti                 ; go back to the sleeping program
+```
+The counter at $0010 grows by one in each frame. Run the program for one second and it reaches about 60.
+
+try: Change inc $10 to something else, for example add 2 with clc and adc #$0002 and sta $10.
+
+## What you learned
+The reset routine sets the CPU up. The NMI comes once per frame. The program sleeps with WAI, and the NMI does the work.

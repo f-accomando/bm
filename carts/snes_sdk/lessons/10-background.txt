@@ -1,0 +1,83 @@
+title: Your first background
+goal: Show a tile on background 1 with a tile map, a palette and mode 0.
+link: SNESdev Wiki, PPU registers | https://snes.nesdev.org/wiki/PPU_registers
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+A background (BG) is a grid of tiles. The grid is the tile map. It is stored in VRAM: one word for each cell. The word has the tile number (bits 0 to 9), the palette (bits 10 to 12), the priority (bit 13) and two flip bits (14 and 15).
+
+## What you set
+1. BGMODE ($2105): the mode. Mode 0 has four backgrounds with 2 bit tiles. It is the simplest.
+2. BG1SC ($2107): where the tile map of BG1 is in VRAM. The top six bits are the word address divided by $400. The value $04 means word address $0400. The map is 32 by 32 cells.
+3. BG12NBA ($210B): where the tiles of BG1 are. The value 0 means word address 0.
+4. The tiles, the map and the colours, loaded as in the lessons before.
+5. TM ($212C): which layers show on the screen. Bit 0 is BG1.
+
+The example below makes tile 0 empty and tile 1 a solid square. It puts tile 1 in the middle of the map. The cell in column 16 and row 12 is at word $0400 + 12 * 32 + 16 = $0590.
+
+```asm expect=pic=1,vb20=01,vb21=00
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank
+    stz $2105           ; BGMODE 0
+    lda #$04
+    sta $2107           ; BG1SC: the map is at word $0400
+    stz $210B           ; BG12NBA: the tiles are at word 0
+    lda #$01
+    sta $212C           ; TM: show BG1
+    stz $2121           ; colours from 0
+    lda #$00
+    sta $2122           ; colour 0 (backdrop) = $4000, dark blue
+    lda #$40
+    sta $2122
+    lda #$FF
+    sta $2122           ; colour 1 = $7FFF, white
+    lda #$7F
+    sta $2122
+    lda #$80
+    sta $2115           ; VMAIN
+    rep #$20
+    stz $2116           ; VRAM word 0
+    lda #$1801
+    sta $4300
+    lda #tiles
+    sta $4302
+    sep #$20
+    lda #^tiles
+    sta $4304
+    rep #$20
+    lda #tiles_end-tiles
+    sta $4305
+    sep #$20
+    lda #$01
+    sta $420B           ; DMA: the tiles go to VRAM
+    rep #$20
+    lda #$0590
+    sta $2116           ; VRAM word of the cell (16, 12)
+    lda #$0001
+    sta $2118           ; tile number 1, palette 0
+    sep #$20
+    lda #$0F
+    sta $2100           ; screen on
+forever:
+    bra forever
+tiles:
+    .res 16, 0          ; tile 0: empty
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00   ; tile 1: all pixels are colour 1
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00
+tiles_end:
+```
+You see a white square on a blue screen.
+
+try: Write the tile number 1 to more cells. After the first write, the address grows by one cell, so every next STA $2118 fills the next cell on the row.
+
+## What you learned
+A background needs a mode, a tile map, tiles and colours. TM turns the layer on.

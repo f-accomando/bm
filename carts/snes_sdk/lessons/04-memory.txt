@@ -1,0 +1,39 @@
+title: The LoROM memory map
+goal: Know where the ROM, the work RAM and the registers are in the 24 bit address space.
+link: SNESdev Wiki, memory map | https://snes.nesdev.org/wiki/Memory_map
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+The CPU has 24 address bits: a bank number (8 bits) and an address in the bank (16 bits). We write them as $BB:AAAA. There are 256 banks.
+
+## What LoROM means
+A LoROM cartridge puts its ROM in the upper half of each bank: addresses $8000 to $FFFF. The first 32 KB of the ROM is bank $00 at $8000. The next 32 KB is bank $01, and so on. The lower half of banks $00 to $3F is not ROM.
+
+## The other parts
+The work RAM has 128 KB. Its first 8 KB is also seen at $0000-$1FFF of banks $00 to $3F: a mirror. The registers of the picture chip (PPU) are at $2100-$213F. The registers of the CPU part, such as DMA, are at $4200-$437F. The full work RAM is in banks $7E and $7F.
+
+The mirror is useful: a write to $0100 and a write to $7E0100 reach the same byte. Short addresses are faster, so programs keep their variables in the mirror.
+
+```asm expect=w100=5a,w102=5a,w104=78
+.lorom
+.org $8000
+reset:
+    sei                 ; this byte, $78, is the first byte of the ROM
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$5A
+    sta $0100           ; a write to the mirror ...
+    lda $7E0100         ; ... is seen at the real address
+    sta $0102           ; both bytes are $5A
+    lda $008000         ; the first byte of the ROM: bank 0, address $8000
+    sta $0104           ; it is $78, the code of SEI
+forever:
+    bra forever
+```
+try: Write to $7E0100 and read the byte back from $0100. The result is the same.
+
+## What you learned
+A ROM address in LoROM is $8000 or more. Banks $7E and $7F are the work RAM. The first 8 KB of the work RAM is mirrored at $0000-$1FFF.

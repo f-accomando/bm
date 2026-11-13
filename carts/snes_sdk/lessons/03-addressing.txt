@@ -1,0 +1,58 @@
+title: Addressing modes
+goal: Read a byte from the place you want: with a number, from a fixed address, with an index, or through a pointer.
+link: Assembly for the SNES (ersanio) | https://ersanio.gitbook.io/assembly-for-the-snes/
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+An instruction like LDA needs to know where the number comes from. The addressing mode tells it. The same word LDA has many modes.
+
+## The modes in this lesson
+Immediate: LDA #$11 puts the number $11 in A. The # sign means "this number, not an address".
+
+Direct page: LDA $10 reads the byte at address $0010 (the direct page register D is 0). It is short and fast.
+
+Absolute: LDA $1234 reads the byte at $1234 in the current data bank.
+
+Long: LDA $7E0011 gives all three bytes of the address: bank, high, low.
+
+Indexed: LDA table,x reads the byte at table plus X. A loop with X walks along a table.
+
+Indirect indexed: LDA ($20),y reads a 16 bit pointer from $20 and $21, then adds Y. The pointer can change while the program runs.
+
+```asm expect=w10=11,w11=11,w12=cc,w13=dd,w14=55
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$11            ; immediate
+    sta $10             ; direct page: $0010
+    sta $7E0011         ; long: bank $7E (work RAM), address $0011
+    rep #$10            ; X and Y 16 bit, A stays 8 bit
+    ldx #$0002
+    lda table,x         ; indexed: table + 2
+    sta $12
+    rep #$20            ; A 16 bit to store a pointer
+    lda #table          ; the address of the table
+    sta $20             ; pointer in $20 and $21
+    sep #$20
+    ldy #$0003
+    lda ($20),y         ; indirect indexed: table + 3
+    sta $13
+    lda #$55
+    sta $0014           ; absolute: $0014
+forever:
+    bra forever
+table:
+    .byte $AA, $BB, $CC, $DD
+```
+The data bytes come after the code. They are not instructions, so the program never reaches them.
+
+try: Change ldx #$0002 to ldx #$0001 and watch $12 become $BB.
+
+## What you learned
+The mode is in the operand: # for a number, a plain number for an address, ",x" for an index, and parentheses for a pointer.

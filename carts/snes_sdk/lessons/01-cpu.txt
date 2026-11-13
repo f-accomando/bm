@@ -1,0 +1,41 @@
+title: The CPU, registers and flags
+goal: Know what the registers A, X, Y and the flags do, and run your first program.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+link: WDC W65C816S datasheet | https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf
+---
+The SNES has one main CPU: the 65C816. It reads instructions from the ROM, one after the other. Each instruction is small: it moves a number, adds two numbers, or jumps to another place.
+
+## Registers
+A register is a box in the CPU that holds a number. The accumulator A is the main box: most math happens in A. X and Y are two more boxes. They count and they point into tables. The program counter PC holds the address of the next instruction.
+
+## Flags
+The status register P is a row of flags. Each flag is one bit. C is the carry: it is 1 when an addition goes past the top. Z is 1 when the last result is zero. N is 1 when the last result has its top bit set. You use the flags with branch instructions, like BEQ (branch if Z is 1) and BNE (branch if Z is 0).
+
+## The first program
+The program below sets A to 5, adds 3, and writes the answer to the work RAM at address $0010. The first lines (up to the line with sep) are the start of every program. Lesson 6 explains them. For now, copy them.
+
+```asm expect=w10=08,w11=00
+.lorom                  ; the ROM map used by these lessons
+.org $8000              ; the code starts at the start of bank 0
+reset:                  ; the CPU starts here
+    sei                 ; block IRQ
+    clc                 ; carry = 0
+    xce                 ; native mode
+    rep #$38            ; A, X, Y 16 bit, decimal off
+    ldx #$1FFF          ; top of the work RAM
+    txs                 ; the stack starts there
+    sep #$20            ; A is 8 bit
+    lda #$05            ; A = 5
+    clc                 ; carry = 0 before an addition
+    adc #$03            ; A = A + 3 = 8
+    sta $10             ; write A to the work RAM, address $0010
+    stz $11             ; write 0 to $0011
+forever:
+    bra forever         ; stop here: jump to the same place for ever
+```
+The Run tab shows A and the flags. Press F10 to go one instruction at a time and watch A change.
+
+try: Change the 3 to 255 ($FF). A becomes 4, and the carry flag C becomes 1. The sum went past 255.
+
+## What you learned
+A holds the number you work with. The flags tell you about the last result. A loop that jumps to itself is the simplest way to end a test program.

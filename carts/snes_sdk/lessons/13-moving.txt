@@ -1,0 +1,134 @@
+title: A moving sprite
+goal: Move a sprite with the pad: keep its X in the work RAM and write it to OAM in each NMI.
+link: SNESdev Wiki, OAM | https://snes.nesdev.org/wiki/OAM
+link: PVSnesLib | https://github.com/alekmaul/pvsneslib
+---
+This lesson puts the earlier lessons together. The program has three parts.
+
+## The setup (in reset)
+It loads the tile and the colours, hides the other sprites, and puts sprite 0 in OAM. It keeps the X position in the work RAM, at $0012. The start value is 64.
+
+## The frame (in the NMI)
+Each frame, the NMI routine does four things. It reads the pad. It adds 1 to X when Right is held. It subtracts 1 when Left is held. Then it writes X and Y to OAM. Writing to OAM is safe in the NMI because the PPU is not drawing.
+
+Only the first two bytes of sprite 0 change. The tile and the attributes stay as they were. So the routine sets the OAM address to 0 and writes two bytes.
+
+## Keys
+In the Run tab, the arrow keys or W A S D are the d-pad (see F12).
+
+```asm expect=pic=1,w12>40,o0>40 pad=0100 frames=40
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank
+    stz $4200
+    stz $2101           ; sprites: tiles at word 0, 8x8
+    lda #$80
+    sta $2121
+    stz $2122
+    stz $2122           ; colour 128
+    lda #$FF
+    sta $2122
+    lda #$03
+    sta $2122           ; colour 129 = $03FF, yellow
+    lda #$80
+    sta $2115
+    rep #$20
+    stz $2116
+    lda #$1801
+    sta $4300
+    lda #tile
+    sta $4302
+    sep #$20
+    lda #^tile
+    sta $4304
+    rep #$20
+    lda #32
+    sta $4305
+    sep #$20
+    lda #$01
+    sta $420B           ; the tile goes to VRAM
+    stz $2102
+    stz $2103
+    lda #64
+    sta $2104           ; sprite 0: X = 64
+    lda #100
+    sta $2104           ; Y = 100
+    stz $2104
+    stz $2104
+    ldx #127
+hide:
+    stz $2104
+    lda #$F0
+    sta $2104
+    stz $2104
+    stz $2104
+    dex
+    bne hide
+    ldx #32
+clear:
+    stz $2104
+    dex
+    bne clear
+    lda #64
+    sta $12             ; X of the sprite, in the work RAM
+    lda #$10
+    sta $212C           ; TM: sprites on
+    lda #$0F
+    sta $2100           ; screen on
+    lda #$81
+    sta $4200           ; NMI on, pad read on
+forever:
+    wai
+    bra forever
+nmi:
+    rep #$30
+    pha
+    phx
+    phy
+    sep #$20
+    lda $4210
+wait_pad:
+    lda $4212
+    and #$01
+    bne wait_pad
+    lda $4219           ; JOY1H: Up, Down, Left, Right and the next bits
+    and #$01            ; the Right button
+    beq no_right
+    inc $12             ; X = X + 1
+no_right:
+    lda $4219
+    and #$02            ; the Left button
+    beq no_left
+    dec $12             ; X = X - 1
+no_left:
+    stz $2102
+    stz $2103           ; OAM address 0
+    lda $12
+    sta $2104           ; the new X
+    lda #100
+    sta $2104           ; Y stays 100
+    rep #$30
+    ply
+    plx
+    pla
+    rti
+tile:
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00
+    .res 16, 0
+```
+The sprite moves right. In the test the Right button is held, so X grows by one for each frame.
+
+try: Add the Up and Down buttons. They are bits 3 and 2 of $4219. Keep Y in $0013 and write it to OAM after X.
+
+## What you learned
+A game loop has two parts: the setup in reset and the work of one frame in the NMI. The sprite state lives in the work RAM, and the NMI copies it to OAM.

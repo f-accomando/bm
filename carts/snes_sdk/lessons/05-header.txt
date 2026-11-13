@@ -1,0 +1,55 @@
+title: The header and the vectors
+goal: Know what the builder puts at the end of the ROM, and how the CPU finds your code.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+link: SNESdev Wiki, memory map | https://snes.nesdev.org/wiki/Memory_map
+---
+A SNES ROM has a small table of facts at the end of its first 32 KB bank. In a LoROM this table is at $FFC0 to $FFFF of bank 0.
+
+## The header
+The header starts at $FFC0. It has the game title (21 letters), the map mode (LoROM), the chip type, the ROM size, the RAM size, the region and a checksum. You do not write it by hand. The builder of the SDK writes it when you press Ctrl+B. The title comes from the name of your project.
+
+## The vectors
+The last bytes, from $FFE0 to $FFFF, are the vectors. A vector is the address of a routine. When something special happens, the CPU reads the right vector and jumps there. In native mode the main ones are: COP at $FFE4, BRK at $FFE6, ABORT at $FFE8, NMI at $FFEA, IRQ at $FFEE. The reset vector is at $FFFC and it uses the emulation mode table: the CPU always starts there after power on.
+
+The builder fills the vectors for you. It looks for labels with the names reset, nmi, irq, brk and cop in your source. A vector with no label points to a small routine that only returns (RTI).
+
+The program below reads the NMI vector from the ROM and compares it with the address of the label nmi. If they are equal, it writes 1 to $0012.
+
+```asm expect=w12=01
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda $00FFEA         ; low byte of the NMI vector
+    sta $10
+    lda $00FFEB         ; high byte
+    sta $11
+    lda $10
+    cmp #<nmi           ; low byte of the address of the label nmi
+    bne bad
+    lda $11
+    cmp #>nmi           ; high byte of the same address
+    bne bad
+    lda #$01            ; same: write 1
+    sta $12
+    bra forever
+bad:
+    lda #$02            ; different: write 2
+    sta $12
+forever:
+    bra forever
+nmi:
+    rti                 ; the routine the NMI vector points to
+```
+The signs < and > take the low and the high byte of a 16 bit value. The sign ^ takes the bank.
+
+try: Rename the label nmi to vblank. The builder then cannot find it and uses its own RTI, so the program writes 2.
+
+## What you learned
+The header and the vectors are at the end of bank 0. The vectors point to your routines, and the builder finds them by name.

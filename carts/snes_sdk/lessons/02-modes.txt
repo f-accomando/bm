@@ -1,0 +1,40 @@
+title: 65C816 modes: native, M and X
+goal: Switch the CPU to native mode and choose 8 bit or 16 bit registers with REP and SEP.
+link: WDC W65C816S datasheet | https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf
+link: Assembly for the SNES (ersanio) | https://ersanio.gitbook.io/assembly-for-the-snes/
+---
+The 65C816 is the big brother of the 6502. When the SNES starts, the CPU is in emulation mode: it acts like an old 6502, with 8 bit registers. A new program changes to native mode first. Two instructions do it: CLC and XCE. XCE swaps the carry flag with the hidden emulation flag E. With carry 0, E becomes 0 and the CPU is native.
+
+## The flags M and X
+In native mode two flags choose the width of the registers. The flag M controls A and the memory instructions: M = 1 means 8 bit, M = 0 means 16 bit. The flag X controls the index registers X and Y in the same way.
+
+## REP and SEP
+REP clears flags: you give it a mask. SEP sets flags. The bit $20 is M and the bit $10 is X. So REP #$30 makes A, X and Y 16 bit, and SEP #$20 makes A 8 bit.
+
+An instruction with a number after it, like LDA #$1234, has more bytes when A is 16 bit. The assembler must know the width. It follows your REP and SEP instructions. If you forget one, the program breaks in a quiet way.
+
+```asm expect=w10=34,w11=12,w12=56,w13=00
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce                 ; native mode
+    rep #$38            ; A, X, Y 16 bit
+    ldx #$1FFF
+    txs
+    lda #$1234          ; 16 bit load: A = $1234
+    sta $10             ; writes two bytes: $34 at $10, $12 at $11
+    sep #$20            ; A is 8 bit now
+    lda #$56            ; 8 bit load: A = $56
+    sta $12             ; writes one byte
+    stz $13
+forever:
+    bra forever
+```
+Look at the work RAM at $0010 in the Run tab (hex view): 34 12 56 00. The low byte comes first. This order is called little endian.
+
+try: Remove the SEP line. The next LDA #$56 then loads 16 bits. The assembler reads the next bytes as part of the number, and the program stops being what you wrote.
+
+## What you learned
+CLC and XCE give you native mode. REP and SEP change the width of A, X and Y. A 16 bit number goes to memory with the low byte first.

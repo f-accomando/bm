@@ -1,0 +1,52 @@
+title: Colours: the palette
+goal: Load colours into the colour memory and see the backdrop change.
+link: SNESdev Wiki, PPU registers | https://snes.nesdev.org/wiki/PPU_registers
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+The SNES can show 256 colours at one time. They are in a small memory called CGRAM (colour memory). Each colour takes 2 bytes. The 15 bits have the form 0BBBBBGGGGGRRRRR: 5 bits for each of blue, green and red.
+
+Some examples: $001F is red, $03E0 is green, $7C00 is blue, $7FFF is white and $0000 is black.
+
+## Writing colours
+1. Write the colour number you want to start at to CGADD ($2121).
+2. Write the colour to CGDATA ($2122): first the low byte, then the high byte. The number grows by one after each full colour.
+
+Colour 0 is special. It is the backdrop: the colour you see where nothing else is drawn.
+
+```asm expect=cg0=7c00,cg1=001f,cg2=03e0
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank
+    stz $2121           ; CGADD: start at colour 0
+    lda #$00
+    sta $2122           ; colour 0 = $7C00 (blue): low byte first
+    lda #$7C
+    sta $2122           ; high byte
+    lda #$1F
+    sta $2122           ; colour 1 = $001F (red)
+    lda #$00
+    sta $2122
+    lda #$E0
+    sta $2122           ; colour 2 = $03E0 (green)
+    lda #$03
+    sta $2122
+    lda #$0F
+    sta $2100           ; screen on: the whole screen is blue
+forever:
+    bra forever
+```
+The screen in the Run tab is blue. The backdrop is colour 0.
+
+try: Change the first two bytes to $1F and $00. The backdrop becomes red.
+
+## What you learned
+A colour has 5 bits for each of red, green and blue. CGADD sets where to start, and CGDATA takes the two bytes.

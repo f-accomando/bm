@@ -1,0 +1,95 @@
+title: A sprite with OAM
+goal: Show one sprite: load its tile and colours, then write its place to OAM.
+link: SNESdev Wiki, OAM | https://snes.nesdev.org/wiki/OAM
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+A sprite is a small picture that you can put anywhere on the screen. It is not part of a background. The PPU can show 128 sprites. Their data is in OAM (object attribute memory), which is 544 bytes.
+
+## The OAM data of a sprite
+Each sprite has 4 bytes in the main table: X, Y, the tile number, and the attributes (palette, priority, flips). A second table of 32 bytes, after the main table, has two more bits for each sprite: bit 8 of X and the size choice.
+
+## Things to know
+- Sprites use their own colours: CGRAM colours 128 to 255. Sprite palette 0 is colours 128 to 143.
+- OBSEL ($2101) tells where the sprite tiles are in VRAM and what the sizes are. The value 0 means 8 by 8 and 16 by 16 sizes, tiles at word 0.
+- Sprite tiles have 4 bits for each pixel. A tile takes 32 bytes.
+- All 128 sprites exist at the start, at X 0 and Y 0. Move the ones you do not use to Y = $F0, below the screen.
+- TM ($212C) bit 4 shows the sprites.
+- OAMADD ($2102 and $2103) is the OAM address. Each write to OAMDATA ($2104) writes the next byte.
+
+```asm expect=pic=1,o0=78,o1=64,o2=00,o4=00,o5=f0
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank
+    stz $2101           ; OBSEL: tiles at word 0, small size 8x8
+    lda #$80
+    sta $2121           ; CGADD: sprite palette 0 starts at colour 128
+    stz $2122
+    stz $2122           ; colour 128 = 0 (not used: sprite colour 0 is clear)
+    lda #$1F
+    sta $2122
+    stz $2122           ; colour 129 = $001F, red
+    lda #$80
+    sta $2115
+    rep #$20
+    stz $2116           ; VRAM word 0
+    lda #$1801
+    sta $4300
+    lda #tile
+    sta $4302
+    sep #$20
+    lda #^tile
+    sta $4304
+    rep #$20
+    lda #32
+    sta $4305           ; 32 bytes: one 4 bit tile
+    sep #$20
+    lda #$01
+    sta $420B           ; DMA to VRAM
+    stz $2102
+    stz $2103           ; OAM address 0
+    lda #120
+    sta $2104           ; sprite 0: X = 120
+    lda #100
+    sta $2104           ; Y = 100
+    stz $2104           ; tile number 0
+    stz $2104           ; attributes 0: palette 0
+    ldx #127            ; the other 127 sprites go below the screen
+hide:
+    stz $2104           ; X = 0
+    lda #$F0
+    sta $2104           ; Y = $F0: not visible
+    stz $2104           ; tile 0
+    stz $2104           ; attributes 0
+    dex
+    bne hide
+    ldx #32             ; the second table: 32 bytes, all 0
+clear:
+    stz $2104
+    dex
+    bne clear
+    lda #$10
+    sta $212C           ; TM: show the sprites
+    lda #$0F
+    sta $2100           ; screen on
+forever:
+    bra forever
+tile:
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00   ; bit planes 0 and 1: colour 1
+    .byte $FF, $00, $FF, $00, $FF, $00, $FF, $00
+    .res 16, 0                                      ; bit planes 2 and 3: 0
+```
+The CPU must write the second table after the first. The address goes on from byte 512 when the main table is full.
+
+try: Change the X and Y values. Change the attribute byte to $30 to give the sprite the highest priority.
+
+## What you learned
+A sprite is 4 bytes in OAM plus 2 bits in the second table. It has its own colours and its tiles are 4 bit.

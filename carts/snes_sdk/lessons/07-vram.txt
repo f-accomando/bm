@@ -1,0 +1,54 @@
+title: The PPU and the video RAM
+goal: Write words to the video RAM through the ports $2115 to $2119.
+link: SNESdev Wiki, PPU registers | https://snes.nesdev.org/wiki/PPU_registers
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+---
+The picture chip, the PPU, has its own memory. You cannot reach it with a normal address. You use ports, which are registers at $2100 and above.
+
+## The video RAM (VRAM)
+VRAM has 64 KB. It holds the tile pictures and the tile maps. VRAM addresses count words (2 bytes), not bytes. So the address $0100 is the byte $0200.
+
+To write to VRAM you do three things:
+
+1. Set VMAIN ($2115). The value $80 means: add 1 to the address after each write of the high byte.
+2. Set the VRAM address in VMADDL and VMADDH ($2116 and $2117).
+3. Write the low byte to VMDATAL ($2118) and the high byte to VMDATAH ($2119).
+
+If A is 16 bit, one STA to $2118 writes both bytes. The CPU writes the low byte to $2118 and the high byte to $2119 at once.
+
+Write only when the screen is off (forced blank), or in the NMI. At other times the PPU ignores your writes.
+
+```asm expect=v200=34,v201=12,v202=78,v203=56
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100           ; forced blank: safe to write to VRAM
+    lda #$80
+    sta $2115           ; VMAIN: the address grows after the high byte
+    rep #$20
+    lda #$0100
+    sta $2116           ; VRAM word address $0100
+    lda #$1234
+    sta $2118           ; low byte to $2118, high byte to $2119
+    lda #$5678
+    sta $2118           ; the address has grown by one word
+    sep #$20
+    lda #$0F
+    sta $2100           ; screen on
+forever:
+    bra forever
+```
+Look at the VRAM view in the Run tab at byte address $0200. You see 34 12 78 56.
+
+try: Change the VRAM address to $0200. The bytes now appear at $0400.
+
+## What you learned
+VRAM is behind ports. Set the address, then write words. VRAM addresses count words.

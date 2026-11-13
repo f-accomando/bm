@@ -641,6 +641,10 @@ code_checks({ check = check, key = key, frames = frames, sees = sees, status = s
 dofile(ROOT .. "/tests/studio/snes_sdk_run.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
                                                  docs = docs, type_text = type_text, fake = FAKE, asm = E.require("snes_asm") })
 
+-- the Learn tab
+dofile(ROOT .. "/tests/studio/snes_sdk_learn.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
+                                                   docs = docs, type_text = type_text, fake = FAKE })
+
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm SNES SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
   click = click, shown = function() return showkeys_n end,
@@ -650,6 +654,7 @@ dofile(ROOT .. "/tests/studio/hintchip.lua"){
     { name = "map", go = function() key("f3") end },
     { name = "music", go = function() key("f4") end },
     { name = "run", go = function() key("f5") end },
+    { name = "learn", go = function() key("^l") end },
   } }
 
 io.write(string.format("bm SNES SDK: %d/%d checks passed\n", checks - fails, checks))

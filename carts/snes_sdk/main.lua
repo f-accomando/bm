@@ -19,6 +19,8 @@ local SC = setmetatable({}, { __index = function(_, k) return (SNESCODE or requi
 local BF = setmetatable({}, { __index = function(_, k) return (ASMBUF or require "asmbuf")[k] end })
 -- and for the Run tab: carts/shared/snesrun.lua (SNESRUN)
 local RR = setmetatable({}, { __index = function(_, k) return (SNESRUN or require "snesrun")[k] end })
+-- and for the Learn tab: carts/shared/sneslearn.lua (SNESLEARN) and the lesson files (the table SNESLESSONS)
+local SL = setmetatable({}, { __index = function(_, k) return (SNESLEARN or require "sneslearn")[k] end })
 
 local C_BG, C_PANEL, C_BAR = 0x14161E, 0x1C2030, 0x2A3048
 local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF6060, 0x3050A0
@@ -44,6 +46,7 @@ local TABS = {
   { "Map", "f3", "the tilemap editor for the BG layers" },
   { "Music", "f4", "patterns, BRR samples and the SPC700 limits" },
   { "Run", "f5", "build the ROM and run it beside the registers and the memory" },
+  { "Learn", "^l", "lessons that you read beside your code" },
 }
 local tab = 2
 
@@ -61,6 +64,9 @@ code_reset()
 -- each file at the last build (the map is old when a text is not the same)
 local RN = { state = "off", set = {}, info = {}, lines = nil, built = {}, space = "ram", addr = 0x7E0000, regs = nil, mem = "",
              pw = 0, ph = 0, rows = 8, bpr = 4 }
+-- the Learn tab: the lesson shown (cur), the first row on the screen (top), the selected code block (sel), the view
+-- (split: lesson and Code buffer side by side; focus "lesson" or "code"), and what the project keeps (st: see sneslearn.lua)
+local LN = { cur = 1, top = 1, sel = 1, split = false, focus = "lesson", st = nil, rows = nil, rows_key = nil }
 local M = { bpp = 4, set = 0, large = false, cur = 1, sel = 2, ch = 1, fx = false, fy = false, prio = 0,
             pals = {}, tp = {} }                  -- the Sprites data of the project
 local sw, sh = 128, 128                          -- the sheet
@@ -231,13 +237,18 @@ local function parse_meta(lua)
 end
 
 -- the project text of the Lua section: the old text with the data between the marks replaced
-local function project_lua()
+local function sdk_lua()
   local old = P.lua or ""
   local a = old:find(BEGIN, 1, true)
   local b = a and select(2, old:find(END, a, true))
   if a and b then return old:sub(1, a - 1) .. meta_text() .. old:sub(b + 1) end
   if old == "" then old = VIEWER end
   return old .. "\n" .. meta_text() .. "\n"
+end
+-- the Learn data has its own marks, outside the Sprites marks
+local function project_lua()
+  LN.sync()
+  return SL.merge_lua(sdk_lua(), LN.st)
 end
 
 local function reset_view()
@@ -251,6 +262,7 @@ end
 
 local function new_project()
   code_reset()
+  LN.reset()
   cart_new()
   pcall(cart_sheet, 128, 128)
   sw, sh = cart_sheet()
@@ -272,6 +284,7 @@ local function open_file(path)
   code_reset()
   sw, sh = cart_sheet()
   P = { path = path, title = p.title or "", dirty = false, lua = p.lua or "" }
+  LN.load(P.lua)
   M.bpp, M.set, M.large, M.cur, M.sel, M.ch, M.pals, M.tp = 4, 0, false, 1, 2, 1, {}, {}
   M.fx, M.fy, M.prio = false, false, 0
   local had = parse_meta(P.lua)
@@ -1068,7 +1081,7 @@ local function rn_build()
 end
 
 local function rn_fresh()
-  if not RN.lines then return false end
+  if not RN.lines or RN.scratch then return false end
   for n, b in pairs(CD.files) do if RN.built[n] ~= BF.text(b) then return false end end
   return true
 end
@@ -1089,7 +1102,7 @@ local function rn_stopped(pc)
   rn_refresh()
   local file, line = RR.line_of_addr(RN.lines, pc)
   RN.pcf, RN.pcln = file, line
-  if file then code_goto(file, line) end
+  if file and not RN.scratch then code_goto(file, line) end
   say("stopped at " .. rn_addr_text(pc) .. (file and (" (" .. file .. " line " .. line .. ")") or ""), C_ACC, 300)
 end
 
@@ -1098,7 +1111,7 @@ local function rn_run()
   if not rom then tab = 1; return end
   local ok, err = snes_load(rom)
   if not ok then say("cannot load the ROM: " .. tostring(err), C_ERR); return end
-  RN.state, RN.pcf, RN.pcln = "run", nil, nil
+  RN.state, RN.pcf, RN.pcln, RN.scratch = "run", nil, nil, nil
   rn_arm()
   rn_refresh()
   tab = 5
@@ -1227,7 +1240,7 @@ local function draw_run()
   end
   local y = top
   local st = RN.state == "run" and "RUNNING" or RN.state == "stop" and "STOPPED" or "NOT RUNNING"
-  print(st, px, y, RN.state == "stop" and C_ERR or RN.state == "run" and C_ACC or C_DIM)
+  print(st .. (RN.scratch and RN.state ~= "off" and "  (lesson example)" or ""), px, y, RN.state == "stop" and C_ERR or RN.state == "run" and C_ACC or C_DIM)
   if RN.state == "off" then
     print("Press F5 (or Ctrl+B) to build the", px, y + 24, C_DIM)
     print("project of the Code tab and run it.", px, y + 40, C_DIM)
@@ -1416,6 +1429,386 @@ local function draw_code()
          { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" } })
 end
 
+----------------------------------------------------------------- the Learn tab
+-- Lessons are read-only data (SNESLESSONS: carts/snes_sdk/lessons/*.txt, made into a Lua table by the Makefile). The tab never
+-- changes the open files by itself. Each code block has three actions: Insert (at the cursor of the Code tab, Ctrl+Z takes it
+-- back), Open (a new file in /docs, never over an old one) and Run (a scratch build in the Run tab; the project, its ROM and its
+-- files stay as they are). The read position, the done marks and the notes are saved in the project (sneslearn.lua).
+;(function()                                  -- a function of its own: the main chunk has no local left
+local LESSONS = nil
+local function lessons()
+  if not LESSONS then
+    LESSONS = {}
+    for _, e in ipairs(SNESLESSONS or {}) do LESSONS[#LESSONS + 1] = SL.parse(e.name, e.text) end
+  end
+  return LESSONS
+end
+
+function LN.reset()
+  LN.st = SL.new_state()
+  LN.cur, LN.top, LN.sel, LN.split, LN.focus, LN.rows, LN.visited = 1, 1, 1, false, "lesson", nil, false
+end
+
+function LN.load(lua)
+  LN.reset()
+  LN.st = SL.parse_state(lua)
+  LN.split = LN.st.split
+  for i, L in ipairs(lessons()) do
+    if L.name == LN.st.last then LN.cur, LN.top = i, SL.entry(LN.st, L.name).pos end
+  end
+end
+
+function LN.sync()
+  if not LN.visited then return end
+  local L = lessons()[LN.cur]
+  if L then SL.entry(LN.st, L.name).pos = LN.top; LN.st.last = L.name end
+  LN.st.split = LN.split
+end
+
+local function learn_geom()
+  local top = 32
+  local nrows = max(1, (HINT_Y - top) // 16)
+  if LN.split then return top, nrows, 8, max(16, (W // 2 - 20) // 8), 0, W // 2, W - W // 2 - 4 end
+  return top, nrows, 224, max(16, (W - 232) // 8), 216, 0, 0
+end
+
+local function learn_rows()
+  local ls = lessons()
+  local L = ls[LN.cur]
+  if not L then return {} end
+  local _, _, _, cols = learn_geom()
+  local key = LN.cur .. ":" .. cols
+  if LN.rows_key ~= key then LN.rows, LN.rows_key = SL.layout(L, cols), key end
+  return LN.rows
+end
+
+local function learn_clamp()
+  local rows = learn_rows()
+  local _, nrows = learn_geom()
+  LN.top = clamp(LN.top, 1, max(1, #rows - nrows + 1))
+  local L = lessons()[LN.cur]
+  LN.sel = L and clamp(LN.sel, 1, max(1, #SL.blocks(L))) or 1
+end
+
+local function learn_scroll(d) LN.top = LN.top + d; learn_clamp() end
+
+local function learn_show(i, row)
+  local ls = lessons()
+  if i < 1 or i > #ls then return end
+  LN.sync()
+  LN.visited = true
+  LN.cur, LN.rows_key, LN.sel = i, nil, 1
+  LN.top = row or SL.entry(LN.st, ls[i].name).pos
+  LN.st.last = ls[i].name
+  learn_clamp()
+end
+
+local function learn_select(n)
+  LN.sel = n
+  local rows = learn_rows()
+  local _, nrows = learn_geom()
+  for i, r in ipairs(rows) do
+    if r.kind == "bar" and r.block == n then
+      if i < LN.top or i + 3 > LN.top + nrows - 1 then LN.top = i - 1 end
+      break
+    end
+  end
+  learn_clamp()
+end
+
+local function learn_block(n)
+  local L = lessons()[LN.cur]
+  return L, L and SL.blocks(L)[n or LN.sel]
+end
+
+local function learn_insert(n)
+  local L, blk = learn_block(n)
+  if not blk then return end
+  code_ensure()
+  local b = cur_buf()
+  if not b then say("Ctrl+E in the Code tab opens or makes a source file first", C_ERR); return end
+  BF.insert_block(b, blk.text)
+  CD.help = nil
+  say(string.format("inserted in %s at line %d: Ctrl+Z in the Code tab takes it back", CD.cur, b.cy), C_ACC, 300)
+end
+
+local function learn_open(n)
+  local L, blk = learn_block(n)
+  if not blk then return end
+  if not doc_write then say("this console cannot write files", C_ERR); return end
+  local listed = {}
+  for _, d in ipairs(doc_list and doc_list() or {}) do listed[d.name:lower()] = true end
+  local function exists(name) name = name:lower(); return CD.files[name] ~= nil or listed[name] == true end
+  local name, e = SL.open_as_file(L, blk.n, exists, function(nm, text) return doc_write(nm, text) end)
+  if not name then say("cannot make the file: " .. tostring(e), C_ERR); return end
+  local keep = CD.cur
+  code_open(name)
+  if keep then CD.cur = keep end                        -- you stay in your own file
+  say(name .. " is a new file in /docs and in the project (Ctrl+E in the Code tab opens it)", C_ACC, 300)
+end
+
+local function learn_run(n)
+  local L, blk = learn_block(n)
+  if not blk then return end
+  local rom, res = SL.run_alone(L, blk.n, SC.build)
+  if not rom then say(tostring(res), C_ERR, 400); return end
+  local ok, err = snes_load(rom)
+  if not ok then say("cannot load the example: " .. tostring(err), C_ERR); return end
+  snes_break(nil)
+  RN.state, RN.scratch, RN.lines, RN.built, RN.pcf, RN.pcln = "run", true, res.lines, {}, nil, nil
+  rn_refresh()
+  tab = 5
+  say("running the example of lesson " .. L.id .. " alone: your project and its ROM are not changed", C_ACC, 300)
+end
+
+local function learn_note(n)
+  local L, blk = learn_block(n)
+  if not blk then return end
+  local on = SL.toggle_note(LN.st, SL.note_key(L, blk.n))
+  P.dirty = true
+  say(on and "block marked: l lists the marked blocks" or "mark removed", C_ACC, 150)
+end
+
+local function learn_done()
+  local L = lessons()[LN.cur]
+  if not L then return end
+  local e = SL.entry(LN.st, L.name)
+  e.done = not e.done
+  P.dirty = true
+  say("lesson " .. L.id .. (e.done and " is marked as done" or " is not done"), C_ACC, 150)
+end
+
+local function learn_search_ask()
+  ask("search all the lessons", LN.query or "", function(t)
+    LN.query = t
+    local hits = SL.search(lessons(), t)
+    if #hits == 0 then say("no lesson has: " .. t, C_ERR); return end
+    local rows = {}
+    for i = 1, min(#hits, 200) do
+      local h = hits[i]
+      local L = lessons()[h.lesson]
+      rows[i] = { string.format("%02d %s%s", L.id, h.block and ("[block " .. h.block .. "] ") or "", h.text), function()
+        learn_show(h.lesson)
+        local r = SL.find_row(learn_rows(), t, 1)
+        if h.block then learn_select(h.block) elseif r then LN.top = r - 1; learn_clamp() end
+      end }
+    end
+    choose(#hits .. (#hits == 1 and " line" or " lines") .. " with: " .. t, rows)
+  end)
+end
+
+local function learn_notes_list()
+  local rows = {}
+  for _, key in ipairs(LN.st.notes) do
+    local name, n = key:match("^(.-):(%d+)$")
+    for i, L in ipairs(lessons()) do
+      if L.name == name then
+        local blk = SL.blocks(L)[tonumber(n)]
+        if blk then
+          local first = blk.text:match("[^\n]*%S[^\n]*") or ""
+          rows[#rows + 1] = { string.format("%02d block %d: %s", L.id, blk.n, first:gsub("^%s+", "")), function() learn_show(i); learn_select(blk.n) end }
+        end
+      end
+    end
+  end
+  if #rows == 0 then say("no marked blocks yet: m marks the selected block", C_DIM); return end
+  choose("marked blocks (Notes)", rows)
+end
+
+local function learn_view()                       -- Tab: lesson list > lesson and Code buffer > the Code buffer typing > list
+  if not LN.split then LN.split, LN.focus = true, "lesson"; code_ensure()
+  elseif LN.focus == "lesson" then LN.focus = "code"
+  else LN.split, LN.focus = false, "lesson" end
+  LN.rows_key = nil
+  learn_clamp()
+end
+
+function LN.key(k)
+  learn_clamp()
+  if k == "\t" then learn_view(); return end
+  if k == "^f" and not (LN.split and LN.focus == "code") then learn_search_ask(); return end
+  if LN.split and LN.focus == "code" then
+    local b = cur_buf()
+    if not b then say("Ctrl+E in the Code tab opens or makes a source file first", C_DIM); return end
+    local _, nrows = learn_geom()
+    if BF.key(b, k, nrows - 3) then CD.help = nil end
+    return
+  end
+  local _, nrows = learn_geom()
+  local L = lessons()[LN.cur]
+  if k == "up" then learn_scroll(-1)
+  elseif k == "down" then learn_scroll(1)
+  elseif k == "pgup" then learn_scroll(-(nrows - 1))
+  elseif k == "pgdn" or k == " " then learn_scroll(nrows - 1)
+  elseif k == "home" then LN.top = 1; learn_clamp()
+  elseif k == "end" then LN.top = 1e9; learn_clamp()
+  elseif k == "left" or k == "[" then learn_show(LN.cur - 1)
+  elseif k == "right" or k == "]" then learn_show(LN.cur + 1)
+  elseif k == "n" and L then learn_select(min(LN.sel + 1, max(1, #SL.blocks(L))))
+  elseif k == "p" and L then learn_select(max(LN.sel - 1, 1))
+  elseif k == "i" then learn_insert()
+  elseif k == "o" then learn_open()
+  elseif k == "r" or k == "\n" then
+    local _, blk = learn_block()
+    if blk and blk.run then learn_run() else learn_insert() end
+  elseif k == "m" then learn_note()
+  elseif k == "d" then learn_done()
+  elseif k == "l" then learn_notes_list()
+  end
+end
+
+function LN.pad()
+  if rp[2] then learn_scroll(-1) elseif rp[3] then learn_scroll(1)
+  elseif rp[0] then learn_show(LN.cur - 1) elseif rp[1] then learn_show(LN.cur + 1)
+  elseif btnp(4) then local _, blk = learn_block(); if blk and blk.run then learn_run() else learn_insert() end
+  elseif btnp(5) then tab = 1
+  elseif tap[6] then learn_insert()
+  elseif tap[7] then local L = lessons()[LN.cur]; learn_select(LN.sel % max(1, L and #SL.blocks(L) or 1) + 1) end
+end
+
+function LN.mouse()
+  if U.menu_open() then return end
+  local z = U.at()
+  if not z then return end
+  local top, nrows, rx0, cols, lw, cx0 = learn_geom()
+  if U.wheel ~= 0 then
+    local b = cur_buf()
+    if LN.split and U.x >= cx0 and b then b.top = clamp(b.top - U.wheel * 3, 1, #b.lines) else learn_scroll(-U.wheel * 3) end
+    return
+  end
+  if not U.pressed(0) then return end
+  if z.kind == "llist" then learn_show(z.a); LN.focus = "lesson"
+  elseif z.kind == "lbtn" then
+    LN.sel = z.a
+    if z.b == "insert" then learn_insert(z.a) elseif z.b == "open" then learn_open(z.a)
+    elseif z.b == "run" then learn_run(z.a) elseif z.b == "note" then learn_note(z.a) end
+  elseif z.kind == "lcode" then learn_select(z.a); LN.focus = "lesson"
+  elseif z.kind == "lread" then LN.focus = "lesson"
+  elseif z.kind == "ldone" then learn_done()
+  elseif z.kind == "lpane" then
+    LN.focus = "code"
+    local b = cur_buf()
+    if b then
+      local ly = clamp(b.top + (U.y - 48) // 16, 1, #b.lines)
+      BF.set_cursor(b, ly, max(0, b.left + (U.x - cx0 - 40 + 4) // 8))
+    end
+  end
+end
+
+function LN.status()
+  local L = lessons()[LN.cur]
+  if not L then return "Learn: no lessons in this build" end
+  local e = SL.entry(LN.st, L.name)
+  local n = #SL.blocks(L)
+  return string.format("Lesson %d of %d: %s%s   block %d of %d", LN.cur, #lessons(), L.title, e.done and "  [done]" or "", min(LN.sel, n), n)
+end
+
+function LN.draw()
+  LN.visited = true
+  cls(C_BG)
+  local ls = lessons()
+  local top, nrows, rx0, cols, lw, cx0, cw = learn_geom()
+  if #ls == 0 then
+    print("no lessons in this build (SNESLESSONS is empty)", 16, 48, C_ERR)
+    hint({ { { "esc" }, "code" } })
+    return
+  end
+  learn_clamp()
+  local L = ls[LN.cur]
+  local rows = learn_rows()
+  if not LN.split then                            -- the list of the lessons
+    rectfill(0, 16, lw, HINT_Y - 16, C_PANEL)
+    local first = clamp(LN.cur - nrows // 2, 1, max(1, #ls - nrows + 1))
+    for i = first, min(#ls, first + nrows - 1) do
+      local y = top + (i - first) * 16
+      local e = LN.st.lessons[ls[i].name]
+      U.zone(0, y, lw, 16, "llist", i)
+      if i == LN.cur then rectfill(0, y, lw, 16, C_SEL) end
+      local t = string.format("%s%2d %s", (e and e.done) and "*" or " ", ls[i].id, ls[i].title)
+      print(t:sub(1, lw // 8 - 1), 4, y, i == LN.cur and 0xFFFFFF or ((e and e.done) and C_ACC or C_TEXT))
+    end
+  end
+  U.zone(0, 16, W, HINT_Y - 16, "lread")
+  local width = cols * 8 + 8
+  local notes = LN.st.notes
+  for r = 0, nrows - 1 do
+    local row = rows[LN.top + r]
+    if not row then break end
+    local y, k = top + r * 16, row.kind
+    if k == "title" then
+      print(row.text:sub(1, cols), rx0, y, C_ACC)
+    elseif k == "goal" then print(row.text:sub(1, cols), rx0, y, 0xB0C0E0)
+    elseif k == "h" then print(row.text:sub(1, cols), rx0, y, 0x80C0FF)
+    elseif k == "p" then print(row.text:sub(1, cols), rx0, y, C_TEXT)
+    elseif k == "try" then print(row.text:sub(1, cols), rx0, y, 0x80E080)
+    elseif k == "link" then print(row.text:sub(1, cols), rx0, y, 0x70A0F0)
+    elseif k == "bar" then
+      local blk = SL.blocks(L)[row.block]
+      rectfill(rx0 - 4, y, width, 16, row.block == LN.sel and C_SEL or C_BAR)
+      local label = (blk.run and "program " or "text ") .. row.block
+      print(label, rx0, y, 0xFFFFFF)
+      local bx = rx0 + (#label + 2) * 8
+      local acts = { { "Insert", "insert" }, { "Open", "open" } }
+      if blk.run then acts[#acts + 1] = { "Run", "run" } end
+      acts[#acts + 1] = { SL.has_note(LN.st, SL.note_key(L, row.block)) and "Noted" or "Note", "note" }
+      for _, a in ipairs(acts) do
+        local w = #a[1] * 8 + 8
+        if bx + w < rx0 + width - 4 then
+          U.zone(bx - 2, y, w, 16, "lbtn", row.block, a[2])
+          rectfill(bx - 2, y + 1, w, 14, 0x3C4670)
+          print(a[1], bx + 2, y, C_ACC)
+          bx = bx + w + 4
+        end
+      end
+    elseif k == "code" then
+      rectfill(rx0 - 4, y, width, 16, row.block == LN.sel and 0x1C2440 or C_PANEL)
+      U.zone(rx0 - 4, y, width, 16, "lcode", row.block)
+      for _, t in ipairs(SC.tokens(row.text)) do
+        local a, z = t[1], min(t[2], cols)
+        if z >= a then print(row.text:sub(a, z), rx0 + (a - 1) * 8, y, CC[t[3]] or C_TEXT) end
+      end
+    end
+  end
+  -- the done mark, at the right of the first line
+  local e = SL.entry(LN.st, L.name)
+  if LN.top == 1 and not LN.split then
+    local t = e.done and "[done]" or "[ ]"
+    U.zone(rx0 + width - #t * 8 - 8, top, #t * 8 + 8, 16, "ldone")
+    print(t, rx0 + width - #t * 8 - 4, top, e.done and C_ACC or C_DIM)
+  end
+  if #rows > nrows then                           -- where we are in the lesson
+    local h = HINT_Y - top
+    rectfill(rx0 + width - 2, top + (LN.top - 1) * h // #rows, 3, max(4, nrows * h // #rows), C_GRID8)
+  end
+  if LN.split then                                -- the Code buffer beside the lesson
+    rectfill(cx0 - 6, 16, 2, HINT_Y - 16, LN.focus == "code" and C_ACC or C_GRID)
+    code_ensure()
+    local b = cur_buf()
+    local prows, pcols = nrows - 1, max(8, (cw - 40) // 8)
+    print(CD.cur and (CD.cur .. (b and b.dirty and "*" or "")) or "no file", cx0, top, LN.focus == "code" and C_ACC or C_DIM)
+    if b then
+      BF.scroll(b, prows, pcols)
+      U.zone(cx0, 48, cw, prows * 16, "lpane")
+      local blink = (frame // 20) % 2 == 0
+      for r = 0, prows - 1 do
+        local ln, y = b.top + r, 48 + r * 16
+        if ln > #b.lines then break end
+        local l = b.lines[ln]
+        if ln == b.cy then rectfill(cx0, y, cw, 16, C_CURLINE) end
+        print(string.format("%4d", ln), cx0, y, C_DIM)
+        for _, t in ipairs(SC.tokens(l)) do
+          local a, z = max(t[1], b.left + 1), min(t[2], b.left + pcols)
+          if z >= a then print(l:sub(a, z), cx0 + 40 + (a - 1 - b.left) * 8, y, CC[t[3]] or C_TEXT) end
+        end
+        if ln == b.cy and LN.focus == "code" and blink then rectfill(cx0 + 40 + (b.cx - b.left) * 8, y, 2, 16, 0xFFFFFF) end
+      end
+    end
+  end
+  hint({ { { "i" }, "insert" }, { { "o" }, "open file" }, { { "r" }, "run" }, { { "m" }, "note" }, { { "d" }, "done" },
+         { { "tab" }, LN.split and "view" or "split" }, { { "ctrl", "f" }, "search" }, { { "esc" }, "code" } })
+end
+end)()
+
 local function draw_pick()
   local p = pick
   local rows = min(#p.rows, 14)
@@ -1470,6 +1863,7 @@ local function global_key(k)
   elseif k == "f5" then rn_f5(); return true
   elseif k == "f9" and (tab == 1 or tab == 5) then rn_f9(); return true
   elseif k == "f10" and (tab == 1 or tab == 5) then rn_step(); return true
+  elseif tab == 6 and k == "f1" then tab = 1; return true             -- F1 and Esc: back to the Code tab, same cursor
   end
   for i, t in ipairs(TABS) do
     if k == t[2] then
@@ -1479,17 +1873,18 @@ local function global_key(k)
     end
   end
   if k == "esc" then
-    if tab == 1 and (CD.help or CD.show_errs) then CD.help, CD.show_errs = nil, false else menu_actions() end
+    if tab == 6 then tab = 1
+    elseif tab == 1 and (CD.help or CD.show_errs) then CD.help, CD.show_errs = nil, false else menu_actions() end
     return true
   elseif k == "^s" then
-    if tab == 1 then code_save_all() end
-    if tab ~= 1 or P.path then save_now() end
+    if tab == 1 or tab == 6 then code_save_all() end
+    if (tab ~= 1 and tab ~= 6) or P.path then save_now() end
     return true
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" then open_other(); return true
   elseif k == "^n" then new_other(); return true
-  elseif k == "^z" then if tab == 1 then return false end; if tab == 2 then do_undo(undo, redo, "undo") end; return true
-  elseif k == "^y" then if tab == 1 then return false end; if tab == 2 then do_undo(redo, undo, "redo") end; return true
+  elseif k == "^z" then if tab == 1 or (tab == 6 and LN.split and LN.focus == "code") then return false end; if tab == 2 then do_undo(undo, redo, "undo") end; return true
+  elseif k == "^y" then if tab == 1 or (tab == 6 and LN.split and LN.focus == "code") then return false end; if tab == 2 then do_undo(redo, undo, "redo") end; return true
   elseif k == "\t" and tab == 2 then sprites_actions(); return true
   end
   return false
@@ -1564,7 +1959,7 @@ local function sprites_pad()
 end
 
 local HELP = {
-  { "f1 ... f5", "the tabs: Code, Sprites, Map, Music, Run" },
+  { "f1 ... f5 / ctrl l", "the tabs: Code, Sprites, Map, Music, Run, Learn" },
   { "esc", "the menu (new, open, save, sheet size)" },
   { "ctrl s / o / n", "save, open, new" },
   { "ctrl z / y", "undo, redo" },
@@ -1578,6 +1973,13 @@ local HELP = {
   { "ctrl e / ctrl w", "the source files; close the file" },
   { "ctrl q", "start or stop a selection (the mouse drags one too)" },
   { "ctrl c / x / v / k / d", "copy, cut, paste, cut line, copy line down" },
+  "Learn",
+  { "up down / pgup pgdn", "scroll the lesson; left right: the other lesson" },
+  { "n / p", "select the next / previous code block" },
+  { "i / o / r", "insert the block in your file; open it as a new file; run it alone in the Run tab" },
+  { "m / l / d", "mark the block (Notes); list the marks; mark the lesson done" },
+  { "tab", "lesson + Code buffer side by side; Tab again types in the Code buffer; again: back" },
+  { "ctrl f / esc / f1", "search all the lessons; back to the Code tab" },
   "Sprites",
   { "arrows", "the sprite (or the pixel while drawing)" },
   { "enter / space", "draw on / off; paint the pixel" },
@@ -1634,6 +2036,7 @@ function _update()
       elseif z and z.kind == "field" and input then U.line_click(input, input.x0 or 96, 8) end
     elseif tab == 2 then sprites_mouse()
     elseif tab == 1 then code_mouse()
+    elseif tab == 6 then LN.mouse()
     elseif tab == 5 then run_mouse() end
   end
   while true do
@@ -1650,7 +2053,7 @@ function _update()
       elseif k == "esc" or k == "back" then pick = nil
       elseif k == "\n" or k == "ok" then pick = nil; p.rows[p.sel][2]() end
     elseif not global_key(k) then
-      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) elseif tab == 5 then run_key(k) end
+      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) elseif tab == 6 then LN.key(k) elseif tab == 5 then run_key(k) end
     end
   end
   if input then
@@ -1659,29 +2062,31 @@ function _update()
     if rp[2] then pick.sel = (pick.sel - 2) % #pick.rows + 1 elseif rp[3] then pick.sel = pick.sel % #pick.rows + 1
     elseif btnp(4) then local p = pick; pick = nil; p.rows[p.sel][2]() elseif btnp(5) then pick = nil end
   elseif tab == 2 then sprites_pad()
+  elseif tab == 6 then LN.pad()
   elseif tap[7] then menu_actions() end
 end
 
 function _draw()
   LY.poll()
   U.begin()
-  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() elseif tab == 5 then draw_run() else draw_soon(tab) end
+  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() elseif tab == 5 then draw_run() elseif tab == 6 then LN.draw() else draw_soon(tab) end
 
   rectfill(0, 0, W, 16, C_BAR)                 -- the tabs: each with its key
   local x = U.bar_title("bm SNES SDK", C_ACC)
   for i, t in ipairs(TABS) do
-    local lx = snap8(x + prompt(t[2]) + 3)
+    local ctrl = t[2]:sub(1, 1) == "^"           -- the Learn tab: Ctrl+L (no key glyph for it)
+    local lx = snap8(x + (ctrl and 16 or prompt(t[2])) + 3)
     local w = lx + #t[1] * 8 - x
     if i == tab then rectfill(x - 4, 0, w + 8, 16, C_SEL) end
-    U.key_zone(x - 4, 0, w + 8, 16, t[2])
-    prompt(t[2], x, 0)
+    if ctrl then U.zone(x - 4, 0, w + 8, 16, "key", t[2]); print("^" .. t[2]:sub(2):upper(), x, 0, C_DIM)
+    else U.key_zone(x - 4, 0, w + 8, 16, t[2]); prompt(t[2], x, 0) end
     print(t[1], lx, 0, i == tab and 0xFFFFFF or C_DIM)
     x = x + w + 12
   end
   U.bar_file(P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
-  local status = msg_t > 0 and msg or tab == 1 and code_status() or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
+  local status = msg_t > 0 and msg or tab == 1 and code_status() or tab == 6 and LN.status() or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
                                                       M.sel - 1, M.cur, M.bpp)
   print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end

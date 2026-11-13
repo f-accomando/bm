@@ -1,0 +1,68 @@
+title: Reading the joypad
+goal: Read the 16 buttons of pad 1 once for each frame and test one button.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/
+link: Assembly for the SNES (ersanio) | https://ersanio.gitbook.io/assembly-for-the-snes/
+---
+The console can read the pads for you. This is the auto joypad read. You turn it on with bit 0 of NMITIMEN ($4200). At the start of each vertical blank the console reads both pads and keeps the result in registers. For pad 1 the registers are JOY1L and JOY1H ($4218 and $4219). One 16 bit read of $4218 gets all the buttons.
+
+The read takes a little time. The bit 0 of HVBJOY ($4212) is 1 while it runs. So the NMI routine waits until that bit is 0, and then reads the pad.
+
+## The bits
+In the 16 bit value, from the top: B $8000, Y $4000, Select $2000, Start $1000, Up $0800, Down $0400, Left $0200, Right $0100, A $0080, X $0040, L $0020, R $0010. A 1 means the button is held.
+
+To test one button, use AND with its mask and then BEQ or BNE. After AND the Z flag is 1 if the button is up.
+
+The example keeps the pad in $0010 and $0011. It writes 1 to $0012 when the A button is held. In the Run tab the keyboard keys are on the help screen (F12).
+
+```asm expect=w10=80,w11=01,w12=01 pad=0180
+.lorom
+.org $8000
+reset:
+    sei
+    clc
+    xce
+    rep #$38
+    ldx #$1FFF
+    txs
+    sep #$20
+    lda #$8F
+    sta $2100
+    stz $4200
+    stz $12
+    lda #$0F
+    sta $2100
+    lda #$81
+    sta $4200           ; NMI on, auto joypad read on
+forever:
+    wai
+    bra forever
+nmi:
+    rep #$30
+    pha
+    phx
+    phy
+    sep #$20
+    lda $4210           ; RDNMI
+wait_pad:
+    lda $4212           ; HVBJOY
+    and #$01            ; bit 0: the auto read is running
+    bne wait_pad
+    rep #$20            ; A 16 bit
+    lda $4218           ; all buttons of pad 1
+    sta $10
+    and #$0080          ; the A button
+    sep #$20
+    beq not_a           ; Z = 1: not held
+    lda #$01
+    sta $12             ; A is held
+not_a:
+    rep #$30
+    ply
+    plx
+    pla
+    rti
+```
+try: Test the Right button, mask $0100, and write to $0013 when it is held.
+
+## What you learned
+Turn on the auto read, wait for it to end, and read $4218. Test a button with AND and a mask.
