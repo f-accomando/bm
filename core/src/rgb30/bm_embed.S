@@ -71,17 +71,6 @@ bm_lib_words:
 bm_lib_words_end:
     .byte 0
 
-/* bm SDK (RGB30), the tool of the Dev tab (core/src/rgb30/ui.c): the cartridge
- * core/rgb30.mk builds from bm/sdk_b16 (found through -Wa,-I$(BUILD)) */
-    .section .rodata
-    .balign 4
-    .globl bm_sdk_cart, bm_sdk_cart_end
-bm_sdk_cart:
-#ifndef BM_CLEAN_KERNEL
-    .incbin "sdk_b16.bm"
-#endif
-bm_sdk_cart_end:
-
 /* the public key that checks the releases (core/src/net/release.c), as on the
  * Pi: PEM text, NUL-terminated */
     .section .rodata

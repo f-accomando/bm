@@ -18,14 +18,14 @@ typedef struct {
 } toolname_t;
 
 static const toolname_t bm_toolnames[] = {
-    { "sdk", "sdk" }, { "editor", "sdk" }, { "sdk_b16", "sdk" },
+    { "sdk", "sdk" }, { "editor", "sdk" },
     { "sound", "sound" }, { "studio", "studio" }, { "animator", "animator" }, { "mesh", "mesh" },
     { "pixel", "pixel" }, { "code", "code" },
     { "assistant", "assistant" }, { "assistan", "assistant" },      /* (8.3: the old short name) */
 };
 #define BM_TOOLNAMES (sizeof bm_toolnames / sizeof bm_toolnames[0])
 
-/* The tool a file name ("Studio.BM", "sdk_b16.b16") stands for, or NULL: only the .bm and .b16 extensions. */
+/* The tool a file name ("Studio.BM", "studio.b16") stands for, or NULL: only the .bm and .b16 extensions. */
 static inline const char *bm_tool_id_of_file(const char *name)
 {
     const char *dot = name ? strrchr(name, '.') : NULL;

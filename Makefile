@@ -91,8 +91,8 @@ VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
-$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: $(VERSION_STAMP)
-$(BUILD)/k/src/kernel/version.c.o $(BUILD)/k7/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" \
+$(BUILD)/k/core/src/kernel/version.c.o $(BUILD)/k7/core/src/kernel/version.c.o: $(VERSION_STAMP)
+$(BUILD)/k/core/src/kernel/version.c.o $(BUILD)/k7/core/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" \
     -DBM_BRANCH=\"$(BRANCH)\"
 FORCE:
 
@@ -102,7 +102,7 @@ EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sou
                $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
                $(BUILD)/assistant.bm $(BUILD)/code.bm)
 # Lua scripts embedded with .incbin
-$(BUILD)/k/src/script/embed.S.o $(BUILD)/k7/src/script/embed.S.o: $(wildcard core/src/script/*.lua) core/keys/release-pub.pem core/keys/market-pub.pem \
+$(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua) core/keys/release-pub.pem core/keys/market-pub.pem \
                                  $(EMBED_TOOLS) \
                                  $(BUILD)/assist.bin core/src/ai/assist.lua \
                                  core/src/ai/predict.lua $(BUILD)/words.lua \
@@ -518,15 +518,6 @@ $(BUILD)/titan/main.lua: $(TITAN_SRC) bm/titan/build/build.py
 lua_titan := $(BUILD)/titan/main.lua
 sheet8_titan := 1
 
-# bm SDK (RGB30): the SDK's second edition, 360x360 and the pad, with its own
-# sources in bm/sdk_b16/ (layout.lua + main.lua, joined by its build.py). A tool
-# built into the RGB30's kernel (core/rgb30.mk, its Dev tab), not into the Pi's: here
-# only its script, for test-sdk-b16. The Pi's SDK stays bm/editor.
-SDK_B16_RES ?= 360x360
-SDK_B16_SRC := bm/sdk_b16/layout.lua bm/sdk_b16/main.lua bm/sdk_b16/build/build.py
-$(BUILD)/sdk_b16/main.lua: $(SDK_B16_SRC)
-	$(PYTHON) bm/sdk_b16/build/build.py $@
-
 # bm Pixel: main.lua, then the SNES converter module (core/lua/snesgfx.lua) as the global SNESGFX
 # (a cart has no other Lua file; the module goes after main.lua, so its line numbers stay)
 $(BUILD)/pixel/main.lua: bm/pixel/main.lua core/lua/snesgfx.lua
@@ -544,10 +535,6 @@ $(BUILD)/snes_sdk/main.lua: bm/snes_sdk/main.lua core/lua/snesgfx.lua core/lua/s
 	@mkdir -p $(dir $@)
 	{ cat bm/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat core/lua/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat core/lua/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat core/lua/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat core/lua/snesrun.lua; printf '\nend)()\n'; printf '\nSNESLEARN = (function()\n'; cat core/lua/sneslearn.lua; printf '\nend)()\n'; printf '\nSNESLESSONS = {\n'; for n in $$(cat bm/snes_sdk/lessons/LIST); do printf '{ name = "%s", text = [==[\n' $$n; cat bm/snes_sdk/lessons/$$n.txt; printf ']==] },\n'; done; printf '}\n'; } > $@
 lua_snes_sdk := $(BUILD)/snes_sdk/main.lua
-
-lua_sdk_b16 := $(BUILD)/sdk_b16/main.lua
-cover_sdk_b16 := bm/editor/icon.png
-extra_sdk_b16 = --res $(SDK_B16_RES)
 
 # nano8: plays .p8 / .p8.png carts (machine in core/src/bm/n8*.c); several Lua
 # files too. The carts it ships with (bm/nano8/roms, licenses in
@@ -1091,7 +1078,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/bm/bench3d.bm tests/bench3d/
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \
-        test-fat test-fat-queue test-sdk-b16 test-sound test-nano8 test-net test-http test-https test-release \
+        test-fat test-fat-queue test-sound test-nano8 test-net test-http test-https test-release \
         release disasm wav test-studio test-prompts test-menu-bg test-docs test-api test-crumbs test-klog test-monitor-cmd test-shell-code test-netfetch test-hyp test-zero2 \
         showreel bmhost bmhost-gpu bmhost-ai overbit-reel overbit-reel-heroes overbit-reel-match yharnam-video yharnam-map test-yharnam test-yharnam-autoplay \
         test-catalog test-github test-lan market-seed test-host test-anim-ease test-qemu test-vid
@@ -1125,11 +1112,11 @@ $(BUILD)/l/%.c.o: %.c
 	$(CC) $(LCFLAGS) -MMD -MP -c $< -o $@
 
 # SNES instruction-cache switches (docs/progress/snes-icache.md). SNES_HOT=0: the SNES code stays where the linker puts it (no block, core/src/bm/snes_hot.ld not used).
-# SNES_SPC_OS=1: the SPC700 file is built at -Os. After a change of either, delete build/k/src/bm/snes_spc.c.o (the flag is not a prerequisite).
+# SNES_SPC_OS=1: the SPC700 file is built at -Os. After a change of either, delete build/k/core/src/bm/snes_spc.c.o (the flag is not a prerequisite).
 SNES_HOT ?= 1
 SNES_SPC_OS ?= 0
 ifeq ($(SNES_SPC_OS),1)
-$(BUILD)/k/src/bm/snes_spc.c.o: CFLAGS += -DSNES_SPC_OS
+$(BUILD)/k/core/src/bm/snes_spc.c.o: CFLAGS += -DSNES_SPC_OS
 endif
 $(BUILD)/snes_hot_sel.ld: FORCE
 	@mkdir -p $(BUILD)
@@ -1482,12 +1469,12 @@ market-seed: $(GAME_CARTS) $(MARKET_APP_CARTS)
 # start.S and vectors.S in QEMU's virt machine with the virtualization
 # extensions (raspi2b starts in SVC), tests/boot/hyp_main.c on its PL011
 HYP_DIR := $(BUILD)/hyp
-$(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o $(BUILD)/k7/src/kernel/vectors.S.o core/linker.ld $(BUILD)/snes_hot_sel.ld
+$(HYP_DIR)/hyp.elf: tests/boot/hyp_main.c $(BUILD)/k7/core/src/boot/start.S.o $(BUILD)/k7/core/src/kernel/vectors.S.o core/linker.ld $(BUILD)/snes_hot_sel.ld
 	@mkdir -p $(dir $@)
 	sed 's/^    \. = 0x8000;/    . = 0x40008000;/' core/linker.ld > $(HYP_DIR)/core/linker.ld
 	$(CC) $(ARCH7) -DBM_ZERO2 -O2 -Wall -Wextra -Icore/src/kernel -ffreestanding -nostdlib -nostartfiles \
-	    -T $(HYP_DIR)/core/linker.ld tests/boot/hyp_main.c $(BUILD)/k7/src/boot/start.S.o \
-	    $(BUILD)/k7/src/kernel/vectors.S.o -lgcc -o $@
+	    -T $(HYP_DIR)/core/linker.ld tests/boot/hyp_main.c $(BUILD)/k7/core/src/boot/start.S.o \
+	    $(BUILD)/k7/core/src/kernel/vectors.S.o -lgcc -o $@
 
 test-hyp: $(HYP_DIR)/hyp.elf
 	$(PYTHON) tests/boot/run_hyp.py $(QEMU) $<
@@ -1895,15 +1882,6 @@ test-studio: $(BUILD)/host/test_bm $(BUILD)/bm/mapkit.bm $(BUILD)/host/luahost $
 	$(PYTHON) tests/studio/anim_figure.py $(BUILD)/anim-figure.bm
 	$(BUILD)/host/test_bm $(BUILD)/bm/mapkit.bm $(BUILD)/anim-figure.bm $(BUILD)/studio3d-sd/bme/blocks.bme
 
-# bm SDK (RGB30) on the PC: its layout, every frame inside
-# 360x360 on the 8x16 grid, the RGB30's pad on every page and action, the saves,
-# build and try of the RGB30's kernel tool, none of the Pi's other programs. Not in
-# HOST_TESTS (the Pi's): run it when the edition changes.
-test-sdk-b16: $(BUILD)/host/luahost $(BUILD)/sdk_b16/main.lua $(BUILD)/bm/testkit.bm
-	rm -rf $(BUILD)/sdk-b16-sd && mkdir -p $(BUILD)/sdk-b16-sd/carts $(BUILD)/sdk-b16-sd/bme $(BUILD)/sdk-b16-sd/bm
-	cp $(BUILD)/bm/testkit.bm $(BUILD)/sdk-b16-sd/bm/testkit.b16
-	$(BUILD)/host/luahost tests/studio/sdk_b16_host.lua . $(BUILD)/sdk-b16-sd $(BUILD)/sdk_b16/main.lua
-
 # The showreel at the top of the README (docs/showreel.gif and .mp4): the
 # walker of the test kit in a new cartridge, the map in the SDK, the
 # code in bm Code with the assistant and the game, on the console in QEMU;
@@ -2144,10 +2122,10 @@ $(BUILD)/reserved-test.bm: tests/tools/reserved.lua core/scripts/mkbm.py
 test-reserved: $(BUILD)/host/bmhost-bin $(BUILD)/reserved-test.bm
 	rm -rf $(BUILD)/reserved-sd && mkdir -p $(BUILD)/reserved-sd/bm
 	$< $(BUILD)/reserved-test.bm --sd $(BUILD)/reserved-sd --seconds 1 2>&1 | tee $(BUILD)/reserved-test.log | grep "^reserved"
-	@for n in pixel.bm SDK.BM assistan.bm code.bm Studio.bm sdk_b16.bm; do \
+	@for n in pixel.bm SDK.BM assistan.bm code.bm Studio.bm; do \
 	    grep -q "^reserved: $$n false .*kept for one of bm's tools" $(BUILD)/reserved-test.log || { echo "$$n was not refused"; exit 1; }; done
 	@for n in ok.bm pixels.bm; do grep -q "^reserved: $$n true" $(BUILD)/reserved-test.log || { echo "$$n was refused"; exit 1; }; done
-	@echo "reserved: 8/8 checks passed"
+	@echo "reserved: 7/7 checks passed"
 .PHONY: test-reserved
 
 # A cartridge that needs a newer revision of the specification (INFO "spec", core/src/bm/bm.h BM_SPEC_REV) is refused with a

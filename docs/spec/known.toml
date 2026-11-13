@@ -11,7 +11,7 @@ because = "a 16:9 TV on the Pi (screen() offers the 16:9 modes), a square 720x72
 [[accept]]
 id = "platform-tools:embedded"
 kind = "intended"
-because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds only the SDK (sdk_b16), the other tools come from Market > Apps. Accepted 2026-10-22: the owner accepted this in writing on 2026-10-21 (divergence D20)"
+because = "the Pi kernel embeds all the tools; the RGB30 kernel embeds no tool (the SDK was removed on 13 Nov 2026), the tools come from Market > Apps. Accepted 2026-10-22: the owner accepted this in writing on 2026-10-21 (divergence D20)"
 
 [[accept]]
 id = "api-missing:a"

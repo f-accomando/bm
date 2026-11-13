@@ -16,7 +16,7 @@ import re
 import sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-TOOLS = {"animator", "assistant", "code", "editor", "mesh", "pixel", "sdk_b16", "sound", "studio", "write"}
+TOOLS = {"animator", "assistant", "code", "editor", "mesh", "pixel", "sound", "studio", "write"}
 
 CALL = re.compile(r'\bbtn[pr]?\(\s*("([a-z0-9_]+)"|(\d+))')
 INPUT = re.compile(r'\blib\.input\(\s*(\{([^}]*)\})?\s*\)')

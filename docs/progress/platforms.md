@@ -56,7 +56,6 @@ The boards bm builds for and the PC/QEMU targets used to test it. Hardware detai
   before a restart.
 - Games lists the `.bm` files; the
   Market has one entry per game id (a `.bm`). A cartridge made for the other device shows a faded cover (compat policy). Games are sorted by title; tools from the Market are not games. Bar: only WiFi and battery.
-- SDK (RGB30) (`bm/sdk_b16/`): layout a due colonne affiancate su schermi larghi $\ge 480\text{ px}$ (720×720 via `SDK_B16_RES=720x720`, default 360×360); codice validato in CI/host, da provare sul dispositivo fisico RGB30 (R39).
 
 ### PC and QEMU
 - `bmhost` (`tests/host/bmhost.c`): the console's runtime with kernel services stubbed;

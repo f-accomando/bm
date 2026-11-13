@@ -156,7 +156,7 @@ def rule_platforms():
     sq_modes = re.search(r"square_modes\[\]\[2\] = \{(.*?)\};", rd("core/src/bm/runtime.c"), re.S).group(1)
     out.append(Finding("platform-screen", "modes", "screen() modes: Pi/TV " + " ".join(f"{a}x{b}" for a, b in re.findall(r"(\d+),\s*(\d+)", pi_modes)) +
                        "; square panel " + " ".join(f"{a}x{b}" for a, b in re.findall(r"(\d+),\s*(\d+)", sq_modes))))
-    cart_sym = r"bm_(sdk_b16|editor|sdk|sound|studio|animator|mesh|pixel|code|assistant)_cart"
+    cart_sym = r"bm_(editor|sdk|sound|studio|animator|mesh|pixel|code|assistant)_cart"
     emb_rgb = re.findall(cart_sym, rd("core/src/rgb30/ui.c"))
     emb_pi = re.findall(cart_sym, rd("core/src/kernel/carts.c"))
     out.append(Finding("platform-tools", "embedded", f"tools embedded in the kernel: Pi {sorted(set(emb_pi))}, RGB30 {sorted(set(emb_rgb))}"))

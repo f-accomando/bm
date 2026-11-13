@@ -32,7 +32,7 @@ From the Bash tool: `powershell -NoProfile -File core/scripts/wsl-run.ps1 "<coma
 
 Build: `make -j$(nproc) build/kernel.img`, `make ai-model`, `make market-seed MARKET=<clone>`.
 Tests: `test-audio`, `test-sound`, `test-riff`, `test-impostor`, `test-b3d`, `test-bm`,
-`test-gameapi`, `test-studio`, `test-sdk-b16`, `test-bmnet`, `test-qpu`, `test-host`.
+`test-gameapi`, `test-studio`, `test-bmnet`, `test-qpu`, `test-host`.
 Host tools: `build/host/luahost <script.lua> …`, `build/host/bmhost-bin`.
 The full list: `Grep -n '^test-' Makefile`.
 

@@ -36,7 +36,7 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Project layout
 - License id: `LicenseRef-BM-Community-1.0` is used for "BM Community License 1.0" (not an
   SPDX id). Confirm the string.
-- Next migrations: `demo`, `stress` (test carts; `texroom` was removed on 24 Oct 2026), `sdk_b16` (own layout); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
+- Next migrations: `demo`, `stress` (test carts; `texroom` was removed on 24 Oct 2026); the suite apps have their `bm.info` but their `icon.png` and `demo.json` stay at the top.
 
 ## Found while checking the manuals (to fix in the source documents)
 - bm Pixel only SHOWS zones and boxes (toggle `j`, commits of 2026-10-12); it does not make them. Zones and boxes are made by bm Animator's bake and by `mkbm.py --sprites` / `bmres.py`; `docs/design/suite-pixel.md` proposes the editing tools (F4 zones page, box editor), not built yet. (`GAME-GUIDE.md` and `GUIDA-GIOCHI.md` said Pixel makes zones: fixed.)
@@ -44,7 +44,6 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 - `docs/RISORSE.md` says `mkbm.py --res FILE` integrates resources at build time: `--res` is the resolution there.
 - `core/src/bm/bm.h` comments: COVER 128x80 (it is 88x88) and offsets 18 and 104 "reserved" (used by the project flag).
 - LED of the RGB30: solid green (`docs/RGB30.md`) or blinking (`core/boot/rgb30/LEGGIMI.txt`).
-- `sdk_b16.bm` in the Market: `sdk/README.md` says no, `docs/progress/tools.md` says yes.
 - The 5 api manuals list the gaps the repository cannot answer; each manual's last chapter ("Open points" / "Punti aperti") has them.
 
 ## Consistency and 1.0.0 ([spec/CONSISTENCY.md](spec/CONSISTENCY.md))
@@ -64,6 +63,5 @@ Audit and options: [FORMATS-AUDIT.md](FORMATS-AUDIT.md); the format as it is: [B
 ## Left for later (2026-10-13, at the end of the pdf-manuals session)
 - Manuals: the `[DA COMPLETARE]` gaps that need the hardware or a measure; about 60 pictures (`manuals/shots/`, taken on the console).
 - D09 `.bme` projects in Dev on the RGB30, D17 and D35 (after the on-screen keyboard).
-- Migration to the common layout: `sdk_b16` (own layout).
 - Warnings seen but not mine: none open on the Pi or RGB30 builds.
 - Tags `v0.3.0` and `v1.0.0`: only with an explicit yes.

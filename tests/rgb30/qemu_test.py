@@ -246,9 +246,16 @@ def down_until(q, want, limit=24):
     raise AssertionError(f"down {limit} times: {want} never came:\n" + screen_all(q.screendump()))
 
 
+def to_dev(q):
+    """From the Games tab: the Dev tab (the installed tools; nothing is built in)."""
+    keys(q, "r")
+    time.sleep(0.6)
+    return screen_all(q.screendump())
+
+
 def open_settings_screen(q):
     """From the Games tab: the Settings tab, its Screen section opened (the Screen modes row selected)."""
-    press(q, "r", ["bm SDK"])            # the Dev tab: the bm SDK
+    to_dev(q)                            # the Dev tab
     press(q, "r", ["Controllers", "built in"])  # the Settings tab
     press(q, "s", ["The link, the address"])    # WiFi
     press(q, "s", ["Screen modes, 3D Bench"])   # Screen
@@ -458,7 +465,7 @@ def test_update_from_sd(b, opts):
     q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
     try:
         boot(q)
-        press(q, "r", ["bm SDK"])        # the Dev tab
+        to_dev(q)                        # the Dev tab
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
         press(q, "s", ["The link, the address"])        # WiFi
         press(q, "s", ["Screen modes, 3D Bench"])       # Screen
@@ -666,49 +673,6 @@ def test_menu_start_confirms(b, opts):
         q.close()
 
 
-def test_sdk_template_build(b, opts):
-    """From the bm SDK to the game: Ctrl+N, the last template (3D with models),
-    Ctrl+B and a name build /bm/MYGAME.BM from the project in /bme; its Lua is
-    the template's ('list = models()')."""
-    tmp = mktmp(prefix="bm64sdk-")
-    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n"})
-    size = os.path.getsize(sd)
-    dump = os.path.join(tmp, "after.img")
-
-    q = Qemu(os.path.join(b, "kernel.elf"), sd=sd)
-    try:
-        boot(q)
-        press(q, "r", ["bm SDK"])        # Dev: the bm SDK, the only item
-        q.buf = b""
-        press_serial(q, "\r", "bm SDK\r\n", tries=3, wait=60.0)
-        # Ctrl+N: new project from a template (sent again until the SDK is ready to read it)
-        press(q, "\x0e", ["new project from a template", "3D with models"], wait=15.0)
-        for desc in ("run and jump", "pick up the coins", "waves of enemies", "punches with",
-                     "two to four consoles", "floor, cubes",
-                     "the models of bm Studio"):  # down (arrow) to the eighth row; each row shows its text
-            press(q, "\x1b[B", [desc], tries=1, wait=90.0)      # the SDK reads text bytes: none is lost,
-        press(q, "\r", ["new project (3D with models)"], tries=1, wait=90.0)     # so none is sent again (a second
-        press(q, "\x02", ["file name", "mygame.bme"], tries=1, wait=90.0)   # arrow would skip a row)
-        press(q, "\r", ["built /bm/mygame.bm"], tries=1, wait=90.0)         # Ctrl+B: Save as, then the name
-        q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
-                  until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
-        press(q, "\x1c", ["Games", "Dev", "Settings"], wait=10.0)     # Ctrl+\: leave the SDK
-    finally:
-        q.close()
-    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    part = f"{dump}@@{1024 * 1024}"
-    listing = subprocess.run(["mdir", "-i", part, "-b", "::/BM"], capture_output=True,
-                             env=env, check=True).stdout.decode().upper()
-    projects = subprocess.run(["mdir", "-i", part, "-b", "::/BME"], capture_output=True,
-                              env=env, check=True).stdout.decode().upper()
-    assert "MYGAME.BME" in projects and "MYGAME.BM" in listing, (projects, listing)   # project in /bme, game in /bm
-    game = subprocess.run(["mtype", "-i", part, "::/BM/MYGAME.BM"], capture_output=True,
-                          env=env, check=True).stdout
-    assert game[:8] == b"BMCART\x00\x00", game[:16]
-    lua = next(body for t, body in mkbm.bmmesh.cart_sections(game) if t == 1)
-    assert b"list = models()" in lua, lua[:200]
-
-
 def test_frozen_game_menu(b, opts):
     """A frozen game in the menu, as on the Pi (D06, D07, D08) and the Games order (D09): the list is sorted by
     title, not by file name; a frozen game has a star, Resume and 'Close the game' in its options;
@@ -803,13 +767,13 @@ def test_cover_details_perf(b, opts):
 
 
 def test_dev_tab_utilities(b, opts):
-    """D52, D53, D15a: the Dev tab holds the bm SDK (and the installed tools), not the benchmarks and tests: the 3D
+    """D52, D53, D15a: the Dev tab holds the installed tools, not the benchmarks and tests: the 3D
     Bench is a row of Settings > Screen, Settings > System > Utilities is hidden now (the Render bench was removed, 28 Oct 2026), and
     Settings > System has the '3D driver' row (the backend text of bm_port.c)."""
     q = Qemu(os.path.join(b, "kernel.elf"))
     try:
         boot(q)
-        text = press(q, "r", ["bm SDK"])       # the Dev tab
+        text = to_dev(q)                       # the Dev tab
         for gone in ("3D Bench", "Render bench", "Input test", "Boot log", "Display"):
             assert gone not in text, f"{gone!r} is not a Dev item:\n{text}"
         press(q, "r", ["Controllers", "built in"])      # the Settings tab
@@ -836,7 +800,7 @@ function _draw() cls(1) end
 
 def test_cart_type_dev(b, opts):
     """D51, as the Pi (carts.c is_dev): a cartridge whose header says type app is not on the Games tab but in Dev,
-    after the bm SDK, and starts with no splash; a game starts with the splash."""
+    and starts with no splash; a game starts with the splash."""
     tmp = mktmp(prefix="bm64sd-")
     app = mkbm.mark_type(mkbm.pack(QUIT_CART.encode(), title="Typed app", author="tests", res=(360, 360)), "app")
     game = mkbm.pack(QUIT_CART.encode(), title="Typed game", author="tests", res=(360, 360))
@@ -854,9 +818,9 @@ def test_cart_type_dev(b, opts):
         assert "no splash" not in line, line
         q.expect("typed cart runs", timeout=30)
         wait_screen(q, ["Typed game", "Games", "Dev"])
-        text = press(q, "r", ["bm SDK"])         # Dev: the SDK first, then the app
+        text = to_dev(q)                         # Dev: the app
         assert "Typed game" not in text, text
-        text = press(q, "d", ["Typed app", "Play"])    # the app's title on the pill and the Play chip
+        text = wait_screen(q, ["Typed app", "Play"])   # the app's title on the pill and the Play chip
         assert "tests   app" not in text and "bm/typedapp.bm" not in text, text   # no details line (bottom bar: chips only)
         q.buf = b""
         q.send("\r")
@@ -990,114 +954,6 @@ def test_games_in_bm_only(b, opts):
         assert "Built in bm" in text and "Try me" in text and "Left in carts" not in text, text
     finally:
         q.close()
-
-
-def sdk_session(b, tmp, files=None):
-    """A QEMU with an SD card for the SDK tests: (qemu, card size); the card is
-    read back with sdk_exit_dump."""
-    sd = make_sd(tmp, {"bm/config.txt": b"game_intro=0\n", **(files or {})})
-    return Qemu(os.path.join(b, "kernel.elf"), sd=sd), os.path.getsize(sd)
-
-
-def sdk_screen(q, want, tries=80):
-    for _ in range(tries):
-        text = screen_all(q.screendump())
-        if all(w in text for w in _words(want)):
-            return text
-        time.sleep(0.25)
-    raise AssertionError(f"want {want} on the screen:\n{text}")
-
-
-def sdk_open(q):
-    """Boot and open bm SDK from the Dev tab."""
-    boot(q)
-    time.sleep(1.0)
-    keys(q, "r")                                # Dev
-    text = sdk_screen(q, ["bm SDK", "Dev"])      # the bm SDK, the only item
-    assert in_menu(text), text
-    q.buf = b""
-    q.send("\r")
-    q.expect("bm SDK\r\n", timeout=10)
-    sdk_screen(q, ["PROJECT"])
-    time.sleep(0.5)
-
-
-# In the SDK (it calls keyp(): typing mode) the serial port is a keyboard:
-# the pad cannot be pressed on QEMU virt (plat_buttons() is 0), so these tests
-# do the same actions with keys. F-keys: ESC O P..S (F1..F4).
-F2, F3 = "\x1bOQ", "\x1bOR"
-F7 = "\x1b[18~"                                 # ESC [ 18 ~
-UP, DOWN, RIGHT, LEFT = "\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"
-
-
-def sdk_new_empty(q):
-    """Ctrl+N, the first row (Empty 2D)."""
-    q.send("\x0e")
-    sdk_screen(q, ["new project from a template", "Empty 2D"])
-    q.send("\r")
-    sdk_screen(q, ["new project (Empty 2D)"])
-    time.sleep(0.3)
-
-
-def sdk_save_default(q):
-    """Ctrl+S, Enter (accepts mygame.bme)."""
-    q.send("\x13")
-    sdk_screen(q, ["file name", "mygame.bme"])
-    q.send("\r")
-    sdk_screen(q, ["saved /bme/mygame.bme"])
-
-
-def sdk_exit_dump(q, tmp, size):
-    """Ctrl+backslash leaves the SDK, then the SD card's RAM disk to a file (its path)."""
-    q.send("\x1c")
-    text = sdk_screen(q, ["Games", "Dev", "Settings"])
-    assert in_menu(text), text
-    dump = os.path.join(tmp, "after.img")
-    q.monitor(f'pmemsave {RAMDISK:#x} {size} "{dump}"',
-              until=lambda: os.path.exists(dump) and os.path.getsize(dump) == size)
-    time.sleep(0.3)
-    return dump
-
-
-def sd_read(dump, path):
-    """A file of the dumped SD card (mtools)."""
-    env = dict(os.environ, MTOOLS_SKIP_CHECK="1")
-    return subprocess.run(["mtype", "-i", f"{dump}@@{1024 * 1024}", "::" + path],
-                          capture_output=True, env=env, check=True).stdout
-
-
-def cart_secs(data):
-    """{section type: body} of a cartridge or project."""
-    return {t: body for t, body in mkbm.bmmesh.cart_sections(data)}
-
-
-def sdk_kb_run(b, drive, check):
-    """A new Empty 2D project: drive(q), save, leave, check(cart_secs of
-    /bme/mygame.bme)."""
-    tmp = mktmp(prefix="bm64kb-")
-    q, size = sdk_session(b, tmp)
-    try:
-        sdk_open(q)
-        sdk_new_empty(q)
-        drive(q)
-        sdk_save_default(q)
-        dump = sdk_exit_dump(q, tmp, size)
-    finally:
-        q.close()
-    check(cart_secs(sd_read(dump, "/bme/mygame.bme")))
-
-
-def sdk_heard(q, timeout=8.0):
-    """The Hz of the next 'audio: heard N Hz' line of the serial port (the sink
-    of virt_audio.c), or None."""
-    deadline = time.time() + timeout
-    while True:
-        m = re.search(rb"audio: heard (\d+) Hz", q.buf)
-        if m:
-            return int(m.group(1))
-        if time.time() > deadline:
-            return None
-        q.buf += q.port.read(0.1)
 
 
 def test_battery_icon(b, opts):

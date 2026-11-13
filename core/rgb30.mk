@@ -115,25 +115,11 @@ VERSION_STAMP := $(BUILD)/version.txt
 $(VERSION_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@echo '$(VERSION) $(BRANCH)' | cmp -s - $@ || echo '$(VERSION) $(BRANCH)' > $@
-$(BUILD)/k/src/kernel/version.c.o: $(VERSION_STAMP)
-$(BUILD)/k/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
-$(BUILD)/k/src/rgb30/bm_embed.S.o: core/keys/release-pub.pem core/keys/market-pub.pem core/src/ai/assist.lua core/src/ai/predict.lua core/src/script/bm3d.lua \
-                                    core/src/script/bmlib.lua core/src/script/bmnet.lua core/src/ai/padtype.lua core/src/script/riff.lua core/src/script/bmui.lua core/src/script/snes_asm.lua \
-                                    $(BUILD)/sdk_b16.bm
+$(BUILD)/k/core/src/kernel/version.c.o: $(VERSION_STAMP)
+$(BUILD)/k/core/src/kernel/version.c.o: CFLAGS += -DBM_VERSION=\"$(VERSION)\" -DBM_BRANCH=\"$(BRANCH)\"
+$(BUILD)/k/core/src/rgb30/bm_embed.S.o: core/keys/release-pub.pem core/keys/market-pub.pem core/src/ai/assist.lua core/src/ai/predict.lua core/src/script/bm3d.lua \
+                                    core/src/script/bmlib.lua core/src/script/bmnet.lua core/src/ai/padtype.lua core/src/script/riff.lua core/src/script/bmui.lua core/src/script/snes_asm.lua
 FORCE:
-
-# bm SDK (RGB30) (bm/sdk_b16: the SDK for the RGB30, 360x360 and the pad), built
-# into this kernel as the Pi's SDK is into its own: the Dev tab opens it as a tool
-# (core/src/rgb30/ui.c, core/src/kernel/devtool.c). Its two Lua files joined by its build.py,
-# then the cartridge, which bm_embed.S takes with .incbin. Not in the Pi's kernel.
-$(BUILD)/sdk_b16/main.lua: bm/sdk_b16/layout.lua bm/sdk_b16/main.lua bm/sdk_b16/build/build.py
-	$(PYTHON) bm/sdk_b16/build/build.py $@
-
-SDK_B16_RES ?= 360x360
-$(BUILD)/sdk_b16.bm: $(BUILD)/sdk_b16/main.lua bm/editor/icon.png core/scripts/mkbm.py
-	@mkdir -p $(dir $@)
-	$(PYTHON) core/scripts/mkbm.py -o $@ --lua $< --cover bm/editor/icon.png \
-	    --title "bm SDK (RGB30)" --author bm --res $(SDK_B16_RES)
 
 .DEFAULT_GOAL := all
 .PHONY: all test test-bt test-wifi test-audio test-mali qemu clean firmware image sdcard FORCE

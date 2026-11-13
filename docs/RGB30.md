@@ -206,15 +206,7 @@ was powered on again `bootprev.txt` has the log of the black boot.
   **to be tested on the console.**
 - Pi cartridges (`.bm`) in the menu and launchable, for testing: Yharnam in the SD image (see
   below).
-- **bm SDK (RGB30)** (`bm/sdk_b16`): the SDK's own version for 360×360 and the pad
-  ([sdk/README.md](../sdk/README.md)), **built into `kernel8.img`** (`core/rgb30.mk`,
-  `core/src/rgb30/bm_embed.S`, about 164 KB), not in the Market. The **Dev** tab opens it as a tool
-  (the Pi's tool session, `core/src/kernel/devtool.c`), and a game's options (X) have **Open in bm
-  SDK**: it saves its projects where they are (a game: the console asks and makes its editable
-  copy next to it), builds a project's game next to it and tries it (F5: the game plays, Start +
-  Select leaves it, the SDK comes back with the run's numbers). The Pi's other tools are not in
-  this kernel and it does not offer them. Tests: `make test-sdk-b16` (PC), `test_sdk_tool`
-  (QEMU); **to be tested on the console.**
+- **No built-in tool** (13 Nov 2026): the RGB30 SDK (`bm/sdk_b16`) was removed from the repository and from `kernel8.img`. The **Dev** tab lists the installed apps and utilities only (from Market > Apps); a game's options have no *Open in SDK* row.
 - 360×360 menu scaled ×2 (fills the panel): since 2026-10-04 it is **the same as the Pi's**
   (`core/src/kernel/menu_ui.c`: bar with pill tabs and icons, square 88×88 covers, three per
   row, panels, button hints). Tabs **Market** (since 2026-10-05, the first, off
@@ -299,7 +291,7 @@ are plugged in the console switches to them by itself, and the headphones are mo
 
 The Games tab lists the
 `.bm` cartridges in `bm/` and **launches** them. The **Market** lists one entry per game id (a `.bm`). A cartridge not made for the RGB30 shows a faded cover (colour change and vignette, drawing kept). Play asks "This edition is for the Pi" with OK and Cancel (`docs/spec/compat-policy.toml`; the header `targets` tells the kernel). A tool
-installed from Market > Apps (`sdk_b16.bm`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`core/src/bm`), the same code compiled for
+installed from Market > Apps (`studio.b16`...) is not a game: it stays out of the Games tab, as on the Pi. The runtime is the Pi's (`core/src/bm`), the same code compiled for
 64 bit; what the Pi has and this does not is replaced by `core/src/rgb30/bm_port.c` (3D drawn
 by the ARM, no DMA) and `core/src/rgb30/bm_input.c` (the controls); the sound is the Pi's (above), and so is
 `nnet()` (`core/src/ai/net.c`, Overbit's bots: the same integers as the Pi, a lockstep need). In the SD image there is

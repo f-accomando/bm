@@ -145,55 +145,6 @@ test-studio`: every game template runs 400 frames on the stand-ins), QEMU
 `test_editor` and `test_sdk_suite` (the test kit: the 3D page, the
 assistant's saved model, bm Studio and back).
 
-## On the RGB30: bm SDK (RGB30)
-
-**bm SDK (RGB30)** (`bm/sdk_b16/`) is a separate version of the SDK for the RGB30's 360×360
-screen and its pad, **built into the RGB30's kernel** (`kernel8.img`) as a tool, as the Pi's SDK
-is built into the Pi's: the **Dev** tab has it (its last cover, **bm SDK**), and a game's options
-(**X** on its cover in Games) have **Open in bm SDK**. It has its own sources and build rules:
-the Pi's bm SDK (`bm/editor`, in the Pi's kernel) does not change with it, the Pi's kernel
-does not have it, and neither replaces the other. It is not in the Market. It has no Publish panel.
-
-- **The screen**: 360×360 (×2 on the panel), 45 columns and 22 rows of 8×16 text: the tabs on
-  top, the hint row and the status bar at the bottom (a long message takes both). The pages are
-  the Pi's, laid out again (`bm/sdk_b16/layout.lua`, the cartridge's own: regions cut with
-  `split`, on the grid): the project's rows across the screen with the contents and the last try
-  under them, the dev kit on the whole page; the code on the whole width (40 columns); the
-  sprites with a 192×192 canvas on the left and, on the right, the sheet around the cell, the
-  palette (4 rows of 8) and the colour, the flags under the canvas; the map on the whole width;
-  the 3D with the lists on the left (16 columns) and the view on the right.
-- **The pad** (the buttons by name, never by number): **L1 / R1** (or Y + left / right) the
-  pages, Y + up / down the other view (dev kit, map), **Start** the menu, **X** the actions of
-  the page (a list with every key of the page, then save, save as, open, new, menu), **ok** and
-  **back** the system's yes and back (B and A on the RGB30, `confirm=a` swaps them), **L2 / R2**
-  the previous / next colour or tile, a page of code, the zoom of the 3D view, the right stick
-  turns it; Y alone chooses on the sheet or among the tiles; Y + X the assistant. On the 2D page
-  ok held draws or places and back picks.
-- **Typing with the pad** (`require "padtype"`, [docs/PADTYPE.md](../docs/PADTYPE.md)): on the
-  code page ok or Select turns it on (the on-screen keyboard first when the console has no word
-  lists, as the RGB30; else the composition), Select goes to the other way and off, Start opens
-  the menu. A name (title, file) is typed with padtype's keyboard: Start takes it, back deletes
-  and, on an empty line, closes. A keyboard works as on the Pi (F1–F4, Esc, Ctrl+S, F12).
-- **What it can do**, as a tool (the Pi's tool session, `core/src/kernel/devtool.c`): open any
-  `.bm` or `.bme` (in `/carts`, `bm/` and the root) and save its project where it is, one
-  of an earlier session too (Save as: `/carts`). A game is read only: saving it, the console asks
-  and makes its editable copy next to it (`bm/TESTKIT.BM` → `bm/TESTKIT.BME`). **Build** (Ctrl+B,
-  X > *Build the game .bm*) makes the project's game next to it: from a project in `bm/` the
-  Games tab shows it, from `/carts` it does not (that tab lists `bm/`). **Try** (F5, X > *Try the
-  game*) saves, then the console plays the game: Start + Select (or Ctrl+Esc) leaves it and the
-  SDK comes back on the same page with the run's numbers (the dev kit), or on the line of the
-  error. The suite's other programs (bm Code, Pixel, Studio, Animator, Mesh, Sound) are the Pi's:
-  the RGB30's kernel has none, so it does not offer them (*Open in ...*). The assistant answers
-  where the kernel has its knowledge (not on the RGB30).
-- A new project is 360×360 with the target Pi plus RGB30.
-
-Build: `make TARGET=rgb30` (`core/rgb30.mk` joins it, packs it as `build/rgb30/sdk_b16.bm` and
-`core/src/rgb30/bm_embed.S` takes it into `kernel8.img`). Tests: `make test-sdk-b16`
-(`tests/studio/sdk_b16_host.lua`: the layout module, every frame inside 360×360 on the 8×16 grid
-with no text over another, the pad on every page and every action, a tool's saves, build and
-try, no other program of the suite, the templates at 360×360) and, in QEMU, `make TARGET=rgb30
-test` (`test_sdk_tool`: Open in bm SDK, F5 and back, the Dev tab).
-
 ## On the console: bm Studio and bm Animator
 
 On the console there are the same two programs, with the same names: **bm Studio**
@@ -503,7 +454,6 @@ of the old one in `bm_rewrite_with` and the enlarged `sspr`.
 
 ```
 bm/editor/main.lua        bm SDK, the hub of the project (built into the kernel, Dev tab)
-bm/sdk_b16/               bm SDK (RGB30) (built into kernel8, its Dev tab)
 core/src/kernel/devtool.c         the tool session (a tool, its games, cart_tool): the Pi's and the RGB30's
 bm/studio/main.lua        bm Studio (built into the kernel, Dev tab)
 bm/animator/main.lua      bm Animator (built into the kernel, Dev tab)
@@ -517,7 +467,6 @@ tests/studio/mesh_host.lua       bm Mesh on the PC
 tests/studio/pixel_host.lua      bm Pixel on the PC
 tests/studio/humanoid_host.lua    bm Mesh and bm Animator on the PC: a humanoid of 1500 triangles, 16 bones, a walk
 tests/studio/sdk_host.lua        the bm SDK on the PC (every game template runs 400 frames)
-tests/studio/sdk_b16_host.lua    bm SDK (RGB30) on the PC: 360x360, the RGB30's pad
 tests/studio/check_files.py      their files reread by the build's Python
 tests/bm/test_meshcap.c          the capture on the real cartridges
 ```

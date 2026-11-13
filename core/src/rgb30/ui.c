@@ -53,7 +53,6 @@
 #include "kernel/syskeys.h"
 #include "kernel/carts.h"
 #include "kernel/toolnames.h"
-#include "kernel/devtool.h"
 #include "audio/audio.h"
 #include "kernel/market.h"
 #include "kernel/library.h"
@@ -272,7 +271,7 @@ static void rgb_play_begin(const lib_game_t *g, int resume);
 static const char *const rgb_dirs[] = { "/bm", NULL };
 static const lib_backend_t rgb_backend = {
     .dirs = rgb_dirs, .target = BM_TARGET_RGB30, .want = rgb_want, .stop_background = rgb_stop_background,
-    .panel = LIB_CAP_SDK | LIB_CAP_SEND,        /* no tools but the SDK, no editable copy, no Publish (D11) */
+    .panel = LIB_CAP_SEND,                      /* no tools, no editable copy, no Publish (D11) */
     .play_begin = rgb_play_begin,
     .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),
     .write_waits = rgb_write_waits, .before_jobs = rgb_before_jobs,
@@ -537,74 +536,10 @@ static void page_bench3d(void)
     pad_pressed();
 }
 
-/* --- bm SDK (RGB30): the Dev tab's tool --- */
-
-/* the cartridge built into this kernel (core/rgb30.mk, bm_embed.S: bm/sdk_b16) */
-extern const uint8_t bm_sdk_cart[], bm_sdk_cart_end[];
-
-/* the tools of this console for its tool session (core/src/kernel/devtool.c, the
- * Pi's loop): the SDK alone. The Pi's others (bm Code, Pixel, Studio...)
- * are not in this kernel: a cart_tool() to one would end the session, and
- * the SDK does not offer them. */
-static const devtool_t rgb30_tools[] = {
-    { "sdk", "bm SDK", bm_sdk_cart, bm_sdk_cart_end },
-};
-
-/* after the tool and after each game it tries: the buttons that left
- * (Start + Select) or started it let go, so the next one does not see them */
-static void tool_released(void)
-{
-    while (pad_state())
-        timer_delay_ms(10);
-    pad_pressed();
-}
-
-static const devtools_t rgb30_devtools = { rgb30_tools, sizeof rgb30_tools / sizeof rgb30_tools[0], tool_released };
-
-static const char *sdk_open;        /* the file it opens on (a game's options), or NULL */
-
-/* The SDK as a tool, as on the Pi: it saves where it is told, builds the
- * game of a project (cart_build) and tries it (cart_run: the game plays,
- * Start + Select leaves it, the SDK comes back on the file with cart_arg()
- * = {path, error, back, run}). Then the games again: it may have built or
- * copied one in bm/. */
-static void page_sdk(void)
-{
-    wifi_auto_stop();                               /* a WiFi try of the menu's: not under the tool */
-    const char *open = sdk_open;
-    sdk_open = NULL;
-    kprintf("bm SDK%s%s\n", open ? " on " : "", open ? open : "");
-    devtool_session(fb, &rgb30_devtools, bm_sdk_cart, (size_t)(bm_sdk_cart_end - bm_sdk_cart), "bm SDK", open);
-    console_suspend(1);                             /* the menu draws itself */
-    scan_games();
-    market_carts_changed();
-    /* the session ends with the tool's own run: its error, if it stopped
-     * with one (a game's goes back to the SDK), as play_bm says a game's */
-    if (bm_last_error()[0]) {
-        const char *lines[] = { "bm SDK", "", "stopped with an error:", bm_last_error() };
-        page_message("bm SDK", lines, 4);
-    }
-}
-
 /* --- the menu --- */
 
-typedef struct {
-    const char *name;
-    void (*run)(void);
-    int icon;                       /* the cover, as the Pi's tools (MENU_ICON_*, colour) */
-    uint32_t rgb;
-    const uint8_t *cart, *cart_end; /* a tool built in: its cartridge's COVER instead */
-} item_t;
-
-/* The Dev tab, as on the Pi: the bm SDK first (the tests find it by its place), then the installed tools: the
- * cartridges of type app or utility on the card (dev_idx[]). The benchmarks and tests are not here: they are
- * Settings rows (the utilities below), as the Pi's DMA test and 3D Bench. */
-static const item_t dev_items[] = {
-    { "bm SDK", page_sdk, MENU_ICON_CODE, 0x1E8A5A,
-      bm_sdk_cart, bm_sdk_cart_end },
-};
-#define N_DEV ((int)(sizeof dev_items / sizeof dev_items[0]))
-static g16_sheet_t dev_covers[N_DEV];
+/* The Dev tab lists the installed tools: the cartridges of type app or utility on the card (dev_idx[]). The benchmarks
+ * and tests are not here: they are Settings rows (the utilities below), as the Pi's DMA test and 3D Bench. */
 
 /* The utilities of this console, listed as the Pi's (home.h): group 1 is in Settings > Screen, group 0 in
  * Settings > System > Utilities. Display, Input test and Boot log are not here: Settings has the rows
@@ -734,11 +669,6 @@ static void play_selected(void) { page_game(play_index); }
 static void play_market(int i)
 {
     const char *mp = market_path(i);
-    if (strcasecmp(mp, "/bm/SDK.B16") == 0 || strcasecmp(mp, "/bm/SDK_B16.B16") == 0 ||
-        strcasecmp(mp, "/bm/SDK.BM") == 0) {
-        run_page(page_sdk);
-        return;
-    }
     const int g = game_of_path(mp);
     if (g < 0) {
         char why[80];
@@ -797,8 +727,8 @@ static int cart_at(int shown, int sel)
 {
     if (shown == TAB_GAMES)
         return sel < n_games ? game_idx[sel] : -1;
-    if (shown == TAB_DEV && sel >= N_DEV)
-        return sel - N_DEV < n_dev ? dev_idx[sel - N_DEV] : -1;
+    if (shown == TAB_DEV)
+        return sel < n_dev ? dev_idx[sel] : -1;
     return -1;
 }
 
@@ -847,17 +777,6 @@ static void uh_open(uhome_t *m, framebuffer_t *f)
     fb = f;
     console_suspend(1);
     scan_games();
-    for (int i = 0; i < N_DEV; i++) {
-        const uint8_t *rgba = NULL;
-        uint32_t need = 0;
-        int w = 0, h = 0;
-        if (dev_items[i].cart &&
-            bm_cover_peek(dev_items[i].cart, (size_t)(dev_items[i].cart_end - dev_items[i].cart), &need, &rgba,
-                          &w, &h) == 1)
-            menu_load_cover(&dev_covers[i], rgba, w, h);         /* the SDK's icon, as on the Pi */
-        if (!dev_covers[i].px)
-            menu_make_tool_cover(&dev_covers[i], dev_items[i].name, dev_items[i].icon, dev_items[i].rgb);
-    }
     kprintf("cartridge menu: %d games", n_games);
     kprintf("\n");
     menu_reopen();
@@ -948,7 +867,7 @@ static void uh_background(uhome_t *m)
 /* What the tab lists, and the selection in it; the covers to read first. */
 static void uh_selection(uhome_t *m)
 {
-    m->n = m->shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : m->shown == TAB_GAMES ? n_games : N_DEV + n_dev;
+    m->n = m->shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : m->shown == TAB_GAMES ? n_games : n_dev;
     m->s = &m->sel[m->shown];
     if (*m->s >= m->n) *m->s = m->n - 1;
     if (*m->s < 0) *m->s = 0;
@@ -962,13 +881,10 @@ static void uh_selection(uhome_t *m)
 static void uh_items(uhome_t *m)
 {
     for (int i = 0; i < m->n && m->shown != TAB_MARKET; i++) {
-        if (m->shown == TAB_GAMES) {
+        if (m->shown == TAB_GAMES)
             items[i] = game_item(game_idx[i]);
-        } else if (i >= N_DEV) {
+        else
             items[i] = game_item(cart_at(m->shown, i));
-        } else {
-            items[i] = (menu_item_t){ .title = dev_items[i].name, .kind = "tool", .cover = &dev_covers[i] };
-        }
     }
 }
 
@@ -1241,16 +1157,13 @@ static void uh_game_panel(uhome_t *m)
         m->gopt = -1;
     } else if ((m->p & pad_ok) && gpb.n && gpb.rows[m->gopt_sel].kind != MENU_ROW_INFO) {
         const int row = gpb.ids[m->gopt_sel], g = m->gopt;
-        if (row == LIB_ROW_PLAY || row == LIB_ROW_SDK) {
+        if (row == LIB_ROW_PLAY) {
             m->gopt = -1;
             static char gp[80];
             ksnprintf(gp, sizeof gp, "%s/%s", games[g].dir, games[g].name);
             if (netxfer_updating(gp)) {
                 notice_fail("Updating, wait for the end of the download");
-            } else if (row == LIB_ROW_SDK) {
-                sdk_open = gp;              /* the SDK on the game: its project next to it */
-                run_page(page_sdk);
-            } else if (row == LIB_ROW_PLAY && uh_start_question(m, g)) {
+            } else if (uh_start_question(m, g)) {
                 /* a question is open */
             } else {
                 play_index = g;
@@ -1397,8 +1310,6 @@ static void uh_covers(uhome_t *m)
         } else if (cg >= 0) {
             play_index = cg;
             run_page(play_selected);
-        } else {
-            run_page(dev_items[*m->s].run);
         }
     }
 }

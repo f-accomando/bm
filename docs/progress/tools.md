@@ -16,7 +16,7 @@ Details: [tools-assistant](tools-assistant.md). Tutorial videos (`video/`, serie
 Games (`MARKET_GAMES`: `GAMES` without `MARKET_APPS_OF_GAMES`) and the bm editors
 (`MARKET_APPS`: `editor`, `code`, `pixel`, `studio`, `animator`, `mesh`, `sound`, each with an explicit
 `kind: app` line) reach the consoles from `bm-market`. The Pi gets each editor as `.bm` (built as
-`build/<id>.bm`); the RGB30 gets the SDK as a `.bm` under the same id `editor` (from `bm/sdk_b16`).
+`build/<id>.bm`); the RGB30 has no SDK since 13 Nov 2026.
 `assistant`, `write` and `typing` keep their place in the apps list of `is_known_app`.
 `bm-market` has two folders with one layout: `games/<id>/` and `apps/<id>/`. `mkmarket.py games --apps apps`
 reads both. An item of `apps/` is always `kind app`; an id exists in one folder only; the catalog keeps
@@ -84,7 +84,7 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   locals: export them. Tests `bmui_host.lua`, `write_host.lua`, `MS` in the test doubles, QEMU `test_editor_mouse`.
   Shared helpers (M48): `U.list(kind, sel, n, step)` (wheel, click, click on the chosen row: acts), `U.col`
   (pixel to text column), `U.scroll` (wheel on a view), `U.line_key/line_click/line_draw` (a text line with a caret; the dialogs use them).
-  The SDK code view keeps its selection in `sl` (`bm/editor`, `bm/sdk_b16`); mouse press uses `U.pressed(0)` (the view has no zone).
+  The SDK code view keeps its selection in `sl` (`bm/editor`); mouse press uses `U.pressed(0)` (the view has no zone).
 - Mouse per program (M48, 23 Oct; host tests and QEMU `-k` on the Pi build; hardware not verified).
   Works = tabs/chips press the key, lists (click, double click, wheel), dialogs (click outside = Esc), right-click menu.
 
@@ -92,7 +92,6 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
   |---|---|---|
   | bm Code | tabs (middle click closes), text click, drag, double click word, breakpoints, wheel, lists, dialogs, right menu | none found |
   | bm SDK (`bm/editor`) | tabs, code (click, wheel, drag, double click word, selection with Ctrl+C/X), pickers, sprite/map/3D, hub list, prompt (caret by click), right menu | none found |
-  | bm SDK RGB30 (`bm/sdk_b16`) | same as above; sound page (wheel on a field or step, double click plays); click hides a long message | none found |
   | bm Studio | tabs, lists, build view (paint, pick, camera), picker, models page, prompt (caret by click), right menu | none found |
   | bm Animator | rig, anim (timeline drag, bones), sprites page (wheel changes a value), play, lists, prompt (caret by click), right menu | none found |
   | bm Mesh | tabs, list, edit page, chooser (Open, Add a part, Ghost, Bones, Commands: click, double click, wheel, outside = Esc), camera, right menu; Import, Export, Snap, Ghost and Bones are rows of the Commands chooser (`COMMANDS`, `bm/mesh/main.lua:2179`), so the mouse reaches them; prompt (caret by click) | none found |
@@ -107,8 +106,6 @@ tests; signed release on a `v*` tag of a green commit. A new test over 20 s goes
 - Skin recipes (`mesh_skin.c`): one bone per position, one connected body (`test_skins`), shared ring to the distal
   bone; `face_b` for a bone per corner, `face()` output unchanged; `static` vertex tables.
 - kb comments `#` only at the top of a file; every entry has `title_en:` and `text_en:`.
-- bm SDK (RGB30): never edit `bm/editor` for it (two versions); never in the Pi's kernel nor
-  in the Market. Its test `make test-sdk-b16` (not in `HOST_TESTS`); QEMU `test_sdk_tool`.
 - Tests: `make test-studio`, `test-write`, `test-res`, `test-ai`, `test-predict`,
   `test-padtype`, `test-img2mesh`, `test-webp` (run it after each change of `core/src/bm/webp.c`; the decoder frees all its memory before it returns); QEMU `test_projects`, `test_bm_write`.
 - **The kernel embeds the editor** (`build/editor.bm` is inside `kernel.img`): after any change of `bm/editor` rebuild the kernel (`make build/kernel.img`) before a QEMU run; a stale kernel runs the old editor.

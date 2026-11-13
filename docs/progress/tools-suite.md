@@ -14,13 +14,7 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   Tiled import (R11, both SDKs): menu *Import a Tiled map*, a `.tmj`/`.json` in `/docs`;
   `bm3d.tiled_import` and `tiled_apply` (`core/src/script/bm3d.lua`): orthogonal, CSV layers, 8x8 or
   16x16 tiles (a 16x16 tile is 2x2 cells), groups, boolean tile properties to flags 0-4, add or
-  replace; host tests in `sdk_host.lua` and `sdk_b16_host.lua`. Not undoable (reopen the project).
-- **bm SDK (RGB30)** (`bm/sdk_b16`, built into `kernel8.img` unless `CLEAN_KERNEL=1`, and
-  published as `editor.bm` in the Market): the SDK's pages at 360×360 (`layout.lua`: `split` on
-  the 8×16 grid, joined before `main.lua` by `build.py`), the pad by names (`ok`/`back`, L1/R1,
-  Start, X = the page's actions as a list, L2/R2), `padtype` for code and names, page `snd` (F7: Sounds with 7 fields and Lib import `i`, Effects with 32 steps; QEMU `test_sdk_pad_*` drive it by keyboard), map zoom in/out
-  (`-`/`+`), `Overview` (`m`, full 256×256 at 1 px/cell), `Tab`/`Y` compact palette of used 16×16
-  tiles, automatic 16×16 object brush on the `objects` layer, `Build .bm` (`Ctrl+B`). The Stages 2D template was removed on 25 Oct (user decision).
+  replace; host tests in `sdk_host.lua`. Not undoable (reopen the project).
 - **Tool session** (`core/src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
   `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
   built clean with `CLEAN_KERNEL=1`.

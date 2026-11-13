@@ -304,10 +304,10 @@ pi = "-"
 rgb30 = "not done (R39)"
 cause = "todo"
 priority = 6
-status = "untested"
-note = "BETA-6 2026-10-22: the record said 'not done'. The 720x720 layout is in the code: bm/sdk_b16/main.lua uses LY.side_by_side (lines 73 and 3243) and SDK_B16_RES=720x720 builds it; the host test tests/studio/sdk_b16_host.lua:62-65 checks the layout helper at 720x720. No test runs the whole SDK at 720x720 and nothing ran on the console: not verified on hardware."
-evidence = "docs/progress/platforms.md:71; bm/sdk_b16/main.lua:73; tests/studio/sdk_b16_host.lua:62"
-action = "run the SDK built with SDK_B16_RES=720x720 on the RGB30 (R39)"
+status = "resolved"
+note = "13 Nov 2026: the RGB30 SDK (bm/sdk_b16) was removed from the repository and from the RGB30 kernel; there is no layout left to test."
+evidence = "docs/RGB30.md"
+action = "none"
 
 [[divergence]]
 id = "D27"
@@ -329,7 +329,7 @@ rgb30 = "Games read only bm/: a game built by bm SDK's Ctrl+B in /carts was not 
 cause = "history"
 status = "resolved"
 note = "QEMU proves (both kernels): test_games_in_bm_only (Games lists /bm and not /carts); the SDK on the Pi (test_sdk_layers, test_sdk_code_pi, test_sdk_template_pi, test_sdk_suite, test_sdk_keeps_models) and on the RGB30 (test_sdk_tool, test_sdk_pad_*, test_sdk_layers_b16, test_sdk_template_build); not proven by QEMU: the pad (QEMU virt has no pad), the console screen and sound; provato dall'utente su RGB30 fisica il 2026-10-15 (.bm e .b16, cartelle bm/ e /carts, menu Games); limite noto: stesso nome in /bm e in /carts appaiono entrambi running se uno e' sospeso. On 2026-10-21 the user ran the 12 steps of BETA2-SDK-HW on a real Pi Zero W and a real RGB30: the game built by the SDK is listed in Games and plays on both (steps 6, 11, 12), and the RGB30 sound is heard (step 9). Since 25 Oct 2026 both kernels build, install and list games in /bm and do not scan /carts (see D09)."
-evidence = "core/src/rgb30/ui.c:248; core/src/bm/project.c:162-193; bm/sdk_b16/main.lua; tests/rgb30/qemu_test.py:test_sdk_layers_b16; tests/qemu_test.py:test_sdk_code_pi"
+evidence = "core/src/rgb30/ui.c:248; core/src/bm/project.c:162-193; tests/qemu_test.py:test_sdk_code_pi"
 action = "none: games are in /bm on both kernels"
 
 [[divergence]]
@@ -485,8 +485,8 @@ cause = "hardware"
 capability = "pad-only"
 status = "accepted"
 note = "Accepted 2026-10-22 (BETA-6): a hardware difference named in docs/spec/platforms.toml (capability above). Intended."
-evidence = "bm/editor/main.lua; bm/sdk_b16/main.lua"
-action = "none: pad mappings in bm/sdk_b16/main.lua align 3D preview and level tools with RGB30 controls"
+evidence = "bm/editor/main.lua"
+action = "none"
 
 [[divergence]]
 id = "D43"
@@ -520,7 +520,7 @@ cause = "hardware"
 capability = "pad-only"
 status = "accepted"
 note = "Accepted 2026-10-22 (BETA-6): a hardware difference named in docs/spec/platforms.toml (capability above). Intended."
-evidence = "bm/sound/main.lua; bm/sdk_b16/main.lua"
+evidence = "bm/sound/main.lua"
 action = "none: the screen and the pad set the limit; Lib of sprites and maps is a separate system WO"
 
 [[divergence]]
@@ -595,7 +595,7 @@ capability = "no-keyboard"
 priority = 6
 status = "accepted"
 note = "KEEP (25 Oct 2026). No USB host and no on-screen keyboard, so a Dev entry that needs typing has no use on the console. Lua: core/src/rgb30/ui.c:542-543 says the prompt is on the serial port (1500000 8N1); core/src/rgb30/main.c:129 runs it. Assistant: bm/sdk_b16/main.lua:20 and :1955 (Y + back, F6) open it in the SDK; the Pi's home_assistant (core/src/kernel/home.c:110) has no RGB30 twin and bm_port.c:165 says its network is not on the RGB30. Revisit with D22 (the monitor)."
-evidence = "core/src/kernel/home.c:151-153; core/src/rgb30/ui.c:542; bm/sdk_b16/main.lua:20"
+evidence = "core/src/kernel/home.c:151-153"
 action = "none"
 
 [[divergence]]
