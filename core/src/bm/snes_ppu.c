@@ -302,7 +302,7 @@ static void win_row(uint8_t *a, int lo, int hi, int inv)
     pfill(a, inv, 256);
     if (lo <= hi) memset(a + lo, !inv, (size_t)(hi - lo + 1));
 }
-static void window_mask(int layer, int en1, int inv1, int en2, int inv2, int log)
+static void window_mask(unsigned layer, int en1, int inv1, int en2, int inv2, int log)
 {
     uint8_t *m = winm[layer];
     win_on[layer] = (uint8_t)(en1 || en2);
@@ -312,7 +312,7 @@ static void window_mask(int layer, int en1, int inv1, int en2, int inv2, int log
     static _Alignas(4) uint8_t w2[256];
     win_row(m, S.wh0, S.wh1, inv1); win_row(w2, S.wh2, S.wh3, inv2);
     const uint32_t flip = log == 3 ? 0x01010101u : 0;                  /* 0 or, 1 and, 2 xor, 3 not xor */
-    for (int x = 0; x < 256; x += 4) {
+    for (unsigned x = 0; x < 256; x += 4) {
         const uint32_t a = ld(m + x), b = ld(w2 + x);
         st(m + x, (log == 0 ? a | b : log == 1 ? a & b : a ^ b) ^ flip);
     }

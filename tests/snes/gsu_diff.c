@@ -29,7 +29,7 @@ static uint32_t dfnv(const uint8_t *p, size_t n)         /* a hash of words: fas
 
 #define DROM_SIZE 0x40000
 static uint8_t drom[DROM_SIZE];
-static uint8_t sram0[131072];
+static uint8_t sram0[sizeof S.sram];     /* the size of the RAM it is copied into (it was half of it: the copy read past its end) */
 
 typedef struct { void (*reset)(uint32_t); void (*write)(uint16_t, uint8_t); void (*run)(int); int (*irq)(void); uint32_t (*insns)(void); void (*dbg)(gsu_dbg_t *); } impl_t;
 static const impl_t IMPL[2] = {

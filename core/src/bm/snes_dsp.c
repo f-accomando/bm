@@ -201,12 +201,12 @@ static inline uint16_t dir_addr(int i, int loop)
 static void brr_decode(voice_t *v)
 {
     const uint8_t *ram = dsp_ram_ptr;
-    int nyb = (ram[(uint16_t)(v->addr + v->off)] << 8) | ram[(uint16_t)(v->addr + v->off + 1)];
+    unsigned nyb = ((unsigned)ram[(uint16_t)(v->addr + v->off)] << 8) | ram[(uint16_t)(v->addr + v->off + 1)];
     const int filter = (v->hdr >> 2) & 3, scale = v->hdr >> 4;
     for (int n = 0; n < 4; n++) {
         int s = (int16_t)nyb >> 12;
         nyb <<= 4;
-        if (scale <= 12) s = (s << scale) >> 1;
+        if (scale <= 12) s = (s * (1 << scale)) >> 1;          /* a multiply: a left shift of a negative value is undefined in C */
         else s &= ~0x7FF;
         const int p1 = v->buf[v->boff ? v->boff - 1 : 11];
         const int p2 = v->buf[v->boff > 1 ? v->boff - 2 : v->boff + 10] >> 1;

@@ -346,8 +346,24 @@ SNES_PPU_SRCS := core/src/bm/snes_bus.c core/src/bm/snes_sa1.c core/src/bm/snes_
 SNES_REF_DEFS := -Dppu_line=ppu_line_ref -Dppu_reset=ppu_reset_ref -Dppu_cgram_write=ppu_cgram_write_ref -Dppu_us=ppu_us_ref
 $(BUILD)/host/snes_ppu_equiv: tests/snes/ppu_equiv.c tests/snes/ppu_ref.c core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) core/src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_ppu_ref.o tests/snes/ppu_ref.c
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/ppu_equiv.c $(BUILD)/host/snes_ppu_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+	$(HOSTCC) -O2 -g -w $(HOSTSAN) $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_ppu_ref.o tests/snes/ppu_ref.c
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/ppu_equiv.c $(BUILD)/host/snes_ppu_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
+# The emulator host tests with AddressSanitizer and UndefinedBehaviorSanitizer, warnings as errors, and the parsers fuzz (tests/fuzz/parsers_fuzz.c):
+# a separate build folder (build/check), so the normal test binaries stay as they are. HOSTSAN and HOSTWERR are empty in a normal build.
+EMU_CHECK_SAN := -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer
+test-emu-check:
+	$(MAKE) --no-print-directory BUILD=build/check HOSTSAN="$(EMU_CHECK_SAN)" HOSTWERR=-Werror test-emu-core test-snes-ppu test-snes-cpu test-snes-gsu test-snes-gsu-diff test-snes-sa1 test-snes-debug test-snes-dsp77 test-fuzz
+test-emu-core:
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O1 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $(BUILD)/host/snes_core_test tests/snes/core_test.c $(SNES_CORE_SRCS)
+	$(BUILD)/host/snes_core_test
+	$(HOSTCC) -O1 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $(BUILD)/host/nes_core_test tests/nes/core_test.c core/src/bm/nes.c
+	$(BUILD)/host/nes_core_test
+# The parsers fuzz alone (with the sanitizers when HOSTSAN is set; test-emu-check sets it); a built .bm is one more seed.
+test-fuzz:
+	@mkdir -p $(BUILD)/host
+	$(HOSTCC) -O1 -g -Wall -Wextra $(HOSTWERR) $(or $(HOSTSAN),$(EMU_CHECK_SAN)) -Icore/src -Icore/src/bm -o $(BUILD)/host/parsers_fuzz tests/fuzz/parsers_fuzz.c 	    $(SNES_CORE_SRCS) core/src/bm/nes.c core/src/bm/png.c core/src/bm/jpeg.c core/src/bm/format.c core/src/lib/crc32.c -lm
+	$(BUILD)/host/parsers_fuzz $(or $(FUZZ_ITERS),300) $(wildcard build/bm/font.bm build/bm/ko2.bm)
 test-snes-ppu: $(BUILD)/host/snes_ppu_equiv
 	$< equiv 400
 # The same equivalence on an ARM1176 in QEMU, with the assembly mix loop (snes_ppu_arm.S): the PC build above runs the C loop only.
@@ -364,7 +380,7 @@ bench-snes-ppu: $(BUILD)/host/snes_ppu_equiv
 # The CPU and the memory map on random programs, against the hashes of the code before the speed work (tests/snes/cpu_golden.c).
 $(BUILD)/host/snes_cpu_golden: tests/snes/cpu_golden.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/cpu_golden.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/cpu_golden.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 test-snes-cpu: $(BUILD)/host/snes_cpu_golden
 	$<
 # The time of the CPU interpreter per instruction on a game-like program (tests/snes/cpu_bench.c). The host is not the Pi: compare two runs.
@@ -376,15 +392,15 @@ bench-snes-cpu: $(BUILD)/host/snes_cpu_bench
 # The Super FX (docs/progress/snes-superfx.md): small original programs on a made-up ROM (tests/snes/gsu_test.c). `make bench-snes-gsu` times the interpreter.
 $(BUILD)/host/snes_gsu_test: tests/snes/gsu_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h core/src/bm/snes_gsu.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/gsu_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/gsu_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 # The SA-1 (docs/progress/snes-sa1.md): small original programs on a made-up ROM (tests/snes/sa1_test.c).
 $(BUILD)/host/snes_sa1_test: tests/snes/sa1_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h core/src/bm/snes_sa1.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/sa1_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/sa1_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 # The debug API (docs/api/snes.md): peek, poke, regs, step, breakpoints on a made-up ROM (tests/snes/debug_test.c).
 $(BUILD)/host/snes_debug_test: tests/snes/debug_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h core/src/bm/snes.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/debug_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/debug_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 test-snes-debug: $(BUILD)/host/snes_debug_test
 	$<
 test-snes-sa1: $(BUILD)/host/snes_sa1_test
@@ -407,7 +423,7 @@ bench-snes-gsu: $(BUILD)/host/snes_gsu_test
 # The Super FX interpreter against the plain C reference (tests/snes/gsu_ref.c) on random programs, pieces of random length, byte for byte.
 $(BUILD)/host/snes_gsu_diff: tests/snes/gsu_diff.c tests/snes/gsu_ref.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h core/src/bm/snes_gsu.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -Itests/snes -o $@ tests/snes/gsu_diff.c tests/snes/gsu_ref.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -Itests/snes -o $@ tests/snes/gsu_diff.c tests/snes/gsu_ref.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 test-snes-gsu-diff: $(BUILD)/host/snes_gsu_diff
 	$<
 # Yoshi's Island (Super FX GSU-2) frame hashes on the host and on an ARM1176 in QEMU (tests/snes/smw2_frames.py): needs the user's ROM, BM_SNES_ROMS=/folder
@@ -434,7 +450,7 @@ test-snes-gsu-arm: tests/snes/gsu_arm.c tests/snes/gsu_test.c tests/snes/gsu_dif
 # The DSP-1/2/3/4 core (docs/progress/snes-dsp.md): the uPD77C25 on small original firmware written in the test, and the cartridge ports in the map.
 $(BUILD)/host/snes_dsp77_test: tests/snes/dsp77_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c core/src/bm/snes_int.h core/src/bm/snes_dsp77.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src/bm -o $@ tests/snes/dsp77_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
+	$(HOSTCC) -O2 -g -Wall -Wextra $(HOSTWERR) $(HOSTSAN) -Icore/src/bm -o $@ tests/snes/dsp77_test.c $(SNES_PPU_SRCS) core/src/bm/snes_ppu.c -lm
 test-snes-dsp77: $(BUILD)/host/snes_dsp77_test
 	$<
 # The same test on an ARM1176 in QEMU, with the assembly CPU loop linked (the map and the chip on the real instruction set): needs qemu-system-arm and arm-none-eabi-gcc.
@@ -2057,7 +2073,7 @@ $(BUILD)/qpu_snes.h: core/tools/qpusnes.py core/tools/qpuprogs.py core/tools/qpu
 	$(PYTHON) core/tools/qpusnes.py -o $@
 $(BUILD)/host/test_snes_m7: tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h $(BUILD)/qpu_snes.h tests/snes/ppu_ref.c core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) core/src/bm/snes_int.h
 	@mkdir -p $(BUILD)/host
-	$(HOSTCC) -O2 -g -w $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_m7_ref.o tests/snes/ppu_ref.c
+	$(HOSTCC) -O2 -g -w $(HOSTSAN) $(SNES_REF_DEFS) -Icore/src/bm -c -o $(BUILD)/host/snes_m7_ref.o tests/snes/ppu_ref.c
 	$(HOSTCC) -O2 -g -Wall -Wextra -Icore/src -Icore/src/bm -Itests/gpu -I$(BUILD) -o $@ tests/gpu/test_snes_m7.c tests/gpu/v3d_emu.c core/src/gpu/v3d_cl.c core/src/gpu/etc1.c 	    $(BUILD)/host/snes_m7_ref.o core/src/bm/snes_ppu.c $(SNES_PPU_SRCS) -lm
 
 test-snes-g2: $(BUILD)/host/test_snes_m7

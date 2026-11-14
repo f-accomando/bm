@@ -231,7 +231,7 @@ static int block(jd_t *d, comp_t *c, uint8_t *out, int stride)
     int coef[64];
     memset(coef, 0, sizeof coef);
     int t = decode_huff(d, &d->hdc[c->td]);
-    if (t < 0)
+    if (t < 0 || t > 16)                        /* a DC size above 16 bits: a broken table (a file from the fuzz test; getbits shifts by 32 - t) */
         return -1;
     c->dc += extend(getbits(d, t), t);
     coef[0] = c->dc * d->qt[c->tq][0];
