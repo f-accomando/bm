@@ -1,0 +1,50 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-708dda_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 168 s after boot, kernel dev, ring 8791, sink on
+--- the last lines printed ---
+restarting: this run's log in bm/lastrun.txt
+me: 1x, a frame averages draw 14313 us, enlarge 0 us, flip 89 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 14309 us, enlarge 0 us, flip 92 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 14324 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14321 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 14325 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14319 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14313 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14315 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 14313 us, enlarge 0 us, flip 90 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 14317 us, enlarge 0 us, flip 93 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14325 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 14323 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14325 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14314 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 14313 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14316 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14313 us, enlarge 0 us, flip 90 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 14323 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14322 us, enlarge 0 us, flip 85 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14317 us, enlarge 0 us, flip 85 us, free time used 41 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 14333 us, enlarge 0 us, flip 85 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 14305 us, enlarge 0 us, flip 85 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14302 us, enlarge 0 us, flip 85 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14308 us, enlarge 0 us, flip 86 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 14310 us, enlarge 0 us, flip 89 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 14331 us, enlarge 0 us, flip 86 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14333 us, enlarge 0 us, flip 85 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 14340 us, enlarge 0 us, flip 86 us, free time used 42 us (300 frames)
+net: receiving overbit.bm (2383480 bytes)...
+net: cartridge received, starting it
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 9310, t 167929 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 167942 ms, 1 jobs)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2021 ms ago (tag 0x00000001)
+mbox: V3D ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 169964 ms, 1 jobs)
