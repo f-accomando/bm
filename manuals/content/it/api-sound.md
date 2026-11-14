@@ -50,6 +50,7 @@ Forme d'onda (nomi globali, usabili in `note()`):
 | `PINK` | un rumore più morbido: vento, mare, fruscio |
 | `BROWN` | anche questo un rumore più morbido: vento, mare, fruscio |
 | `CRACKLE` | click casuali: un vecchio disco, un fuoco |
+| `SID` | SID+ doppio oscillatore: onde combinate, hard sync, modulazione ad anello |
 
 Ogni voce ha un inviluppo ADSR, un filtro, una posizione tra sinistra e destra, quanto ne va alla stanza, all'eco e al chorus, e gli effetti del superdough di Strudel: bit crush, una frequenza più bassa, vocali, curve di drive, tremolo, ducking (vedi `tone()`).
 
@@ -264,7 +265,7 @@ Tutte le chiavi sono facoltative; quelle mancanti restano come sono.
 | Chiave | Valore |
 |---|---|
 | `preset` | uno strumento pronto da cui partire |
-| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"` |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"`, `"sid+"` |
 | `vol`, `duty`, `sustain` | 0-1 |
 | `attack`, `decay`, `release` | ms (fino a 2000) |
 | `cutoff` | il **filtro**: Hz (0 = nessun filtro) |
@@ -288,6 +289,9 @@ Tutte le chiavi sono facoltative; quelle mancanti restano come sono.
 | `trem` | tremolo: l'`lfo` sul volume, quanto profondo (0-1) |
 | `duck` | ducking: questa voce spinge giù le altre finché suona (0-1): un kick che fa pompare un pad, un effetto che abbassa la musica |
 | `chorus` | quanto la voce manda al chorus (0-1; lo imposta `chorus()`) |
+| `analog` | `true`: saturazione analogica non lineare dentro il filtro risonante |
+| `bit16` | `true`: quantizzazione digitale della voce a 16 bit (24 bit hi-fi è il default; `raw` è 8 bit) |
+| `s6581` | `true`: carattere 6581 con onde combinate bitwise e DAC a 12 bit per `"sid+"` |
 | `raw` | `true`: questa voce è a 8 bit (gli effetti sopra sono ignorati, come in `retro`) |
 
 Ogni chiave nuova a 0 (o mancante) è il suono di prima. `play()` e `play_at()` accettano le stesse chiavi nella loro tabella.
@@ -313,7 +317,7 @@ retro(true)                                         -- il suono a 8 bit di prima
 
 ## Strumenti pronti
 
-Sono 50 (`core/src/audio/presets.c`):
+Sono 55 (`core/src/audio/presets.c`):
 
 | Tipo | Strumenti |
 |---|---|
@@ -324,6 +328,7 @@ Sono 50 (`core/src/audio/presets.c`):
 | corde | `pluck`, `guitar`, `harp` |
 | lead | `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`, `solo` (drive caldo, vibrato, eco) |
 | effetti | `laser`, `blip`, `boom`, `wind`, `vinyl` (il crepitio di un disco) |
+| SID+ | `sidlead`, `sidsync`, `sidbass`, `sidring`, `sidpad` |
 
 Gli stessi strumenti sono nel menu *Instrument...* di bm Sound.
 

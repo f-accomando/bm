@@ -50,6 +50,7 @@ Waveforms (global names, usable in `note()`):
 | `PINK` | a softer noise: wind, sea, hiss |
 | `BROWN` | a softer noise too: wind, sea, hiss |
 | `CRACKLE` | random clicks: an old record, a fire |
+| `SID` | SID+ dual-oscillator: combined waves, hard sync, ring modulation |
 
 Each voice has an ADSR envelope, a filter, a place between left and right, how much of it goes to the room, the echo and the chorus, and the effects of Strudel's superdough: bit crush, a lower rate, vowels, drive curves, tremolo, ducking (see `tone()`).
 
@@ -264,7 +265,7 @@ All the keys are optional; the missing ones stay as they are.
 | Key | Value |
 |---|---|
 | `preset` | a ready-made instrument to start from |
-| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"` |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"`, `"sid+"` |
 | `vol`, `duty`, `sustain` | 0-1 |
 | `attack`, `decay`, `release` | ms (up to 2000) |
 | `cutoff` | the **filter**: Hz (0 = no filter) |
@@ -288,6 +289,9 @@ All the keys are optional; the missing ones stay as they are.
 | `trem` | tremolo: the `lfo` on the volume, how deep (0-1) |
 | `duck` | ducking: this voice pushes the others down while it sounds (0-1): a kick that pumps a pad, an effect that lowers the music |
 | `chorus` | how much the voice sends to the chorus (0-1; `chorus()` sets it) |
+| `analog` | `true`: non-linear analog saturation inside the resonant filter |
+| `bit16` | `true`: 16-bit digital voice quantization (24-bit hi-fi is the default; `raw` is 8-bit) |
+| `s6581` | `true`: 6581-style bitwise combined-wave and 12-bit DAC character for `"sid+"` |
 | `raw` | `true`: this voice is 8-bit (the effects above are ignored, as in `retro`) |
 
 Every new key at 0 (or missing) is the sound as it was. `play()` and `play_at()` take the same keys in their table.
@@ -313,7 +317,7 @@ retro(true)                                         -- the 8-bit sound of before
 
 ## Ready-made instruments
 
-There are 50 (`core/src/audio/presets.c`):
+There are 55 (`core/src/audio/presets.c`):
 
 | Kind | Instruments |
 |---|---|
@@ -324,6 +328,7 @@ There are 50 (`core/src/audio/presets.c`):
 | strings | `pluck`, `guitar`, `harp` |
 | leads | `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`, `solo` (warm drive, vibrato, echo) |
 | effects | `laser`, `blip`, `boom`, `wind`, `vinyl` (a record's crackle) |
+| SID+ | `sidlead`, `sidsync`, `sidbass`, `sidring`, `sidpad` |
 
 The same instruments are in bm Sound's *Instrument...* menu.
 

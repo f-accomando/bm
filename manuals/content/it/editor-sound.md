@@ -84,10 +84,10 @@ I parametri sono in tre gruppi. Scendi oltre l'ultima riga per passare al gruppo
 | Gruppo | Parametri |
 |---|---|
 | SOUND | WAVE, DUTY, VOLUME, DETUNE; ATTACK, DECAY, SUSTAIN, RELEASE; BEND FROM, BEND TIME, VIBRATO, VIB SPEED |
-| FILTER | CUTOFF, RESONANCE, MODE, KEY TRACK; FILT ENV, ENV DECAY, DRIVE, NOISE; LFO SPEED, LFO CUT, LFO DUTY, 8-BIT |
-| WAVE & SPACE | due impostazioni dell'onda (i nomi cambiano con l'onda), FM FADE, FM FEEDBACK; PAN, ROOM, ECHO |
+| FILTER | CUTOFF, RESONANCE, MODE, KEY TRACK; FILT ENV, ENV DECAY, DRIVE, NOISE; LFO SPEED, LFO CUT, LFO DUTY, BIT DEPTH (24-BIT / 16-BIT / 8-BIT) |
+| WAVE & SPACE | due impostazioni dell'onda (i nomi cambiano con l'onda), FM/OSC2 FADE, FM FEEDBACK / OSC2 MIX; PAN, ROOM, ECHO, ANALOG FLT; SID COUPLE, SID OSC2, 6581 MODE, CHORUS |
 
-Le onde sono: SQUARE, TRIANGLE, SAW, NOISE, SINE, METAL, FM, PLUCK, SUPERSAW, ORGAN, SAMPLE, PINK, BROWN, CRACKLE. Le modalità del filtro sono LOW PASS, BAND PASS, HIGH PASS e NOTCH.
+Le onde sono: SQUARE, TRIANGLE, SAW, NOISE, SINE, METAL, FM, PLUCK, SUPERSAW, ORGAN, SAMPLE, PINK, BROWN, CRACKLE, SID+. Le modalità del filtro sono LOW PASS, BAND PASS, HIGH PASS e NOTCH.
 
 - La riga sopra le barre è il **nome** (8 caratteri). Premi Invio su di essa per rinominare il suono.
 - Ogni barra cambia con `-` e `=`; `_` e `+` la cambiano di più.
