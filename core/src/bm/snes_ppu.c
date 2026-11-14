@@ -13,6 +13,7 @@
  */
 #include "snes_int.h"
 
+#include <stddef.h>
 #include <string.h>
 
 snes_t S;
@@ -148,6 +149,22 @@ static inline void pfill(void *d, int v, size_t n)
 }
 
 /* ------------------------------------------------------------------ backgrounds */
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+/* what the column loop of snes_ppu_arm.S reads; the offsets are in its header */
+typedef struct {
+    const uint8_t *vram;
+    uint32_t base_a, tcol, wide, chunk_base, chunk_mask;
+    uint32_t (*tc)[16];
+    const uint8_t *tv;
+    uint32_t row, row_v;
+    int32_t tpd;
+    uint32_t any;
+    uint32_t pal[8], pri[2];
+} bgctx_t;
+_Static_assert(offsetof(bgctx_t, tc) == 24 && offsetof(bgctx_t, tpd) == 40 && offsetof(bgctx_t, pal) == 48 && offsetof(bgctx_t, pri) == 80, "bgctx_t");
+_Static_assert(offsetof(snes_t, vram) % 2 == 0, "vram: halfword loads");
+uint8_t *ppu_bg_cols_arm(uint8_t *ti, uint8_t *end, bgctx_t *c);
+#endif
 static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
 {
     uint8_t *oi = bgi[n], *op = bgp[n];
@@ -174,6 +191,26 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
     int sx = hofs & ~7, any = 0;
     uint8_t *ti = tbi[n], *tp = tbp[n];
     pfill(ti, 0, 264); pfill(tp, 0, 264);
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+    if (!big) {                                         /* 8x8 tiles: the column loop in assembly (snes_ppu_arm.S); a tile not decoded yet comes back here */
+        static bgctx_t c;
+        const int py = py0 & 7;
+        c.vram = S.vram; c.base_a = base_a; c.tcol = (uint32_t)(sx >> 3); c.wide = wide ? 0x800u : 0u;
+        c.chunk_base = chr_base >> tshift; c.chunk_mask = 0xFFFFu >> tshift; c.tc = tc; c.tv = tv;
+        c.row = (uint32_t)py * 8u; c.row_v = (uint32_t)(7 - py) * 8u; c.tpd = (int32_t)(tp - ti); c.any = 0;
+        for (int p = 0; p < 8; p++) c.pal[p] = (pbase + (uint32_t)(bpp == 2 ? p * 4 : bpp == 4 ? p * 16 : 0)) * 0x01010101u;
+        c.pri[0] = 0; c.pri[1] = 0x01010101u;
+        uint8_t *at = ti, *const end = ti + 33 * 8;
+        while ((at = ppu_bg_cols_arm(at, end, &c)) != end) {
+            const uint32_t tile = (uint32_t)(S.vram[(base_a + (c.tcol & 31) * 2 + ((c.tcol & 32) ? (wide ? 0x800u : 0u) : 0u)) & 0xFFFF] |
+                                             S.vram[((base_a + (c.tcol & 31) * 2 + ((c.tcol & 32) ? (wide ? 0x800u : 0u) : 0u)) & 0xFFFF) + 1] << 8) & 0x3FF;
+            const uint32_t chunk = (c.chunk_base + tile) & c.chunk_mask;
+            decode_tile(bpp, chunk << tshift, tc[chunk]); tv[chunk] = 1;
+        }
+        any = (int)c.any;
+        goto done;
+    }
+#endif
     for (int k = 0; k < 33; k++, sx = (sx + 8) & 0x3FF) {      /* one tile column of 8 pixels per turn, on the grid of the tiles; the scroll is a shift at the end */
         const int tcol = sx >> tsh;
         const uint32_t ea = (base_a + (uint32_t)(tcol & 31) * 2 + (uint32_t)(tcol & 32) * wsh) & 0xFFFF;
@@ -202,6 +239,9 @@ static void draw_bg(int n, int y, int bpp, int pal_base_mode0)
         st(ti + k * 8, (lo + pb) & ml);     st(ti + k * 8 + 4, (hi + pb) & mh);
         st(tp + k * 8, pr & ml);            st(tp + k * 8 + 4, pr & mh);
     }
+#if defined(__arm__) && defined(__ARM_FEATURE_SIMD32)
+done:
+#endif
     if (any) {
         bgany[n] = 1;
         memcpy(oi, ti + px0, 256); memcpy(op, tp + px0, 256);

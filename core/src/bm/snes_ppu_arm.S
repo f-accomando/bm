@@ -158,3 +158,94 @@ ppu_mix_sub_arm:
     FASTLOOP op=uqsub8, post="mov lr, #0 ; uhadd8 r9, r9, lr"
     pop     {r4-r11, pc}
     .size   ppu_mix_sub_arm, .-ppu_mix_sub_arm
+
+/*
+ * uint8_t *ppu_bg_cols_arm(uint8_t *ti, uint8_t *end, const bgctx_t *c);
+ *
+ * The tile columns of one line of a background layer with 8x8 tiles (snes_ppu.c, bg_row; the C loop is the reference). Each column of 8 pixels:
+ * the tile map entry, the decoded row of the tile (tc), the flips, the palette and the priority; ti gets the colour indexes, ti + c->tpd the
+ * priorities, 8 bytes a column, nothing for a clear row (the caller cleared the buffers). It stops at end, or at a column whose tile is not
+ * decoded yet: the return value is where it stopped (the caller decodes that tile and calls again from there).
+ *
+ * bgctx_t: +0 vram, +4 base_a, +8 tcol (in and out), +12 wide (0x800 or 0), +16 chunk base, +20 chunk mask, +24 tc, +28 tv,
+ * +32 row offset, +36 row offset of a vertical flip, +40 tpd (tp - ti), +44 any (out), +48 pal words[8], +80 priority words[2].
+ *
+ * Registers: r0 ti, r1 end, r2 tcol, r3 ctx, r4 vram, r5 base_a, r6 tc, r7 tv, r8 tpd, r9-r12 and lr scratch.
+ */
+    .global ppu_bg_cols_arm
+    .type   ppu_bg_cols_arm, %function
+ppu_bg_cols_arm:
+    push    {r4-r11, lr}
+    mov     r3, r2
+    ldr     r4, [r3, #0]
+    ldr     r5, [r3, #4]
+    ldr     r2, [r3, #8]
+    ldr     r6, [r3, #24]
+    ldr     r7, [r3, #28]
+    ldr     r8, [r3, #40]
+    cmp     r0, r1
+    beq     .Bdone
+.Bloop:
+    and     r9, r2, #31
+    add     r9, r5, r9, lsl #1          @ the entry of tile column tcol
+    tst     r2, #32
+    ldrne   r10, [r3, #12]
+    addne   r9, r9, r10                 @ the second screen of a wide map
+    uxth    r9, r9
+    ldrh    r10, [r4, r9]               @ e: the tile map entry
+    lsl     r11, r10, #22
+    ldr     r12, [r3, #16]
+    add     r11, r12, r11, lsr #22      @ chunk base + tile
+    ldr     r12, [r3, #20]
+    and     r11, r11, r12               @ the chunk (the decoded tile)
+    ldrb    r12, [r7, r11]
+    cmp     r12, #0
+    beq     .Bdone                      @ not decoded: back to C
+    tst     r10, #0x8000
+    ldreq   r12, [r3, #32]
+    ldrne   r12, [r3, #36]
+    add     r12, r12, r11, lsl #6
+    add     r12, r6, r12
+    ldm     r12, {r11, r12}             @ lo, hi: the row of 8 pixels
+    orrs    lr, r11, r12
+    beq     .Bnext                      @ a clear row writes nothing
+    tst     r10, #0x4000                @ horizontal flip: swap and byte-reverse
+    revne   lr, r12
+    revne   r12, r11
+    movne   r11, lr
+    lsr     r9, r10, #10
+    and     r9, r9, #7
+    add     r9, r3, r9, lsl #2
+    ldr     r9, [r9, #48]               @ the palette base as four bytes
+    tst     r10, #0x2000
+    ldreq   r10, [r3, #80]
+    ldrne   r10, [r3, #84]              @ the priority as four bytes
+    mvn     lr, #0
+    uadd8   lr, r11, lr                 @ GE: the pixels that are not clear
+    mov     lr, #0
+    add     r11, r11, r9
+    sel     r11, r11, lr
+    str     r11, [r0]
+    sel     r11, r10, lr
+    str     r11, [r0, r8]
+    mvn     lr, #0
+    uadd8   lr, r12, lr
+    mov     lr, #0
+    add     r12, r12, r9
+    sel     r12, r12, lr
+    str     r12, [r0, #4]
+    sel     r12, r10, lr
+    add     r9, r0, r8
+    str     r12, [r9, #4]
+    mov     lr, #1
+    str     lr, [r3, #44]
+.Bnext:
+    add     r0, r0, #8
+    add     r2, r2, #1
+    and     r2, r2, #127
+    cmp     r0, r1
+    bne     .Bloop
+.Bdone:
+    str     r2, [r3, #8]
+    pop     {r4-r11, pc}
+    .size   ppu_bg_cols_arm, .-ppu_bg_cols_arm
