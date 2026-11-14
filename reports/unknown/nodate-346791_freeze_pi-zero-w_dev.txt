@@ -1,0 +1,69 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-346791_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 0, 79 s after boot, kernel dev, ring 6130, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+usb: device found, enumerating (try 1)
+usb: no answer from the device (-3)
+fb: mode 1920x1080 depth 16 x3 set in 6579 us
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 10989 ms, 0 jobs)
+gpu3d: DIAG clip test 64x40: err 0, 0 of 1536 pixels below the frame written (row 39: f800, row 40: 5555, row 63: 5555)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 11050 ms)
+menu: 1920x1080, drawn by the GPU
+covers: all 24 read
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+usb: device found, enumerating (try 2)
+usb: no answer from the device (-3)
+net: time 2026-11-14 05:19 UTC
+fiber: reports did not yield: 103.2 ms past its slice
+report: sending nodate-298528_freeze_pi-zero-w_dev.txt
+usb: device found, enumerating (try 3)
+usb: no answer from the device (-3)
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-298528_freeze_pi-zero-w_dev.txt
+usb: device found, enumerating (try 4)
+usb: no answer from the device (-3)
+menu idle: 300/300 frames, 551 of 530 ms taken, 105.7 ms past a frame; covers 144 ms (+3.2, stk 0.8/16K), reports 386 ms (+103.2, stk 7.6/128K); min slack -348169 us, paced 0
+menu idle: sd first word <1ms 224 <3ms 12 (max 1.5 ms)
+menu stalls: tls handshake 1x last 320.8 worst 320.8 ms
+menu frame: 1x, a frame averages draw 18711 us, enlarge 0 us, flip 89 us, free time used 1837 us (300 frames)
+usb: device found, enumerating (try 5)
+usb: no answer from the device (-3)
+menu frame: 1x, a frame averages draw 14578 us, enlarge 0 us, flip 84 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13466 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13468 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13463 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13452 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13451 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13457 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13459 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13469 us, enlarge 0 us, flip 88 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 13467 us, enlarge 0 us, flip 91 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 13470 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+menu idle: sd first word <1ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13494 us, enlarge 0 us, flip 87 us, free time used 41 us (300 frames)
+net: restarting with the new kernel in 1 s
