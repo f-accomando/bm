@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-97bb9a_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 2270, 234 s after boot, kernel dev, ring 12802, sink on
+--- the last lines printed ---
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 8565, t 181587 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 181602 ms, 1 jobs)
+fb: mode 480x270 depth 16 x3 (virtual height 810) set in 674 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 181614 ms, 1 jobs)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 2355 ms (close 0, parse 56, assets+state 36, mode 2037, audio 4, lua 220)
+net: not served for 4400 ms (up 179800 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+net:   pc at 3s: 00148818
+net:   pc at 4s: 00148818
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 000071d0 after job 2 (t 181888 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 8566, t 183894 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 000071d0 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 183908 ms, 2 jobs)
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6490 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 183927 ms, 2 jobs)
+bm: screen 1920x1080
+net: not served for 2084 ms (up 181900 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+v3d: ERRSTAT 000071d0 -> 000071c0 after job 3 (t 183972 ms)
+v3d: ERRSTAT 000071c0 -> 000071d0 after job 4 (t 183993 ms)
+overbit quality up to 2 (18.6 ms)
+overbit quality up to 3 (20.6 ms)
+overbit quality up to 4 (20.6 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1466 us
+bm: "Overbit" 2270 frames, 49.2 fps, 3 dropped
+     update+draw avg 19.23 ms (115% of frame), max 32.33 ms, Lua 1082 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 2176 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2270 jobs, 2963 triangles a frame, 17.39 ms a frame (bin 0%), max job 20481 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6580 us
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 102.3 ms past its slice
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 486 of 828 ms taken, 104.9 ms past a frame; reports 465 ms (+102.3, stk 7.8/128K); min slack -20888 us, paced 0
+menu idle: sd first word <1ms 63 <3ms 4 (max 2.9 ms)
+menu stalls: tls handshake 1x last 336.8 worst 336.8 ms
+menu frame: 1x, a frame averages draw 15945 us, enlarge 0 us, flip 88 us, free time used 1621 us (300 frames)
+menu frame: 1x, a frame averages draw 12554 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+v3d: DIAG QPUs off by the firmware: answered in 50 us
+restarting: this run's log in bm/lastrun.txt
