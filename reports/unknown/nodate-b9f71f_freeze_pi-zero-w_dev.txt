@@ -1,0 +1,60 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b9f71f_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 2416, 136 s after boot, kernel dev, ring 9299, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19879 us, enlarge 0 us, flip 108 us, free time used 41 us (300 frames)
+net: receiving overbit.bm (2383480 bytes)...
+menu frame: 1x, a frame averages draw 19906 us, enlarge 0 us, flip 105 us, free time used 41 us (300 frames)
+net: cartridge received, starting it
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 78809 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 78819 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 78954 ms, 1 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 78963 ms, 1 jobs)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 369 ms (close 0, parse 56, assets+state 38, mode 46, audio 4, lua 223)
+net: not served for 423 ms (up 77100 ms), while: boot
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 00007180 after job 2 (t 79233 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007180 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 79266 ms, 2 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 79281 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 00007180 -> 000071d0 after job 3 (t 79321 ms)
+overbit quality up to 2 (19.7 ms)
+overbit quality up to 3 (22.3 ms)
+overbit quality up to 4 (22.0 ms)
+
+net: console opened from 192.168.1.115
+> bm: "Overbit" 2416 frames, 47.5 fps, 7 dropped
+     update+draw avg 20.82 ms (124% of frame), max 34.32 ms, Lua 1006 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 2412 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2416 jobs, 2995 triangles a frame, 18.97 ms a frame (bin 0%), max job 22353 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_overbit_pi-zero-w.txt
+menu idle: 300/300 frames, 346 of 899 ms taken, 101.2 ms past a frame; reports 329 ms (+101.2, stk 7.6/128K); min slack -22804 us, paced 0
+menu idle: sd first word <1ms 53 <3ms 4 (max 2.3 ms)
+menu stalls: tls handshake 1x last 331.1 worst 331.1 ms
+menu frame: 1x, a frame averages draw 21399 us, enlarge 0 us, flip 97 us, free time used 1155 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+net: restarting with the new kernel in 1 s
+menu idle: 300/300 frames, 119 of 899 ms taken, 35.7 ms past a frame; reports 106 ms (+35.7, stk 7.6/128K); min slack -21478 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 2.3 ms)
+menu frame: 1x, a frame averages draw 19892 us, enlarge 0 us, flip 96 us, free time used 398 us (300 frames)
