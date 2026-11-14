@@ -3,7 +3,7 @@ kind: session
 kernel: dev
 branch: unknown
 board: Pi Zero W
-date: 2026-11-14 05:27:15
+date: 2026-11-14 05:31:05
 file: session_overbit_pi-zero-w.txt
 
 session of "Overbit" (the last one: the next run of this game replaces this file)
@@ -39,14 +39,14 @@ the 2D calls of the draw (ms a frame, calls a frame; the time of each call as th
   shapes     0.0 ms  1.0 calls
   all        0.2 ms  18.0 calls (of the draw's 1.8 ms: the rest is Lua, the light, the 3D)
 audio interrupt: 0.8% of the CPU's time (mean), 0.8% at most in a second
-GPU wait: 77.2% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 99.9% of the frames
+GPU wait: 77.3% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 99.9% of the frames
 
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-      2     0.3   105.8   46.9   3.3    1.3   0.4   0.0    58.9        7     1262        4
-    674    11.6    25.3   25.0   0.7   13.6   0.5   0.0     0.2        3      913        1
-    149     2.8    19.7   19.3   0.7    9.3   0.4   0.0     0.4        3      913        1
+      2     0.3   106.2   47.1   3.4    1.4   0.4   0.0    59.1        7     1262        4
+    674    11.6    25.3   25.0   0.7   13.6   0.6   0.0     0.2        3      913        1
+    149     2.8    19.8   19.5   0.7    9.5   0.4   0.0     0.2        3      913        1
 
 GPU 3D: 2995 jobs, 2995 triangles a frame, 10.3 ms a frame, longest job seen to its end 11.3 ms
 (a job's time: from its start to the end the ARM saw; 1 jobs had ended before it looked, counted at the others' mean)
