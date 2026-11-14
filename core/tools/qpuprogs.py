@@ -235,7 +235,64 @@ def fade():
     return fix(L + thrend())
 
 
-PROGRAMS = {"qp_particles": particles, "qp_fade": fade}
+# ---------------------------------------------------------------- micro-benchmark (qpu_bench.c)
+def loop_tail():
+    """the end of a loop on the counter in ra3 (the same in every lane): decrement, branch, three delay slots"""
+    return ["sub.setf ra3, ra3, 1 ; nop", NOP, "bra.anynz loop", NOP, NOP, NOP]
+
+
+def bench_nop():
+    """a job that does nothing: the fixed cost of one QPU job"""
+    return fix(thrend())
+
+
+def bench_gather():
+    """random gathers. Uniforms: base, mask, iterations, start. Each lane takes base + (x & mask), x from an LCG seeded with
+    start; four gathers in flight, 64 words an iteration. mask: a multiple of 4 below the size of the region (512 bytes: a
+    palette; 64 KB: the video RAM)."""
+    L = ["mov ra0, unif        ; nop",
+         "mov rb2, unif        ; nop",
+         "mov ra3, unif        ; nop",
+         "mov rb7, unif        ; nop",
+         "ldi rb0, 69069", "ldi rb1, 16777215", "ldi rb4, 12345",
+         "shl r0, elem_num, 3  ; nop",
+         "add r0, r0, rb7      ; nop",
+         "add ra2, r0, 1       ; nop",
+         "mov r2, 0            ; nop",
+         "loop:"]
+    for _ in range(4):
+        L += ["nop                 ; mul24 r0, ra2, rb0",
+              NOP,
+              "add r0, r0, rb4      ; nop",
+              "and ra2, r0, rb1     ; nop",
+              "and r1, ra2, rb2     ; nop",
+              "add r1, r1, ra0      ; nop",
+              "mov t0s, r1          ; nop"]
+    L += ["nop                 ; nop           ; ldtmu0",
+          "add r2, r2, r4       ; nop           ; ldtmu0",
+          "add r2, r2, r4       ; nop           ; ldtmu0",
+          "add r2, r2, r4       ; nop           ; ldtmu0",
+          "add r2, r2, r4       ; nop"]
+    return fix(L + loop_tail() + thrend())
+
+
+def bench_store():
+    """VPM DMA stores: 1 KB an iteration (16 rows of 16 words) to dst, dst grows by 1 KB. Uniforms: dst, iterations."""
+    L = ["mov ra1, unif        ; nop",
+         "mov ra3, unif        ; nop",
+         "ldi rb6, %d" % (VPM_H32 | 1 << 12),
+         "ldi rb7, %d" % vdw(16, 16),
+         "ldi rb8, %d" % VDW_STRIDE,
+         "ldi rb5, 1024",
+         "mov r0, elem_num     ; nop",
+         "loop:"]
+    L += vpm_store(["r0"] * 16, "rb6", "rb7", "rb8")
+    L += ["add ra1, ra1, rb5    ; nop"]
+    return fix(L + loop_tail() + thrend())
+
+
+PROGRAMS = {"qp_particles": particles, "qp_fade": fade, "qp_bench_nop": bench_nop, "qp_bench_gather": bench_gather,
+            "qp_bench_store": bench_store}
 
 
 def write_header(path):

@@ -223,4 +223,113 @@ static const uint32_t qp_fade[304] __attribute__((aligned(8))) = {
     0x009e7000, 0x100009e7,     /* nop                 ; nop */
 };
 
+static const uint32_t qp_bench_nop[6] __attribute__((aligned(8))) = {
+    0x009e7000, 0x300009e7,     /* nop                 ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+};
+
+static const uint32_t qp_bench_gather[114] __attribute__((aligned(8))) = {
+    0x15827d80, 0x10020027,     /* mov ra0, unif        ; nop */
+    0x15827d80, 0x100210a7,     /* mov rb2, unif        ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif        ; nop */
+    0x15827d80, 0x100211e7,     /* mov rb7, unif        ; nop */
+    0x00010dcd, 0xe0021027,     /* ldi rb0, 69069 */
+    0x00ffffff, 0xe0021067,     /* ldi rb1, 16777215 */
+    0x00003039, 0xe0021127,     /* ldi rb4, 12345 */
+    0x11983dc0, 0xd0020827,     /* shl r0, elem_num, 3  ; nop */
+    0x0c9c71c0, 0x10020827,     /* add r0, r0, rb7      ; nop */
+    0x0c9c11c0, 0xd00200a7,     /* add ra2, r0, 1       ; nop */
+    0x159c0fc0, 0xd00208a7,     /* mov r2, 0            ; nop */
+    0x40080037, 0x100049e0,     /* nop                 ; mul24 r0, ra2, rb0 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0c9c41c0, 0x10020827,     /* add r0, r0, rb4      ; nop */
+    0x149c11c0, 0x100200a7,     /* and ra2, r0, rb1     ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x14082dc0, 0x10020867,     /* and r1, ra2, rb2     ; nop */
+    0x0c027380, 0x10020867,     /* add r1, r1, ra0      ; nop */
+    0x159e7240, 0x10020e27,     /* mov t0s, r1          ; nop */
+    0x40080037, 0x100049e0,     /* nop                 ; mul24 r0, ra2, rb0 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0c9c41c0, 0x10020827,     /* add r0, r0, rb4      ; nop */
+    0x149c11c0, 0x100200a7,     /* and ra2, r0, rb1     ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x14082dc0, 0x10020867,     /* and r1, ra2, rb2     ; nop */
+    0x0c027380, 0x10020867,     /* add r1, r1, ra0      ; nop */
+    0x159e7240, 0x10020e27,     /* mov t0s, r1          ; nop */
+    0x40080037, 0x100049e0,     /* nop                 ; mul24 r0, ra2, rb0 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0c9c41c0, 0x10020827,     /* add r0, r0, rb4      ; nop */
+    0x149c11c0, 0x100200a7,     /* and ra2, r0, rb1     ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x14082dc0, 0x10020867,     /* and r1, ra2, rb2     ; nop */
+    0x0c027380, 0x10020867,     /* add r1, r1, ra0      ; nop */
+    0x159e7240, 0x10020e27,     /* mov t0s, r1          ; nop */
+    0x40080037, 0x100049e0,     /* nop                 ; mul24 r0, ra2, rb0 */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x0c9c41c0, 0x10020827,     /* add r0, r0, rb4      ; nop */
+    0x149c11c0, 0x100200a7,     /* and ra2, r0, rb1     ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x14082dc0, 0x10020867,     /* and r1, ra2, rb2     ; nop */
+    0x0c027380, 0x10020867,     /* add r1, r1, ra0      ; nop */
+    0x159e7240, 0x10020e27,     /* mov t0s, r1          ; nop */
+    0x009e7000, 0xa00009e7,     /* nop                 ; nop           ; ldtmu0 */
+    0x0c9e7500, 0xa00208a7,     /* add r2, r2, r4       ; nop           ; ldtmu0 */
+    0x0c9e7500, 0xa00208a7,     /* add r2, r2, r4       ; nop           ; ldtmu0 */
+    0x0c9e7500, 0xa00208a7,     /* add r2, r2, r4       ; nop           ; ldtmu0 */
+    0x0c9e7500, 0x100208a7,     /* add r2, r2, r4       ; nop */
+    0x0d0c1dc0, 0xd00220e7,     /* sub.setf ra3, ra3, 1 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0xfffffea8, 0xf03809e7,     /* bra.anynz loop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x300009e7,     /* nop                 ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+};
+
+static const uint32_t qp_bench_store[80] __attribute__((aligned(8))) = {
+    0x15827d80, 0x10020067,     /* mov ra1, unif        ; nop */
+    0x15827d80, 0x100200e7,     /* mov ra3, unif        ; nop */
+    0x00001a00, 0xe00211a7,     /* ldi rb6, 6656 */
+    0x88104000, 0xe00211e7,     /* ldi rb7, 2282766336 */
+    0xc0000000, 0xe0021227,     /* ldi rb8, 3221225472 */
+    0x00000400, 0xe0021167,     /* ldi rb5, 1024 */
+    0x159a7d80, 0x10020827,     /* mov r0, elem_num     ; nop */
+    0x15ce7d80, 0x100209e7,     /* mov nop, mutex_acquire ; nop */
+    0x159c6fc0, 0x10021c67,     /* mov vw_setup, rb6    ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159e7000, 0x10020c27,     /* mov vpm, r0          ; nop */
+    0x159c7fc0, 0x10021c67,     /* mov vw_setup, rb7    ; nop */
+    0x159c8fc0, 0x10021c67,     /* mov vw_setup, rb8    ; nop */
+    0x15067d80, 0x10021ca7,     /* mov vw_addr, ra1     ; nop */
+    0x159f2fc0, 0x100209e7,     /* mov nop, vw_wait     ; nop */
+    0x159c0fc0, 0xd0020ce7,     /* mov mutex_release, 0 ; nop */
+    0x0c045dc0, 0x10020067,     /* add ra1, ra1, rb5    ; nop */
+    0x0d0c1dc0, 0xd00220e7,     /* sub.setf ra3, ra3, 1 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0xffffff10, 0xf03809e7,     /* bra.anynz loop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x300009e7,     /* nop                 ; nop           ; thrend */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+    0x009e7000, 0x100009e7,     /* nop                 ; nop */
+};
+
 #endif

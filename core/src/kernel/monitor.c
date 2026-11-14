@@ -709,6 +709,22 @@ CMD(c_crc)
     return 0;
 }
 
+/* the VPM micro-benchmark of the V3D (core/src/gpu/qpu_bench.c; the Pi only: weak elsewhere) */
+extern int qpu_vpm_bench(uint32_t (*us)(void), char *line, size_t n) __attribute__((weak));
+static uint32_t mon_us(void) { return timer_ticks(); }
+CMD(c_bench_vpm)
+{
+    (void)argc; (void)argv;
+    if (!qpu_vpm_bench) {
+        kprintf("vpm bench: no V3D on this console\n");
+        return 1;
+    }
+    char line[320];
+    const int r = qpu_vpm_bench(mon_us, line, sizeof line);
+    kprintf("%s\n", line);
+    return r ? 1 : 0;
+}
+
 CMD(c_ls) { return mfs_ls(argc, argv); }
 CMD(c_cd) { return mfs_cd(argc, argv); }
 CMD(c_pwd) { return mfs_pwd(argc, argv); }
@@ -777,6 +793,7 @@ static const mcmd_t net_sub[] = {
 
 static const mcmd_t bench_sub[] = {
     { .name = "3d", .args = "[tests=A,B profiles=P]", .help = "3D Bench, bars and a saved report", .fn = c_bench_3d },
+    { .name = "vpm", .help = "V3D micro-benchmark: QPU job, gathers, VPM stores, ARM slowdown", .fn = c_bench_vpm },
     { NULL }
 };
 
@@ -816,6 +833,7 @@ static const mcmd_t commands[] = {
     { .name = "exit", .help = "leave the bm: prompt (back to the shell menu)", .fn = c_exit },
     /* the words of before: same syntax, same output */
     { .name = "b3d", .alias = "bench 3d" },
+    { .name = "vpm", .alias = "bench vpm" },
     { .name = "vim", .alias = "code" },
     { .name = "ed", .alias = "code" },
     { .name = "shell_code", .alias = "code" },

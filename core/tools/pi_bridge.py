@@ -41,7 +41,7 @@ MONITOR_ONLY = set(KEY_LINES)
 LOGS = {"bootprev": "bootprev.txt", "bootlog": "bootlog.txt", "lastrun": "lastrun.txt", "battery": "battery.csv"}
 # the monitor commands the line operation passes (the old words of the table `commands` in core/src/kernel/monitor.c; set, save and play are left out:
 # set writes any config key, wifi_psk and net_password included; play is the bridge's play FILE)
-LINE_CMDS = ("b3d", "log", "err", "crc", "send", "reboot")
+LINE_CMDS = ("b3d", "log", "err", "crc", "send", "reboot", "vpm")
 # letters, digits, space and _ , = ; only (a control character would end the line early: bm_net.py closes it with a carriage return)
 LINE_CHARS = set(string.ascii_letters + string.digits + " _,=;")
 # b3d (bench 3d) reads tests= and profiles= only (c_bench_3d in monitor.c); their names are [A-Za-z0-9_] (core/src/bm/b3d.c prof_short, test names)
@@ -61,7 +61,7 @@ def check_line(text):
         if not words:
             return None, "empty command between ';'"
         if words[0] not in LINE_CMDS:
-            return None, "'%s' is not allowed (allowed: b3d, log, err, crc, send, reboot)" % words[0]
+            return None, "'%s' is not allowed (allowed: %s)" % (words[0], ", ".join(LINE_CMDS))
         if words[0] != "b3d" and len(words) > 1:
             return None, "'%s' takes no arguments" % words[0]
         for w in words[1:]:

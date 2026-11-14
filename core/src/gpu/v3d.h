@@ -104,6 +104,9 @@ typedef struct {
     uint32_t code, unif, nunif;
 } v3d_qpu_job_t;
 int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us);
+/* Called once for each poll while v3d_qpu_run waits (NULL: nothing). The VPM micro-benchmark (qpu_bench.c) does ARM work there to
+ * measure how much the QPUs slow the ARM. */
+extern void (*v3d_qpu_idle)(void);
 const char *v3d_qpu_status(void);
 
 /* Registers of the last failed job (or now), one line each. */

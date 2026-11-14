@@ -99,6 +99,23 @@ The kernel path, the log fields, the numbers to read on the Pi and the plan for 
 - No frame of delay (G7) without a measured latency cost.
 - The ARM keeps the registers, the video RAM and the timing. The GPU never changes the emulated behaviour.
 
+## QPU compose through the VPM (idea, 2026-11-14)
+
+The ARM keeps the layers and the sprites. The QPUs take the line buffers of `compose` (index, layer, maths flag of the main and the sub screen) and do the mix: palette, windows, colour math, brightness, RGB565. Blocks of about 16 lines: the QPUs mix block N while the ARM draws block N+1, so no frame of delay.
+
+VPM micro-benchmark (monitor `vpm`, `core/src/gpu/qpu_bench.c`), Pi Zero W, kernel v0.3.0-157, three runs:
+
+| Number | Value |
+|---|---|
+| One QPU job, fixed cost | 4 to 5 us |
+| Gathers in 512 bytes (a palette), 12 QPUs | 0.85 ns/word (the program's own ALU loop is the limit) |
+| Gathers in 64 KB, 12 QPUs | 12.75 ns/word (as in [snes-gpu-pi.md](snes-gpu-pi.md)) |
+| VPM DMA stores, 12 QPUs with the VPM mutex | 850 MB/s |
+| ARM slowdown while the QPUs store | 12 to 14% |
+| ARM slowdown while the QPUs stream reads (old bench) | 63% |
+
+Estimate for a 256 x 224 frame (not built): read the line buffers (about 230 KB) at 2580 MB/s, 0.09 ms; two palette reads a pixel, 0.1 ms; write the picture (115 KB) at 850 MB/s, 0.14 ms; about 14 jobs, 0.07 ms. GPU time about 0.5 to 0.8 ms with the ALU work, next to the ARM. ARM loss from the shared memory about 0.1 ms. ARM gain: `mix`, 2.2 ms in SMW, up to 6.7 ms in the window and HDMA scene. Gate before building: the mix program equals `ppu_line` byte for byte on the V3D emulator.
+
 ## Open work
 
-- None. The GPU path is removed. A new try needs a different way to read the tiles (gather 12 ns/word is four times too slow for Mode 1) and a path with sprites; see [snes-gpu-pi.md](snes-gpu-pi.md).
+- QPU compose through the VPM: write the mix program and its emulator test (section above). The numbers of the micro-benchmark pass.

@@ -1640,6 +1640,8 @@ const char *v3d_qpu_status(void)
 /* The programs run one after the other, each to its end (the V3D runs 12 at
  * once: a program that waits for another's result is not emulated). The VPM is
  * the rows 0..V3D_QPU_ROWS-1 of a program; the mutex is not modelled. */
+void (*v3d_qpu_idle)(void);
+
 int v3d_qpu_run(const v3d_qpu_job_t *jobs, int n, uint32_t timeout_us)
 {
     (void)timeout_us;
