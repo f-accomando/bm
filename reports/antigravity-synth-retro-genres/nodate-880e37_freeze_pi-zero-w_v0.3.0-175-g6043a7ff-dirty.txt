@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.3.0-175-g6043a7ff-dirty
+branch: antigravity/synth-retro-genres
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-880e37_freeze_pi-zero-w_v0.3.0-175-g6043a7ff-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: cartart: the log to the SD, frame 0, 339 s after boot, kernel v0.3.0-175-g6043a7ff-dirty, ring 20500, sink on
+--- the last lines printed ---
+main.lua:2489: attempt to index a number value (upvalue 'focus')
+stack traceback:
+	main.lua:2489: in upvalue 'body'
+	main.lua:2561: in function '_update'
+menu: 1920x1080, drawn by the GPU
+v3d: ERRSTAT cleared by writing ones: 00003000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00003100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 324340 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 324350 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 324400 ms, 1 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 324409 ms, 1 jobs)
+code: ready, 2 tab(s), font 6x12
+load: bm Code 186 ms (close 0, parse 2, assets+state 2, mode 47, audio 0, lua 133)
+bm: "bm Code" stopped with an error:
+main.lua:2489: attempt to index a number value (upvalue 'focus')
+stack traceback:
+	main.lua:2489: in upvalue 'body'
+	main.lua:2561: in function '_update'
+menu: 1920x1080, drawn by the GPU
+v3d: ERRSTAT cleared by writing ones: 00003000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00003100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 325085 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 325095 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 325145 ms, 1 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 325154 ms, 1 jobs)
+code: ready, 2 tab(s), font 6x12
+load: bm Code 186 ms (close 0, parse 2, assets+state 2, mode 47, audio 0, lua 133)
+bm: "bm Code" stopped with an error:
+main.lua:2489: attempt to index a number value (upvalue 'focus')
+stack traceback:
+	main.lua:2489: in upvalue 'body'
+	main.lua:2561: in function '_update'
+menu: 1920x1080, drawn by the GPU
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007100 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 330733 ms, 1 jobs)
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 330743 ms, 1 jobs)
+bm > Report the log
+
+report: 20261114-130850_log_pi-zero-w_v0.3.0-175-g6043a7ff-dirty.txt saved as bm/reports/rpt00001.txt
+tls: 21 root certificates
+report: sending 20261114-130850_log_pi-zero-w_v0.3.0-175-g6043a7ff-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/antigravity-synth-retro-genres/20261114-130850_log_pi-zero-w_v0.3.0-175-g6043a7ff-dirty.txt
+
+A, Esc or any key: back to the menu
+menu: 1920x1080, drawn by the GPU
+menu idle: sd first word <1ms 193 <3ms 4 (max 1.5 ms)
+menu stalls: tls handshake 1x last 318.2 worst 318.2 ms
+menu frame: 1x, a frame averages draw 29900 us, enlarge 0 us, flip 97 us, free time used 29 us (300 frames)
+rebooting...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun
