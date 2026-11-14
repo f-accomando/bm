@@ -106,7 +106,7 @@ static const char *LISP_EMITTER =
     "                (emit-block tgt \"  \" ?body)\n"
     "                \"end\")))\n"
     "    ((seq . ?fns) (join-with (str-cat (nl) (nl)) (map (lambda (f) (emit-ast tgt f)) ?fns)))\n"
-    "    (_ (emit-stmt tgt \"\" ast))))\n";
+    "    (_ (if (string? ast) ast (emit-stmt tgt \"\" ast)))))\n";
 
 /* Composable bm domain patterns -> Unified AST */
 static const char *LISP_PATTERNS =
@@ -224,6 +224,90 @@ static const char *LISP_PATTERNS =
     "          (fn ,sfn ((x i32) (y i32)) i32\n"
     "            (var nx i32 (call ,mfn x y))\n"
     "            (return (call ,cfn nx))))))\n"
+    "    ((platformer-cart ?name ?spd ?grav ?jv)\n"
+    "     (str-cat\n"
+    "       \"-- Geometric Platformer Cartridge (\" ?name \")\" (nl)\n"
+    "       \"local SPD, GRAV, JV = \" ?spd \", \" ?grav \", \" ?jv (nl)\n"
+    "       \"local TILE, COLS = 16, 60\" (nl)\n"
+    "       \"cam_x, score, lives, state, flag_x = 0, 0, 3, 'play', 880\" (nl)\n"
+    "       \"local function tile_at(tx, ty)\" (nl)\n"
+    "       \"  if tx < 0 or tx >= COLS or ty < 0 then return 0 end\" (nl)\n"
+    "       \"  if ty >= 10 then\" (nl)\n"
+    "       \"    if (tx >= 14 and tx <= 15) or (tx >= 30 and tx <= 31) then return 0 end\" (nl)\n"
+    "       \"    return 1\" (nl)\n"
+    "       \"  end\" (nl)\n"
+    "       \"  if ty == 9 and (tx == 10 or tx == 22 or tx == 38) then return 3 end\" (nl)\n"
+    "       \"  if ty == 8 and (tx == 22 or tx == 38) then return 3 end\" (nl)\n"
+    "       \"  if ty == 7 and ((tx >= 6 and tx <= 9) or (tx >= 18 and tx <= 21) or (tx >= 33 and tx <= 36)) then return 2 end\" (nl)\n"
+    "       \"  return 0\" (nl)\n"
+    "       \"end\" (nl)\n"
+    "       \"local function solid_at(px, py) return tile_at(math.floor(px / TILE), math.floor(py / TILE)) > 0 end\" (nl)\n"
+    "       \"function _init()\" (nl)\n"
+    "       \"  cam_x, score, lives, state = 0, 0, 3, 'play'\" (nl)\n"
+    "       \"  player = { x = 32, y = 146, w = 12, h = 14, vx = 0, vy = 0, on_ground = false, ifr = 0 }\" (nl)\n"
+    "       \"  enemies = { {x=180,y=148,w=12,h=12,dir=-1,alive=true}, {x=390,y=148,w=12,h=12,dir=-1,alive=true}, {x=620,y=148,w=12,h=12,dir=1,alive=true} }\" (nl)\n"
+    "       \"  coins = { {x=116,y=96,got=false}, {x=132,y=96,got=false}, {x=308,y=96,got=false}, {x=548,y=96,got=false}, {x=720,y=140,got=false} }\" (nl)\n"
+    "       \"end\" (nl)\n"
+    "       \"local function step_player()\" (nl)\n"
+    "       \"  if player.ifr > 0 then player.ifr = player.ifr - 1 end\" (nl)\n"
+    "       \"  local vx = 0\" (nl)\n"
+    "       \"  if btn(0) then vx = -SPD end\" (nl)\n"
+    "       \"  if btn(1) then vx = SPD end\" (nl)\n"
+    "       \"  player.vx = vx\" (nl)\n"
+    "       \"  local nx = player.x + vx\" (nl)\n"
+    "       \"  if nx >= 0 and not solid_at(nx, player.y + 2) and not solid_at(nx + player.w - 1, player.y + 2) and not solid_at(nx, player.y + player.h - 2) and not solid_at(nx + player.w - 1, player.y + player.h - 2) then\" (nl)\n"
+    "       \"    player.x = nx\" (nl)\n"
+    "       \"  else player.vx = 0 end\" (nl)\n"
+    "       \"  if player.on_ground and btnp(4) then player.vy = -JV; player.on_ground = false end\" (nl)\n"
+    "       \"  player.vy = math.min(player.vy + GRAV, 8)\n\"\n"
+    "       \"  local ny = player.y + player.vy\" (nl)\n"
+    "       \"  player.on_ground = false\" (nl)\n"
+    "       \"  if player.vy >= 0 then\" (nl)\n"
+    "       \"    if solid_at(player.x + 2, ny + player.h) or solid_at(player.x + player.w - 2, ny + player.h) then\" (nl)\n"
+    "       \"      player.y = math.floor((ny + player.h) / TILE) * TILE - player.h; player.vy = 0; player.on_ground = true\" (nl)\n"
+    "       \"    else player.y = ny end\" (nl)\n"
+    "       \"  else\" (nl)\n"
+    "       \"    if solid_at(player.x + 2, ny) or solid_at(player.x + player.w - 2, ny) then player.vy = 0 else player.y = ny end\" (nl)\n"
+    "       \"  end\" (nl)\n"
+    "       \"  if player.y > 192 then\" (nl)\n"
+    "       \"    lives = lives - 1\" (nl)\n"
+    "       \"    if lives <= 0 then state = 'gameover' else player.x, player.y, player.vy = 32, 146, 0 end\" (nl)\n"
+    "       \"  end\" (nl)\n"
+    "       \"  cam_x = math.max(0, math.min(player.x - 120, COLS * TILE - 320))\" (nl)\n"
+    "       \"end\" (nl)\n"
+    "       \"local function step_world()\" (nl)\n"
+    "       \"  for _, e in ipairs(enemies) do if e.alive then\" (nl)\n"
+    "       \"    local ax = e.x + e.dir\" (nl)\n"
+    "       \"    if ax < 16 or solid_at(ax + (e.dir > 0 and e.w or 0), e.y + 6) or not solid_at(ax + 6, e.y + e.h + 4) then e.dir = -e.dir else e.x = ax end\" (nl)\n"
+    "       \"    if math.abs((player.x + 6) - (e.x + 6)) < 11 and math.abs((player.y + 7) - (e.y + 6)) < 12 then\" (nl)\n"
+    "       \"      if player.vy > 0 and (player.y + player.h) <= (e.y + 8) then e.alive = false; player.vy = -4; score = score + 100\" (nl)\n"
+    "       \"      elseif player.ifr == 0 then lives = lives - 1; player.ifr = 45; if lives <= 0 then state = 'gameover' end end\" (nl)\n"
+    "       \"    end\" (nl)\n"
+    "       \"  end end\" (nl)\n"
+    "       \"  for _, c in ipairs(coins) do if not c.got then\" (nl)\n"
+    "       \"    if math.abs((player.x + 6) - c.x) < 12 and math.abs((player.y + 7) - c.y) < 12 then c.got = true; score = score + 50 end\" (nl)\n"
+    "       \"  end end\" (nl)\n"
+    "       \"  if player.x + player.w >= flag_x then state = 'win'; score = score + 500 end\" (nl)\n"
+    "       \"end\" (nl)\n"
+    "       \"function _update()\" (nl)\n"
+    "       \"  if state ~= 'play' then if btnp(4) then _init() end; return end\" (nl)\n"
+    "       \"  step_player(); step_world()\" (nl)\n"
+    "       \"end\" (nl)\n"
+    "       \"function _draw()\" (nl)\n"
+    "       \"  cls(12)\" (nl)\n"
+    "       \"  local t0 = math.floor(cam_x / TILE)\" (nl)\n"
+    "       \"  for tx = t0, t0 + 21 do for ty = 0, 11 do local t = tile_at(tx, ty); if t > 0 then\" (nl)\n"
+    "       \"    local sx, sy = tx * TILE - cam_x, ty * TILE\" (nl)\n"
+    "       \"    rectfill(sx, sy, sx + TILE - 1, sy + TILE - 1, t == 1 and 4 or (t == 2 and 9 or 11))\" (nl)\n"
+    "       \"  end end end\" (nl)\n"
+    "       \"  rectfill(flag_x - cam_x, 48, flag_x - cam_x + 3, 160, 7)\" (nl)\n"
+    "       \"  rectfill(flag_x - cam_x + 3, 50, flag_x - cam_x + 16, 62, 8)\" (nl)\n"
+    "       \"  for _, c in ipairs(coins) do if not c.got then circfill(c.x - cam_x, c.y, 4, 10) end end\" (nl)\n"
+    "       \"  for _, e in ipairs(enemies) do if e.alive then rectfill(e.x - cam_x, e.y, e.x - cam_x + e.w, e.y + e.h, 8) end end\" (nl)\n"
+    "       \"  rectfill(player.x - cam_x, player.y, player.x - cam_x + player.w, player.y + player.h, 11)\" (nl)\n"
+    "       \"  print('SCORE:' .. score .. ' LIVES:' .. lives, 6, 6, 7)\" (nl)\n"
+    "       \"  if state ~= 'play' then print(state == 'win' and 'YOU WIN!' or 'GAME OVER', 120, 80, 10) end\" (nl)\n"
+    "       \"end\"))\n"
     "    ((compose . ?goals)\n"
     "     (cons 'seq (map (lambda (x) (expand-goal tgt x)) ?goals)))\n"
     "    (_ g)))\n"
@@ -524,6 +608,21 @@ static size_t match_conj_sep(const char *p)
 
 static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, size_t cap)
 {
+    int is_game = has_word(q, "gioco") || has_word(q, "game") ||
+                  has_word(q, "mario") || has_word(q, "cartuccia") || has_word(q, "cartridge");
+    int is_plat = has_word(q, "platform") || has_word(q, "platformer") || has_word(q, "mario");
+    if (is_game && is_plat) {
+        char name[32];
+        extract_name(q, "mario", name, sizeof(name));
+        int speed = extract_int_near(q, "velocit", -1);
+        if (speed < 0) speed = extract_int_near(q, "speed", 2);
+        int grav = extract_int_near(q, "grav", 1);
+        int jump_v = extract_int_near(q, "salto", -1);
+        if (jump_v < 0) jump_v = extract_int_near(q, "jump", 6);
+        snprintf(goal, cap, "(platformer-cart %s %d %d %d)", name, speed, grav, jump_v);
+        return 0;
+    }
+
     char clauses[16][192];
     int n_goals = 0;
     char default_name[32] = "player";

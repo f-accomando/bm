@@ -13,7 +13,8 @@ Split from [tools](tools.md); open work and rules stay there.
   `lerp-fn`, `damage-hp`, `cond`/`elseif`, `for-step`, `aref`/`aset`). `assist.lua` strips target/numeric noise
   before `ai.ask`, verifies `.b` with `native_compile` (`bmlc.c`) and `Lua` with `load`, and `bm/code/main.lua`
   (`BL.integrate_block`) places synthesized functions before `_update()` with green gutter marks (`ai_marks`).
-  Tests: `tests/ai/synth_test.lua` and scored benchmark `tests/ai/synth_bench.lua` (L1–L5).
+  Tests: `tests/ai/synth_test.lua`, scored benchmark `tests/ai/synth_bench.lua` (L1–L5), and SMB-like `.bm`
+  benchmark `tests/ai/synth_smb_bench.lua` (`platformer-cart`).
 - Low poly help: `core/src/ai/kb/lowpoly.txt` (guide `guide.lowpoly_1200`, howto `howto.reduce_triangles`, tips
   `tip.tri_limits`, `tip.reduce_or_build`, `tip.reduce_lost_parts`): Studio's models page (F2), key `-`. Numbers from
   the mannequin test, `.claude/skills/bm-forge/references/DETAIL.md` (1200 triangles: 0.46 cm on a 1.8 m figure;
