@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-1f4b33_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 3066, 226 s after boot, kernel dev, ring 20195, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+000000 DBG 10018900
+diag9 dma10 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018a00
+diag9 dma11 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018b00
+diag9 dma12 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018c00
+diag9 dma13 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018d00
+diag9 dma14 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018e00
+diag9 dma INT 00000000 ENABLE 00007fff
+diag9 hvs+00 9a0c0fff 00000000 64647276 71bf0000 00000000 00000000 00010600 64647276
+diag9 hvs+20 00000000 00000664 00000000 30000000 00000000 00000664 00000000 64647276
+diag9 hvs+40 00000000 00000000 11992000 50ff3c90 80780438 01000000 800101ba 3c8f0800
+diag9 hvs+60 00000000 00000000 10000000 07ff0000 000000ff 64647276 00000000 64647276
+diag9 pv0 CTRL 00048000 VCTRL 00000000 INTEN 00000000 INTSTAT 00000000 STAT 00000000
+diag9 pv1 CTRL 00048000 VCTRL 00000000 INTEN 00000000 INTSTAT 00000000 STAT 00000000
+diag9 pv2 CTRL 00177005 VCTRL 00000003 INTEN 00000000 INTSTAT 00000000 STAT 00000444
+diag9 v3d 000=02443356 008=00000121 020=00000001 024=00000000 030=00000000 034=00000000
+diag9 v3d 038=00000000 100=00000000 104=00000000 108=42e182f9 10c=42e5818c 110=42e182f9
+diag9 v3d 114=42e5818c 130=00000000 134=00000000 138=00000000 300=4201e500 304=003f9000
+diag9 v3d 410=00000000 414=00000000 418=00000000 430=00000000 43c=00000000 500=00000000
+diag9 v3d 504=00000000 f00=00000000 f20=00001000
+diag9 irq basic 00000000 pend1 00000000 pend2 00000000 en1 00200002 en2 02000000 enb 00000000
+diag9 st CLO 0a131c88 CS 00000000 C0 0a132fd3 C2 0a1335d5
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 9310, t 169027 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007150 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 169042 ms, 2 jobs)
+fb: mode 1920x1080 depth 16 x3 set in 6499 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 169059 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 00007150 -> 00007180 after job 3 (t 169095 ms)
+overbit quality up to 2 (14.8 ms)
+overbit quality up to 3 (16.4 ms)
+overbit quality up to 4 (16.9 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 set in 1504 us
+bm: "Overbit" 3066 frames, 59.5 fps, 3 dropped
+     update+draw avg 15.55 ms (93% of frame), max 28.70 ms, Lua 1052 KB
+     dev kit: Lua peak 1824 KB, data 6415 KB, busiest frame 7k instructions, 340 frames over 16.7 ms, 73600 tokens
+     GPU 3D 3066 jobs, 3000 triangles a frame, 13.79 ms a frame (bin 0%), max job 15442 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fb: mode 1920x1080 depth 16 x3 set in 6590 us
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 103.8 ms past its slice
+menu idle: 300/300 frames, 168 of 732 ms taken, 104.5 ms past a frame; reports 148 ms (+103.8, stk 7.6/128K); min slack -4674 us, paced 0
+menu idle: sd first word <1ms 46 <3ms 4 (max 13.7 ms)
+menu stalls: tls handshake 1x last 286.4 worst 286.4 ms
+menu frame: 1x, a frame averages draw 15663 us, enlarge 0 us, flip 89 us, free time used 560 us (300 frames)
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 322 of 744 ms taken, 38.5 ms past a frame; reports 308 ms (+38.5, stk 7.6/128K); min slack 1375 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 13.7 ms)
+menu frame: 1x, a frame averages draw 12593 us, enlarge 0 us, flip 88 us, free time used 1075 us (300 frames)
+net: restarting with the new kernel in 1 s
