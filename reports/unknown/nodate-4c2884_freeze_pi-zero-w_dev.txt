@@ -1,0 +1,74 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-4c2884_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 2673, 150 s after boot, kernel dev, ring 10765, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 367 ms (close 0, parse 56, assets+state 38, mode 46, audio 4, lua 220)
+net: not served for 420 ms (up 62000 ms), while: boot
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 000071d0 after job 2 (t 64068 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 000071d0 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 64102 ms, 2 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 64117 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 000071d0 -> 00007180 after job 3 (t 64151 ms)
+overbit quality up to 2 (14.2 ms)
+overbit quality up to 3 (15.9 ms)
+overbit quality up to 4 (16.0 ms)
+
+net: console opened from 192.168.1.115
+> bm: "Overbit" 2673 frames, 59.7 fps, 3 dropped
+     update+draw avg 14.90 ms (89% of frame), max 28.21 ms, Lua 918 KB
+     dev kit: Lua peak 1824 KB, data 6415 KB, busiest frame 7k instructions, 10 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2673 jobs, 2971 triangles a frame, 13.18 ms a frame (bin 0%), max job 14584 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 385 of 652 ms taken, 102.6 ms past a frame; reports 369 ms (+102.6, stk 7.6/128K); min slack -8913 us, paced 0
+menu idle: sd first word <1ms 60 <3ms 4 (max 1.5 ms)
+menu stalls: tls handshake 1x last 301.1 worst 301.1 ms
+menu frame: 1x, a frame averages draw 14497 us, enlarge 0 us, flip 96 us, free time used 1285 us (300 frames)
+menu frame: 1x, a frame averages draw 13303 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13213 us, enlarge 0 us, flip 97 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 13420 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13386 us, enlarge 0 us, flip 94 us, free time used 39 us (300 frames)
+net: receiving a new kernel (6972596 bytes)...
+net: kernel 0% (0 of 6809 KB)
+net: kernel 10% (683 of 6809 KB)
+net: kernel 20% (1369 of 6809 KB)
+net: kernel 30% (2047 of 6809 KB)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 14578 us, enlarge 0 us, flip 94 us, free time used 40 us (300 frames)
+net: kernel 40% (2733 of 6809 KB)
+net: kernel 50% (3411 of 6809 KB)
+net: kernel 60% (4086 of 6809 KB)
+net: kernel 70% (4772 of 6809 KB)
+menu frame: 1x, a frame averages draw 14940 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+net: kernel 80% (5453 of 6809 KB)
+net: kernel 90% (6128 of 6809 KB)
+net: dev mode: kernel received (6972596 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 77.6 ms past its slice
+fiber: netxfer did not yield: 91.0 ms past its slice
+fiber: netxfer did not yield: 91.2 ms past its slice
+menu idle: 300/300 frames, 1245 of 720 ms taken, 89.8 ms past a frame; netxfer 2307 ms (+91.2, stk 1.1/64K); min slack -114414 us, paced 0
+menu idle: sd first word <1ms 137 <3ms 153 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 18379 us, enlarge 0 us, flip 96 us, free time used 4152 us (300 frames)
+net: saved kernel.img on the SD card (6972596 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
