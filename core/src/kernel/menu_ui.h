@@ -27,11 +27,13 @@ typedef struct {
     int busy, percent;          /* downloading: a bar on the cover */
     int grey;                   /* not made for this device (bm_compat_classify): a faded cover, no pill;
                                  * the caller asks before it starts: the reason as the question, OK and Cancel */
+    int box;                    /* a ROM of the NES or SNES tab: a portrait card, MENU_BOX_W x MENU_CARD, in the middle of the cell */
 } menu_item_t;
 
 /* the covers: squares (2026-10-04, the bm Suite's icons; 128x80 before),
  * MENU_COLS a row on the Pi's 640 pixels, 3 on the RGB30's 360 */
 #define MENU_CARD 88
+#define MENU_BOX_W (MENU_CARD * 8 / 11)          /* 64: the 0.73 ratio of a NES box and of a PAL or Japanese SNES box */
 #define MENU_COLS 6
 /* covers per row of the open menu: 4 on the Pi, 2 on the RGB30 */
 int menu_ui_cols(void);
@@ -182,6 +184,8 @@ void menu_ui_close_quiet(framebuffer_t *fb);
 
 /* A cover for cartridges without one: the title on a coloured label. */
 int  menu_make_cover(g16_sheet_t *s, const char *title);
+/* a portrait box cover (NES, or SNES with snes 1) for a ROM of the NES and SNES tabs: the box in the middle of the card, the title on it */
+int  menu_make_box_cover(g16_sheet_t *s, const char *title, int snes);
 /* A cover from RGBA8888 pixels (the .bm COVER section, a Market PNG), any
  * size: a square scaled to the card; another shape (the 128x80 covers of
  * before) whole, as wide as the card, over a blurred darker copy of it. */

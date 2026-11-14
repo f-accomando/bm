@@ -98,7 +98,7 @@ BM_SRCS := $(wildcard core/src/bm/*.c) \
            core/src/ai/music.c core/src/ai/music_net.c core/src/ai/lua_music.c core/src/ai/nn.c core/src/ai/net.c \
            core/src/kernel/prompts.c core/src/kernel/pointer.c \
            core/src/kernel/menu_ui.c core/src/kernel/menu_bg.c core/src/kernel/icons.c core/src/kernel/syskeys.c core/src/kernel/settings.c core/src/kernel/controls.c \
-           core/src/kernel/sdmap.c core/src/kernel/sdmap_core.c core/src/kernel/library.c \
+           core/src/kernel/sdmap.c core/src/kernel/sdmap_core.c core/src/kernel/library.c core/src/kernel/romtabs.c \
            core/src/kernel/ledstate.c core/src/kernel/notice.c core/src/kernel/splash.c core/src/kernel/logo_data.c
 # the Dev tab's bm SDK (RGB30) runs as a tool, as the Pi's suite: the same loop
 BM_SRCS += core/src/kernel/devtool.c core/src/kernel/jobs.c

@@ -355,6 +355,77 @@ int menu_make_cover(g16_sheet_t *s, const char *title)
     return 0;
 }
 
+/* A box cover for a ROM of the NES or SNES tab: a portrait box (64 x 88, the 0.73 ratio of a NES box and of a PAL or Japanese SNES box) in
+ * the middle of the card, in the style of the console: a black box with a stripe band (NES), a light box with a coloured top band (SNES).
+ * The picture window is made from the title (its hash): no artwork of a game is copied. Original drawing. */
+static void box_title(g16_t *cg, int x0, int y0, int w, const char *title, uint16_t c, int max_lines)
+{
+    enum { CW = 6, LH = 12 };
+    const int line = w / CW;
+    const char *p = title;
+    for (int n = 0; *p && n < max_lines; n++) {
+        while (*p == ' ') p++;
+        int len = (int)strlen(p), take = len <= line ? len : line;
+        if (len > line)
+            for (int i = line; i > 0; i--)
+                if (p[i] == ' ') { take = i; break; }
+        char buf[24];
+        if (take > (int)sizeof buf - 1) take = (int)sizeof buf - 1;
+        memcpy(buf, p, (size_t)take);
+        buf[take] = 0;
+        g16_text(cg, x0 + (w - take * CW) / 2, y0 + n * LH, buf, c);
+        p += take;
+    }
+}
+
+int menu_make_box_cover(g16_sheet_t *s, const char *title, int snes)
+{
+    if (g16_sheet_alloc(s, CARD_W, CARD_H) != 0)
+        return -1;
+    uint32_t h = 2166136261u;
+    for (const char *p = title; *p; p++)
+        h = (h ^ (uint8_t)*p) * 16777619u;
+    g16_t cg;
+    g16_target(&cg, s->px, (uint32_t)s->w, s->w, s->h, &font_console_6x12);
+    const int bw = CARD_H * 8 / 11, bx = (CARD_W - bw) / 2;       /* 64 x 88 */
+    g16_rectfill(&cg, 0, 0, CARD_W, CARD_H, g16_rgb(16, 20, 28));
+    /* the picture window: a sky gradient, a horizon and a few shapes, all from the hash */
+    const uint32_t r0 = 30 + (h & 127), g0 = 30 + (h >> 7 & 127), b0 = 60 + (h >> 14 & 127);
+    const int wx = bx + 4, wy = snes ? 16 : 18, ww = bw - 8, wh = snes ? 50 : 46;
+    if (snes) {
+        g16_rectfill(&cg, bx, 0, bw, CARD_H, g16_rgb(222, 222, 216));             /* the light box */
+        g16_rectfill(&cg, bx, 0, bw, 12, g16_rgb(70, 70, 82));                     /* the top band */
+        static const uint8_t dots[4][3] = { { 220, 40, 40 }, { 240, 200, 40 }, { 40, 170, 70 }, { 50, 80, 210 } };
+        for (int i = 0; i < 4; i++)
+            g16_circfill(&cg, bx + bw - 30 + i * 7, 6, 2, g16_rgb(dots[i][0], dots[i][1], dots[i][2]));
+        g16_text(&cg, bx + 3, 1, "SNES", g16_rgb(235, 235, 235));
+    } else {
+        g16_rectfill(&cg, bx, 0, bw, CARD_H, g16_rgb(8, 8, 10));                   /* the black box */
+        for (int y = 70; y < CARD_H - 2; y += 3)                                    /* the stripe band */
+            g16_rectfill(&cg, bx + 2, y, bw - 4, 1, g16_rgb(60 + (h >> 3 & 63), 60, 70));
+        g16_text(&cg, bx + 3, CARD_H - 13, "NES", g16_rgb(200, 30, 40));
+    }
+    for (int y = 0; y < wh; y++) {
+        const uint32_t k = 60 + (uint32_t)y * 140 / (uint32_t)wh;
+        g16_rectfill(&cg, wx, wy + y, ww, 1, g16_rgb(r0 * k / 200, g0 * k / 200, b0 * k / 200));
+    }
+    const int hz = wy + wh * 2 / 3;
+    g16_rectfill(&cg, wx, hz, ww, wy + wh - hz, g16_rgb(30 + (h >> 20 & 63), 50 + (h >> 4 & 63), 30));
+    for (int i = 0; i < 3; i++) {
+        const uint32_t q = h >> (i * 9);
+        g16_circfill(&cg, wx + 6 + (int)(q % (uint32_t)(ww - 12)), wy + 6 + (int)((q >> 4) % (uint32_t)(wh / 2)), 2 + (int)(q >> 7 & 3),
+                     g16_rgb(200 + (q & 55), 180 + (q >> 2 & 75), 120 + (q >> 5 & 135)));
+    }
+    g16_rect(&cg, wx - 1, wy - 1, ww + 2, wh + 2, snes ? g16_rgb(120, 120, 130) : g16_rgb(180, 180, 190));
+    /* the title */
+    if (snes)
+        box_title(&cg, bx + 1, wy + wh + 3, bw - 2, title, g16_rgb(30, 30, 40), 2);
+    else
+        box_title(&cg, bx + 1, 3, bw - 2, title, g16_rgb(240, 240, 240), 1);
+    memset(s->alpha, 1, (size_t)s->w * s->h);
+    return 0;
+}
+
 /* ---------------------------------------------------------------- tool covers */
 
 /* filled triangle, for the small icons (edge functions over the box) */
@@ -731,6 +802,31 @@ static uint16_t cover_grey(uint16_t p, int v)
     g = g * v >> 8;
     b = b * v >> 8;
     return (uint16_t)(r << 11 | g << 6 | b);
+}
+
+/* a box card (menu_item_t.box): the middle MENU_BOX_W columns of the cover, the rest of the cell left to the background */
+#define BOX_X ((CARD_W - MENU_BOX_W) / 2)
+static void card_box(const g16_sheet_t *s, int x, int y)
+{
+    if (!s || !s->px || s->w < CARD_W || s->h < CARD_H) {
+        m_rect(x + BOX_X, y, MENU_BOX_W, CARD_H, c16(0x303040));
+        return;
+    }
+    if (gpu_draw) {
+        gpu3d_blit2d(&g, s, BOX_X, 0, MENU_BOX_W, CARD_H, (x + BOX_X) * scale, y * scale, scale, 0, 0);
+        return;
+    }
+    for (int j = 0; j < CARD_H; j++) {
+        const int yy = y + j;
+        if (yy < g.cy0 || yy >= g.cy1)
+            continue;
+        uint16_t *dst = g.px + (uint32_t)yy * g.stride + x + BOX_X;
+        const uint16_t *src = s->px + j * s->w + BOX_X;
+        if (dim)
+            for (int i = 0; i < MENU_BOX_W; i++) dst[i] = half(src[i]);
+        else
+            memcpy(dst, src, MENU_BOX_W * 2);
+    }
 }
 
 /* the cover with rounded corners, clipped to the grid rows */
@@ -1746,11 +1842,15 @@ static void frame_grid(const menu_view_t *v, float t)
             int z0 = y < GRID_TOP ? GRID_TOP : y, z1 = y + CARD_H > GRID_BOT ? GRID_BOT : y + CARD_H;
             zone(x, z0, CARD_W, z1 - z0, MENU_HIT_COVER, i, y >= GRID_TOP && y + CARD_H <= GRID_BOT);
         }
-        if (i == v->sel)            /* ring with a gap, like the home screens */
-            round_ring(x - 3, y - 3, CARD_W + 6, CARD_H + 6, RADIUS, 3,
-                       dim ? c16(0x45454B) : pulse(t));
         const menu_item_t *it = &v->items[i];
-        card(it->cover, x, y, it->grey);
+        const int bx = it->box ? BOX_X : 0, bw = it->box ? MENU_BOX_W : CARD_W;
+        if (i == v->sel)            /* ring with a gap, like the home screens */
+            round_ring(x + bx - 3, y - 3, bw + 6, CARD_H + 6, RADIUS, 3,
+                       dim ? c16(0x45454B) : pulse(t));
+        if (it->box)
+            card_box(it->cover, x, y);
+        else
+            card(it->cover, x, y, it->grey);
         if (it->loading && !it->cover)
             placeholder(it, x, y, t, i);
         if (it->busy) {
@@ -1781,8 +1881,8 @@ static void frame_tabs(const menu_view_t *v)
     /* Status icons at the right (controllers, WiFi, battery) */
     status_icons(v);
 
-    /* 4 Switch-style circular tab icons, centered horizontally in the bar */
-    const int ntabs = 4;
+    /* Switch-style circular tab icons (the tabs, then Settings), centered horizontally in the bar */
+    const int ntabs = v->ntabs + 1, gear = v->ntabs;
     const int btn_sz = TAB_ICON_W;
     const int gap = SW < 480 ? 14 : 20;
     const int total_w = ntabs * btn_sz + (ntabs - 1) * gap;
@@ -1791,15 +1891,17 @@ static void frame_tabs(const menu_view_t *v)
 
     for (int i = 0; i < ntabs; i++) {
         int x0 = start_x + i * (btn_sz + gap);
-        int is_active = (i == 3) ? v->on_gear : (i == v->tab && !v->on_gear);
+        int is_active = (i == gear) ? v->on_gear : (i == v->tab && !v->on_gear);
 
         /* Touch / mouse hit zones */
-        if (i < 3)
+        if (i < gear)
             zone(x0 - gap / 2, 4, btn_sz + gap, BAR_H - 8, MENU_HIT_TAB, i, 1);
         else
             zone(x0 - gap / 2, 4, btn_sz + gap, BAR_H - 8, MENU_HIT_SETTINGS, 0, 1);
 
-        const tab_icon_mask_t *m = tab_icon_mask(i, is_active);
+        /* the icon of the tab: with 3 tabs (Market, Games, Dev) the icons of those three, else one for each tab in order */
+        const int icon = i == gear ? TAB_ICON_SETTINGS : v->ntabs == 3 ? (i == 0 ? TAB_ICON_MARKET : i == 1 ? TAB_ICON_GAMES : TAB_ICON_DEV) : i;
+        const tab_icon_mask_t *m = tab_icon_mask(icon, is_active);
         if (m)
             put_tab_icon(m, x0, y0, is_active);
     }

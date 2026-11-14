@@ -47,6 +47,8 @@ const icon_mask_t *icon_battery(int bars, int charging);
 
 enum {
     TAB_ICON_MARKET,
+    TAB_ICON_NES,
+    TAB_ICON_SNES,
     TAB_ICON_GAMES,
     TAB_ICON_DEV,
     TAB_ICON_SETTINGS,

@@ -189,7 +189,7 @@ def make_sd(tmp, files, declare=True):
 
 
 # The menu tabs are round icons since 2026-11-06 (df050a96): their names are not on the screen.
-TAB_NAMES = ("Market", "Games", "Dev", "Settings")
+TAB_NAMES = ("Market", "NES", "SNES", "Games", "Dev", "Settings")
 
 
 def _words(want):

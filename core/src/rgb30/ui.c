@@ -56,6 +56,7 @@
 #include "audio/audio.h"
 #include "kernel/market.h"
 #include "kernel/library.h"
+#include "kernel/romtabs.h"
 #include "net/catalog.h"
 #include "b3d_rgb30.h"
 #include "battery.h"
@@ -187,7 +188,9 @@ static int game_idx[LIB_MAX], n_games;      /* the Games tab: the library indexe
 static int dev_idx[LIB_MAX], n_dev;         /* the Dev tab after its fixed items: apps and utilities */
 static const char *sd_state = "not read";
 
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+enum { TAB_MARKET, TAB_NES, TAB_SNES, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+/* the ROM tabs (romtabs.c, as on the Pi): the platform, or -1 */
+static int rom_plat(int tab) { return tab == TAB_NES ? ROM_NES : tab == TAB_SNES ? ROM_SNES : -1; }
 
 /* --- what this console gives the game library (kernel/library.h): the same library as the Pi's, with the covers
  * read in the background (D10: a fiber job in the menu's free time, the covers on screen first, stopped before a
@@ -286,6 +289,7 @@ static void scan_games(void)
     lib_scan(&library);
     n_games = lib_tab_items(0, game_idx);           /* the games, then the apps and utilities: each keeps the order by title */
     n_dev = lib_tab_items(1, dev_idx);
+    romtabs_scan();
 }
 
 /* what the Market asks of the games on the card (carts.h, as carts.c on the
@@ -611,19 +615,21 @@ void home_util_start(int i, home_do_t *d)
  * Pi); Settings the last, its panel */
 
 /* The tab a key of a keyboard goes to, -1 if none (as on the Pi, carts.c): Tab is the next tab and wraps
- * after the last; 1 2 3 4 are Market, Games, Dev and Settings */
+ * after the last; 1 to 6 are Market, NES, SNES, Games, Dev and Settings */
 static int tab_of_key(int k, int tab)
 {
     switch (k) {
     case '\t': return (tab + 1) % (TAB_SETTINGS + 1);
     case '1': return TAB_MARKET;
-    case '2': return TAB_GAMES;
-    case '3': return TAB_DEV;
-    case '4': return TAB_SETTINGS;
+    case '2': return TAB_NES;
+    case '3': return TAB_SNES;
+    case '4': return TAB_GAMES;
+    case '5': return TAB_DEV;
+    case '6': return TAB_SETTINGS;
     default: return -1;
     }
 }
-static const char *const tab_names[] = { "Market", "Games", "Dev" };
+static const char *const tab_names[] = { "Market", "NES", "SNES", "Games", "Dev" };
 
 /* the questions over the menu: a row of Settings, a download of the
  * Market, a row of a Market game's details, a game a nearby console sends */
@@ -735,7 +741,7 @@ static int cart_at(int shown, int sel)
 /* The state of the RGB30 menu (ui_home): what stays from a frame to the next, and what one frame fills in. */
 typedef struct uhome_s uhome_t;
 struct uhome_s {
-    int tab, sel[3];                    /* the tab, and the selection of each */
+    int tab, sel[TAB_SETTINGS];                    /* the tab, and the selection of each */
     int mopt, mopt_sel, ask_game;       /* a Market game's details (X): its panel over the covers */
     int gopt, gopt_sel;                 /* the options of a game, an app or a utility (X on the Games and Dev tabs) */
     int gsend;                          /* 1: the options show the consoles to send the game to */
@@ -867,7 +873,8 @@ static void uh_background(uhome_t *m)
 /* What the tab lists, and the selection in it; the covers to read first. */
 static void uh_selection(uhome_t *m)
 {
-    m->n = m->shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : m->shown == TAB_GAMES ? n_games : n_dev;
+    m->n = m->shown == TAB_MARKET ? market_items(items, CATALOG_ITEMS) : rom_plat(m->shown) >= 0 ? romtabs_count(rom_plat(m->shown))
+         : m->shown == TAB_GAMES ? n_games : n_dev;
     m->s = &m->sel[m->shown];
     if (*m->s >= m->n) *m->s = m->n - 1;
     if (*m->s < 0) *m->s = 0;
@@ -880,6 +887,16 @@ static void uh_selection(uhome_t *m)
 /* The covers of the tab. */
 static void uh_items(uhome_t *m)
 {
+    const int rp = rom_plat(m->shown);
+    if (rp >= 0) {                                  /* the ROMs: their box covers, made in the free time, the selection first */
+        romtabs_covers_tick(rp, *m->s, timer_ticks() + 3000);
+        for (int i = 0; i < m->n; i++) {
+            const rom_entry_t *r = romtabs_get(rp, i);
+            items[i] = (menu_item_t){ .title = r->title, .path = r->path, .kind = rp == ROM_NES ? "NES" : "SNES",
+                                      .cover = r->cover.px ? &r->cover : NULL, .loading = !r->cover.px, .box = 1 };
+        }
+        return;
+    }
     for (int i = 0; i < m->n && m->shown != TAB_MARKET; i++) {
         if (m->shown == TAB_GAMES)
             items[i] = game_item(game_idx[i]);
@@ -892,7 +909,7 @@ static void uh_items(uhome_t *m)
 static void uh_draw(uhome_t *m)
 {
     menu_view_t v = {
-        .tabs = tab_names, .ntabs = 3, .tab = m->shown, .on_gear = m->on_gear, .peek_first = 1,
+        .tabs = tab_names, .ntabs = 5, .tab = m->shown, .on_gear = m->on_gear, .peek_first = 1,
         .refresh_label = m->on_market ? "Refresh" : NULL,
         .refresh_enabled = m->on_market && market_refresh_available(),
         .items = items, .n = m->n, .sel = *m->s,
@@ -918,6 +935,11 @@ static void uh_draw(uhome_t *m)
             ksnprintf(empty, sizeof empty, "No games yet: put .bm games in bm/");
         v.banner = empty;
         v.a_label = "";
+    } else if (rom_plat(m->shown) >= 0 && m->n == 0) {
+        v.banner = romtabs_empty_hint(rom_plat(m->shown));
+        v.a_label = "";
+    } else if (rom_plat(m->shown) >= 0) {
+        v.a_label = "Play";
     } else if (cart_at(m->shown, *m->s) >= 0) {
         v.a_label = lib_is_suspended(&games[cart_at(m->shown, *m->s)]) ? "Resume" : "Play";
     }
@@ -1298,6 +1320,24 @@ static void uh_covers(uhome_t *m)
         m->gopt = cart_at(m->shown, *m->s);   /* X: the options of a game, or of an app or a utility in Dev (the Pi's C) */
         lib_panel_open(&games[m->gopt]);
         m->gopt_sel = 0;
+    } else if ((m->p & pad_ok) && rom_plat(m->shown) >= 0) {
+        /* a ROM: its emulator cartridge starts with the ROM path as cart_arg() */
+        const int rp = rom_plat(m->shown);
+        const rom_entry_t *r = romtabs_get(rp, *m->s);
+        int cg = -1;
+        for (int k = 0; k < library.n && cg < 0; k++)
+            if (lib_same_text(games[k].name, romtabs_emulator(rp)))
+                cg = k;
+        if (!r) {
+            notice_fail(romtabs_empty_hint(rp));
+        } else if (cg < 0) {
+            notice_fail(rp == ROM_NES ? "bm NES is not installed: get it from Market > Apps" : "bm SNES is not installed: get it from Market > Apps");
+        } else if (!uh_start_question(m, cg)) {
+            bm_set_arg(r->path, NULL);
+            play_index = cg;
+            run_page(play_selected);
+            bm_set_arg(NULL, NULL);
+        }
     } else if (m->p & pad_ok) {
         char gp[80] = "";
         const int cg = cart_at(m->shown, *m->s);      /* a game, or an app or utility in Dev */

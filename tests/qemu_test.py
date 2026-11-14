@@ -574,7 +574,8 @@ def tabs_lit(img):
     it the tabs are where they were, elsewhere 7 columns to the left."""
     # Since 2026-11-06 the tabs are four round icons in the top bar (df050a96):
     # the lit one has a white ring, read 13 pixels left of its centre.
-    places = (("Market", 241), ("Games", 293), ("Dev", 345), ("Settings", 397))
+    # Since 2026-11-14 six icons: Market, NES, SNES, Games, Dev, Settings.
+    places = (("Market", 189), ("NES", 241), ("SNES", 293), ("Games", 345), ("Dev", 397), ("Settings", 449))
     return [name for name, x in places if sum(pixel(img, x - 13, 23)) > 600]
 
 
@@ -3131,11 +3132,19 @@ def test_menu_tabs(b, opts):
         state(["Dev"], ["bm SDK"], gone=["Controllers"])
         press(shoulders=1)                  # L1: Games
         state(["Games"], ["Astro Wing"])
+        press(shoulders=1)                  # L1: SNES (2026-11-14): no ROM on this card
+        state(["SNES"], gone=["Astro Wing"])
+        press(shoulders=1)                  # L1: NES
+        state(["NES"], gone=["Astro Wing"])
         press(shoulders=1)                  # L1: the Market, first (M25): QEMU has no network
         state(["Market"], ["No network: connect in Settings"])
         press(shoulders=1)                  # L1 on the first tab: nothing
         state(["Market"], ["No network: connect in Settings"])
-        press(shoulders=2)                  # R1: back to Games
+        press(shoulders=2)                  # R1: NES, SNES, back to Games
+        state(["NES"])
+        press(shoulders=2)
+        state(["SNES"])
+        press(shoulders=2)
         state(["Games"], ["Astro Wing"])
 
         # up on the first row stays on the covers: R1 still goes to Dev

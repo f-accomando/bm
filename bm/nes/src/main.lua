@@ -70,6 +70,7 @@ local function readpad(p)
   return v
 end
 
+local launched = false        -- opened from the NES or SNES tab of the menu with a ROM (cart_arg): no list, the last menu row closes the cartridge
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
 local top = 1                                -- the first ROM of the list that shows (the list scrolls with the selector)
@@ -258,6 +259,9 @@ function _init()
   if rawkeys then rawkeys(true) end
   list_roms()
   if AUTOPLAY and files[1] then open_rom(files[1]) end
+  local a = cart_arg and cart_arg()
+  local name = a and a.path and a.path:match("([^/]+)$")
+  if name and name:lower():match("%.nes$") then launched = true; open_rom({ name = name }) end
 end
 
 function _exit()
@@ -300,7 +304,7 @@ function _update()
       elseif menusel == 4 then next_mode()
       elseif menusel == 5 then kb_player = not kb_player; pad_layout()
       elseif menusel == 6 then log_on = not log_on; log("nes log " .. (log_on and "on" or "off"))
-      else save_sram(); state = "browse"; list_roms() end
+      elseif launched then save_sram(); quit() else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") or kedge(0x29) or kedge(0x12) then state = "run"; holdmenu = 0 end
   end
@@ -369,7 +373,7 @@ function _draw()
     rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x201014)
     rect(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0xFF6060)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", log_on and "Log: on" or "Log: off", "Back to the list" }
+                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", log_on and "Log: on" or "Log: off", launched and "Back to the menu" or "Back to the list" }
     for i = 1, 7 do
       print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x9090A0)
     end

@@ -42,6 +42,7 @@
 #include "bmz_install.h"
 #include "config.h"
 #include "library.h"
+#include "romtabs.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -81,7 +82,9 @@ static void power_led(void)
  * a file only its first bytes are read: COVER is the first section. */
 
 /* the tabs of the graphical menu (carts_menu) */
-enum { TAB_MARKET, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+enum { TAB_MARKET, TAB_NES, TAB_SNES, TAB_GAMES, TAB_DEV, TAB_SETTINGS };
+/* the ROM tabs: the platform of romtabs.c, or -1 */
+static int rom_plat(int tab) { return tab == TAB_NES ? ROM_NES : tab == TAB_SNES ? ROM_SNES : -1; }
 
 /* the SD card's reads: the loading screen goes on, a fiber of the menu gives
  * the CPU back when its time is over (and stops when asked) */
@@ -212,6 +215,7 @@ static void rescan(void)
 {
     library.be = &pi_backend;
     lib_scan(&library);
+    romtabs_scan();
     market_carts_changed();
 }
 
@@ -584,7 +588,7 @@ enum { GO_NONE, GO_PLAY, GO_SDK, GO_SOUND, GO_CODE, GO_STUDIO, GO_ANIMATOR, GO_M
 #define DEPTH_MAX 4
 
 /* what the network console is told takes its keys (netcon_focus) */
-static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-4 the tabs; q the monitor, "
+static const char FOCUS_MENU[] = "the menu (w a s d, Enter, Esc, 1-6 the tabs; q the monitor, "
                                  "or a line for it: :b3d; send)";
 static const char FOCUS_APP[] = "the application (Ctrl-\\ back to the menu)";
 static const char FOCUS_PAGE[] = "a page of the menu (Esc back)";
@@ -594,7 +598,7 @@ typedef struct {
     framebuffer_t *fb;
     int gfx;                            /* the graphic menu (else the text list) */
     int list_rows;                      /* rows of the text list */
-    int tab, on_gear, tsel[3];          /* the tab, Settings open as the tab, the selection of each tab */
+    int tab, on_gear, tsel[TAB_SETTINGS];          /* the tab, Settings open as the tab, the selection of each tab */
     int sel, top, redraw, esc;          /* the text list; esc: the serial line is inside an escape sequence */
     uint32_t prev_btn, repeat_at;       /* the buttons of the last frame, the auto repeat */
     struct { int id, sel, top; } stack[DEPTH_MAX];      /* the panels open, one over the other */
@@ -636,8 +640,8 @@ static void cm_open(cmenu_t *m, framebuffer_t *fb)
     m->redraw = 1;
     m->prev_btn = hid_buttons();
 
-    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor\n"
-            "(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
+    kprintf("\ncartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-6 change tab, q returns to the monitor\n"
+            "(keyboard: Enter, Esc back, C options, Q E or 1-6 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)\n");
     input_flush();
     m->built = -1;
     m->ask = ASK_NONE;
@@ -669,6 +673,7 @@ static void cm_begin_frame(cmenu_t *m)
             m->ask = ASK_NONE;                 /* the sender gave up */
     }
     m->n = m->tab == TAB_MARKET ? (m->gfx ? market_items(items, (int)(sizeof items / sizeof *items)) : 0)
+         : rom_plat(m->tab) >= 0 ? (m->gfx ? romtabs_count(rom_plat(m->tab)) : 0)
                               : tab_items(m->tab, idx);
     if (m->tsel[m->tab] >= m->n) m->tsel[m->tab] = m->n ? m->n - 1 : 0;
     if (m->tab == TAB_MARKET)
@@ -705,11 +710,20 @@ static void cm_begin_frame(cmenu_t *m)
 /* The frame: the graphic menu, or the text list. */
 static void cm_draw(cmenu_t *m)
 {
-    static const char *const tabs[] = { "Market", "Games", "Dev" };
+    static const char *const tabs[] = { "Market", "NES", "SNES", "Games", "Dev" };
     char susp_title[49];
     const int on_market = m->gfx && m->tab == TAB_MARKET && !m->on_gear;
     if (m->gfx) {
-        for (int i = 0; i < m->n && m->tab != TAB_MARKET; i++) {
+        const int rplat = rom_plat(m->tab);
+        if (rplat >= 0 && !m->on_gear) {                  /* the ROMs: their box covers, made in the free time, the selection first */
+            romtabs_covers_tick(rplat, m->tsel[m->tab], timer_ticks() + 3000);
+            for (int i = 0; i < m->n; i++) {
+                const rom_entry_t *r = romtabs_get(rplat, i);
+                items[i] = (menu_item_t){ .title = r->title, .path = r->path, .kind = rplat == ROM_NES ? "NES" : "SNES",
+                                          .cover = r->cover.px ? &r->cover : NULL, .loading = !r->cover.px, .box = 1 };
+            }
+        }
+        for (int i = 0; i < m->n && m->tab != TAB_MARKET && rplat < 0; i++) {
             if (idx[i] < 0) {
                 int t = -1 - idx[i];
                 items[i] = (menu_item_t){ .title = home_tool_title(t), .path = "",
@@ -740,12 +754,12 @@ static void cm_draw(cmenu_t *m)
                 a_label = "";
         }
         menu_view_t v = {
-            .tabs = tabs, .ntabs = 3, .tab = m->tab, .on_gear = m->on_gear, .peek_first = 1,
+            .tabs = tabs, .ntabs = 5, .tab = m->tab, .on_gear = m->on_gear, .peek_first = 1,
             .refresh_label = on_market ? "Refresh" : NULL,
             .refresh_enabled = on_market && market_refresh_available(),
             .items = items, .n = m->n, .sel = m->tsel[m->tab],
             .panel = m->depth ? &m->mp : NULL,
-            .banner = on_market ? market_banner() : NULL,
+            .banner = on_market ? market_banner() : rom_plat(m->tab) >= 0 && !m->n && !m->on_gear ? romtabs_empty_hint(rom_plat(m->tab)) : NULL,
             .a_label = a_label,
             .idle = lib_menu_idle,
         };
@@ -860,9 +874,11 @@ static int cm_input_serial(cmenu_t *m)
         case 'd': case 'D': case 'l': m->dx++; break;
         case '\t': m->tabto = (m->cur + 1) % (TAB_SETTINGS + 1); break;
         case '1': m->tabto = TAB_MARKET; break;
-        case '2': m->tabto = TAB_GAMES; break;
-        case '3': m->tabto = TAB_DEV; break;
-        case '4': m->tabto = TAB_SETTINGS; break;
+        case '2': m->tabto = TAB_NES; break;
+        case '3': m->tabto = TAB_SNES; break;
+        case '4': m->tabto = TAB_GAMES; break;
+        case '5': m->tabto = TAB_DEV; break;
+        case '6': m->tabto = TAB_SETTINGS; break;
         case '[': m->tabto = m->cur > 0 ? m->cur - 1 : -1; break;       /* L1 */
         case ']': m->tabto = m->cur < TAB_SETTINGS ? m->cur + 1 : -1; break;   /* R1 */
         case 'v': case 'V': m->ybtn = 1; break;                  /* Y */
@@ -1226,7 +1242,7 @@ static void cm_navigate(cmenu_t *m)
             m->stack[0].sel = m->stack[0].top = 0;
             m->depth = 1;
             m->built = -1;
-        } else if (m->opts && !m->on_gear && m->tab != TAB_MARKET && m->n && idx[m->tsel[m->tab]] >= 0) {
+        } else if (m->opts && !m->on_gear && m->tab != TAB_MARKET && rom_plat(m->tab) < 0 && m->n && idx[m->tsel[m->tab]] >= 0) {
             opt_cart = idx[m->tsel[m->tab]];
             lib_panel_open(&library.g[opt_cart]);
             m->stack[0].id = HOME_CART;
@@ -1312,7 +1328,26 @@ static int cm_activate(cmenu_t *m)
                 m->go_cart = c;
             }
         }
-    } else if (m->action == 1 && !m->on_gear && (!m->gfx || m->n > 0)) {
+    } else if (m->action == 1 && !m->on_gear && m->gfx && rom_plat(m->tab) >= 0) {
+        /* A on a ROM: its emulator cartridge starts with the ROM path as cart_arg() */
+        const int rp = rom_plat(m->tab);
+        const rom_entry_t *r = romtabs_get(rp, m->tsel[m->tab]);
+        int c = -1;
+        for (int k = 0; k < library.n && c < 0; k++)
+            if (lib_same_text(library.g[k].name, romtabs_emulator(rp)))
+                c = k;
+        if (!r) {
+            ksnprintf(last_msg, sizeof last_msg, "%s", romtabs_empty_hint(rp));
+            notice_fail(last_msg);
+        } else if (c < 0) {
+            ksnprintf(last_msg, sizeof last_msg, "%s is not installed: get it from Market > Apps", rp == ROM_NES ? "bm NES" : "bm SNES");
+            notice_fail(last_msg);
+        } else {
+            bm_set_arg(r->path, NULL);
+            m->go = GO_PLAY;
+            m->go_cart = c;
+        }
+    } else if (m->action == 1 && !m->on_gear && (!m->gfx || m->n > 0) && rom_plat(m->tab) < 0) {
         /* A plays the highlighted cover, also from the tab bar; if
          * another game is suspended, ask first */
         int i = m->gfx ? idx[m->tsel[m->tab]] : m->sel;
@@ -1404,6 +1439,7 @@ static void cm_launch(cmenu_t *m)
     switch (m->go) {
     case GO_PLAY:
         play(m->fb, &library.g[m->go_cart]);
+        bm_set_arg(NULL, NULL);         /* a ROM given to an emulator is for that start only */
         m->depth = 0;
         open_publish_asked(m);          /* a tool (the SDK of the Dev tab) may have asked for it */
         break;

@@ -263,6 +263,25 @@ static float tab_games(float x, float y)
     return cut(cut(body, label), grooves);
 }
 
+/* a flat pad with a cross and two round buttons (the NES tab; original drawing) */
+static float tab_nes(float x, float y)
+{
+    float body = rrect(x, y, 16.0f, 16.0f, 9.5f, 5.0f, 1.0f);
+    float ch = rrect(x, y, 11.0f, 16.0f, 2.6f, 0.9f, 0.2f), cv = rrect(x, y, 11.0f, 16.0f, 0.9f, 2.6f, 0.2f);
+    float b1 = circle(x, y, 19.5f, 17.0f, 1.3f), b2 = circle(x, y, 22.5f, 17.0f, 1.3f);
+    return cut(body, un(un(ch, cv), un(b1, b2)));
+}
+
+/* a pad with round ends and four buttons in a diamond (the SNES tab; original drawing) */
+static float tab_snes(float x, float y)
+{
+    float body = un(un(circle(x, y, 10.0f, 16.0f, 5.6f), circle(x, y, 22.0f, 16.0f, 5.6f)), rrect(x, y, 16.0f, 16.0f, 6.0f, 4.2f, 0.5f));
+    float ch = rrect(x, y, 10.0f, 16.0f, 2.4f, 0.8f, 0.2f), cv = rrect(x, y, 10.0f, 16.0f, 0.8f, 2.4f, 0.2f);
+    float b = un(un(circle(x, y, 22.0f, 13.6f, 1.0f), circle(x, y, 22.0f, 18.4f, 1.0f)),
+                 un(circle(x, y, 19.6f, 16.0f, 1.0f), circle(x, y, 24.4f, 16.0f, 1.0f)));
+    return cut(body, un(un(ch, cv), b));
+}
+
 static float tab_dev(float x, float y)
 {
     float l1 = capsule(x, y, 11.8f, 11.2f, 8.8f, 16.0f, 0.95f);
@@ -305,6 +324,8 @@ const tab_icon_mask_t *tab_icon_mask(int icon, int active)
 
     float (*glyph_fn)(float, float) =
         icon == TAB_ICON_MARKET   ? tab_market :
+        icon == TAB_ICON_NES      ? tab_nes :
+        icon == TAB_ICON_SNES     ? tab_snes :
         icon == TAB_ICON_GAMES    ? tab_games :
         icon == TAB_ICON_DEV      ? tab_dev :
                                     tab_settings;

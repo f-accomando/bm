@@ -337,7 +337,7 @@ def main():
     check(rc == 2 and "kernel too old" in out, "  a reset first, then BH: too old")
 
     # --line: a monitor line from the menu, the output until it is done
-    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-4 the tabs; q the monitor, or a line for it: :crc; b3d; send)")
+    menu = NetConsole("the menu (w a s d, Enter, Esc, 1-6 the tabs; q the monitor, or a line for it: :crc; b3d; send)")
     t0 = time.time()
     rc, out = run(menu, job=("-P", str(menu.port), "--line", "crc; b3d; send"))
     check(rc == 0 and menu.keys == b":crc; b3d; send\r", "--line sends ':' + the line + Enter")

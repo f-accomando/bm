@@ -14,7 +14,7 @@ This document is the fixed reference for device-specific input controls, menu be
 | Back button | Y = cancel / back (A is no second back); `mc=` of `controls=` in `bm/config.txt` sets another button (set by hand; no Settings page since 28 Oct 2026) | user decision 2026-10-19; `core/src/rgb30/pad.c`; `docs/spec/divergences.toml` D49 | implemented |
 | X button | Opens cartridge options in menu (play, open in bm SDK, send to a nearby console, type, size, author, save data, delete) | `docs/RGB30.md:210,212`, `docs/progress/platforms.md:36` | implemented |
 | Y button | Cancel / back in menus, prompts and dialogs; on the top level of the Market tab it switches Apps and Games | user decision 2026-10-19; `core/src/rgb30/pad.c`, `core/src/rgb30/ui.c` | implemented |
-| L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) without wrapping | `docs/RGB30.md:219`, `docs/progress/platforms.md:36` | implemented |
+| L1 / R1 | Move between menu tabs (Market, NES, SNES, Games, Dev, Settings) without wrapping | `docs/RGB30.md:219`, `docs/progress/platforms.md:36` | implemented |
 | D-pad | Navigate covers, menu items, and settings rows | `docs/RGB30.md:219-220`, `docs/progress/platforms.md:35` | implemented |
 | Analog sticks | Dual analog sticks (SARADC channel 3 with switch) for in-game movement and camera | `docs/RGB30.md:163-165`, `docs/progress/platforms.md:35` | implemented |
 | System shortcuts | Start+Select leaves game / app; Select held 3 s takes screenshot (`bm/shots/`) | `docs/RGB30.md:202`, `docs/spec/divergences.toml:377` | implemented |
@@ -35,7 +35,8 @@ This document is the fixed reference for device-specific input controls, menu be
 | Back button | B cancels / goes back (gamepad button 1 / DS4 Circle, USB keyboard Esc/Backspace) | `docs/spec/divergences.toml:354`, `core/src/kernel/settings.c:427` | implemented |
 | X button | Opens cartridge options / details (gamepad button 2 / DS4 Square, keyboard X) | `core/src/kernel/menu_ui.c:722`, `core/src/kernel/carts.c:1386` | implemented |
 | Y button | Role in menus / apps: to decide (in games face button by position on DS4 / gamepad) | `docs/spec/divergences.toml:365` | to decide |
-| L1 / R1 | Move between menu tabs (Market, Games, Dev, Settings) | `core/src/kernel/carts.c:1392,1394` | implemented |
+| L1 / R1 | Move between menu tabs (Market, NES, SNES, Games, Dev, Settings) | `core/src/kernel/carts.c:1392,1394` | implemented |
+| NES and SNES tabs | The ROMs of `/nes` (.nes) and `/snes` (.sfc, .smc), sorted by title (the file name without the extension and the tags in brackets). Each ROM has a portrait box cover (64 x 88, the ratio of a NES box and of a PAL or Japanese SNES box) made in the style of the console; no artwork of a game is copied. A on a cover starts bm NES or bm SNES with the ROM path as `cart_arg()`; the emulator opens the ROM at once, and its last menu row (Back to the menu) closes it. With no ROM the tab says which folder to fill | `core/src/kernel/romtabs.c`, `core/src/kernel/carts.c`, `core/src/rgb30/ui.c`, `bm/nes/src/main.lua`, `bm/snes/src/main.lua` | implemented |
 | D-pad | Navigate grid covers, list rows, and options | `core/src/kernel/input.h:14`, `core/src/kernel/carts.c:1366-1381` | implemented |
 | Keyboard & mouse | Full USB and Bluetooth keyboard and mouse support (Italian/US layouts) | `docs/spec/divergences.toml:387`, `docs/progress/platforms.md:16` | implemented |
 | System shortcuts | F11 (audio log), F12 (held: key list), Print Screen (screenshot), Ctrl+Esc (leave game) | `docs/spec/divergences.toml:376` | implemented |

@@ -135,6 +135,7 @@ function export_sprites()
   toast = ok and (count .. " tile(s) in /docs/" .. name) or ("export failed: " .. tostring(err))
 end
 
+local launched = false        -- opened from the NES or SNES tab of the menu with a ROM (cart_arg): no list, the last menu row closes the cartridge
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
 local rom_name = "-"                         -- the ROM that plays (the logger writes it in each line)
@@ -404,6 +405,9 @@ function _init()
   if rawkeys then rawkeys(true) end
   list_roms()
   if (AUTO or AUTOPLAY) and files[1] then open_rom(files[1]) end
+  local a = cart_arg and cart_arg()
+  local name = a and a.path and a.path:match("([^/]+)$")
+  if name and name:lower():match("%.s[fm]c$") then launched = true; open_rom({ name = name }) end
   if M7TEST then
     local pick
     for _, f in ipairs(files) do
@@ -463,7 +467,7 @@ function _update()
       elseif menusel == 5 then kb_player = not kb_player; pad_layout()
       elseif menusel == 6 then export_sprites()
       elseif menusel == 7 then log_on = not log_on; log("snes log " .. (log_on and "on" or "off"))
-      else save_sram(); state = "browse"; list_roms() end
+      elseif launched then save_sram(); quit() else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") or kedge(0x29) then state = "run"; holdmenu = 0 end
   end
@@ -515,7 +519,7 @@ function _draw()
     if MINI then print(string.format("%.0f fps  %.1f upd/s  pic 1/%d  x%d  gpu %.0f  frame %.0f ms  job %.0f ms  wait %.0f ms", stat(2), last_ups, every, gpu_zoom, stat(9), stat(1), stat(16), stat(18)), 4, 4, 0x00FF00) end
     if state == "menu" then
       rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0x101820)
-      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+      local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off", mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", launched and "Back to the menu" or "Back to the list" }
       for i = 1, 8 do print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0) end
       if toast then print(toast, SCREEN_W // 2 - 104, menu_top() + 224, 0xFFD050)
     elseif dsp_note then print(dsp_note:sub(1, 34), SCREEN_W // 2 - 104, menu_top() + 224, 0xFF8060) end
@@ -602,7 +606,7 @@ function _draw()
     rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0x101820)
     rect(SCREEN_W // 2 - 110, menu_top(), 220, 252, 0xFFD050)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", "Back to the list" }
+                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", "Export sprites to /docs", log_on and "Log: on" or "Log: off", launched and "Back to the menu" or "Back to the list" }
     for i = 1, 8 do
       print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x8090A0)
     end
