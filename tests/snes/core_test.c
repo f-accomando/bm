@@ -369,6 +369,54 @@ static void audio_lead_tests(void)
     if (starved) printf("  %d frames of 57 starved\n", starved);
 }
 
+/* A game that uploads the music to the sound CPU byte by byte (the IPL handshake on $2140 to $2143: Super Mario Kart at boot, Yoshi's Island between
+ * scenes) while an output plays the ring and the game is slow. With the sound's lead each answer waited for the CPU's clock to pass the lead: the upload
+ * of 256 bytes took hundreds of frames of black screen. It must end in a few frames. */
+static void upload_lead_tests(void)
+{
+    /* the sound program at $0200: MOV A,$F4; MOV $F4,A; BRA (it echoes port 0, as a driver's transfer loop does) */
+    static const uint8_t code[] = {
+        0xA5, 0x01, 0xF0, 0xFC,                                 /* w0: LDA $01; BEQ w0 (the test starts the upload) */
+        0xAD, 0x40, 0x21, 0xC9, 0xAA, 0xD0, 0xF9,               /* w1: LDA $2140; CMP #$AA; BNE w1 */
+        0xA9, 0x00, 0x8D, 0x42, 0x21, 0xA9, 0x02, 0x8D, 0x43, 0x21,     /* destination $0200 */
+        0xA9, 0x01, 0x8D, 0x41, 0x21, 0xA9, 0xCC, 0x8D, 0x40, 0x21,     /* data follows; $CC */
+        0xCD, 0x40, 0x21, 0xD0, 0xFB,                           /* w2: CMP $2140; BNE w2 */
+        0xA2, 0x00,                                             /* LDX #0 */
+        0xBD, 0x00, 0x81, 0x8D, 0x41, 0x21, 0x8E, 0x40, 0x21,   /* l1: LDA $8100,X; STA $2141; STX $2140 */
+        0xEC, 0x40, 0x21, 0xD0, 0xFB,                           /* w3: CPX $2140; BNE w3 */
+        0xE8, 0xE0, 0x06, 0xD0, 0xED,                           /* INX; CPX #6; BNE l1 */
+        0xA9, 0x00, 0x8D, 0x41, 0x21,                           /* $2141 = 0: run */
+        0xE8, 0xE8, 0x8E, 0x40, 0x21,                           /* INX; INX; STX $2140: start $0200 */
+        0xA2, 0x01,                                             /* LDX #1 */
+        0x8E, 0x40, 0x21,                                       /* l2: STX $2140 */
+        0xEC, 0x40, 0x21, 0xD0, 0xFB,                           /* w4: CPX $2140; BNE w4 (the driver's echo) */
+        0xE8, 0xD0, 0xF5,                                       /* INX; BNE l2 */
+        0xA9, 0x01, 0x85, 0x00, 0x80, 0xFE                      /* $00 = 1; stop */
+    };
+    static const uint8_t spc_prog[] = { 0xE4, 0xF4, 0xC4, 0xF4, 0x2F, 0xFA };
+    static uint8_t rom[0x8000];
+    memset(rom, 0, sizeof rom);
+    memcpy(rom, code, sizeof code);
+    memcpy(rom + 0x100, spc_prog, sizeof spc_prog);
+    rom[0x7FFC] = 0x00; rom[0x7FFD] = 0x80;
+    snes_load(rom, sizeof rom, NULL);
+    float out[2] = { 0, 0 };
+    snes_audio_mix(out, 1, 1.0f);                       /* an output plays the ring: the lead is on */
+    int16_t smp[2];
+    for (int k = 0; k < 30; k++) {                      /* the game waits while the sound builds its lead */
+        snes_frame(0, 0, 0);
+        for (int got = 0; got < 800 && snes_dsp_pop(smp); got++) {}
+    }
+    S.wram[1] = 1;
+    int f = 0;
+    for (; f < 600 && S.wram[0] != 1; f++) {
+        snes_frame(0, 0, 0);
+        for (int got = 0; got < 800 && snes_dsp_pop(smp); got++) {}       /* a slow frame: the ring runs low */
+    }
+    CHECK("255 bytes to a running sound driver to the sound CPU ends in a few frames with the sound's lead on", S.wram[0] == 1 && f < 12);
+    printf("  upload frames: %d\n", f);
+}
+
 int main(void)
 {
     scroll_tests();
@@ -378,6 +426,7 @@ int main(void)
     pad_latency_tests();
     manual_pad_tests();
     audio_lead_tests();
+    upload_lead_tests();
     cpu_tests();
     spc_tests();
     dsp_tests();

@@ -20,6 +20,7 @@ static void cpu_reg_write(uint16_t o, uint8_t v);
  * its four ports, and at the end of every 16th line. It makes the same answers as running it in quarters of a line (the CPU sees a port as the sound
  * CPU has it at that time), and the CPU's and the sound CPU's code stop pushing each other out of the instruction cache 262 times a frame. */
 #define SPC_LAG_LINES 16
+#define PORT_BUSY 64                            /* port accesses in a frame above which the sound runs with no lead (see snes_frame_break) */
 static int32_t spc_done;                        /* sound cycles run in this frame (the last instruction may go a little over the target) */
 static uint32_t acc_spc, acc_spc_m[3], n_spc_sync;       /* the time and the cache misses of the sound CPU in this frame, timed frames only (see snes_frame) */
 static void (*meter_fn)(uint32_t *);
@@ -44,7 +45,8 @@ static void spc_sync_pos(uint32_t pos)
         spc_done += spc_run(target - spc_done);
     }
 }
-static void spc_sync(void) { spc_sync_pos((uint32_t)S.line * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0)); }
+static uint32_t n_port, n_port_prev;          /* the CPU's accesses to the sound ports in this frame and in the last one */
+static void spc_sync(void) { n_port++; spc_sync_pos((uint32_t)S.line * LINE_CLK + (uint32_t)(snes_clk > 0 ? snes_clk : 0)); }
 
 /* The Super FX runs lazily like the sound CPU: while it runs, the CPU is not stopped every quarter of a line to let it catch up (each switch pushes the
  * code of the one out of the instruction cache of the other). It is brought up to the CPU's time when the CPU touches it: a register of the Super FX
@@ -748,7 +750,7 @@ void snes_reset(void)
     if (!S.rom) return;
     snes_bus_reset();
     spc_reset();
-    snes_clk = 0; spc_done = 0; gsu_done = 0; dsp_done = 0;
+    snes_clk = 0; spc_done = 0; n_port = n_port_prev = 0; gsu_done = 0; dsp_done = 0;
     cpu_reset();
 }
 
@@ -804,7 +806,15 @@ int snes_frame_break(uint16_t pad1, uint16_t pad2, int render, int brk)
      * and the music slows with the game. When the output has less than two frames queued, the sound CPU and the DSP run up to three frames more; spc_done counts
      * this lead, so the CPU's own syncs run the sound only when the CPU's clock passes the lead. The sound then keeps the time of the speakers while the game
      * is slow. The lead is held under 2 seconds (the game's sound commands reach the sound CPU that late at most). */
+    /* A game that talks to the sound CPU byte by byte (the upload of the music at boot or between scenes: Super Mario Kart, Yoshi's Island) needs the answer
+     * of each byte at once. With a lead, each answer waits until the CPU's clock passes the lead: the upload took seconds of black screen. More than
+     * PORT_BUSY port accesses in the last frame is such a talk: no lead, and the lead already run is dropped (the sound CPU keeps the cycles it ran). */
     if (!resume) {
+        n_port_prev = n_port; n_port = 0;
+    }
+    if (!resume && n_port_prev > PORT_BUSY) {
+        if (spc_done > 0) spc_done = 0;
+    } else if (!resume) {
         const int q = snes_audio_queued();
         if (q >= 0 && q < 1066 && spc_done < 65 * 262 * 120) {
             int want = (1066 - q) * 32;                    /* sound cycles: 32 for each sample */
