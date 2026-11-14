@@ -1,0 +1,70 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-375ee8_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 83 s after boot, kernel dev, ring 5921, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -58 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -73 dBm  ch  9  WPA2  Wind3 HUB - ED4188
+   3   -85 dBm  ch  3  WPA2  Infostrada-8F1A91
+   4   -86 dBm  ch  9  WPA2  Wind3 HUB - ED4188_EXT
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 11514 ms, 0 jobs)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 11568 ms)
+menu: 1920x1080, drawn by the GPU
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.0 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+covers: all 24 read
+net: time 2026-11-14 01:12 UTC
+fiber: reports did not yield: 103.7 ms past its slice
+report: sending nodate-f6a723_freeze_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-f6a723_freeze_pi-zero-w_dev.txt
+menu idle: 300/300 frames, 627 of 598 ms taken, 106.3 ms past a frame; covers 146 ms (+4.1, stk 0.8/16K), reports 462 ms (+103.7, stk 7.6/128K); min slack -28982 us, paced 0
+menu idle: sd first word <1ms 213 <3ms 23 (max 2.4 ms)
+menu stalls: tls handshake 1x last 305.1 worst 305.1 ms
+menu frame: 1x, a frame averages draw 15171 us, enlarge 0 us, flip 100 us, free time used 2093 us (300 frames)
+menu frame: 1x, a frame averages draw 13182 us, enlarge 0 us, flip 97 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13100 us, enlarge 0 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13031 us, enlarge 0 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13266 us, enlarge 0 us, flip 98 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 13178 us, enlarge 0 us, flip 97 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 13093 us, enlarge 0 us, flip 97 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 13088 us, enlarge 0 us, flip 98 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 13249 us, enlarge 0 us, flip 97 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13160 us, enlarge 0 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13079 us, enlarge 0 us, flip 96 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13139 us, enlarge 0 us, flip 98 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13244 us, enlarge 0 us, flip 99 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 13156 us, enlarge 0 us, flip 100 us, free time used 44 us (300 frames)
+net: restarting with the new kernel in 1 s
