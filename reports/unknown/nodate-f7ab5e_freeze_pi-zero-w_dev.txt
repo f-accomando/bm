@@ -1,0 +1,63 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-f7ab5e_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 2701, 225 s after boot, kernel dev, ring 18385, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+SRC 00000000 DST 00000000 LEN 00000000 DBG 04018300
+diag9 dma4 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 04018400
+diag9 dma5 CS 10f10021 CB 407f0360 TI 00110349 SRC 407ef400 DST 7e808020 LEN 00000798 DBG 04808500
+diag9 dma6 CS 20000001 CB 00000000 TI 000d0431 SRC 7e202040 DST 5f34b120 LEN 00000000 DBG 04018600
+diag9 dma7 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018700
+diag9 dma8 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018800
+diag9 dma9 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018900
+diag9 dma10 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018a00
+diag9 dma11 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018b00
+diag9 dma12 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018c00
+diag9 dma13 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018d00
+diag9 dma14 CS 00000008 CB 00000000 TI 00000000 SRC 00000000 DST 00000000 LEN 00000000 DBG 10018e00
+diag9 dma INT 00000000 ENABLE 00007fff
+diag9 hvs+00 9a0c0fff 00000000 64647276 71bf0000 00000000 00000000 00010600 64647276
+diag9 hvs+20 00000000 00000664 00000000 30000000 00000000 00000664 00000000 64647276
+diag9 hvs+40 00000000 00000000 119cf000 50ff3c90 80780438 01000000 a001400e 3c8f0800
+diag9 hvs+60 00000000 00000000 10000000 07ff0000 000000ff 64647276 00000000 64647276
+diag9 pv0 CTRL 00048000 VCTRL 00000000 INTEN 00000000 INTSTAT 00000000 STAT 00000000
+diag9 pv1 CTRL 00048000 VCTRL 00000000 INTEN 00000000 INTSTAT 00000000 STAT 00000000
+diag9 pv2 CTRL 00177005 VCTRL 00000003 INTEN 00000000 INTSTAT 00000000 STAT 00000448
+diag9 st CLO 0a13a084 CS 00000000 C0 0a13a50d C2 0a13a3bb
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 8992, t 169061 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 000071c0 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 169076 ms, 2 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 169091 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 000071c0 -> 00007180 after job 3 (t 169128 ms)
+overbit quality up to 2 (17.0 ms)
+overbit quality up to 3 (19.4 ms)
+overbit quality up to 4 (19.8 ms)
+
+net: console opened from 192.168.1.115
+> bm: "Overbit" 2701 frames, 54.3 fps, 4 dropped
+     update+draw avg 18.14 ms (108% of frame), max 31.74 ms, Lua 1012 KB
+     dev kit: Lua peak 1821 KB, data 6415 KB, busiest frame 7k instructions, 2305 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2701 jobs, 2988 triangles a frame, 16.33 ms a frame (bin 0%), max job 18734 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 103.5 ms past its slice
+menu idle: 300/300 frames, 212 of 882 ms taken, 104.1 ms past a frame; reports 193 ms (+103.5, stk 7.7/128K); min slack -19905 us, paced 0
+menu idle: sd first word <1ms 46 <3ms 4 (max 13.8 ms)
+menu frame: 1x, a frame averages draw 18013 us, enlarge 0 us, flip 89 us, free time used 708 us (300 frames)
+report: sending session_overbit_pi-zero-w.txt
+
+net: console closed
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+menu idle: 300/300 frames, 553 of 744 ms taken, 37.7 ms past a frame; reports 542 ms (+37.7, stk 7.7/128K); min slack 2294 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 13.8 ms)
+menu stalls: tls handshake 1x last 1953.1 worst 1953.1 ms
+menu frame: 1x, a frame averages draw 12592 us, enlarge 0 us, flip 91 us, free time used 1846 us (300 frames)
+net: restarting with the new kernel in 1 s
