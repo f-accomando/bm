@@ -1,0 +1,61 @@
+bm report
+kind: session
+kernel: v0.3.0-175-g6043a7ff-dirty
+branch: antigravity/synth-retro-genres
+board: Pi Zero W
+date: 2026-11-14 13:24:25
+file: session_bm-snes-sdk_pi-zero-w.txt
+
+session of "bm SNES SDK" (the last one: the next run of this game replaces this file)
+options bm3d 7.36 gpu3d=on vs=0 aa=0 queue=0 wc=0 filter=0 tex16=0 fs2=0 sort=0 attr=0 etc1=0 3d=none later=0 2d=0 impostor=0 fast=0
+screen 1280x720, 9801 frames in 187.8 s, 52.1 fps
+3D: ARM or none
+
+time of _update + _draw (+ the 3D's wait): avg 18.3 ms, max 29.9 ms, 9801 frames over 16.7 ms
+memory: Lua peak 1197 KB, data 177 KB; code 26418 tokens; busiest frame 19k Lua instructions
+frames that were shown after more than 1.5 frames: 3
+
+time from one picture to the next:
+  <= 18 ms (60 fps)    0
+  <= 25 ms             9798
+  <= 34 ms (30 fps)    1
+  <= 50 ms             0
+  <= 100 ms            1
+  > 100 ms (a freeze)  0
+
+the frame in its parts (as the overlay, 9800 frames; ms a frame, % of the 16.7 ms of a frame):
+  update           0.1    0%
+  draw (no 3D)    18.1  109%
+  3D calls         0.0    0%
+  audio            0.1    0%
+  GPU wait         0.0    0%
+  all             18.4  110%
+the 2D calls of the draw (ms a frame, calls a frame; the time of each call as the cartridge waits for it):
+  map        0.0 ms  0.0 calls
+  spr        0.0 ms  0.0 calls
+  sspr       3.2 ms  3.0 calls
+  stack      0.0 ms  0.0 calls
+  print      0.9 ms  36.0 calls
+  shapes     4.3 ms  724.0 calls
+  all        8.5 ms  763.0 calls (of the draw's 18.1 ms: the rest is Lua, the light, the 3D)
+audio interrupt: 0.7% of the CPU's time (mean), 5.5% at most in a second
+GPU wait: 0.0% of the frames' work; the GPU set the pace (the ARM waited more than 2 ms for it) in 0.0% of the frames
+
+the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
+time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
+  frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
+      2     1.8    77.4   24.2   0.1   24.0   0.0   0.0    53.1       18      719        1
+     31     2.4    27.3   26.5   0.1   26.4   0.0   0.0     0.8       18      616        1
+     74     3.2    21.1   18.8   0.1   18.7   0.0   0.0     2.2       18      747        1
+     75     3.3    21.0   20.0   0.1   19.9   0.0   0.0     0.9       18      632        1
+     60     3.0    21.0   19.9   0.1   19.8   0.0   0.0     1.0       19      628        1
+     70     3.2    20.9   19.3   0.1   19.2   0.0   0.0     1.6       18      679        1
+     53     2.8    20.9   20.1   0.1   20.0   0.0   0.0     0.8       19      630        1
+     38     2.5    20.8   19.6   0.1   19.4   0.0   0.0     1.1       18      623        1
+     67     3.1    20.8   20.0   0.1   19.9   0.0   0.0     0.7       18      625        1
+     40     2.6    20.7   19.2   0.1   19.1   0.0   0.0     1.5       18      659        1
+   5647   110.0    20.7   19.0   0.1   18.9   0.0   0.0     1.6       18      628        1
+   2889    57.2    20.7   19.0   0.1   18.9   0.0   0.0     1.6       18      630        1
+
+GPU 3D: 15326 jobs, 8307 triangles a frame, 34.7 ms a frame, longest job seen to its end 25.7 ms
+binner memory: at most 100 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
