@@ -1,0 +1,212 @@
+bm report
+kind: log
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-11-14 09:18:28
+file: 20261114-091828_log_pi-zero-w_dev.txt
+
+fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1406 us
+
+bm kernel dev - Raspberry Pi Zero W (BCM2835, revision 9000c1)
+board 9000c1, ARM 1000 MHz, core 250 MHz, RAM 448+64 MB (ARM+GPU), 46.5 C
+ARM1176 from SVC, MMU+caches on, heap 417 MB, UART 48000000 Hz
+watchdog: on, 3000 ms (loaded 196608, after 20 ms 195358)
+boot: the same kernel build as the boot before (the boot before ran dev)
+the Pi froze last time and the watchdog restarted it:
+  doing: bootart: the log to the SD, frame 2669, 230 s after boot, kernel dev
+IRQ on: timer 1000 Hz (measured 999 Hz), double buffer on
+audio: HDMI 48 kHz
+usb: no answer from the device (-3)
+usb: nothing attached
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+config: /bm/config.txt, layout us, .bm drawing direct, volume 4/10
+report: nodate-6eef64_freeze_pi-zero-w_dev.txt saved as bm/reports/rpt00001.txt
+report: on the SD card: no network
+bt: the serial console moves to the mini UART (same pins, same speed)
+bt: 32 kHz clock already on
+bt: power-cycling the chip (GPIO45)
+bt: firmware patch loaded (121 records, 30049 bytes)
+bt: ready, address b8:27:eb:62:7c:08, HCI 7, LMP subversion 2209, 921600 baud
+bt: paired keyboard fe:06:5e:68:3b:04: press a key on it to connect
+bt: paired mouse df:0e:42:84:a7:2d: move it or click to connect
+bt: paired pad 00:1f:e2:bf:d7:dd (player 1): press its PS button to connect
+wifi: joining "FASTWEB-36AB12" (wifi_boot=0 in bm/config.txt: off)
+wifi: 32 kHz clock already on
+wifi: power on (WL_REG_ON = GPIO41)
+wifi: controller at 400 kHz, base clock (Hz) 0bebc200
+wifi: CMD5 OCR 20ffff00
+wifi: chip ready, functions 00000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -58 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -75 dBm  ch  9  WPA2  Wind3 HUB - ED4188
+   3   -86 dBm  ch  9  WPA2  Wind3 HUB - ED4188_EXT
+   4   -88 dBm  ch  3  WPA2  Infostrada-8F1A91
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+usb: device found, enumerating (try 1)
+usb: no answer from the device (-3)
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6578 us
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 11021 ms, 0 jobs)
+gpu3d: DIAG clip test 64x40: err 0, 0 of 1536 pixels below the frame written (row 39: f800, row 40: 5555, row 63: 5555)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 11082 ms)
+menu: 1920x1080, drawn by the GPU
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.6 ms past its slice
+covers: all 24 read
+usb: device found, enumerating (try 2)
+usb: no answer from the device (-3)
+net: time 2026-11-14 09:14 UTC
+fiber: reports did not yield: 100.9 ms past its slice
+report: sending nodate-6eef64_freeze_pi-zero-w_dev.txt
+usb: device found, enumerating (try 3)
+usb: no answer from the device (-3)
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-6eef64_freeze_pi-zero-w_dev.txt
+usb: device found, enumerating (try 4)
+usb: no answer from the device (-3)
+menu idle: 300/300 frames, 590 of 899 ms taken, 103.5 ms past a frame; covers 145 ms (+2.9, stk 0.8/16K), reports 423 ms (+100.9, stk 7.6/128K); min slack -352180 us, paced 0
+menu idle: sd first word <1ms 221 <3ms 13 (max 1.4 ms)
+menu stalls: tls handshake 1x last 287.2 worst 287.2 ms
+menu frame: 1x, a frame averages draw 25186 us, enlarge 0 us, flip 89 us, free time used 1967 us (300 frames)
+usb: device found, enumerating (try 5)
+usb: no answer from the device (-3)
+menu frame: 1x, a frame averages draw 20975 us, enlarge 0 us, flip 88 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19855 us, enlarge 0 us, flip 94 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 19855 us, enlarge 0 us, flip 91 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 19852 us, enlarge 0 us, flip 90 us, free time used 52 us (300 frames)
+menu frame: 1x, a frame averages draw 19855 us, enlarge 0 us, flip 97 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 19864 us, enlarge 0 us, flip 88 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19862 us, enlarge 0 us, flip 89 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 19861 us, enlarge 0 us, flip 89 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 19859 us, enlarge 0 us, flip 91 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 19850 us, enlarge 0 us, flip 97 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 19862 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19866 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19861 us, enlarge 0 us, flip 88 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19850 us, enlarge 0 us, flip 97 us, free time used 48 us (300 frames)
+menu frame: 1x, a frame averages draw 19862 us, enlarge 0 us, flip 87 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19863 us, enlarge 0 us, flip 88 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19855 us, enlarge 0 us, flip 90 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 19850 us, enlarge 0 us, flip 98 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 19860 us, enlarge 0 us, flip 87 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 19861 us, enlarge 0 us, flip 90 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 19862 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19851 us, enlarge 0 us, flip 94 us, free time used 50 us (300 frames)
+menu frame: 1x, a frame averages draw 19861 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19865 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+net: receiving overbit.bm (2383480 bytes)...
+net: cartridge received, starting it
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 7773, t 171092 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 171105 ms, 1 jobs)
+fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1395 us
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 171118 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 7773, t 173225 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 173239 ms, 1 jobs)
+fb: mode 480x270 depth 16 x3 (virtual height 810) set in 646 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 173251 ms, 1 jobs)
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 2357 ms (close 0, parse 56, assets+state 36, mode 2037, audio 4, lua 221)
+net: not served for 4401 ms (up 171400 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+net:   pc at 3s: 00148818
+net:   pc at 4s: 00148818
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 00007100 after job 2 (t 173527 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 7774, t 175533 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007100 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 175547 ms, 2 jobs)
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6489 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 175565 ms, 2 jobs)
+bm: screen 1920x1080
+net: not served for 2084 ms (up 173500 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+v3d: ERRSTAT 00007100 -> 00007180 after job 3 (t 175612 ms)
+overbit quality up to 2 (20.2 ms)
+overbit quality up to 3 (22.2 ms)
+overbit quality up to 4 (22.8 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1467 us
+bm: "Overbit" 2119 frames, 46.0 fps, 5 dropped
+     update+draw avg 20.56 ms (123% of frame), max 34.07 ms, Lua 943 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 2091 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2119 jobs, 2965 triangles a frame, 18.68 ms a frame (bin 0%), max job 22073 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6582 us
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 102.1 ms past its slice
+report: sending session_overbit_pi-zero-w.txt
+menu idle: 300/300 frames, 262 of 872 ms taken, 104.6 ms past a frame; reports 242 ms (+102.1, stk 7.7/128K); min slack -22867 us, paced 0
+menu idle: sd first word <1ms 50 <3ms 2 (max 1.4 ms)
+menu stalls: tls handshake 1x last 318.5 worst 318.5 ms
+menu frame: 1x, a frame averages draw 20067 us, enlarge 0 us, flip 89 us, free time used 873 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 214 of 765 ms taken, 19.1 ms past a frame; reports 201 ms (+19.1, stk 7.7/128K); min slack 1573 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.4 ms)
+menu frame: 1x, a frame averages draw 12524 us, enlarge 0 us, flip 88 us, free time used 716 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 10504, t 232078 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 00007180 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 232091 ms, 2120 jobs)
+fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1424 us
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 232104 ms, 2120 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:net: not served for 2052 ms (up 230100 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+log
+: log
