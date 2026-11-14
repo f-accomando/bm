@@ -118,4 +118,4 @@ Estimate for a 256 x 224 frame (not built): read the line buffers (about 230 KB)
 
 ## Open work
 
-- QPU compose through the VPM: write the mix program and its emulator test (section above). The numbers of the micro-benchmark pass.
+- QPU compose through the VPM: the mix program `qp_snes_mix` (`core/tools/qpuprogs.py`) and its emulator test (`make test-snes-qpumix`, 200 cases, pixel for pixel against the ARM mix) are done. Scope: lines with colour maths and a sub screen, brightness 15, no clip rule. Next: an asynchronous start and wait in `core/src/gpu/v3d.c` (the jobs of a frame run while the ARM emulates; the frame waits for them before the picture is shown), the line records and a palette copy for each palette change in `snes_ppu.c`, behind a config key (default off), then the SMW play on the Pi. Do the `v3d.c` part after the V3D freeze work (another session edits that file).
