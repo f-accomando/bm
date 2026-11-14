@@ -111,6 +111,94 @@ static const char *LISP_EMITTER =
 /* Composable bm domain patterns -> Unified AST */
 static const char *LISP_PATTERNS =
     "(define (sym-join a b) (str->sym (str-cat a \"_\" b)))\n"
+    "(define (wire-part p)\n"
+    "  (match p\n"
+    "    ((rect-actor ?n ?c ?w ?h)\n"
+    "     (list (str-cat \"  \" ?n \" = { x = 40, y = 100, w = \" ?w \", h = \" ?h \", vx = 0, vy = 0, on_ground = false, alive = true, col = \" ?c \" }\")\n"
+    "           \"\"\n"
+    "           (str-cat \"  if \" ?n \".alive then rectfill(\" ?n \".x, \" ?n \".y, \" ?n \".x + \" ?n \".w, \" ?n \".y + \" ?n \".h, \" ?n \".col) end\")))\n"
+    "    ((accel-x ?n ?acc ?fric ?maxv)\n"
+    "     (list \"\"\n"
+    "           (str-cat \"  if btn(0) then \" ?n \".vx = math.max(\" ?n \".vx - \" ?acc \", -\" ?maxv \")\" (nl)\n"
+    "                    \"  elseif btn(1) then \" ?n \".vx = math.min(\" ?n \".vx + \" ?acc \", \" ?maxv \")\" (nl)\n"
+    "                    \"  else\" (nl)\n"
+    "                    \"    if \" ?n \".vx > 0 then \" ?n \".vx = math.max(0, \" ?n \".vx - \" ?fric \")\" (nl)\n"
+    "                    \"    elseif \" ?n \".vx < 0 then \" ?n \".vx = math.min(0, \" ?n \".vx + \" ?fric \") end\" (nl)\n"
+    "                    \"  end\" (nl)\n"
+    "                    \"  \" ?n \".x = math.max(0, math.min(320 - \" ?n \".w, \" ?n \".x + \" ?n \".vx))\")\n"
+    "           \"\"))\n"
+    "    ((gravity-floor ?n ?g ?jv ?b ?fy)\n"
+    "     (list \"\"\n"
+    "           (str-cat \"  if \" ?n \".on_ground and btnp(\" ?b \") then \" ?n \".vy = -\" ?jv \"; \" ?n \".on_ground = false end\" (nl)\n"
+    "                    \"  \" ?n \".vy = math.min(\" ?n \".vy + \" ?g \", 10)\" (nl)\n"
+    "                    \"  \" ?n \".y = \" ?n \".y + \" ?n \".vy\" (nl)\n"
+    "                    \"  if \" ?n \".y + \" ?n \".h >= \" ?fy \" then \" ?n \".y = \" ?fy \" - \" ?n \".h; \" ?n \".vy = 0; \" ?n \".on_ground = true else \" ?n \".on_ground = false end\")\n"
+    "           (str-cat \"  if \" ?fy \" < 180 then rectfill(0, \" ?fy \", 319, 179, 4) end\")))\n"
+    "    ((patrol-bounds ?n ?spd ?mn ?mx ?c)\n"
+    "     (list (str-cat \"  \" ?n \" = { x = \" (+ ?mn 10) \", y = 132, w = 12, h = 12, dir = 1, alive = true, col = \" ?c \" }\")\n"
+    "           (str-cat \"  if \" ?n \".alive then\" (nl)\n"
+    "                    \"    \" ?n \".x = \" ?n \".x + \" ?n \".dir * \" ?spd (nl)\n"
+    "                    \"    if \" ?n \".x <= \" ?mn \" then \" ?n \".x = \" ?mn \"; \" ?n \".dir = 1 end\" (nl)\n"
+    "                    \"    if \" ?n \".x + \" ?n \".w >= \" ?mx \" then \" ?n \".x = \" ?mx \" - \" ?n \".w; \" ?n \".dir = -1 end\" (nl)\n"
+    "                    \"  end\")\n"
+    "           (str-cat \"  if \" ?n \".alive then rectfill(\" ?n \".x, \" ?n \".y, \" ?n \".x + \" ?n \".w, \" ?n \".y + \" ?n \".h, \" ?n \".col) end\")))\n"
+    "    ((stomp-or-hit ?a ?e)\n"
+    "     (list \"  score = 0; lives = 3\"\n"
+    "           (str-cat \"  if \" ?e \".alive and \" ?a \".alive then\" (nl)\n"
+    "                    \"    if math.abs((\" ?a \".x + \" ?a \".w * 0.5) - (\" ?e \".x + \" ?e \".w * 0.5)) < 12 and math.abs((\" ?a \".y + \" ?a \".h * 0.5) - (\" ?e \".y + \" ?e \".h * 0.5)) < 12 then\" (nl)\n"
+    "                    \"      if \" ?a \".vy > 0 and (\" ?a \".y + \" ?a \".h) <= (\" ?e \".y + 8) then \" ?e \".alive = false; \" ?a \".vy = -4; score = score + 100\" (nl)\n"
+    "                    \"      else lives = math.max(0, lives - 1) end\" (nl)\n"
+    "                    \"    end\" (nl)\n"
+    "                    \"  end\")\n"
+    "           \"  print('SCORE:' .. score .. ' LIVES:' .. lives, 4, 4, 7)\"))\n"
+    "    ((shmup-core ?spd ?cd)\n"
+    "     (list (str-cat \"  ship = { x = 152, y = 150, w = 14, h = 10, cd = 0 }; shots = {}; enemies = {}; score = 0\" (nl)\n"
+    "                    \"  for i = 1, 5 do enemies[i] = { x = i * 50, y = 24, w = 12, h = 10, dir = 1, alive = true } end\")\n"
+    "           (str-cat \"  if btn(0) then ship.x = math.max(4, ship.x - \" ?spd \") end\" (nl)\n"
+    "                    \"  if btn(1) then ship.x = math.min(302, ship.x + \" ?spd \") end\" (nl)\n"
+    "                    \"  if ship.cd > 0 then ship.cd = ship.cd - 1 elseif btn(4) then ship.cd = \" ?cd \"; shots[#shots + 1] = { x = ship.x + 6, y = ship.y - 4, alive = true } end\" (nl)\n"
+    "                    \"  for _, s in ipairs(shots) do if s.alive then s.y = s.y - 4; if s.y < 0 then s.alive = false end end end\" (nl)\n"
+    "                    \"  for _, e in ipairs(enemies) do if e.alive then e.x = e.x + e.dir; if e.x < 8 or e.x > 300 then e.dir = -e.dir end end end\")\n"
+    "           (str-cat \"  rectfill(ship.x, ship.y, ship.x + ship.w, ship.y + ship.h, 11)\" (nl)\n"
+    "                    \"  for _, s in ipairs(shots) do if s.alive then rectfill(s.x, s.y, s.x + 2, s.y + 5, 10) end end\" (nl)\n"
+    "                    \"  for _, e in ipairs(enemies) do if e.alive then rectfill(e.x, e.y, e.x + e.w, e.y + e.h, 8) end end\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((breakout-core ?spd)\n"
+    "     (list (str-cat \"  pad = { x = 136, y = 164, w = 48, h = 6 }; ball = { x = 160, y = 120, vx = 2, vy = -2 }; bricks = {}; score = 0\" (nl)\n"
+    "                    \"  for i = 1, 8 do bricks[i] = { x = 16 + (i - 1) * 36, y = 28, w = 32, h = 8, alive = true } end\")\n"
+    "           (str-cat \"  if btn(0) then pad.x = math.max(0, pad.x - \" ?spd \") end\" (nl)\n"
+    "                    \"  if btn(1) then pad.x = math.min(320 - pad.w, pad.x + \" ?spd \") end\" (nl)\n"
+    "                    \"  ball.x = ball.x + ball.vx; ball.y = ball.y + ball.vy\" (nl)\n"
+    "                    \"  if ball.x < 4 or ball.x > 316 then ball.vx = -ball.vx end\" (nl)\n"
+    "                    \"  if ball.y < 4 then ball.vy = -ball.vy end\" (nl)\n"
+    "                    \"  if ball.vy > 0 and ball.y >= pad.y - 4 and ball.x >= pad.x and ball.x <= pad.x + pad.w then ball.vy = -ball.vy end\" (nl)\n"
+    "                    \"  for _, b in ipairs(bricks) do if b.alive and ball.x >= b.x and ball.x <= b.x + b.w and ball.y >= b.y and ball.y <= b.y + b.h then b.alive = false; ball.vy = -ball.vy; score = score + 10 end end\")\n"
+    "           (str-cat \"  rectfill(pad.x, pad.y, pad.x + pad.w, pad.y + pad.h, 7)\" (nl)\n"
+    "                    \"  circfill(ball.x, ball.y, 4, 10)\" (nl)\n"
+    "                    \"  for _, b in ipairs(bricks) do if b.alive then rectfill(b.x, b.y, b.x + b.w, b.y + b.h, 9) end end\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((topdown-core ?spd)\n"
+    "     (list \"  hero = { x = 152, y = 84, w = 12, h = 12 }; foe = { x = 80, y = 40, w = 12, h = 12, dir = 1 }; wall = { x = 120, y = 60, w = 64, h = 12 }; score = 0\"\n"
+    "           (str-cat \"  local nx, ny = hero.x, hero.y\" (nl)\n"
+    "                    \"  if btn(0) then nx = nx - \" ?spd \" end; if btn(1) then nx = nx + \" ?spd \" end\" (nl)\n"
+    "                    \"  if btn(2) then ny = ny - \" ?spd \" end; if btn(3) then ny = ny + \" ?spd \" end\" (nl)\n"
+    "                    \"  if nx + hero.w < wall.x or nx > wall.x + wall.w or ny + hero.h < wall.y or ny > wall.y + wall.h then hero.x, hero.y = nx, ny end\" (nl)\n"
+    "                    \"  foe.x = foe.x + foe.dir; if foe.x < 20 or foe.x > 280 then foe.dir = -foe.dir end\")\n"
+    "           (str-cat \"  rectfill(wall.x, wall.y, wall.x + wall.w, wall.y + wall.h, 5)\" (nl)\n"
+    "                    \"  rectfill(foe.x, foe.y, foe.x + foe.w, foe.y + foe.h, 8)\" (nl)\n"
+    "                    \"  rectfill(hero.x, hero.y, hero.x + hero.w, hero.y + hero.h, 11)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((runner-core ?spd ?grav ?jv)\n"
+    "     (list \"  runner = { x = 40, y = 130, w = 12, h = 14, vy = 0, on_ground = true }; obs = { x = 300, y = 132, w = 12, h = 12 }; score = 0\"\n"
+    "           (str-cat \"  if runner.on_ground and btnp(4) then runner.vy = -\" ?jv \"; runner.on_ground = false end\" (nl)\n"
+    "                    \"  runner.vy = math.min(runner.vy + \" ?grav \", 8); runner.y = runner.y + runner.vy\" (nl)\n"
+    "                    \"  if runner.y >= 130 then runner.y = 130; runner.vy = 0; runner.on_ground = true end\" (nl)\n"
+    "                    \"  obs.x = obs.x - \" ?spd \"; if obs.x < -16 then obs.x = 320; score = score + 10 end\")\n"
+    "           (str-cat \"  rectfill(0, 144, 319, 179, 4)\" (nl)\n"
+    "                    \"  rectfill(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, 8)\" (nl)\n"
+    "                    \"  rectfill(runner.x, runner.y, runner.x + runner.w, runner.y + runner.h, 11)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    (_ (list \"\" \"\" \"\"))))\n"
     "(define (expand-goal tgt g)\n"
     "  (match g\n"
     "    ((move-4dir ?name ?spd ?wflag)\n"
@@ -310,6 +398,14 @@ static const char *LISP_PATTERNS =
     "       \"end\"))\n"
     "    ((compose . ?goals)\n"
     "     (cons 'seq (map (lambda (x) (expand-goal tgt x)) ?goals)))\n"
+    "    ((wire-cart . ?parts)\n"
+    "     (let ((ps (map wire-part ?parts)))\n"
+    "       (let ((inits (join-with (nl) (filter (lambda (s) (not (equal? s \"\"))) (map car ps))))\n"
+    "             (upds  (join-with (nl) (filter (lambda (s) (not (equal? s \"\"))) (map (lambda (x) (car (cdr x))) ps))))\n"
+    "             (draws (join-with (nl) (filter (lambda (s) (not (equal? s \"\"))) (map (lambda (x) (car (cdr (cdr x)))) ps)))))\n"
+    "         (str-cat \"function _init()\" (nl) inits (nl) \"end\" (nl)\n"
+    "                  \"function _update()\" (nl) upds (nl) \"end\" (nl)\n"
+    "                  \"function _draw()\" (nl) \"  cls(0)\" (nl) draws (nl) \"end\"))))\n"
     "    (_ g)))\n"
     "(define (synth tgt goal)\n"
     "  (emit-ast tgt (expand-goal tgt goal)))\n";
@@ -509,6 +605,40 @@ static int build_clause_goal(const char *q, const char *entry_id, const char *de
     if (count < 0) count = extract_int_near(q, "entit", 16);
     int range = extract_int_near(q, "range", -1);
     if (range < 0) range = extract_int_near(q, "raggio", 48);
+    int col_v = extract_int_near(q, "colore", -1);
+    if (col_v < 0) col_v = extract_int_near(q, "color", 11);
+    int acc = extract_int_near(q, "accel", -1);
+    int fric = extract_int_near(q, "attrit", -1);
+    if (fric < 0) fric = extract_int_near(q, "fric", 1);
+    int maxv = extract_int_near(q, "max", 3);
+    int minx = extract_int_near(q, "min", 40);
+
+    int is_rect = has_word(q, "rettangolo") || has_word(q, "rect") || has_word(q, "quadrato");
+    int is_accel = (acc >= 0) || has_word(q, "accelerazione") || has_word(q, "accel") ||
+                   has_word(q, "attrito") || has_word(q, "friction");
+    int is_stomp = has_word(q, "schiaccia") || has_word(q, "stomp");
+    int is_patrol = has_word(q, "patrol") || has_word(q, "pattuglia") || has_word(q, "chase") ||
+                    has_word(q, "insegui");
+    int is_bounds = has_word(q, "min") || has_word(q, "max") || has_word(q, "bordi");
+
+    if (is_rect) {
+        snprintf(goal, cap, "(rect-actor %s %d %d %d)", name, col_v, w, h);
+        return 0;
+    }
+    if (is_accel) {
+        snprintf(goal, cap, "(accel-x %s %d %d %d)", name, acc >= 0 ? acc : 1, fric, maxv);
+        return 0;
+    }
+    if (is_patrol && is_bounds) {
+        int c_en = extract_int_near(q, "colore", -1);
+        if (c_en < 0) c_en = extract_int_near(q, "color", 8);
+        snprintf(goal, cap, "(patrol-bounds %s %d %d %d %d)", name, speed, minx, maxv, c_en);
+        return 0;
+    }
+    if (is_stomp) {
+        snprintf(goal, cap, "(stomp-or-hit %s enemy)", default_name);
+        return 0;
+    }
 
     int is_move = has_word(q, "muovi") || has_word(q, "muovere") || has_word(q, "move") ||
                   has_word(q, "frecce") || has_word(q, "arrows") ||
@@ -528,8 +658,6 @@ static int build_clause_goal(const char *q, const char *entry_id, const char *de
     int is_grid = has_word(q, "indice") || has_word(q, "index") || has_word(q, "griglia") ||
                   has_word(q, "grid");
     int is_loop = has_word(q, "array") || has_word(q, "pool") || has_word(q, "particelle");
-    int is_patrol = has_word(q, "patrol") || has_word(q, "pattuglia") || has_word(q, "chase") ||
-                    has_word(q, "insegui");
     int is_lerp = has_word(q, "lerp") || has_word(q, "interpola") || has_word(q, "smooth");
     int is_dmg = has_word(q, "danno") || has_word(q, "damage") || has_word(q, "hp") ||
                  has_word(q, "vita");
@@ -606,8 +734,53 @@ static size_t match_conj_sep(const char *p)
     return 0;
 }
 
+static int is_wire_part_goal(const char *g)
+{
+    return strncmp(g, "(rect-actor ", 12) == 0 ||
+           strncmp(g, "(accel-x ", 9) == 0 ||
+           strncmp(g, "(gravity-floor ", 15) == 0 ||
+           strncmp(g, "(patrol-bounds ", 15) == 0 ||
+           strncmp(g, "(stomp-or-hit ", 14) == 0;
+}
+
 static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, size_t cap)
 {
+    if (entry_id && strncmp(entry_id, "genre.", 6) == 0) {
+        int speed = extract_int_near(q, "velocit", -1);
+        if (speed < 0) speed = extract_int_near(q, "speed", 2);
+        int grav = extract_int_near(q, "grav", 1);
+        int jump_v = extract_int_near(q, "salto", -1);
+        if (jump_v < 0) jump_v = extract_int_near(q, "jump", 6);
+        int btn_v = extract_int_near(q, "tasto", -1);
+        if (btn_v < 0) btn_v = extract_int_near(q, "btn", 4);
+        int cd = extract_int_near(q, "cooldown", 10);
+
+        if (strcmp(entry_id, "genre.platformer") == 0) {
+            snprintf(goal, cap,
+                     "(wire-cart (rect-actor hero 11 12 14) (accel-x hero 1 1 %d) "
+                     "(gravity-floor hero %d %d %d 144) (patrol-bounds enemy 1 80 240 8) "
+                     "(stomp-or-hit hero enemy))",
+                     speed, grav, jump_v, btn_v);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.shmup") == 0) {
+            snprintf(goal, cap, "(wire-cart (shmup-core %d %d))", speed > 0 ? speed : 3, cd);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.breakout") == 0) {
+            snprintf(goal, cap, "(wire-cart (breakout-core %d))", speed > 0 ? speed : 4);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.topdown") == 0) {
+            snprintf(goal, cap, "(wire-cart (topdown-core %d))", speed > 0 ? speed : 2);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.runner") == 0) {
+            snprintf(goal, cap, "(wire-cart (runner-core %d %d %d))", speed > 0 ? speed : 3, grav, jump_v);
+            return 0;
+        }
+    }
+
     int is_game = has_word(q, "gioco") || has_word(q, "game") ||
                   has_word(q, "mario") || has_word(q, "cartuccia") || has_word(q, "cartridge");
     int is_plat = has_word(q, "platform") || has_word(q, "platformer") || has_word(q, "mario");
@@ -622,6 +795,14 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
         snprintf(goal, cap, "(platformer-cart %s %d %d %d)", name, speed, grav, jump_v);
         return 0;
     }
+
+    int wire_ctx = has_word(q, "rettangolo") || has_word(q, "rect") ||
+                   has_word(q, "pavimento") || has_word(q, "floor") ||
+                   has_word(q, "accelerazione") || has_word(q, "accel") ||
+                   has_word(q, "schiaccia") || has_word(q, "stomp");
+    int has_grav_clause = has_word(q, "gravita") || has_word(q, "gravity") ||
+                          has_word(q, "pavimento") || has_word(q, "floor");
+    int added_grav_wire = 0;
 
     char clauses[16][192];
     int n_goals = 0;
@@ -646,14 +827,34 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
             memcpy(cbuf, cur, clen);
             cbuf[clen] = '\0';
 
-            char gbuf[192];
-            char used_name[32];
-            if (build_clause_goal(cbuf, entry_id, default_name,
-                                  gbuf, sizeof(gbuf), used_name, sizeof(used_name)) == 0) {
-                snprintf(clauses[n_goals++], sizeof(clauses[0]), "%s", gbuf);
-                if (!have_default_name) {
-                    snprintf(default_name, sizeof(default_name), "%s", used_name);
-                    have_default_name = 1;
+            if (wire_ctx && has_grav_clause &&
+                (has_word(cbuf, "gravita") || has_word(cbuf, "gravity") ||
+                 has_word(cbuf, "salto") || has_word(cbuf, "jump") ||
+                 has_word(cbuf, "pavimento") || has_word(cbuf, "floor"))) {
+                if (!added_grav_wire) {
+                    int grav = extract_int_near(q, "grav", 1);
+                    int jv = extract_int_near(q, "salto", -1);
+                    if (jv < 0) jv = extract_int_near(q, "jump", 6);
+                    int btn_v = extract_int_near(q, "tasto", -1);
+                    if (btn_v < 0) btn_v = extract_int_near(q, "btn", 4);
+                    int fy = extract_int_near(q, "pavimento y", -1);
+                    if (fy < 0) fy = extract_int_near(q, "pavimento", -1);
+                    if (fy < 0) fy = extract_int_near(q, "floor y", -1);
+                    if (fy < 0) fy = extract_int_near(q, "floor", 180);
+                    snprintf(clauses[n_goals++], sizeof(clauses[0]),
+                             "(gravity-floor %s %d %d %d %d)", default_name, grav, jv, btn_v, fy);
+                    added_grav_wire = 1;
+                }
+            } else {
+                char gbuf[192];
+                char used_name[32];
+                if (build_clause_goal(cbuf, entry_id, default_name,
+                                      gbuf, sizeof(gbuf), used_name, sizeof(used_name)) == 0) {
+                    snprintf(clauses[n_goals++], sizeof(clauses[0]), "%s", gbuf);
+                    if (!have_default_name) {
+                        snprintf(default_name, sizeof(default_name), "%s", used_name);
+                        have_default_name = 1;
+                    }
                 }
             }
         }
@@ -661,12 +862,16 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
     }
 
     if (n_goals == 0) return -1;
-    if (n_goals == 1) {
+    int any_wire = 0;
+    for (int i = 0; i < n_goals; i++) {
+        if (is_wire_part_goal(clauses[i])) { any_wire = 1; break; }
+    }
+    if (n_goals == 1 && !any_wire) {
         snprintf(goal, cap, "%s", clauses[0]);
         return 0;
     }
     size_t pos = 0;
-    pos += (size_t)snprintf(goal + pos, cap - pos, "(compose");
+    pos += (size_t)snprintf(goal + pos, cap - pos, "%s", any_wire ? "(wire-cart" : "(compose");
     for (int i = 0; i < n_goals && pos + 2 < cap; i++)
         pos += (size_t)snprintf(goal + pos, cap - pos, " %s", clauses[i]);
     if (pos + 2 <= cap) snprintf(goal + pos, cap - pos, ")");

@@ -9,12 +9,14 @@ Split from [tools](tools.md); open work and rules stay there.
   (`music.c`). Panel shared by the tools (`require "assist"`).
 - Symbolic code synthesizer (`lisp.c`, `synth.c`, `ai.synth`): arena-allocated micro-Lisp (`512 KB`)
   that composes parameterized `.b` (BML) and `Lua` functions from S-expressions, example pairs (`solve-expr`,
-  linear and quadratic), or hybrid IT/EN multi-clause queries (`compose`, `wired-actor`, `patrol-chase`,
-  `lerp-fn`, `damage-hp`, `cond`/`elseif`, `for-step`, `aref`/`aset`). `assist.lua` strips target/numeric noise
+  linear and quadratic), or hybrid IT/EN multi-clause queries (`compose`, `wired-actor`, `wire-cart` raw
+  primitives `rect-actor`/`accel-x`/`gravity-floor`/`patrol-bounds`/`stomp-or-hit`, `patrol-chase`,
+  `lerp-fn`, `damage-hp`, `cond`/`elseif`, `for-step`, `aref`/`aset`). Retro genre KB `core/src/ai/kb/genres.txt`
+  (`genre.*`) feeds `entry_id` from `assist.c` INT8 into `wire-cart` expansion. `assist.lua` strips target/numeric noise
   before `ai.ask`, verifies `.b` with `native_compile` (`bmlc.c`) and `Lua` with `load`, and `bm/code/main.lua`
   (`BL.integrate_block`) places synthesized functions before `_update()` with green gutter marks (`ai_marks`).
-  Tests: `tests/ai/synth_test.lua`, scored benchmark `tests/ai/synth_bench.lua` (L1–L5), and SMB-like `.bm`
-  benchmark `tests/ai/synth_smb_bench.lua` (`platformer-cart`).
+  Tests: `tests/ai/synth_test.lua`, `tests/ai/synth_bench.lua` (L1–L5), `tests/ai/synth_smb_bench.lua`,
+  and `tests/ai/synth_raw_bench.lua` (raw-specs & 3-layer INT8->Lisp).
 - Low poly help: `core/src/ai/kb/lowpoly.txt` (guide `guide.lowpoly_1200`, howto `howto.reduce_triangles`, tips
   `tip.tri_limits`, `tip.reduce_or_build`, `tip.reduce_lost_parts`): Studio's models page (F2), key `-`. Numbers from
   the mannequin test, `.claude/skills/bm-forge/references/DETAIL.md` (1200 triangles: 0.46 cm on a 1.8 m figure;

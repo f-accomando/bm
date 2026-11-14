@@ -1,0 +1,95 @@
+== genre.platformer
+kind: howto
+title: Gioco platform 2D con salto e nemici
+title_en: 2D platformer game with jumping and enemies
+ask: voglio fare un gioco platform 2d | come si fa un platformer con gravita | gioco stile super mario con blocchi e nemici | create a 2d platformer game | side scrolling platformer with jumping and patrolling enemies | gioco a piattaforme con monete e bandiera | platformer with gravity and stomp | gioco dove superi le piattaforme
+keys: platformer, platform, mario, piattaforme, stomp
+see: move_arrows
+text:
+Un platformer 2D combina movimento orizzontale con accelerazione, gravita,
+collisione con il pavimento, nemici che pattugliano e si schiacciano
+dall'alto.
+text_en:
+A 2D platformer combines horizontal acceleration, gravity, floor
+collision, patrolling enemies and stomping from above.
+code:
+function _update()
+  if on_ground and btnp(4) then vy = -6 end
+  vy = math.min(vy + 1, 8)
+end
+
+== genre.shmup
+kind: howto
+title: Sparatutto spaziale (shmup) con navicella e laser
+title_en: Space shooter (shmup) with ship and lasers
+ask: voglio fare uno sparatutto spaziale | gioco con navicella che spara laser | space shooter arcade stile space invaders | create a space shooter shmup | spaceship shooting lasers at enemy waves | sparatutto a scorrimento con astronave e proiettili | gioco di astronavi e laser | arcade shoot em up with cooldown
+keys: sparatutto, shmup, navicella, astronave, laser, shooter
+see: move_arrows
+text:
+Uno sparatutto arcade muove la navicella, gestisce il cooldown dei laser
+e controlla le collisioni con le ondate di nemici.
+text_en:
+An arcade space shooter moves the ship, tracks laser cooldown and checks
+collisions against enemy waves.
+code:
+function _update()
+  if btn(0) then sx = sx - 3 end
+  if btn(1) then sx = sx + 3 end
+end
+
+== genre.breakout
+kind: howto
+title: Gioco breakout con racchetta, pallina e mattoni
+title_en: Breakout game with paddle, ball and bricks
+ask: gioco con racchetta e pallina che rimbalza sui mattoni | come faccio un clone di breakout o arkanoid | pong con mattoni da rompere | create a breakout paddle and ball game | bouncing ball hitting bricks and paddle | gioco di racchetta che respinge la palla | arkanoid retro con blocchi colorati | paddle ball brick breaker
+keys: breakout, arkanoid, racchetta, pallina, mattoni, paddle, ball, bricks
+see: move_arrows
+text:
+Breakout muove la racchetta orizzontalmente, fa rimbalzare la pallina su
+bordi e racchetta e distrugge i mattoni colpiti.
+text_en:
+Breakout moves the paddle horizontally, bounces the ball off walls and
+paddle, and clears hit bricks.
+code:
+function _update()
+  if btn(0) then px = px - 4 end
+  if btn(1) then px = px + 4 end
+end
+
+== genre.topdown
+kind: howto
+title: Avventura dall'alto con stanze, muri e nemici
+title_en: Top-down adventure with rooms, walls and enemies
+ask: avventura dall'alto con stanze muri e nemici | gioco stile zelda dall'alto in 4 direzioni | dungeon dall'alto con collisioni ai muri | create a top down adventure game | top down 4 direction movement with walls and enemies | esplorazione dall'alto con nemici e ostacoli | gioco vista dall'alto con labirinto | rpg d'azione vista dall'alto
+keys: topdown, avventura, dall'alto, zelda, dungeon, labirinto, stanze
+see: move_arrows
+text:
+Un gioco con vista dall'alto muove il personaggio su 4 direzioni
+bloccandolo contro i muri e facendo pattugliare i nemici.
+text_en:
+A top-down game moves the hero in 4 directions with wall blocking and
+patrolling enemies.
+code:
+function _update()
+  if btn(0) then hx = hx - 2 end
+  if btn(1) then hx = hx + 2 end
+end
+
+== genre.runner
+kind: howto
+title: Endless runner con ostacoli a tempo
+title_en: Endless runner with scrolling obstacles and jump
+ask: gioco endless runner dove corri e eviti gli ostacoli | corsa infinita automatica con ostacoli | dino runner con ostacoli che arrivano | create an endless runner game | auto running game with jumping over obstacles | gioco in cui corri sempre e eviti ostacoli | runner arcade con punteggio
+keys: runner, endless, corsa, ostacoli, dino
+see: move_arrows
+text:
+Un endless runner mantiene il personaggio fermo in X, fa scorrere gli
+ostacoli verso sinistra e premia ogni ostacolo superato.
+text_en:
+An endless runner keeps the player fixed in X, scrolls obstacles left
+and awards points for each cleared obstacle.
+code:
+function _update()
+  obs_x = obs_x - 3
+  if obs_x < -16 then obs_x = 320 end
+end

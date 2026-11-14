@@ -392,3 +392,10 @@ fammi un camaleonte con la coda arrotolata => mesh.chameleon
 i want a lizard person with a long tail => mesh.chameleon
 perché il braccio si stacca dal corpo quando lo piego => tip.skin_continuous
 how do i avoid gaps at the joints of my character => tip.skin_continuous
+
+# retro game genres
+voglio fare uno sparatutto spaziale con navicella e laser => genre.shmup
+gioco con racchetta e pallina che rimbalza sui mattoni => genre.breakout
+avventura dall'alto con stanze muri e nemici => genre.topdown
+corsa infinita automatica dove salti gli ostacoli => genre.runner
+gioco a piattaforme stile super mario con nemici => genre.platformer
