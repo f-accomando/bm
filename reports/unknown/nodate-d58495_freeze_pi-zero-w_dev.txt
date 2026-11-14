@@ -1,0 +1,74 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-d58495_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 2991, 260 s after boot, kernel dev, ring 13299, sink on
+--- the last lines printed ---
+overbit build 76cf9f0
+load: Overbit 374 ms (close 0, parse 56, assets+state 36, mode 56, audio 4, lua 220)
+net: not served for 437 ms (up 200000 ms), while: boot
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 00007190 after job 2 (t 202078 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 11323, t 202104 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007190 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 202119 ms, 2 jobs)
+fb: mode 1920x1080 depth 16 x3 set in 6525 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 202136 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 00007190 -> 000071c0 after job 3 (t 202170 ms)
+v3d: ERRSTAT 000071c0 -> 000071d0 after job 4 (t 202188 ms)
+overbit quality up to 2 (14.3 ms)
+overbit quality up to 3 (16.1 ms)
+overbit quality up to 4 (16.2 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 set in 1441 us
+bm: "Overbit" 2991 frames, 59.8 fps, 3 dropped
+     update+draw avg 15.09 ms (90% of frame), max 28.38 ms, Lua 916 KB
+     dev kit: Lua peak 1824 KB, data 6415 KB, busiest frame 7k instructions, 20 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2991 jobs, 2994 triangles a frame, 13.32 ms a frame (bin 0%), max job 14752 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fb: mode 1920x1080 depth 16 x1 set in 2888 us
+menu: DIAG guard page: the firmware gave 1 pages
+menu: 1920x1080, drawn by the GPU
+report: sending session_overbit_pi-zero-w.txt
+menu idle: 300/300 frames, 372 of 755 ms taken, 104.0 ms past a frame; reports 344 ms (+104.0, stk 7.6/128K); min slack -5753 us, paced 0
+menu idle: sd first word <1ms 48 <3ms 3 <25ms 1 (max 14.0 ms)
+menu stalls: tls handshake 1x last 302.6 worst 302.6 ms
+menu frame: 1x, a frame averages draw 14466 us, enlarge 0 us, flip 1 us, free time used 1241 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 96 of 669 ms taken, 37.6 ms past a frame; reports 84 ms (+37.6, stk 7.6/128K); min slack 1282 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 14.0 ms)
+menu frame: 1x, a frame averages draw 12931 us, enlarge 0 us, flip 0 us, free time used 322 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 14918, t 262507 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 000071d0 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 262520 ms, 2992 jobs)
+fb: mode 640x360 depth 32 x2 set in 1409 us
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 262532 ms, 2992 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:log
+: log
+report: 20261114-081325_log_pi-zero-w_dev.txt saved as bm/reports/rpt00001.txt
+report: sending 20261114-081325_log_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/20261114-081325_log_pi-zero-w_dev.txt
+the line is done
+> 
+net: console closed
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+v3d: DIAG QPUs off by the firmware: answered in 57 us
+restarting: this run's log in bm/lastrun.txt
