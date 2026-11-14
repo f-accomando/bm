@@ -1,0 +1,74 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-beb557_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 2675, 150 s after boot, kernel dev, ring 10776, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 369 ms (close 0, parse 56, assets+state 38, mode 46, audio 4, lua 222)
+net: not served for 422 ms (up 62200 ms), while: boot
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 00007190 after job 2 (t 64339 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007190 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 64372 ms, 2 jobs)
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 64387 ms, 2 jobs)
+bm: screen 1920x1080
+v3d: ERRSTAT 00007190 -> 00007180 after job 3 (t 64422 ms)
+v3d: ERRSTAT 00007180 -> 000071d0 after job 4 (t 64440 ms)
+overbit quality up to 2 (14.4 ms)
+overbit quality up to 3 (16.2 ms)
+overbit quality up to 4 (16.3 ms)
+
+net: console opened from 192.168.1.115
+> bm: "Overbit" 2675 frames, 59.7 fps, 2 dropped
+     update+draw avg 15.17 ms (91% of frame), max 29.30 ms, Lua 919 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 100 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2675 jobs, 2971 triangles a frame, 13.47 ms a frame (bin 0%), max job 15206 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+menu: 1920x1080, drawn by the GPU
+fiber: reports did not yield: 102.9 ms past its slice
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 430 of 703 ms taken, 105.4 ms past a frame; reports 409 ms (+102.9, stk 7.6/128K); min slack -18246 us, paced 0
+menu idle: sd first word <1ms 54 <3ms 8 (max 2.5 ms)
+menu stalls: tls handshake 1x last 252.7 worst 252.7 ms
+menu frame: 1x, a frame averages draw 14727 us, enlarge 0 us, flip 95 us, free time used 1434 us (300 frames)
+menu frame: 1x, a frame averages draw 13236 us, enlarge 0 us, flip 98 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 13145 us, enlarge 0 us, flip 99 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 13063 us, enlarge 0 us, flip 99 us, free time used 42 us (300 frames)
+menu idle: sd first word <1ms 5 (max 2.5 ms)
+menu frame: 1x, a frame averages draw 13156 us, enlarge 0 us, flip 99 us, free time used 43 us (300 frames)
+net: receiving a new kernel (6972596 bytes)...
+net: kernel 0% (0 of 6809 KB)
+net: kernel 10% (686 of 6809 KB)
+net: kernel 20% (1364 of 6809 KB)
+net: kernel 30% (2050 of 6809 KB)
+menu idle: sd first word <1ms 5 (max 2.5 ms)
+menu frame: 1x, a frame averages draw 14507 us, enlarge 0 us, flip 98 us, free time used 44 us (300 frames)
+net: kernel 40% (2725 of 6809 KB)
+net: kernel 50% (3411 of 6809 KB)
+net: kernel 60% (4092 of 6809 KB)
+net: kernel 70% (4767 of 6809 KB)
+menu frame: 1x, a frame averages draw 14968 us, enlarge 0 us, flip 98 us, free time used 43 us (300 frames)
+net: kernel 80% (5453 of 6809 KB)
+net: kernel 90% (6128 of 6809 KB)
+net: dev mode: kernel received (6972596 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 199.2 ms past its slice
+net: saved kernel.img on the SD card (6972596 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 1488 of 631 ms taken, 201.8 ms past a frame; netxfer 2773 ms (+199.2, stk 1.7/64K); min slack -180886 us, paced 0
+menu idle: sd first word <1ms 226 <3ms 153 (max 2.5 ms)
+menu frame: 1x, a frame averages draw 19134 us, enlarge 0 us, flip 97 us, free time used 4960 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
