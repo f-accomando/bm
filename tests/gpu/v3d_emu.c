@@ -192,6 +192,17 @@ typedef struct {
 static float qf(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
 static uint32_t qu(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
 
+/* v8adds (add 1) and v8subs (add 0): four bytes, each saturated to 0..255 */
+static uint32_t v8sat(uint32_t a, uint32_t b, int add)
+{
+    uint32_t r = 0;
+    for (int k = 0; k < 32; k += 8) {
+        const int x = (int)(a >> k & 255), y = (int)(b >> k & 255), v = add ? x + y : x - y;
+        r |= (uint32_t)(v < 0 ? 0 : v > 255 ? 255 : v) << k;
+    }
+    return r;
+}
+
 static uint32_t qpu_add_op(int op, uint32_t a, uint32_t b, int *bad)
 {
     switch (op) {
@@ -213,6 +224,8 @@ static uint32_t qpu_add_op(int op, uint32_t a, uint32_t b, int *bad)
     case 21: return a | b;
     case 22: return a ^ b;
     case 23: return ~a;
+    case 30: return v8sat(a, b, 1);
+    case 31: return v8sat(a, b, 0);
     default: *bad = 1; return 0;
     }
 }
@@ -221,6 +234,8 @@ static uint32_t qpu_mul_op(int op, uint32_t a, uint32_t b, int *bad)
 {
     switch (op) {
     case 0: return 0;
+    case 6: return v8sat(a, b, 1);
+    case 7: return v8sat(a, b, 0);
     case 1: return qu(qf(a) * qf(b));
     case 2: return (a & 0xFFFFFF) * (b & 0xFFFFFF);
     case 4: {                           /* v8min: mov when a == b */

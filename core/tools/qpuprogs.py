@@ -291,8 +291,123 @@ def bench_store():
     return fix(L + loop_tail() + thrend())
 
 
+# ---------------------------------------------------------------- SNES mix (snes_ppu.c, the colour maths with a sub screen)
+# The mix of the lines that have colour maths and a sub screen, at brightness 15 and with no clip rule (the ARM loop
+# ppu_mix_sub_arm). A line record (from the ARM) holds idx[256] (main colour index), flag[256] (1: the pixel takes the
+# maths) and sidx[256] (sub colour index, 0: the fixed colour) at rec, rec + 256 and rec + 512. pal8 is the palette as
+# three byte lanes of 8 times the 5-bit value (red, green, blue). Uniforms: lines; then for each line rec, dst, pal8,
+# fix8, mode (0 sub, 1 sub half, 2 add, 3 add half). A lane makes pixels 2 * lane and 2 * lane + 1 of 32; eight vectors
+# a line; the eight result rows go to the VPM and out to dst (512 bytes of RGB565) under the mutex.
+
+def snes_pixel(j, out):
+    """pixel j (0 or 1) of the lane: c in ra13 / ra15, sc in ra14 / ra16; flag word in ra11, sidx word in ra12; the RGB565 in out"""
+    c, sc = ("ra13", "ra14") if j == 0 else ("ra15", "ra16")
+    L = []
+    if j == 0:
+        L += ["and.setf r0, ra12, rb12 ; nop"]                    # Z: sidx 0
+    else:
+        L += ["shr r0, ra12, 8      ; nop", "and.setf r0, r0, rb12 ; nop"]
+    L += ["mov r1, %s           ; nop" % sc,
+          "mov.ifz r1, ra6      ; nop",                           # the fixed colour
+          "v8subs r2, %s, r1    ; nop" % c,                       # mode 0
+          "shr r3, r2, 1        ; nop",
+          "and r3, r3, rb10     ; nop",                           # mode 1: the difference halved
+          "sub.setf r0, ra7, rb13 ; nop",
+          "mov.ifz r2, r3       ; nop",
+          "v8adds r3, %s, r1    ; nop" % c,                       # mode 2
+          "sub.setf r0, ra7, rb14 ; nop",
+          "mov.ifz r2, r3       ; nop",
+          "shr r3, %s, 1        ; nop" % c,
+          "and r3, r3, rb10     ; nop",
+          "shr r0, r1, 1        ; nop",
+          "and r0, r0, rb10     ; nop",
+          "add r3, r3, r0       ; nop",                           # mode 3: (c + sc) / 2, the lanes are multiples of 8
+          "sub.setf r0, ra7, rb15 ; nop",
+          "mov.ifz r2, r3       ; nop"]
+    if j == 0:
+        L += ["and.setf r0, ra11, rb12 ; nop"]                    # Z: no maths on this pixel
+    else:
+        L += ["shr r0, ra11, 8      ; nop", "and.setf r0, r0, rb12 ; nop"]
+    L += ["mov.ifz r2, %s       ; nop" % c,
+          "shr r0, r2, 3        ; nop",                           # RGB565 of the lanes
+          "and r0, r0, rb11     ; nop",
+          "shl r3, r0, 11       ; nop",
+          "shr r0, r2, 11       ; nop",
+          "and r0, r0, rb11     ; nop",
+          "shl r1, r0, 1        ; nop",
+          "shr r0, r0, 4        ; nop",
+          "or r0, r1, r0        ; nop",
+          "shl r0, r0, 5        ; nop",
+          "or r3, r3, r0        ; nop",
+          "shr r0, r2, rb24     ; nop",
+          "and r0, r0, rb11     ; nop",
+          "or %s, r3, r0        ; nop" % out]
+    return L
+
+
+def snes_mix():
+    L = ["mov ra3, unif        ; nop",                          # lines
+         "ldi rb10, 0x7F7F7F7F", "ldi rb11, 31", "ldi rb12, 255",
+         "ldi rb13, 1", "ldi rb14, 2", "ldi rb15, 3",
+         "ldi rb20, 32", "ldi rb21, 256", "ldi rb22, 512", "ldi rb24, 19", "ldi rb26, 16",
+         "ldi rb17, %d" % (VPM_H32 | 1 << 12),
+         "ldi rb18, %d" % vdw(8, 16),
+         "ldi rb19, %d" % VDW_STRIDE,
+         "shr r0, elem_num, 1  ; nop",
+         "shl rb27, r0, 2      ; nop",                          # the lane's word: (lane / 2) * 4
+         "and r0, elem_num, 1  ; nop",
+         "shl rb28, r0, 4      ; nop",                          # the lane's shift: (lane & 1) * 16
+         "line:",
+         "mov ra4, unif        ; nop",                          # rec
+         "mov ra1, unif        ; nop",                          # dst
+         "mov ra5, unif        ; nop",                          # pal8
+         "mov ra6, unif        ; nop",                          # fix8
+         "mov ra7, unif        ; nop",                          # mode
+         "add ra8, ra4, rb27   ; nop"]
+    outs = ["ra%d" % (22 + v) for v in range(8)]
+    for v in range(8):
+        L += ["mov t0s, ra8         ; nop",                     # idx word
+              "add r0, ra8, rb21    ; nop",
+              "mov t0s, r0          ; nop",                     # flag word
+              "add r0, ra8, rb22    ; nop",
+              "mov t0s, r0          ; nop",                     # sidx word
+              "nop                 ; nop           ; ldtmu0",
+              "shr ra10, r4, rb28   ; nop           ; ldtmu0",
+              "shr ra11, r4, rb28   ; nop           ; ldtmu0",
+              "shr ra12, r4, rb28   ; nop",
+              "and r0, ra10, rb12   ; nop",
+              "shl r0, r0, 2        ; nop",
+              "add t0s, r0, ra5     ; nop",                     # c of pixel 0
+              "and r0, ra12, rb12   ; nop",
+              "shl r0, r0, 2        ; nop",
+              "add t0s, r0, ra5     ; nop",                     # sc of pixel 0
+              "shr r0, ra10, 8      ; nop",
+              "and r0, r0, rb12     ; nop",
+              "shl r0, r0, 2        ; nop",
+              "add t0s, r0, ra5     ; nop",                     # c of pixel 1
+              "shr r0, ra12, 8      ; nop",
+              "and r0, r0, rb12     ; nop",
+              "shl r0, r0, 2        ; nop",
+              "add t0s, r0, ra5     ; nop",                     # sc of pixel 1
+              "nop                 ; nop           ; ldtmu0",
+              "mov ra13, r4         ; nop           ; ldtmu0",
+              "mov ra14, r4         ; nop           ; ldtmu0",
+              "mov ra15, r4         ; nop           ; ldtmu0",
+              "mov ra16, r4         ; nop"]
+        L += snes_pixel(0, "ra17") + snes_pixel(1, "ra18")
+        L += ["shl r0, ra18, rb26   ; nop",
+              "or %s, ra17, r0      ; nop" % outs[v],
+              "add ra8, ra8, rb20   ; nop"]
+    L += ["mov nop, mutex_acquire ; nop", "mov vw_setup, rb17    ; nop"]
+    L += ["mov vpm, %s          ; nop" % o for o in outs]
+    L += ["mov vw_setup, rb18    ; nop", "mov vw_setup, rb19    ; nop",
+          "mov vw_addr, ra1     ; nop", "mov nop, vw_wait     ; nop", "mov mutex_release, 0 ; nop",
+          "sub.setf ra3, ra3, 1 ; nop", NOP, "bra.anynz line", NOP, NOP, NOP]
+    return fix(L + thrend())
+
+
 PROGRAMS = {"qp_particles": particles, "qp_fade": fade, "qp_bench_nop": bench_nop, "qp_bench_gather": bench_gather,
-            "qp_bench_store": bench_store}
+            "qp_bench_store": bench_store, "qp_snes_mix": snes_mix}
 
 
 def write_header(path):

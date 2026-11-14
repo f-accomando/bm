@@ -2025,6 +2025,14 @@ $(BUILD)/host/test_qpurun: tests/gpu/test_qpu.c tests/gpu/v3d_emu.c tests/gpu/v3
 	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Icore/src -Itests/gpu -Daligned_alloc=test_aligned_alloc -Dfree=test_free -include v3d_emu.h -c core/src/bm/gfx16.c -o $@-g16.o
 	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Icore/src -Itests/gpu -o $@ tests/gpu/test_qpu.c tests/gpu/v3d_emu.c 	    core/src/gpu/v3d_cl.c core/src/gpu/etc1.c $@-g16.o $@-qpu.o -lm
 
+# The QPU mix of the SNES lines (qp_snes_mix) on the V3D emulator, pixel for pixel against the ARM mix (docs/progress/snes-gpu.md)
+$(BUILD)/host/test_snes_mix: tests/gpu/test_snes_mix.c tests/gpu/v3d_emu.c tests/gpu/v3d_emu.h core/src/gpu/qpuprog.h core/src/gpu/v3d.h
+	mkdir -p $(dir $@)
+	$(HOSTCC) -O2 -ffp-contract=off -Wall -Wextra -Icore/src -Itests/gpu -o $@ tests/gpu/test_snes_mix.c tests/gpu/v3d_emu.c core/src/gpu/v3d_cl.c core/src/gpu/etc1.c -lm
+
+test-snes-qpumix: $(BUILD)/host/test_snes_mix
+	$< 200
+
 test-qpurun: $(BUILD)/host/test_qpurun
 	$< 0
 	$< 1
