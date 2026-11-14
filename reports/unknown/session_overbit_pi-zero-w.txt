@@ -3,7 +3,7 @@ kind: session
 kernel: dev
 branch: unknown
 board: Pi Zero W
-date: 2026-11-14 07:05:02
+date: 2026-11-14 07:09:00
 file: session_overbit_pi-zero-w.txt
 
 session of "Overbit" (the last one: the next run of this game replaces this file)
@@ -44,11 +44,11 @@ GPU wait: 77.3% of the frames' work; the GPU set the pace (the ARM waited more t
 the longest frames (wall = picture to picture; cpu = _update + _draw; outside = wall - cpu - copy:
 time spent in neither, e.g. the SD card, the GPU or the machine itself; ms):
   frame  at s    wall    cpu   upd  draw    3D  copy outside  k-instr  lua KB  updates
-      2     0.3   106.0   47.1   3.4    1.3   0.4   0.0    58.9        7     1262        4
-    674    11.6    25.3   25.0   0.7   13.6   0.6   0.0     0.2        3      913        1
-    149     2.8    19.7   19.3   0.7    9.4   0.4   0.0     0.3        3      913        1
+      2     0.3   106.5   47.2   3.4    1.4   0.4   0.0    59.3        7     1262        4
+    674    11.6    25.1   24.8   0.7   13.4   0.5   0.0     0.2        2      913        1
+    149     2.8    19.7   19.4   0.7    9.4   0.4   0.0     0.2        3      913        1
 
-GPU 3D: 2992 jobs, 2995 triangles a frame, 10.3 ms a frame, longest job seen to its end 11.4 ms
+GPU 3D: 2992 jobs, 2995 triangles a frame, 10.3 ms a frame, longest job seen to its end 11.3 ms
 (a job's time: from its start to the end the ARM saw; 1 jobs had ended before it looked, counted at the others' mean)
 binner memory: at most 108 KB of the tile lists' 4096, 0 KB of the overflow's 2048, 0 jobs in the overflow
 frame queue: 2992 jobs started and waited for later, 0 filled while the GPU drew the one before, 0 frames shown a frame later (gpu3d_later)
