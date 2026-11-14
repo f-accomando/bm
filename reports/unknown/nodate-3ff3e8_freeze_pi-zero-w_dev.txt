@@ -1,0 +1,46 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-3ff3e8_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 9 s after boot, kernel dev, ring 8622, sink on
+--- the last lines printed ---
+mbox: the 3D is not started
+v3d: ping job 23 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware SILENT in 2008036 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 21 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 24 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware SILENT in 2000002 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 22 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
+64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 11 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 34 us, ERRSTAT 00001000 PCS 00000000
+v3d: ping job 12 bin 00000000 rnd 42e58000 BPOA 42418000: firmware answers in 32 us, ERRSTAT 00001000 PCS 00000000
+v3d: ping job 13 bin 00000000 rnd 42e58000 BPOA 42418000: firmware answers in 35 us, ERRSTAT 00001000 PCS 00000000
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: DIAG flush 11 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 14 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 35 us, ERRSTAT 00001010 PCS 00000000
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: DIAG flush 12 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 15 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 33 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: DIAG flush 13 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 16 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 33 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+gpu3d: DIAG flush 14 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 17 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 33 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 15 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 18 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 34 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 16 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 19 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 36 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 17 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 20 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 34 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 18 px 032d7000 fb 432d7000 64x64 load 0 zload 0 zstore 0 ms 0 async 1 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 11109 ms)
+v3d: ping job 21 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 33 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 19 px 032d7000 fb 432d7000 64x64 load 0 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
+v3d: ping job 22 bin 42e18000 rnd 42e58000 BPOA 42418000: firmware answers in 32 us, ERRSTAT 00001030 PCS 00000000
+gpu3d: DIAG flush 20 px 032d7000 fb 432d7000 64x64 load 1 zload 0 zstore 0 ms 0 async 0 zbuf 42618000 tsda 42000000 alloc 42018000
