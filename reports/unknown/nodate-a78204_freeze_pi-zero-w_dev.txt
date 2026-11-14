@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-a78204_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 2991, 224 s after boot, kernel dev, ring 11736, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 14266 us, enlarge 0 us, flip 92 us, free time used 44 us (300 frames)
+net: receiving overbit.bm (2383480 bytes)...
+net: cartridge received, starting it
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+v3d: DIAG QPUs off by the firmware: answered in 48 us
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 9279, t 167597 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb: mode 640x360 depth 32 x2 set in 1425 us
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 9279, t 167730 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT deadbeef DBGE deadbeef FDBGO deadbeef FDBGB deadbeef FDBGR deadbeef FDBGS deadbeef
+fb: mode 480x270 depth 16 x3 set in 646 us
+bm: the 3D is drawn by the GPU as bm3d 4.1 (bm3d 7.36 ready (byte a = red, texels in place, textures in tiles, MSAA on any page, 16-bit textures yes, two-thread shaders yes, vertex shader yes (clipper always on), indexed yes, clipping yes, lit models yes, queue yes, zclear in job yes, compact attributes yes, alpha textures RGBA5551 RGBA4444, ETC1 textures yes (utiles 2x4, bytes BE, rows reversed), cel light yes))
+overbit build 76cf9f0
+load: Overbit 354 ms (close 0, parse 56, assets+state 36, mode 36, audio 4, lua 219)
+net: not served for 404 ms (up 165900 ms), while: boot
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 168029 ms, 1 jobs)
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 00007000 after job 2 (t 168038 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+v3d: DIAG QPUs off by the firmware: answered in 45 us
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 9280, t 168068 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00007000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb: mode 1920x1080 depth 16 x3 set in 6491 us
+bm: screen 1920x1080
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 168131 ms, 2 jobs)
+overbit quality up to 2 (11.5 ms)
+overbit quality up to 3 (12.7 ms)
+overbit quality up to 4 (12.9 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 set in 1446 us
+bm: "Overbit" 2991 frames, 59.8 fps, 3 dropped
+     update+draw avg 12.09 ms (72% of frame), max 60.46 ms, Lua 919 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 4 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2991 jobs, 2995 triangles a frame, 10.34 ms a frame (bin 0%), max job 11425 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+net: not served for 498 ms (up 216500 ms), while: boot
+fb: mode 1920x1080 depth 16 x3 set in 6590 us
+menu: 1920x1080, drawn by the GPU
+menu idle: 300/300 frames, 242 of 786 ms taken, 101.6 ms past a frame; reports 226 ms (+101.6, stk 7.6/128K); min slack -4691 us, paced 0
+menu idle: sd first word <1ms 48 <3ms 2 (max 3.8 ms)
+menu stalls: tls handshake 1x last 266.8 worst 266.8 ms
+menu frame: 1x, a frame averages draw 15532 us, enlarge 0 us, flip 89 us, free time used 807 us (300 frames)
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+fiber: reports did not yield: 291.3 ms past its slice
+
+net: console closed
+menu idle: 300/300 frames, 499 of 767 ms taken, 293.9 ms past a frame; reports 484 ms (+291.3, stk 7.6/128K); min slack 1191 us, paced 0
+menu idle: sd first word <1ms 14 <3ms 3 (max 3.8 ms)
+menu frame: 1x, a frame averages draw 12517 us, enlarge 0 us, flip 87 us, free time used 1663 us (300 frames)
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+v3d: DIAG QPUs off by the firmware: answered in 51 us
+restarting: this run's log in bm/lastrun.txt
