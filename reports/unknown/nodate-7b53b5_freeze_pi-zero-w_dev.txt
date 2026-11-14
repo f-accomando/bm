@@ -1,0 +1,79 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-7b53b5_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: moniart: the log to the SD, frame 0, 226 s after boot, kernel dev, ring 13573, sink on
+--- the last lines printed ---
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+net:   pc at 3s: 00148818
+net:   pc at 4s: 00148818
+overbit screen 1920x1080 q
+v3d: ERRSTAT 00001030 -> 000071c0 after job 2 (t 172145 ms)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the cartridge's video mode: at entry 1, after the job 1, after the reset 1 (job 9300, t 174152 ms)
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 000071c0 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 174166 ms, 2 jobs)
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6488 us
+v3d: after the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 174184 ms, 2 jobs)
+bm: screen 1920x1080
+net: not served for 2084 ms (up 172100 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+v3d: ERRSTAT 000071c0 -> 00007180 after job 3 (t 174228 ms)
+overbit quality up to 2 (16.5 ms)
+overbit quality up to 3 (18.7 ms)
+overbit quality up to 4 (19.7 ms)
+
+net: console opened from 192.168.1.115
+> fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1425 us
+bm: "Overbit" 2496 frames, 54.2 fps, 3 dropped
+     update+draw avg 17.43 ms (104% of frame), max 30.55 ms, Lua 1089 KB
+     dev kit: Lua peak 1823 KB, data 6415 KB, busiest frame 7k instructions, 2225 frames over 16.7 ms, 73600 tokens
+     GPU 3D 2496 jobs, 2964 triangles a frame, 15.65 ms a frame (bin 0%), max job 17412 us
+report: session_overbit_pi-zero-w.txt saved as bm/reports/rpt00001.txt
+fb: mode 1920x1080 depth 16 x3 (virtual height 2560) set in 6586 us
+menu: 1920x1080, drawn by the GPU
+menu idle: 300/300 frames, 167 of 768 ms taken, 102.5 ms past a frame; reports 151 ms (+103.6, stk 7.7/128K); min slack -3883 us, paced 0
+menu idle: sd first word <1ms 48 <3ms 2 (max 1.5 ms)
+menu stalls: tls handshake 1x last 301.0 worst 301.0 ms
+menu frame: 1x, a frame averages draw 15031 us, enlarge 0 us, flip 86 us, free time used 557 us (300 frames)
+report: sending session_overbit_pi-zero-w.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/session_overbit_pi-zero-w.txt
+
+net: console closed
+menu idle: 300/300 frames, 210 of 485 ms taken, 19.5 ms past a frame; reports 197 ms (+21.0, stk 7.7/128K); min slack -317 us, paced 0
+menu idle: sd first word <1ms 15 <3ms 2 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 13472 us, enlarge 0 us, flip 88 us, free time used 702 us (300 frames)
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: DIAG firmware before the menu closes: at entry 1, after the job 1, after the reset 1 (job 12263, t 228301 ms)
+gpu3d: quiet before the menu closes: ERRSTAT 00007180 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 228314 ms, 2497 jobs)
+fb: mode 640x360 depth 32 x2 (virtual height 720) set in 1400 us
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000806 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 228327 ms, 2497 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:net: not served for 2051 ms (up 226300 ms), while: boot
+net:   pc at 1s: 00148818
+net:   pc at 2s: 00148818
+log
+: log
+report: 20261114-093753_log_pi-zero-w_dev.txt saved as bm/reports/rpt00001.txt
+report: sending 20261114-093753_log_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/20261114-093753_log_pi-zero-w_dev.txt
+the line is done
+> 
+net: console closed
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+v3d: DIAG QPUs off by the firmware: answered in 57 us
+restarting: this run's log in bm/lastrun.txt
