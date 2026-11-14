@@ -351,6 +351,19 @@ static uint32_t bus_of(const void *p)
 
 /* ---------------------------------------------------------------- textures */
 
+/* The 2D shader (SH_TEX2D) reads the third and fourth words of a texture: the
+ * first two again, always at the nearest texel (bm3d 4.8). A texture made by
+ * hand (the probes) sets them too. Harm when they are left out: the TMU takes
+ * whatever an earlier kernel left in RAM there (the SDRAM survives a restart),
+ * and on the Pi Zero W the VideoCore firmware stopped answering the mailbox
+ * after that job, at every boot after some kernel sends (14 Nov 2026). */
+static void tex_nearest_2d(tex_t *t)
+{
+    t->params[2] = t->params[0];
+    t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
+}
+
+
 /* an RGB565 colour as a texel: the bytes a b c d the tile buffer gets
  * back, red and blue in the order the probe found, alpha in d */
 static uint32_t texel_of(uint16_t c, int opaque)
@@ -620,8 +633,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     /* type 8: ETC1, 4: RGB565, 3: RGBA5551 */
     t->params[1] = (tiled || fmt != TF_32 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
                    (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* bm3d 4.8: linear (0) or nearest */
-    t->params[2] = t->params[0];        /* the same, always the nearest texel: 2D (bm3d 4.8) */
-    t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
+    tex_nearest_2d(t);                  /* the same, always the nearest texel: 2D (bm3d 4.8) */
     t->sheet = s;
     t->version = s->version;
     t->used = ++G.tick;
@@ -3218,6 +3230,7 @@ static int tformat16_learn(const g16_t *pg)
     pt.inv_h = 1.0f / TH;
     pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 4u << 4;  /* RGB565, T-format */
     pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     for (int half = 0; half < 2; half++) {
         static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
         r3d_corner_t v[4];
@@ -3350,6 +3363,7 @@ static int probe_cut16(const g16_t *pg, int f)
     pt.inv_h = 1.0f / TH;
     pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | (f ? 2u : 3u) << 4;
     pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     static const float q[4][2] = { { 0, 0 }, { TW, 0 }, { TW, TH }, { 0, TH } };
     r3d_corner_t v[4];
     for (int i = 0; i < 4; i++)
@@ -3459,6 +3473,7 @@ static void etc1_diagnose(const g16_t *pg)
     pt.inv_h = 1.0f / TH;
     pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 8u << 4;
     pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     int red = -1;                       /* the order that gave the red block back */
     char line[128];
     for (int c = 0; c < 2; c++) {
@@ -3583,6 +3598,7 @@ static int probe_etc1(const g16_t *pg)
     pt.inv_h = 1.0f / TH;
     pt.params[0] = (v3d_bus(pt.texels) & ~0xFFFu) | 8u << 4;
     pt.params[1] = (uint32_t)TH << 20 | (uint32_t)TW << 8 | 1u << 7 | 1u << 4 | 1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
     static char diag[8][112];           /* what each layout drew on the first pass (logged only if none fits) */
     static const char *const order[4] = { "BE", "words LE", "LE", "halves" };
@@ -4295,6 +4311,7 @@ static int probe(void)
     pt.params[0] = v3d_bus(pt.texels) & ~0xFFFu;
     pt.params[1] = 1u << 31 | (uint32_t)PROBE_H << 20 | (uint32_t)PROBE_W << 8 | 1u << 7 | 1u << 4 |
                    1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     memset(G.probe, 0, JOB_PROBE);
     static const float q[4][2] = { { 0, 0 }, { PROBE_W, 0 }, { PROBE_W, PROBE_H }, { 0, PROBE_H } };
     r3d_corner_t v[4];
@@ -4326,6 +4343,7 @@ static int probe(void)
     for (int i = 0; i < PROBE_W * PROBE_H; i++)
         pt.texels[i] = texel_of((uint16_t)i, 1);
     pt.params[1] &= ~(1u << 31);        /* type RGBA8888 */
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
     memset(G.probe, 0, JOB_PROBE);
     add_tri(&pg, t1, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
     add_tri(&pg, t2, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
