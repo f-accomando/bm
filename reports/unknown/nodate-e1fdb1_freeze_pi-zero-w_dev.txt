@@ -1,0 +1,12 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-e1fdb1_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: monitor, waiting for a key, frame 0, 409 s after boot, kernel dev, ring 4659, sink on
+--- the last lines printed ---
+IRQ on: timer 1000 Hz (measured 1000 Hz), double buffer on
+audio: HDMI 48 kHz
