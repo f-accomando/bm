@@ -1,0 +1,61 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-6b7073_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 0, 254 s after boot, kernel dev, ring 10483, sink on
+--- the last lines printed ---
+restarting: this run's log in bm/lastrun.txt
+e used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19923 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19907 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19920 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19906 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19920 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19904 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19921 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19921 us, enlarge 0 us, flip 88 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19907 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19905 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19906 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19918 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19903 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 19907 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 19904 us, enlarge 0 us, flip 88 us, free time used 42 us (300 frames)
+net: receiving a new kernel (6975332 bytes)...
+net: kernel 0% (0 of 6811 KB)
+net: kernel 10% (683 of 6811 KB)
+net: kernel 20% (1364 of 6811 KB)
+menu frame: 1x, a frame averages draw 21034 us, enlarge 0 us, flip 89 us, free time used 42 us (300 frames)
+net: kernel 30% (2053 of 6811 KB)
+net: kernel 40% (2730 of 6811 KB)
+net: kernel 50% (3411 of 6811 KB)
+net: kernel 60% (4097 of 6811 KB)
+menu frame: 1x, a frame averages draw 21498 us, enlarge 0 us, flip 89 us, free time used 41 us (300 frames)
+net: kernel 70% (4778 of 6811 KB)
+net: kernel 80% (5453 of 6811 KB)
+net: kernel 90% (6139 of 6811 KB)
+net: dev mode: kernel received (6975332 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 196.9 ms past its slice
+menu idle: 300/300 frames, 852 of 899 ms taken, 199.4 ms past a frame; netxfer 1399 ms (+196.9, stk 1.1/64K); min slack -135320 us, paced 0
+menu idle: sd first word <1ms 70 <3ms 139 <25ms 1 (max 12.7 ms)
+menu frame: 1x, a frame averages draw 23465 us, enlarge 0 us, flip 89 us, free time used 2843 us (300 frames)
+net: saved kernel.img on the SD card (6975332 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
