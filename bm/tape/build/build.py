@@ -17,7 +17,7 @@ time in seconds from the transport start) and updates the sequencer only every N
 The hook also has F9 (build a test song), F10 (log the state of the song) and logs the level, pan and sends of each note
 (tests/tape/song_test.py). Without the variable the line is dropped and the cartridge logs nothing.
 """
-import glob, os, struct, subprocess, sys, zlib
+import glob, os, shutil, struct, subprocess, sys, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
@@ -88,7 +88,11 @@ def main():
     sheet = os.path.join(OUT, "sheet.png")
     png(sheet, 16, 16, lambda x, y: b"\x00\x00\x00\x00")
     cv = os.path.join(OUT, "cover.png")
-    cover(cv)
+    src_cv = os.path.join(HERE, "..", "cover.png")
+    if os.path.exists(src_cv):
+        shutil.copyfile(src_cv, cv)
+    else:
+        cover(cv)
     subprocess.check_call([sys.executable, os.path.join(ROOT, "core", "scripts", "felpack.py"), OUT])
     mk = os.path.join(ROOT, "core", "scripts", "mkbm.py")
     for ext in ("bme", "bm"):

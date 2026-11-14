@@ -76,45 +76,90 @@ end
 local function key(x, y, w, h, cap, u, page, sc)
   local txt, col, on, black = role(u, page, sc)
   local down = held[u]
-  local fill, edge = C.key, C.dim
+  local sh = max(1, g(3))
+  local fill, edge, cap_c, txt_c = TE.panel, TE.border, TE.mute, TE.dark
+
   if txt then
-    edge = col
-    if on then fill = fade(col, 0.4) elseif col == C.pad then fill = black and C.ink or fade(col, 0.22) end
+    if col == C.pad then
+      fill = black and TE.key_dk or TE.key
+      edge = on and TE.green or TE.border
+      cap_c = black and TE.mute or TE.mute
+      txt_c = black and TE.white or TE.dark
+      if on then fill, txt_c, cap_c = TE.green, TE.white, TE.white end
+    elseif col == C.hot then
+      fill = on and TE.orange or TE.key_dk
+      edge = TE.orange
+      cap_c, txt_c = TE.white, on and TE.white or TE.orange
+    elseif col == C.e1 or col == C.e2 or col == C.e3 or col == C.e4 then
+      fill = col
+      edge = TE.dark
+      cap_c = TE.dark
+      txt_c = TE.dark
+    elseif col == C.nav then
+      fill = on and TE.dark or TE.key
+      edge = on and TE.orange or TE.border
+      cap_c = on and TE.orange or TE.mute
+      txt_c = on and TE.white or TE.dark
+    else
+      fill = on and TE.dark or TE.key
+      edge = TE.border
+      cap_c = TE.mute
+      txt_c = on and TE.white or TE.dark
+    end
   end
-  if down then fill, edge = col or C.mute, col or C.mute end
-  rectfill(x, y, w, h, fill)
-  rect(x, y, w, h, edge)
-  local cols = (w - 4) // 8
+
+  if down then
+    fill, edge, cap_c, txt_c = TE.orange, TE.dark, TE.white, TE.white
+  end
+
+  local dy = down and max(1, g(2)) or 0
+  if not down and h > sh + 2 then
+    rectfill(x, y + sh, w, h - sh, TE.shadow)
+  end
+  local kh = h - (down and dy or sh)
+  rectfill(x, y + dy, w, max(2, kh), fill)
+  rect(x, y + dy, w, max(2, kh), edge)
+
+  local cols = max(1, (w - 4) // 8)
   if LY.big and h > g(30) then
-    print(cap:sub(1, cols), x + 4, y + 3, down and C.ink or C.grid)
-    if txt then print(txt:sub(1, cols), x + 4, y + h - 19, down and C.ink or col) end
+    print(cap:sub(1, cols), x + 4, y + dy + 2, cap_c)
+    if txt then print(txt:sub(1, cols), x + 4, y + dy + kh - 17, txt_c) end
   else
     local s = (txt or cap):sub(1, cols)
-    print(s, x + (w - #s * 8) // 2, y + (h - 16) // 2, down and C.ink or (txt and col or C.grid))
+    print(s, x + (w - #s * 8) // 2, y + dy + max(0, (kh - 16) // 2), txt and txt_c or TE.mute)
   end
 end
 
 local function legend(x, y)
   local rows = {
-    { C.nav, "MODULES TRACKS PAGES" }, { C.pad, "PIANO / PADS" }, { C.hot, "PLAY REC PUNCH" }, { C.e3, "EDIT STEPS" }, { C.mute, "PATTERN SOUND" },
+    { TE.dark, "MODULES / TRACKS / PAGES" },
+    { TE.key, "PIANO / DRUM PADS" },
+    { TE.orange, "PLAY / REC / PUNCH" },
+    { C.e3, "EDIT STEPS / SLOTS" },
+    { TE.panel, "PATTERN / SOUND" },
   }
-  print("KEY COLORS", x, y, C.e4)
+  print("KEY LEGEND", x, y, TE.dark)
   for i, r in ipairs(rows) do
-    rectfill(x, y + 24 + (i - 1) * 20, 12, 12, r[1])
-    print(r[2], x + 20, y + 22 + (i - 1) * 20, C.mute)
+    rectfill(x, y + 22 + (i - 1) * 19, 12, 12, r[1])
+    rect(x, y + 22 + (i - 1) * 19, 12, 12, TE.border)
+    print(r[2], x + 18, y + 20 + (i - 1) * 19, TE.mute)
   end
-  local ey = y + 24 + #rows * 20
-  for i = 1, 4 do rectfill(x + (i - 1) * 14, ey, 12, 12, ECOL[i]) end
-  print("ENCODERS", x + 64, ey - 2, C.mute)
-  local ty = ey + 28
+  local ey = y + 22 + #rows * 19
+  for i = 1, 4 do
+    rectfill(x + (i - 1) * 14, ey, 12, 12, ECOL[i])
+    rect(x + (i - 1) * 14, ey, 12, 12, TE.dark)
+  end
+  print("ENCODERS 1-4", x + 64, ey - 2, TE.dark)
+  local ty = ey + 24
   for i, s in ipairs({ "SHIFT+1-4  MUTE", "SHIFT+ENC  FINE", "HOLD 5-8  PUNCH", "CTRL+S  SAVE", "CTRL+N  NEW SONG", "ESC  EXIT PAGE" }) do
-    print(s, x, ty + (i - 1) * 18, C.grid)
+    print(s, x, ty + (i - 1) * 18, TE.mute)
   end
 end
 
 function draw_keys(page)
+  rectfill(0, LY.kb + g(28), LY.W, LY.H - (LY.kb + g(28)), TE.bg)
   local sc, p = page.sc, g(56)
-  local x0, y0, rh = g(14), LY.kb + g(34), g(46)
+  local x0, y0, rh = g(14), LY.kb + g(36), g(46)
   local right = 0
   for ri, row in ipairs(ROWS) do
     local x, y = x0, y0 + (ri - 1) * rh

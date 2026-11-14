@@ -15,6 +15,16 @@ local C = {
 }
 local ECOL = { C.e1, C.e2, C.e3, C.e4 }
 
+-- Teenage Engineering Field chassis palette (for frame, dials, and tactile keycaps around the synthwave display)
+local TE = {
+  bg = rgb(0xE6, 0xE3, 0xDA), panel = rgb(0xD8, 0xD4, 0xC8),
+  dark = rgb(0x18, 0x1A, 0x1F), border = rgb(0xB4, 0xAF, 0xA2),
+  shadow = rgb(0xA6, 0xA1, 0x93), mute = rgb(0x5E, 0x5B, 0x54),
+  key = rgb(0xF7, 0xF5, 0xEE), key_dk = rgb(0x23, 0x26, 0x2E),
+  orange = rgb(0xFF, 0x4D, 0x00), green = rgb(0x16, 0xA3, 0x64),
+  white = rgb(0xF5, 0xF3, 0xEC), well = rgb(0x14, 0x16, 0x1C),
+}
+
 local function clamp(v, lo, hi) return v < lo and lo or (v > hi and hi or v) end
 local function px(v) return floor(v * SCL + 0.5) end
 local function X(v) return floor(v * SCL + 0.5) + OX end      -- a place on the screen, in pixels
