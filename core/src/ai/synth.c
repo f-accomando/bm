@@ -151,6 +151,30 @@ static const char *LISP_PATTERNS =
     "                    \"    end\" (nl)\n"
     "                    \"  end\")\n"
     "           \"  print('SCORE:' .. score .. ' LIVES:' .. lives, 4, 4, 7)\"))\n"
+    "    ((bounce-actor ?n ?c ?w ?h ?spd)\n"
+    "     (list (str-cat \"  \" ?n \" = { x = 160, y = 80, w = \" ?w \", h = \" ?h \", vx = \" ?spd \", vy = \" ?spd \", alive = true, col = \" ?c \" }\")\n"
+    "           (str-cat \"  \" ?n \".x = \" ?n \".x + \" ?n \".vx; \" ?n \".y = \" ?n \".y + \" ?n \".vy\" (nl)\n"
+    "                    \"  if \" ?n \".x < 0 or \" ?n \".x + \" ?n \".w > 320 then \" ?n \".vx = -\" ?n \".vx end\" (nl)\n"
+    "                    \"  if \" ?n \".y < 0 or \" ?n \".y + \" ?n \".h > 180 then \" ?n \".vy = -\" ?n \".vy end\")\n"
+    "           (str-cat \"  rectfill(\" ?n \".x, \" ?n \".y, \" ?n \".x + \" ?n \".w, \" ?n \".y + \" ?n \".h, \" ?n \".col)\")))\n"
+    "    ((collide-bounce ?b ?p)\n"
+    "     (list \"\"\n"
+    "           (str-cat \"  if \" ?b \".vy > 0 and \" ?b \".x + \" ?b \".w >= \" ?p \".x and \" ?b \".x <= \" ?p \".x + \" ?p \".w and \" ?b \".y + \" ?b \".h >= \" ?p \".y and \" ?b \".y <= \" ?p \".y + \" ?p \".h then\" (nl)\n"
+    "                    \"    \" ?b \".y = \" ?p \".y - \" ?b \".h; \" ?b \".vy = -\" ?b \".vy\" (nl)\n"
+    "                    \"  end\")\n"
+    "           \"\"))\n"
+    "    ((moving-platform ?n ?spd ?mn ?mx ?w ?h ?c)\n"
+    "     (list (str-cat \"  \" ?n \" = { x = \" (+ ?mn 10) \", y = 120, w = \" ?w \", h = \" ?h \", dir = 1, spd = \" ?spd \", col = \" ?c \" }\")\n"
+    "           (str-cat \"  \" ?n \".x = \" ?n \".x + \" ?n \".dir * \" ?spd (nl)\n"
+    "                    \"  if \" ?n \".x <= \" ?mn \" then \" ?n \".x = \" ?mn \"; \" ?n \".dir = 1 end\" (nl)\n"
+    "                    \"  if \" ?n \".x + \" ?n \".w >= \" ?mx \" then \" ?n \".x = \" ?mx \" - \" ?n \".w; \" ?n \".dir = -1 end\")\n"
+    "           (str-cat \"  rectfill(\" ?n \".x, \" ?n \".y, \" ?n \".x + \" ?n \".w, \" ?n \".y + \" ?n \".h, \" ?n \".col)\")))\n"
+    "    ((land-on ?a ?p)\n"
+    "     (list \"\"\n"
+    "           (str-cat \"  if \" ?a \".vy >= 0 and \" ?a \".x + \" ?a \".w > \" ?p \".x and \" ?a \".x < \" ?p \".x + \" ?p \".w and \" ?a \".y + \" ?a \".h >= \" ?p \".y and \" ?a \".y + \" ?a \".h <= \" ?p \".y + 10 then\" (nl)\n"
+    "                    \"    \" ?a \".y = \" ?p \".y - \" ?a \".h; \" ?a \".vy = 0; \" ?a \".on_ground = true; \" ?a \".x = \" ?a \".x + \" ?p \".dir * (\" ?p \".spd or 0)\" (nl)\n"
+    "                    \"  end\")\n"
+    "           \"\"))\n"
     "    ((shmup-core ?spd ?cd)\n"
     "     (list (str-cat \"  ship = { x = 152, y = 150, w = 14, h = 10, cd = 0 }; shots = {}; enemies = {}; score = 0\" (nl)\n"
     "                    \"  for i = 1, 5 do enemies[i] = { x = i * 50, y = 24, w = 12, h = 10, dir = 1, alive = true } end\")\n"
@@ -557,7 +581,8 @@ static void extract_name(const char *q, const char *fallback, char *out, size_t 
     }
     static const char *const roles[] = {
         "player", "hero", "enemy", "nemico", "bullet", "proiettile",
-        "boss", "ship", "nave", "slime", NULL
+        "boss", "ship", "nave", "slime", "paddle", "ball", "palla",
+        "plat", "piattaforma", NULL
     };
     for (int i = 0; roles[i]; i++) {
         if (has_word(q, roles[i])) {
@@ -566,6 +591,34 @@ static void extract_name(const char *q, const char *fallback, char *out, size_t 
         }
     }
     snprintf(out, cap, "%s", (fallback && fallback[0]) ? fallback : "player");
+}
+
+static void extract_wh_pair(const char *q, int *w_out, int *h_out)
+{
+    for (const char *p = q; *p; p++) {
+        if (!isdigit((unsigned char)*p)) continue;
+        if (p > q && isalnum((unsigned char)p[-1])) continue;
+        const char *s = p;
+        int a = 0;
+        while (isdigit((unsigned char)*s)) { a = a * 10 + (*s - '0'); s++; }
+        while (*s == ' ') s++;
+        int sep = 0;
+        if ((*s == 'x' || *s == 'X') && (isdigit((unsigned char)s[1]) || s[1] == ' ')) {
+            sep = 1;
+            s++;
+        } else if (strncmp(s, "per ", 4) == 0) {
+            sep = 1;
+            s += 4;
+        }
+        if (sep) {
+            while (*s == ' ') s++;
+            if (isdigit((unsigned char)*s)) {
+                int b = 0;
+                while (isdigit((unsigned char)*s)) { b = b * 10 + (*s - '0'); s++; }
+                if (a > 0 && b > 0) { *w_out = a; *h_out = b; return; }
+            }
+        }
+    }
 }
 
 static const char *detect_target(const char *q, const char *target)
@@ -590,9 +643,15 @@ static int build_clause_goal(const char *q, const char *entry_id, const char *de
     int wflag = extract_int_near(q, "flag", 0);
     int tsz = extract_int_near(q, "tile", 8);
     int w = extract_int_near(q, "larg", -1);
-    if (w < 0) w = extract_int_near(q, "w", 16);
+    if (w < 0) w = extract_int_near(q, "w", -1);
     int h = extract_int_near(q, "alt", -1);
-    if (h < 0) h = extract_int_near(q, "h", 16);
+    if (h < 0) h = extract_int_near(q, "h", -1);
+    if (w < 0 || h < 0) {
+        int pw = 16, ph = 16;
+        extract_wh_pair(q, &pw, &ph);
+        if (w < 0) w = pw;
+        if (h < 0) h = ph;
+    }
     int cd = extract_int_near(q, "cooldown", -1);
     if (cd < 0) cd = extract_int_near(q, "timer", -1);
     if (cd < 0) cd = extract_int_near(q, "delay", -1);
@@ -610,17 +669,41 @@ static int build_clause_goal(const char *q, const char *entry_id, const char *de
     int acc = extract_int_near(q, "accel", -1);
     int fric = extract_int_near(q, "attrit", -1);
     if (fric < 0) fric = extract_int_near(q, "fric", 1);
-    int maxv = extract_int_near(q, "max", 3);
+    int maxv = extract_int_near(q, "max", -1);
+    if (maxv < 0) maxv = extract_int_near(q, "fino a", 3);
     int minx = extract_int_near(q, "min", 40);
 
     int is_rect = has_word(q, "rettangolo") || has_word(q, "rect") || has_word(q, "quadrato");
     int is_accel = (acc >= 0) || has_word(q, "accelerazione") || has_word(q, "accel") ||
-                   has_word(q, "attrito") || has_word(q, "friction");
+                   has_word(q, "accelera") || has_word(q, "attrito") || has_word(q, "friction") ||
+                   has_word(q, "frena");
+    int is_bounce = has_word(q, "rimbalzante") || has_word(q, "bouncing");
+    int is_collide_bounce = has_word(q, "rimbalza");
+    int is_moving_plat = has_word(q, "piattaforma") && (has_word(q, "mobile") || has_word(q, "velocita") || has_word(q, "min"));
+    int is_land_on = has_word(q, "atterra");
     int is_stomp = has_word(q, "schiaccia") || has_word(q, "stomp");
     int is_patrol = has_word(q, "patrol") || has_word(q, "pattuglia") || has_word(q, "chase") ||
                     has_word(q, "insegui");
     int is_bounds = has_word(q, "min") || has_word(q, "max") || has_word(q, "bordi");
 
+    if (is_bounce) {
+        snprintf(goal, cap, "(bounce-actor %s %d %d %d %d)", name, col_v, w, h, speed);
+        return 0;
+    }
+    if (is_collide_bounce) {
+        snprintf(goal, cap, "(collide-bounce ball %s)", name);
+        return 0;
+    }
+    if (is_moving_plat) {
+        int c_pl = extract_int_near(q, "colore", -1);
+        if (c_pl < 0) c_pl = extract_int_near(q, "color", 9);
+        snprintf(goal, cap, "(moving-platform %s %d %d %d %d %d %d)", name, speed, minx, maxv, w, h, c_pl);
+        return 0;
+    }
+    if (is_land_on) {
+        snprintf(goal, cap, "(land-on %s %s)", default_name, name);
+        return 0;
+    }
     if (is_rect) {
         snprintf(goal, cap, "(rect-actor %s %d %d %d)", name, col_v, w, h);
         return 0;
@@ -740,7 +823,11 @@ static int is_wire_part_goal(const char *g)
            strncmp(g, "(accel-x ", 9) == 0 ||
            strncmp(g, "(gravity-floor ", 15) == 0 ||
            strncmp(g, "(patrol-bounds ", 15) == 0 ||
-           strncmp(g, "(stomp-or-hit ", 14) == 0;
+           strncmp(g, "(stomp-or-hit ", 14) == 0 ||
+           strncmp(g, "(bounce-actor ", 14) == 0 ||
+           strncmp(g, "(collide-bounce ", 16) == 0 ||
+           strncmp(g, "(moving-platform ", 17) == 0 ||
+           strncmp(g, "(land-on ", 9) == 0;
 }
 
 static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, size_t cap)
@@ -797,12 +884,17 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
     }
 
     int wire_ctx = has_word(q, "rettangolo") || has_word(q, "rect") ||
-                   has_word(q, "pavimento") || has_word(q, "floor") ||
+                   has_word(q, "quadrato") || has_word(q, "pavimento") ||
+                   has_word(q, "floor") || has_word(q, "fermandosi") ||
                    has_word(q, "accelerazione") || has_word(q, "accel") ||
-                   has_word(q, "schiaccia") || has_word(q, "stomp");
+                   has_word(q, "accelera") || has_word(q, "schiaccia") ||
+                   has_word(q, "stomp") || has_word(q, "rimbalzante") ||
+                   has_word(q, "piattaforma");
     int has_grav_clause = has_word(q, "gravita") || has_word(q, "gravity") ||
-                          has_word(q, "pavimento") || has_word(q, "floor");
+                          has_word(q, "pavimento") || has_word(q, "floor") ||
+                          has_word(q, "fermandosi");
     int added_grav_wire = 0;
+    int added_accel_wire = 0;
 
     char clauses[16][192];
     int n_goals = 0;
@@ -827,19 +919,58 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
             memcpy(cbuf, cur, clen);
             cbuf[clen] = '\0';
 
-            if (wire_ctx && has_grav_clause &&
-                (has_word(cbuf, "gravita") || has_word(cbuf, "gravity") ||
-                 has_word(cbuf, "salto") || has_word(cbuf, "jump") ||
-                 has_word(cbuf, "pavimento") || has_word(cbuf, "floor"))) {
+            int c_has_rect = has_word(cbuf, "rettangolo") || has_word(cbuf, "rect") || has_word(cbuf, "quadrato");
+            int c_has_accel = has_word(cbuf, "accelerazione") || has_word(cbuf, "accel") ||
+                              has_word(cbuf, "accelera") || has_word(cbuf, "attrito") ||
+                              has_word(cbuf, "friction") || has_word(cbuf, "frena");
+            int c_has_grav = has_word(cbuf, "gravita") || has_word(cbuf, "gravity") ||
+                             has_word(cbuf, "salto") || has_word(cbuf, "jump") ||
+                             has_word(cbuf, "pavimento") || has_word(cbuf, "floor") ||
+                             has_word(cbuf, "fermandosi");
+
+            if (c_has_rect && c_has_accel && n_goals + 2 <= 16) {
+                char gbuf[192], used_name[32];
+                if (build_clause_goal(cbuf, entry_id, default_name,
+                                      gbuf, sizeof(gbuf), used_name, sizeof(used_name)) == 0) {
+                    snprintf(clauses[n_goals++], sizeof(clauses[0]), "%s", gbuf);
+                    if (!have_default_name) {
+                        snprintf(default_name, sizeof(default_name), "%s", used_name);
+                        have_default_name = 1;
+                    }
+                    int acc = extract_int_near(cbuf, "accel", 1);
+                    int fric = extract_int_near(cbuf, "attrit", -1);
+                    if (fric < 0) fric = extract_int_near(cbuf, "fric", 1);
+                    int maxv = extract_int_near(cbuf, "max", -1);
+                    if (maxv < 0) maxv = extract_int_near(cbuf, "fino a", 3);
+                    snprintf(clauses[n_goals++], sizeof(clauses[0]),
+                             "(accel-x %s %d %d %d)", used_name, acc, fric, maxv);
+                    added_accel_wire = 1;
+                }
+            } else if (wire_ctx && c_has_accel && !c_has_rect) {
+                if (!added_accel_wire) {
+                    int acc = extract_int_near(q, "accel", -1);
+                    if (acc < 0) acc = 1;
+                    int fric = extract_int_near(q, "attrit", -1);
+                    if (fric < 0) fric = extract_int_near(q, "fric", 1);
+                    int maxv = extract_int_near(q, "max", -1);
+                    if (maxv < 0) maxv = extract_int_near(q, "fino a", 3);
+                    snprintf(clauses[n_goals++], sizeof(clauses[0]),
+                             "(accel-x %s %d %d %d)", default_name, acc, fric, maxv);
+                    added_accel_wire = 1;
+                }
+            } else if (wire_ctx && has_grav_clause && c_has_grav) {
                 if (!added_grav_wire) {
                     int grav = extract_int_near(q, "grav", 1);
                     int jv = extract_int_near(q, "salto", -1);
+                    if (jv < 0) jv = extract_int_near(q, "salta di", -1);
+                    if (jv < 0) jv = extract_int_near(q, "salta", -1);
                     if (jv < 0) jv = extract_int_near(q, "jump", 6);
                     int btn_v = extract_int_near(q, "tasto", -1);
                     if (btn_v < 0) btn_v = extract_int_near(q, "btn", 4);
                     int fy = extract_int_near(q, "pavimento y", -1);
                     if (fy < 0) fy = extract_int_near(q, "pavimento", -1);
                     if (fy < 0) fy = extract_int_near(q, "floor y", -1);
+                    if (fy < 0) fy = extract_int_near(q, "fermandosi a", -1);
                     if (fy < 0) fy = extract_int_near(q, "floor", 180);
                     snprintf(clauses[n_goals++], sizeof(clauses[0]),
                              "(gravity-floor %s %d %d %d %d)", default_name, grav, jv, btn_v, fy);

@@ -22,7 +22,7 @@ end
 kind: howto
 title: Sparatutto spaziale (shmup) con navicella e laser
 title_en: Space shooter (shmup) with ship and lasers
-ask: voglio fare uno sparatutto spaziale | gioco con navicella che spara laser | space shooter arcade stile space invaders | create a space shooter shmup | spaceship shooting lasers at enemy waves | sparatutto a scorrimento con astronave e proiettili | gioco di astronavi e laser | arcade shoot em up with cooldown
+ask: voglio fare uno sparatutto spaziale | gioco con navicella che spara laser | space shooter arcade stile space invaders | create a space shooter shmup | spaceship shooting lasers at enemy waves | sparatutto a scorrimento con astronave e proiettili | gioco di astronavi e laser | arcade shoot em up with cooldown | cabinato con navicella che spara raggi laser alle ondate nemiche
 keys: sparatutto, shmup, navicella, astronave, laser, shooter
 see: move_arrows
 text:
@@ -41,7 +41,7 @@ end
 kind: howto
 title: Gioco breakout con racchetta, pallina e mattoni
 title_en: Breakout game with paddle, ball and bricks
-ask: gioco con racchetta e pallina che rimbalza sui mattoni | come faccio un clone di breakout o arkanoid | pong con mattoni da rompere | create a breakout paddle and ball game | bouncing ball hitting bricks and paddle | gioco di racchetta che respinge la palla | arkanoid retro con blocchi colorati | paddle ball brick breaker
+ask: gioco con racchetta e pallina che rimbalza sui mattoni | come faccio un clone di breakout o arkanoid | pong con mattoni da rompere | create a breakout paddle and ball game | bouncing ball hitting bricks and paddle | gioco di racchetta che respinge la palla | arkanoid retro con blocchi colorati | paddle ball brick breaker | stile arkanoid con barra che respinge la sfera contro i mattoncini
 keys: breakout, arkanoid, racchetta, pallina, mattoni, paddle, ball, bricks
 see: move_arrows
 text:
