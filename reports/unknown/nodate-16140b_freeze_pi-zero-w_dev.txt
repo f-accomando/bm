@@ -1,0 +1,74 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-16140b_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: bootart: the log to the SD, frame 0, 61 s after boot, kernel dev, ring 6773, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+v3d: DIAG QPUs off by the firmware: answered in 46 us
+restarting: this run's log in bm/lastrun.txt
+3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 11920 ms)
+menu: DIAG guard page: the firmware gave 1 pages
+menu: 1920x1080, drawn by the GPU
+covers: all 24 read
+usb: device found, enumerating (try 2)
+usb: no answer from the device (-3)
+usb: device found, enumerating (try 3)
+usb: no answer from the device (-3)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.4 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.7 ms past its slice
+net: time 2026-11-14 08:13 UTC
+fiber: reports did not yield: 104.2 ms past its slice
+usb: device found, enumerating (try 4)
+usb: no answer from the device (-3)
+report: sending nodate-d58495_freeze_pi-zero-w_dev.txt
+menu idle: 300/300 frames, 405 of 707 ms taken, 106.8 ms past a frame; covers 145 ms (+3.9, stk 0.8/16K), reports 238 ms (+104.2, stk 7.6/128K); min slack -332868 us, paced 0
+menu idle: sd first word <1ms 199 <3ms 18 (max 2.4 ms)
+menu stalls: tls handshake 1x last 305.3 worst 305.3 ms
+menu frame: 1x, a frame averages draw 18118 us, enlarge 0 us, flip 0 us, free time used 1350 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-d58495_freeze_pi-zero-w_dev.txt
+usb: device found, enumerating (try 5)
+usb: no answer from the device (-3)
+menu idle: 300/300 frames, 182 of 693 ms taken, 37.9 ms past a frame; reports 169 ms (+37.9, stk 7.6/128K); min slack -332419 us, paced 0
+menu idle: sd first word <1ms 13 <3ms 4 (max 2.4 ms)
+menu frame: 1x, a frame averages draw 13970 us, enlarge 0 us, flip 1 us, free time used 608 us (300 frames)
+menu frame: 1x, a frame averages draw 12861 us, enlarge 0 us, flip 0 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 12868 us, enlarge 0 us, flip 0 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 12869 us, enlarge 0 us, flip 1 us, free time used 41 us (300 frames)
+net: receiving a new kernel (6976060 bytes)...
+net: kernel 0% (0 of 6812 KB)
+menu frame: 1x, a frame averages draw 13281 us, enlarge 0 us, flip 1 us, free time used 41 us (300 frames)
+net: kernel 10% (691 of 6812 KB)
+net: kernel 20% (1372 of 6812 KB)
+net: kernel 30% (2053 of 6812 KB)
+net: kernel 40% (2725 of 6812 KB)
+menu frame: 1x, a frame averages draw 14403 us, enlarge 0 us, flip 1 us, free time used 42 us (300 frames)
+net: kernel 50% (3408 of 6812 KB)
+net: kernel 60% (4089 of 6812 KB)
+net: kernel 70% (4770 of 6812 KB)
+net: kernel 80% (5450 of 6812 KB)
+menu frame: 1x, a frame averages draw 14329 us, enlarge 0 us, flip 1 us, free time used 45 us (300 frames)
+net: kernel 90% (6137 of 6812 KB)
+net: dev mode: kernel received (6976060 bytes): written directly to kernel.img
+fiber: netxfer did not yield: 234.5 ms past its slice
+net: saved kernel.img on the SD card (6976060 bytes)
+net: restarting with the new kernel in 3 s
+sd: SDHC card (sdhost), FAT32, 7591 MB, label BOOTFS; 20 cartridges; clusters 32 KB
+menu idle: 300/300 frames, 1599 of 569 ms taken, 237.1 ms past a frame; netxfer 3053 ms (+234.5, stk 1.7/64K); min slack -179203 us, paced 0
+menu idle: sd first word <1ms 132 <3ms 252 (max 2.4 ms)
+menu frame: 1x, a frame averages draw 19136 us, enlarge 0 us, flip 1 us, free time used 5331 us (300 frames)
+net: restarting with the new kernel in 2 s
+net: restarting with the new kernel in 1 s
