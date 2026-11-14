@@ -1,0 +1,67 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-b011c4_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 94 s after boot, kernel dev, ring 5999, sink on
+--- the last lines printed ---
+wifi: radio up
+wifi: scanning...
+wifi: 3 networks
+   1   -62 dBm  ch  1  WPA2  FASTWEB-36AB12
+   2   -75 dBm  ch  9  WPA2  Wind3 HUB - ED4188
+   3   -86 dBm  ch  3  WPA2  Infostrada-8F1A91
+wifi: saved network "FASTWEB-36AB12" is in range
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: associated
+wifi: password accepted, keys set
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-4 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-4 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+menu: 360p on the ARM (safe mode after VideoCore stopped answering)
+covers: all 24 read
+menu idle: 300/300 frames, 149 of 1964 ms taken, 2.1 ms past a frame; covers 138 ms (+2.5, stk 0.8/16K); min slack -15790 us, paced 0
+menu idle: sd first word <1ms 179 <3ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 9181 us, enlarge 1 us, flip 91 us, free time used 498 us (300 frames)
+menu frame: 1x, a frame averages draw 8282 us, enlarge 1 us, flip 90 us, free time used 39 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.5 ms past its slice
+menu idle: 300/300 frames, 522 of 1968 ms taken, 15.2 ms past a frame; reports 503 ms (+15.5, stk 7.6/128K); min slack -5124 us, paced 0
+menu idle: sd first word <1ms 28 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8485 us, enlarge 0 us, flip 91 us, free time used 1741 us (300 frames)
+menu idle: 300/300 frames, 1982 of 1980 ms taken, 0.0 ms past a frame; reports 1973 ms (+0.0, stk 7.6/128K); min slack -9782 us, paced 0
+menu frame: 1x, a frame averages draw 8424 us, enlarge 0 us, flip 91 us, free time used 6607 us (300 frames)
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: the clock is not set yet (no answer from pool.ntp.org)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: the clock is not set yet (no a
+menu idle: 300/300 frames, 730 of 2001 ms taken, 14.4 ms past a frame; reports 719 ms (+14.4, stk 7.6/128K); min slack -7008 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8335 us, enlarge 1 us, flip 91 us, free time used 2435 us (300 frames)
+menu frame: 1x, a frame averages draw 8248 us, enlarge 1 us, flip 90 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8354 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8409 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+net: time 2026-11-14 00:37 UTC
+menu frame: 1x, a frame averages draw 8329 us, enlarge 0 us, flip 90 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8235 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8395 us, enlarge 1 us, flip 91 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8389 us, enlarge 0 us, flip 90 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8305 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8220 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8451 us, enlarge 0 us, flip 90 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8382 us, enlarge 0 us, flip 91 us, free time used 41 us (300 frames)
+menu idle: sd first word <1ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8338 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
