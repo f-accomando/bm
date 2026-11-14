@@ -63,5 +63,20 @@ for idx, src in ipairs(bml_samples) do
   check(ok == true or ok == 0, "bml.py --check sample #" .. idx)
 end
 
+-- 6. New retro genre archetypes -> wire-cart Lua generation & syntax check
+local retro_cases = {
+  { "gioco stile Tetris", "genre.match_puzzle", "piece.y" },
+  { "gioco stile Fire Emblem", "genre.tactical_rpg", "cur.x" },
+  { "gioco stile F-Zero", "genre.racing", "car.x" },
+  { "gioco stile Dance Dance Revolution", "genre.rhythm_music", "hit_y" },
+}
+for _, tc in ipairs(retro_cases) do
+  local r = ai.synth(tc[1], { entry = tc[2], target = "lua" })
+  check(r.ok, "retro synth ok: " .. tc[2])
+  check(r.code:find(tc[3], 1, true) ~= nil, "retro synth body: " .. tc[2])
+  local fn = load(r.code)
+  check(fn ~= nil, "retro synth lua compiles: " .. tc[2])
+end
+
 print(string.format("synth_test: %d checks, %d failed (last=%d us)", checks, fails, r7.us or 0))
 if fails > 0 then os.exit(1) end

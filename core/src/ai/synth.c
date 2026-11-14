@@ -222,6 +222,45 @@ static const char *LISP_PATTERNS =
     "                    \"  rectfill(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, 8)\" (nl)\n"
     "                    \"  rectfill(runner.x, runner.y, runner.x + runner.w, runner.y + runner.h, 11)\" (nl)\n"
     "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((grid-cursor-core ?cols ?rows)\n"
+    "     (list (str-cat \"  cur = { x = 1, y = 1, cols = \" ?cols \", rows = \" ?rows \" }; sel = nil; score = 0\")\n"
+    "           (str-cat \"  if btnp(0) and cur.x > 0 then cur.x = cur.x - 1 end\" (nl)\n"
+    "                    \"  if btnp(1) and cur.x < cur.cols - 1 then cur.x = cur.x + 1 end\" (nl)\n"
+    "                    \"  if btnp(2) and cur.y > 0 then cur.y = cur.y - 1 end\" (nl)\n"
+    "                    \"  if btnp(3) and cur.y < cur.rows - 1 then cur.y = cur.y + 1 end\" (nl)\n"
+    "                    \"  if btnp(4) then sel = { x = cur.x, y = cur.y }; score = score + 10 end\")\n"
+    "           (str-cat \"  for gx = 0, cur.cols - 1 do for gy = 0, cur.rows - 1 do\" (nl)\n"
+    "                    \"    rect(40 + gx * 20, 20 + gy * 20, 58 + gx * 20, 38 + gy * 20, 5)\" (nl)\n"
+    "                    \"  end end\" (nl)\n"
+    "                    \"  rectfill(42 + cur.x * 20, 22 + cur.y * 20, 56 + cur.x * 20, 36 + cur.y * 20, 10)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((match-puzzle-core ?spd)\n"
+    "     (list \"  piece = { x = 5, y = 0, col = 10, t = 0 }; score = 0\"\n"
+    "           (str-cat \"  if btnp(0) and piece.x > 0 then piece.x = piece.x - 1 end\" (nl)\n"
+    "                    \"  if btnp(1) and piece.x < 9 then piece.x = piece.x + 1 end\" (nl)\n"
+    "                    \"  if btnp(4) then piece.col = (piece.col % 4) + 8 end\" (nl)\n"
+    "                    \"  piece.t = piece.t + \" ?spd \"; if btn(3) then piece.t = piece.t + 6 end\" (nl)\n"
+    "                    \"  if piece.t >= 20 then piece.t = 0; piece.y = piece.y + 1; if piece.y >= 14 then piece.y = 0; score = score + 10 end end\")\n"
+    "           (str-cat \"  rect(96, 12, 220, 168, 7)\" (nl)\n"
+    "                    \"  rectfill(100 + piece.x * 12, 16 + piece.y * 10, 110 + piece.x * 12, 24 + piece.y * 10, piece.col)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((racing-core ?spd)\n"
+    "     (list \"  car = { x = 152, y = 140, w = 14, h = 18, v = 0 }; obs = { x = 140, y = -20, w = 16, h = 16 }; score = 0\"\n"
+    "           (str-cat \"  if btn(0) then car.x = math.max(64, car.x - \" ?spd \") end\" (nl)\n"
+    "                    \"  if btn(1) then car.x = math.min(240, car.x + \" ?spd \") end\" (nl)\n"
+    "                    \"  car.v = btn(2) and \" (+ ?spd 2) \" or (btn(3) and 1 or \" ?spd \")\" (nl)\n"
+    "                    \"  obs.y = obs.y + car.v; if obs.y > 180 then obs.y = -20; obs.x = 70 + (score * 17) % 160; score = score + 10 end\")\n"
+    "           (str-cat \"  rectfill(60, 0, 259, 179, 5)\" (nl)\n"
+    "                    \"  rectfill(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, 8)\" (nl)\n"
+    "                    \"  rectfill(car.x, car.y, car.x + car.w, car.y + car.h, 11)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
+    "    ((rhythm-core ?spd)\n"
+    "     (list \"  note = { x = 154, y = 0, hit_y = 144 }; score = 0\"\n"
+    "           (str-cat \"  note.y = note.y + \" ?spd \"; if note.y > 180 then note.y = 0 end\" (nl)\n"
+    "                    \"  if btnp(4) and math.abs(note.y - note.hit_y) < 16 then score = score + 50; note.y = 0 end\")\n"
+    "           (str-cat \"  line(120, note.hit_y, 200, note.hit_y, 7)\" (nl)\n"
+    "                    \"  circfill(note.x, note.y, 6, 10)\" (nl)\n"
+    "                    \"  print('SCORE:' .. score, 4, 4, 7)\")))\n"
     "    (_ (list \"\" \"\" \"\"))))\n"
     "(define (expand-goal tgt g)\n"
     "  (match g\n"
@@ -864,6 +903,50 @@ static int build_goal_from_nl(const char *q, const char *entry_id, char *goal, s
         }
         if (strcmp(entry_id, "genre.runner") == 0) {
             snprintf(goal, cap, "(wire-cart (runner-core %d %d %d))", speed > 0 ? speed : 3, grav, jump_v);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.match_puzzle") == 0) {
+            snprintf(goal, cap, "(wire-cart (match-puzzle-core %d))", speed > 0 ? speed : 1);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.logic_puzzle") == 0 ||
+            strcmp(entry_id, "genre.turn_rpg") == 0 ||
+            strcmp(entry_id, "genre.tactical_rpg") == 0 ||
+            strcmp(entry_id, "genre.strategy") == 0) {
+            snprintf(goal, cap, "(wire-cart (grid-cursor-core 10 7))");
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.racing") == 0 ||
+            strcmp(entry_id, "genre.simulation") == 0) {
+            snprintf(goal, cap, "(wire-cart (racing-core %d))", speed > 0 ? speed : 3);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.rhythm_music") == 0) {
+            snprintf(goal, cap, "(wire-cart (rhythm-core %d))", speed > 0 ? speed : 3);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.pinball") == 0) {
+            snprintf(goal, cap, "(wire-cart (breakout-core %d))", speed > 0 ? speed : 4);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.beatemup") == 0 ||
+            strcmp(entry_id, "genre.fighting") == 0) {
+            snprintf(goal, cap,
+                     "(wire-cart (rect-actor hero 11 12 16) (accel-x hero 1 1 %d) "
+                     "(gravity-floor hero %d %d %d 144) (patrol-bounds enemy 1 120 260 8) "
+                     "(stomp-or-hit hero enemy))",
+                     speed, grav, jump_v, btn_v);
+            return 0;
+        }
+        if (strcmp(entry_id, "genre.action_rpg") == 0 ||
+            strcmp(entry_id, "genre.dungeon_crawler") == 0 ||
+            strcmp(entry_id, "genre.sports") == 0 ||
+            strcmp(entry_id, "genre.maze_chase") == 0 ||
+            strcmp(entry_id, "genre.stealth") == 0 ||
+            strcmp(entry_id, "genre.adventure") == 0 ||
+            strcmp(entry_id, "genre.multiplayer_party") == 0 ||
+            strcmp(entry_id, "genre.survival") == 0) {
+            snprintf(goal, cap, "(wire-cart (topdown-core %d))", speed > 0 ? speed : 2);
             return 0;
         }
     }
