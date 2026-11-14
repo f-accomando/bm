@@ -1,0 +1,57 @@
+bm report
+kind: freeze
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-3bcccd_freeze_pi-zero-w_dev.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 146 s after boot, kernel dev, ring 7112, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+ 1x, a frame averages draw 8218 us, enlarge 0 us, flip 91 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8457 us, enlarge 0 us, flip 90 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8368 us, enlarge 0 us, flip 90 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8281 us, enlarge 0 us, flip 90 us, free time used 38 us (300 frames)
+menu frame: 1x, a frame averages draw 8264 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8440 us, enlarge 0 us, flip 90 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8352 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8265 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8310 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8430 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8342 us, enlarge 1 us, flip 92 us, free time used 39 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.1 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.5 ms past its slice
+net: time 2026-11-14 00:21 UTC
+fiber: reports did not yield: 96.2 ms past its slice
+report: sending nodate-25b8a1_freeze_pi-zero-w_dev.txt
+menu idle: 300/300 frames, 835 of 1999 ms taken, 98.7 ms past a frame; reports 814 ms (+96.2, stk 7.6/128K); min slack -9570 us, paced 0
+menu idle: sd first word <1ms 28 (max 1.5 ms)
+menu stalls: tls handshake 1x last 281.7 worst 281.7 ms
+menu frame: 1x, a frame averages draw 8325 us, enlarge 0 us, flip 91 us, free time used 2784 us (300 frames)
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-25b8a1_freeze_pi-zero-w_dev.txt
+report: sending nodate-7f44fd_freeze_pi-zero-w_dev.txt
+report: sent to f-accomando/bm, branch reports: reports/unknown/nodate-7f44fd_freeze_pi-zero-w_dev.txt
+menu idle: 300/300 frames, 1090 of 2030 ms taken, 77.0 ms past a frame; reports 1079 ms (+77.0, stk 7.6/128K); min slack 5868 us, paced 0
+menu idle: sd first word <1ms 27 <3ms 8 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 8305 us, enlarge 0 us, flip 90 us, free time used 3634 us (300 frames)
+menu frame: 1x, a frame averages draw 8242 us, enlarge 0 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8400 us, enlarge 0 us, flip 91 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 8398 us, enlarge 1 us, flip 90 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8311 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8227 us, enlarge 1 us, flip 90 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8435 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8382 us, enlarge 1 us, flip 90 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8295 us, enlarge 0 us, flip 90 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8230 us, enlarge 0 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8455 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8367 us, enlarge 1 us, flip 91 us, free time used 39 us (300 frames)
+menu frame: 1x, a frame averages draw 8279 us, enlarge 0 us, flip 92 us, free time used 39 us (300 frames)
+menu idle: sd first word <1ms 5 (max 2.2 ms)
+menu frame: 1x, a frame averages draw 8296 us, enlarge 0 us, flip 92 us, free time used 40 us (300 frames)
+net: restarting with the new kernel in 1 s
