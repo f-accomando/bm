@@ -287,11 +287,17 @@ local function refresh()
       end
     end
     if (st.mode == "code" or st.mode == "any") and q ~= "" and ai.synth then
-      local s = safe(ai.synth, q, { entry = best and best.id or nil, target = st.file_target })
+      local confident_id = (best and st.hits[1] and st.hits[1].score >= 0.25) and best.id or nil
+      local s = safe(ai.synth, q, { entry = confident_id, target = st.file_target })
       if s and s.ok and s.code ~= "" then
         local tag = s.target == "bml" and ".b" or "Lua"
         local sh = { id = "synth", title = "Synth [" .. tag .. "]: " .. (s.goal or ""), kind = "synth", score = 1, synth = s }
-        if q:sub(1, 1) == "(" or q:find("%d") or q:find("%.b") or q:find("bml") or #st.hits == 0 then
+        local is_genre = confident_id and confident_id:sub(1, 6) == "genre."
+        local low = q:lower()
+        local is_game_req = is_genre or low:find("gioco", 1, true) or low:find("game", 1, true)
+                         or low:find("stile", 1, true) or low:find("crea", 1, true)
+                         or low:find("create", 1, true) or low:find("make", 1, true)
+        if is_game_req or q:sub(1, 1) == "(" or q:find("%d") or q:find("%.b") or q:find("bml") or #st.hits == 0 then
           table.insert(st.hits, 1, sh)
         else
           st.hits[#st.hits + 1] = sh

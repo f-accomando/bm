@@ -562,9 +562,9 @@ static int l_synth(lua_State *L)
         entry = lua_tostring(L, -1);
     }
 
-    char code[16384];
-    char goal[2048];
-    char err[256];
+    static char code[16384];
+    static char goal[2048];
+    static char err[256];
     code[0] = goal[0] = err[0] = '\0';
 
     uint32_t t0 = timer_ticks();
