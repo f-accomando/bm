@@ -1343,6 +1343,9 @@ static int cm_activate(cmenu_t *m)
             ksnprintf(last_msg, sizeof last_msg, "%s is not installed: get it from Market > Apps", rp == ROM_NES ? "bm NES" : "bm SNES");
             notice_fail(last_msg);
         } else {
+            /* close the frozen app first (an emulator with another ROM, or any game):
+             * a ROM always starts a fresh emulator, never a resume */
+            lib_suspend_close();
             bm_set_arg(r->path, NULL);
             m->go = GO_PLAY;
             m->go_cart = c;
