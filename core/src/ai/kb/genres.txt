@@ -93,3 +93,402 @@ function _update()
   obs_x = obs_x - 3
   if obs_x < -16 then obs_x = 320 end
 end
+
+== genre.match_puzzle
+kind: howto
+title: Puzzle a combinazioni
+title_en: Match Puzzle
+ask: gioco stile Tetris | gioco stile Dr. Mario | puzzle a blocchi colorati | match falling blocks game | Tetris-like puzzle game | Dr. Mario NES gameplay | Super Puyo Puyo SNES | Columns style puzzle | falling block rotation game | color matching puzzle
+keys: tetris,blocchi,rotazione,combinazioni,incastri
+see: move_arrows
+text:
+Il giocatore sposta, ruota o posiziona pezzi che cadono per creare
+combinazioni e liberare spazio. La difficolta aumenta progressivamente.
+text_en:
+The player moves, rotates, or places falling pieces to create
+combinations and clear space. Difficulty increases progressively.
+code:
+function _update()
+  local left = btn(0)
+  local right = btn(1)
+  local rotate = btnp(4)
+  local drop = btnp(5)
+end
+
+== genre.logic_puzzle
+kind: howto
+title: Puzzle logico
+title_en: Logic Puzzle
+ask: gioco stile Lolo | gioco stile Adventures of Lolo | puzzle tipo Sokoban | Adventures of Lolo NES | Sokoban style game | block pushing puzzle | Chip's Challenge style | logic grid puzzle | tile based brain teaser | puzzle a stanze
+keys: logica,blocchi,interruttori,percorsi,stanze
+see: move_arrows
+text:
+Il giocatore risolve enigmi ambientali usando oggetti, interruttori,
+porte e blocchi. Ogni stanza richiede una sequenza logica di azioni.
+text_en:
+The player solves environmental puzzles using objects, switches,
+doors, and blocks. Each room requires a logical sequence of actions.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local push = btnp(4)
+  local interact = btnp(5)
+end
+
+== genre.action_rpg
+kind: howto
+title: Action RPG
+title_en: Action RPG
+ask: gioco stile A Link to the Past | Secret of Mana style | action role playing game | top down action adventure RPG | Crystalis NES style | Ys style action RPG | gioco di avventura con equipaggiamento | action rpg con armi e potenziamenti
+keys: combattimento,esplorazione,oggetti,equipaggiamento,progressione
+see: move_arrows
+text:
+Il giocatore esplora ambienti, combatte in tempo reale e raccoglie
+armi, oggetti e potenziamenti che sbloccano nuove possibilita.
+text_en:
+The player explores environments, fights in real time, and collects
+weapons, items, and upgrades that unlock new abilities.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local attack = btnp(4)
+  local item = btnp(5)
+end
+
+== genre.turn_rpg
+kind: howto
+title: RPG a turni
+title_en: Turn Based RPG
+ask: gioco stile Final Fantasy | gioco stile Dragon Quest | Final Fantasy VI gameplay | Chrono Trigger style RPG | Dragon Quest NES | turn based JRPG | classic console RPG | gioco di ruolo a turni | EarthBound gameplay | Breath of Fire SNES
+keys: turni,party,livelli,abilita,combattimento
+see: move_arrows
+text:
+Il giocatore controlla un gruppo di personaggi e affronta battaglie
+a turni. Esperienza, equipaggiamento e abilita migliorano il gruppo.
+text_en:
+The player controls a party of characters in turn-based battles.
+Experience, equipment, and abilities improve the party over time.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local confirm = btnp(4)
+  local cancel = btnp(5)
+end
+
+== genre.tactical_rpg
+kind: howto
+title: RPG tattico
+title_en: Tactical RPG
+ask: gioco stile Fire Emblem | Fire Emblem NES gameplay | Fire Emblem SNES | Final Fantasy Tactics style | tactical grid RPG | turn based strategy combat | Shining Force style | Ogre Battle SNES | gioco strategico a griglia | tactical fantasy game
+keys: griglia,turni,posizionamento,unita,strategia
+see: move_arrows
+text:
+Il giocatore muove unita su una griglia durante turni alternati.
+Posizione, terreno, distanza e caratteristiche determinano gli scontri.
+text_en:
+The player moves units across a grid in alternating turns.
+Position, terrain, range, and unit attributes determine combat.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local select = btnp(4)
+  local action = btnp(5)
+end
+
+== genre.dungeon_crawler
+kind: howto
+title: Dungeon crawler
+title_en: Dungeon Crawler
+ask: gioco stile Dungeon Master | dungeon crawler NES | dungeon crawler SNES | Eye of the Beholder style | first person dungeon RPG | Wizardry style game | Might and Magic gameplay | turn based dungeon exploration | gioco con labirinti e dungeon | party dungeon adventure
+keys: dungeon,labirinto,party,mostri,esplorazione
+see: move_arrows
+text:
+Il giocatore esplora dungeon collegati, affronta mostri e raccoglie
+risorse. Movimento a griglia o in prima persona e progressione del gruppo.
+text_en:
+The player explores connected dungeons, fights monsters, and collects
+resources. Movement may use a grid or first-person perspective.
+code:
+function _update()
+  local forward = btn(2)
+  local turn = btn(1) - btn(0)
+  local attack = btnp(4)
+  local menu = btnp(5)
+end
+
+== genre.beatemup
+kind: howto
+title: Picchiaduro a scorrimento
+title_en: Beat 'Em Up
+ask: gioco stile Double Dragon | gioco stile Final Fight | Streets of Rage style | Final Fight SNES gameplay | Teenage Mutant Ninja Turtles arcade | Double Dragon NES | belt scrolling fighting game | side scrolling brawler | gioco picchiaduro cooperativo | River City Ransom style
+keys: combattimento,scorrimento,combo,nemici,cooperativa
+see: move_arrows
+text:
+Il giocatore avanza attraverso livelli affrontando gruppi di nemici
+con attacchi, prese, combo e talvolta cooperazione tra personaggi.
+text_en:
+The player advances through levels fighting groups of enemies
+with attacks, throws, combos, and sometimes cooperative play.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local attack = btnp(4)
+  local jump = btnp(5)
+end
+
+== genre.fighting
+kind: howto
+title: Picchiaduro uno contro uno
+title_en: Fighting Game
+ask: gioco stile Street Fighter II | gioco stile Mortal Kombat | Street Fighter II SNES | Killer Instinct SNES | Fatal Fury style | one on one fighting game | classic arcade fighter | versus fighting game | gioco di combattimento a incontri | Samurai Shodown style
+keys: duello,round,combo,parata,mosse
+see: move_arrows
+text:
+Due combattenti si affrontano in incontri su un'arena delimitata.
+Attacchi, parate, combo e mosse speciali determinano il risultato.
+text_en:
+Two fighters face each other in a bounded arena.
+Attacks, blocks, combos, and special moves determine the outcome.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local punch = btnp(4)
+  local kick = btnp(5)
+end
+
+== genre.racing
+kind: howto
+title: Corse
+title_en: Racing Game
+ask: gioco stile Super Mario Kart | gioco stile F-Zero | Super Mario Kart SNES | F-Zero SNES gameplay | Excitebike NES | Top Gear SNES | arcade racing game | pseudo 3D racing game | gioco di corse con visuale dall'alto | kart racing game
+keys: velocita,veicoli,curve,collisioni,checkpoint
+see: move_arrows
+text:
+Il giocatore guida un veicolo lungo circuiti o percorsi con ostacoli.
+Accelerazione, sterzata, frenata e gestione delle collisioni sono centrali.
+text_en:
+The player drives a vehicle across tracks or obstacle courses.
+Acceleration, steering, braking, and collision management are central.
+code:
+function _update()
+  local steer = btn(1) - btn(0)
+  local accelerate = btn(2)
+  local brake = btn(3)
+  local boost = btnp(4)
+end
+
+== genre.sports
+kind: howto
+title: Sport
+title_en: Sports Game
+ask: gioco stile Tecmo Bowl | gioco stile Punch-Out | Punch-Out NES gameplay | Super Punch-Out SNES | NBA Jam SNES | International Superstar Soccer | classic sports simulation | arcade sports game | gioco di calcio retro | gioco sportivo competitivo
+keys: sport,competizione,punteggio,atleti,partita
+see: move_arrows
+text:
+Il giocatore controlla atleti o squadre in una disciplina sportiva.
+Obiettivi, regole, temporizzazione e punteggio definiscono la partita.
+text_en:
+The player controls athletes or teams in a sports discipline.
+Objectives, rules, timing, and scoring define the match.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local action = btnp(4)
+  local pass = btnp(5)
+end
+
+== genre.pinball
+kind: howto
+title: Flipper
+title_en: Pinball
+ask: gioco stile Pinball | gioco stile Pin Bot | Pin Bot NES gameplay | Super Pinball SNES | digital pinball game | classic pinball table | flipper arcade game | ball physics pinball | gioco con pallina e palette | pinball score challenge
+keys: pallina,flipper,gravita,collisioni,punteggio
+see: move_arrows
+text:
+Il giocatore mantiene una pallina in gioco usando palette mobili.
+Rimbalzi, bersagli, moltiplicatori e fisica determinano il punteggio.
+text_en:
+The player keeps a ball in play using movable flippers.
+Bounces, targets, multipliers, and physics determine the score.
+code:
+function _update()
+  local left = btnp(0)
+  local right = btnp(1)
+  local launch = btnp(4)
+  local tilt = btnp(5)
+end
+
+== genre.maze_chase
+kind: howto
+title: Labirinto e inseguimento
+title_en: Maze Chase
+ask: gioco stile Pac-Man | gioco stile Bomberman | Pac-Man NES gameplay | Bomberman II NES | Super Bomberman SNES | maze chase arcade game | grid based maze game | enemy pursuit game | gioco con labirinto e nemici | maze escape game
+keys: labirinto,inseguimento,percorsi,bonus,nemici
+see: move_arrows
+text:
+Il giocatore si muove in un labirinto raccogliendo oggetti ed evitando
+nemici. Percorsi, trappole e bonus creano situazioni di inseguimento.
+text_en:
+The player moves through a maze collecting items and avoiding enemies.
+Routes, traps, and bonuses create chase and escape situations.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local action = btnp(4)
+  local bomb = btnp(5)
+end
+
+== genre.stealth
+kind: howto
+title: Infiltrazione
+title_en: Stealth Game
+ask: gioco stile Metal Gear | Metal Gear NES gameplay | Metal Gear 2 Solid Snake | stealth action game | guard detection game | espionage adventure | gioco di infiltrazione | avoid enemy patrols game | sneaking mission game | classic stealth gameplay
+keys: furtivita,guardie,visibilita,allarme,infiltrazione
+see: move_arrows
+text:
+Il giocatore attraversa ambienti evitando guardie e sistemi di allarme.
+Movimento furtivo, coperture e tempismo permettono di raggiungere obiettivi.
+text_en:
+The player traverses environments while avoiding guards and alarms.
+Stealth, cover, and timing help complete mission objectives.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local hide = btn(4)
+  local action = btnp(5)
+end
+
+== genre.adventure
+kind: howto
+title: Avventura narrativa
+title_en: Adventure Game
+ask: gioco stile Shadowgate | gioco stile Maniac Mansion | Shadowgate NES | Maniac Mansion NES | King's Quest style | point and click adventure | graphic adventure game | puzzle narrative adventure | gioco con oggetti e dialoghi | classic adventure game
+keys: esplorazione,dialoghi,oggetti,enigma,storia
+see: move_arrows
+text:
+Il giocatore esplora ambienti, raccoglie oggetti e interagisce con
+personaggi e scenari per risolvere enigmi e progredire nella storia.
+text_en:
+The player explores environments, collects objects, and interacts
+with characters and scenery to solve puzzles and advance the story.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local inspect = btnp(4)
+  local interact = btnp(5)
+end
+
+== genre.strategy
+kind: howto
+title: Strategia e gestione
+title_en: Strategy Management
+ask: gioco stile SimCity | SimCity SNES gameplay | Aerobiz SNES | Nobunaga's Ambition | Romance of the Three Kingdoms | city building game | resource management strategy | economic simulation game | gioco gestionale retro | classic strategy simulation
+keys: risorse,gestione,sviluppo,economia,decisioni
+see: move_arrows
+text:
+Il giocatore gestisce risorse, strutture o territori attraverso decisioni
+strategiche. Sviluppo e bilanciamento determinano il successo a lungo termine.
+text_en:
+The player manages resources, structures, or territories through
+strategic decisions. Development and balance determine long-term success.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local select = btnp(4)
+  local build = btnp(5)
+end
+
+== genre.simulation
+kind: howto
+title: Simulazione
+title_en: Simulation Game
+ask: gioco stile Pilotwings | Pilotwings SNES | SimEarth SNES | realistic vehicle simulator | flight simulation game | life simulation game | vehicle management game | physics simulation gameplay | gioco di simulazione retro | classic simulation game
+keys: simulazione,controllo,fisica,veicoli,ambiente
+see: move_arrows
+text:
+Il giocatore controlla sistemi, veicoli o attivita attraverso regole
+simulative. Precisione, gestione e comportamento del sistema sono centrali.
+text_en:
+The player controls systems, vehicles, or activities through simulated
+rules. Precision, management, and system behavior are central.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local primary = btnp(4)
+  local secondary = btnp(5)
+end
+
+== genre.multiplayer_party
+kind: howto
+title: Party game
+title_en: Party Game
+ask: gioco stile Mario Party | Super Bomberman multiplayer | Super Mario Kart battle mode | Wario's Woods SNES | multiplayer mini games | local competitive party game | cooperative mini game collection | gioco multiplayer locale | retro party game | competitive arcade challenges
+keys: multiplayer,minigiochi,competizione,cooperazione,round
+see: move_arrows
+text:
+Uno o piu giocatori affrontano prove brevi e indipendenti, spesso
+competitive o cooperative. Round rapidi e regole variabili definiscono il gioco.
+text_en:
+One or more players compete in short, independent challenges.
+Quick rounds and changing rules define the gameplay experience.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local action_a = btnp(4)
+  local action_b = btnp(5)
+end
+
+== genre.rhythm_music
+kind: howto
+title: Ritmo e musica
+title_en: Rhythm Music Game
+ask: gioco stile Dance Dance Revolution | Mario Paint SNES music | rhythm action game | music timing game | musical performance game | beat matching gameplay | rhythm based challenge | gioco musicale retro | timing based music game | classic music game
+keys: ritmo,musica,tempo,sequenze,precisione
+see: move_arrows
+text:
+Il giocatore esegue azioni sincronizzate con una sequenza musicale.
+Precisione temporale e riconoscimento del ritmo determinano il punteggio.
+text_en:
+The player performs actions synchronized with a musical sequence.
+Timing accuracy and rhythm recognition determine the score.
+code:
+function _update()
+  local left = btnp(0)
+  local right = btnp(1)
+  local action_a = btnp(4)
+  local action_b = btnp(5)
+end
+
+== genre.survival
+kind: howto
+title: Sopravvivenza
+title_en: Survival Game
+ask: gioco stile SOS SNES | survival adventure game | resource survival gameplay | survival horror classic | Clock Tower SNES | Jurassic Park SNES survival | escape and survive game | limited resource adventure | gioco di sopravvivenza retro | exploration survival game
+keys: sopravvivenza,risorse,pericoli,esplorazione,energia
+see: move_arrows
+text:
+Il giocatore deve sopravvivere in ambienti pericolosi gestendo risorse
+limitate, salute e strumenti. Esplorazione e rischio sono fondamentali.
+text_en:
+The player must survive dangerous environments while managing limited
+resources, health, and tools. Exploration and risk are essential.
+code:
+function _update()
+  local dx = btn(1) - btn(0)
+  local dy = btn(3) - btn(2)
+  local use_item = btnp(4)
+  local interact = btnp(5)
+end

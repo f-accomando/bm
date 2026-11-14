@@ -16,7 +16,8 @@ Split from [tools](tools.md); open work and rules stay there.
   linear and quadratic), or hybrid IT/EN multi-clause queries (`compose`, `wired-actor`, `wire-cart` raw
   primitives `rect-actor`/`accel-x`/`gravity-floor`/`patrol-bounds`/`stomp-or-hit`, `patrol-chase`,
   `lerp-fn`, `damage-hp`, `cond`/`elseif`, `for-step`, `aref`/`aset`). Retro genre KB `core/src/ai/kb/genres.txt`
-  (`genre.*`) feeds `entry_id` from `assist.c` INT8 into `wire-cart` expansion. `assist.lua` strips target/numeric noise
+  (24 `genre.*` archetypes; `core/scripts/retro_catalog.py` imports NES/SNES CSVs into `ai.learn`/`ai.save` Lua trainers)
+  feeds `entry_id` from `assist.c` INT8 into `wire-cart` expansion. `assist.lua` strips target/numeric noise
   before `ai.ask`, verifies `.b` with `native_compile` (`bmlc.c`) and `Lua` with `load`, and `bm/code/main.lua`
   (`BL.integrate_block`) places synthesized functions before `_update()` with green gutter marks (`ai_marks`).
   Tests: `tests/ai/synth_test.lua`, `tests/ai/synth_bench.lua` (L1–L5), `tests/ai/synth_smb_bench.lua`,
