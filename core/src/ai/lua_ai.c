@@ -541,8 +541,8 @@ static int l_synth(lua_State *L)
         entry = lua_tostring(L, -1);
     }
 
-    char code[4096];
-    char goal[512];
+    char code[16384];
+    char goal[2048];
     char err[256];
     code[0] = goal[0] = err[0] = '\0';
 
