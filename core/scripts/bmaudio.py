@@ -86,7 +86,7 @@ MAGIC, VERSION = b"BMAU", 3
 VERSION_PLAIN = 2           # a bank without samples: what every console reads
 SEC_AUDIO = 6
 WAVES = ["square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample",
-         "pink", "brown", "crackle"]
+         "pink", "brown", "crackle", "sid+"]
 FILTERS = ["lp", "bp", "hp", "notch"]
 TONE = 21                   # registers 11..31
 ROOM_SEND = 40              # the room of a sound with no tone of its own (AU_ROOM_SEND)
@@ -221,6 +221,10 @@ def tone_bytes(s, samples=()):
     f = s.get("filter", "lp")
     t[2] = (FILTERS.index(f) if isinstance(f, str) else int(f) & 3) | (4 if s.get("keytrack") else 0)
     t[2] |= (pick("vowel", VOWELS) & 7) << 3 | (int(s.get("filter_bits", 0)) & 0xC0)
+    if s.get("analog"):
+        t[2] |= 0x40
+    if s.get("bit16"):
+        t[2] |= 0x80
     lfo = s.get("lfo", [0, 0, 0])
     t[13:16] = bytes(int(x) for x in lfo[:3])
     if "sample" in s:
@@ -229,7 +233,7 @@ def tone_bytes(s, samples=()):
         t[7] = int(s["begin"]) & 255
     if "density" in s:
         t[6] = int(s["density"]) & 255
-    t[17] = (int(s.get("flags", 0)) & 0x80) | (FLAG_RAW if s.get("raw") else 0) | (FLAG_REVERSE if s.get("reverse") else 0)
+    t[17] = (int(s.get("flags", 0)) & 0x80) | (0x80 if s.get("s6581") else 0) | (FLAG_RAW if s.get("raw") else 0) | (FLAG_REVERSE if s.get("reverse") else 0)
     t[17] |= (pick("color", COLORS) & 3) << 1 | (pick("curve", CURVES) & 7) << 3
     crush, coarse = int(s.get("crush", 0)), int(s.get("coarse", 1))
     trem, duck, chorus = int(s.get("trem", 0)), int(s.get("duck", 0)), int(s.get("chorus", 0))
@@ -257,8 +261,10 @@ def tone_keys(t, wave=None, names=()):
         out["keytrack"] = True
     if t[2] >> 3 & 7:
         out["vowel"] = VOWELS[t[2] >> 3 & 7] if (t[2] >> 3 & 7) < len(VOWELS) else t[2] >> 3 & 7
-    if t[2] & 0xC0:
-        out["filter_bits"] = t[2] & 0xC0        # not used (yet): kept as they are
+    if t[2] & 0x40:
+        out["analog"] = True
+    if t[2] & 0x80:
+        out["bit16"] = True
     if any(t[13:16]):
         out["lfo"] = list(t[13:16])
     if sample:
@@ -280,7 +286,7 @@ def tone_keys(t, wave=None, names=()):
     if t[17] >> 3 & 7:
         out["curve"] = CURVES[t[17] >> 3 & 7] if (t[17] >> 3 & 7) < len(CURVES) else t[17] >> 3 & 7
     if t[17] & 0x80:
-        out["flags"] = 0x80
+        out["s6581"] = True
     if t[18] & 15:
         out["crush"] = t[18] & 15
     if t[18] >> 4:

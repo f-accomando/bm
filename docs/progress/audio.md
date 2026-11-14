@@ -14,13 +14,16 @@ Detail: [audio-output.md](audio-output.md) (depth, dither, ramps), [audio-sample
   block) and the soft limiter `synth_limit` to 16 bits.
 - Each voice is 32 bytes of registers (layout in `synth.h`; a register at 0 is the plain
   sound), so C, Lua (`apu()`, `tone()`) and the player drive the same sound.
-- Waves (`SYNTH_SQUARE` … `SYNTH_ORGAN`, 10): square with duty, triangle, saw, noise, sine,
+- Waves (`SYNTH_SQUARE` … `SYNTH_SID`, 15): square with duty, triangle, saw, noise, sine,
   metal noise, two-operator FM with feedback, plucked string (Karplus-Strong with a Thiran
-  allpass), supersaw (three saws), organ (four drawbars). PolyBLEP/BLAMP band limiting.
+  allpass), supersaw (three saws), organ (four drawbars), sample, pink/brown/crackle noise,
+  and SID+ (`SYNTH_SID`: dual-oscillator combined waves, hard sync, ring mod, optional 6581 toggle).
+  PolyBLEP/BLAMP band limiting.
 - Per voice: white noise mix, drive, TPT state-variable filter (low/band/high pass, notch,
-  key tracking) with its own envelope, LFO (cutoff and PWM), exponential ADSR with minimum
-  attack/release (`MIN_ATTACK_S`, `MIN_RELEASE_S`: no clicks), pan, sends to the room and
-  the echo.
+  key tracking, optional `SYNTH_ANALOG_FLT` non-linear saturation) with its own envelope, LFO
+  (cutoff and PWM), exponential ADSR with minimum attack/release (`MIN_ATTACK_S`, `MIN_RELEASE_S`:
+  no clicks), pan, sends to the room and the echo, and 24-bit (default) / 16-bit (`SYNTH_16BIT`) /
+  8-bit (`SYNTH_RAW`) voice depth options.
 - Room: 8-line FDN reverb run at half the rate (`SYNTH_ROOM_LINES`, `SYNTH_ROOM_LEN`). Echo:
   ping-pong delay up to `SYNTH_ECHO_LEN` samples.
 - Retro mode: `SYNTH_RAW` per voice, or every voice with `synth_t.retro` (naive waves, held
@@ -41,8 +44,8 @@ Detail: [audio-output.md](audio-output.md) (depth, dither, ramps), [audio-sample
   silent, and mutes that music track while it plays.
 
 ### Instruments (`core/src/audio/presets.c`)
-50 presets (`P(...)` lines; groups drum, bass, keys, pad, pluck, lead, fx, plus the `chip*`
-8-bit ones; the last 8 from Pass 2 below). `instruments()` lists them; riff and the bank refer to them by name.
+55 presets (`P(...)` lines; groups drum, bass, keys, pad, pluck, lead, fx, plus the `chip*`
+8-bit ones and 5 `sid*` SID+ ones). `instruments()` lists them; riff and the bank refer to them by name.
 
 ### Outputs (`core/src/audio/audio_out.h`)
 - Pi: HDMI audio (`hdmi_audio.c`, `iec958.c`): IEC 958 subframes into the MAI FIFO, a DMA

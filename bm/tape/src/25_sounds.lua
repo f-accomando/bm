@@ -53,8 +53,12 @@ ENGINES = {
       function(tn, v) tn.vowel = VOWELS[floor(v + 0.5) + 1] end),
     A("cutoff"), A("rate"), M("TREM", 0, 1, 0.02, 0.2, "%.2f", key("trem")) } },
   { name = "DIGITAL", base = { wave = "saw" }, macros = {
-    M("BITS", 2, 16, 1, 8, function(v) return v >= 16 and "OFF" or string.format("%d", v) end,
-      function(tn, v) tn.crush = v >= 16 and 0 or floor(v + 0.5) end),
+    M("BITS", 2, 17, 1, 8, function(v) return v >= 17 and "24-BIT" or v == 16 and "16-BIT" or string.format("%d-BIT", v) end,
+      function(tn, v)
+        if v >= 17 then tn.crush = 0; tn.bit16 = false
+        elseif v == 16 then tn.crush = 0; tn.bit16 = true
+        else tn.crush = floor(v + 0.5); tn.bit16 = false end
+      end),
     M("COARSE", 1, 16, 1, 2, "%d", key("coarse")),
     M("CURVE", 0, 5, 1, 1, function(v) return CURVES[floor(v + 0.5) + 1]:upper() end,
       function(tn, v) tn.curve = CURVES[floor(v + 0.5) + 1] end),
@@ -64,6 +68,20 @@ ENGINES = {
   { name = "PCM", pcm = true, base = { wave = "sample" }, macros = {
     M("START", 0, 0.9, 0.01, 0, "%.2f", key("begin")), A("cutoff"), A("res"),
     M("DRIVE", 0, 1, 0.01, 0, "%.2f", key("drive")) } },
+  { name = "SID+", base = { wave = "sid+", analog = true, duty = 0.42 }, macros = {
+    M("SHAPE", 0, 7, 1, 1, function(v)
+      return ({ "TRI", "SAW", "PLS", "T+S", "T+P", "S+P", "TSP", "SUB+S" })[floor(v + 0.5) + 1]
+    end, function(tn, v) tn.mod1 = ((tn.mod1 or 0) & ~7) | (floor(v + 0.5) & 7) end),
+    M("COUPLE", 0, 3, 1, 1, function(v)
+      return ({ "MIX", "SYNC", "RING", "S+R" })[floor(v + 0.5) + 1]
+    end, function(tn, v)
+      local c = floor(v + 0.5) & 3
+      local o2 = c == 0 and 3 or c == 1 and 1 or 0
+      tn.mod1 = ((tn.mod1 or 0) & 7) | (c << 3) | (o2 << 5)
+    end),
+    M("OSC2 ST", 0, 24, 0.5, 12, "%.1f st", function(tn, v) tn.mod2 = floor(v * 8 + 0.5) end),
+    M("6581", 0, 1, 1, 0, function(v) return v >= 0.5 and "6581" or "HI-FI" end,
+      function(tn, v) tn.s6581 = v >= 0.5 end) } },
 }
 end
 local ENGIDX = {}
@@ -136,6 +154,12 @@ local PCM_SOUNDS = {
   pcm("NO METAL", "NOMETAL", "fx"),
 }
 for _, s in ipairs(PCM_SOUNDS) do SOUNDS[#SOUNDS + 1] = s end
+for _, s in ipairs({
+  snd("SID SYNC", "SID+", { 1, 1, 18, 0 }, { 1, 300, 0.65, 160 }, { 5.5, 0.45, 0, 0 }),
+  snd("SID RING", "SID+", { 0, 2, 14.5, 0 }, { 1, 700, 0, 600 }, { 8, 0.25, 0, 0 }),
+  snd("SID BASS", "SID+", { 7, 0, 0, 0 }, { 1, 260, 0.55, 120 }, { 1.3, 0.55, 0, 0 }),
+  snd("SID 6581", "SID+", { 4, 0, 0, 1 }, { 2, 320, 0.7, 180 }, { 3.8, 0.5, 0.6, 0.2 }),
+}) do SOUNDS[#SOUNDS + 1] = s end
 end
 -- the bank's samples by name: frames, rate and the 32 peaks (meter) of each, for the PCM scene
 local PCMINFO = {}

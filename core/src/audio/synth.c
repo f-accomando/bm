@@ -899,6 +899,8 @@ typedef struct {
     float inv_n;            /* 1 / the block's samples */
     uint8_t mod1, mod2;
     uint8_t fast;           /* noise: a step every sample */
+    uint8_t flags;          /* SYNTH_FLAGS */
+    uint8_t fmfb;           /* SYNTH_FMFB */
     float depth0, depth1;   /* FM depth at the start and end of the block (rad) */
     float fb;               /* FM feedback (rad) */
 } wave_args_t;
@@ -1118,6 +1120,103 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
             out[i] = crackle_of(s, th);
         break;
     }
+    case SYNTH_SID: {
+        /* SID+ dual-oscillator: Osc 1 (shape 0..7) + Osc 2 (wave 0..7) with Mix, Hard Sync, Ring Mod */
+        unsigned shape1 = a->mod1 & 7;
+        unsigned couple = (a->mod1 >> 3) & 3;
+        unsigned shape2 = (a->mod1 >> 5) & 7;
+        int mode6581 = (a->flags & SYNTH_FLAG_6581) != 0;
+        float pw1 = a->pw, pw = a->pw0;
+        if (pw <= 0.0f) pw = pw1 > 0.0f ? pw1 : 0.5f;
+        pw = pw < dt ? dt : pw > 1.0f - dt ? 1.0f - dt : pw;
+        pw1 = pw1 < dt ? dt : pw1 > 1.0f - dt ? 1.0f - dt : pw1;
+        float dpw = (pw1 - pw) * a->inv_n;
+
+        /* Osc 2 pitch: fixed interval by shape2 + MOD2 semitones (0..31.875 st) * env */
+        static const float base_semi[8] = { 0.0f, 0.0f, 0.0f, -12.0f, 12.0f, 7.0f, 24.0f, 0.0f };
+        float ratio = exp2f((base_semi[shape2] + (float)a->mod2 * (1.0f / 8.0f) * a->depth0) * (1.0f / 12.0f));
+        uint32_t i2 = (uint32_t)((float)inc * ratio);
+        if (i2 == 0) i2 = 1;
+        uint32_t sync_ratio = (uint32_t)(((uint64_t)inc << 16) / i2);
+        uint32_t p2 = v->phase2;
+        float mix = a->fmfb ? (float)a->fmfb * (1.0f / 255.0f) : 1.0f;
+        float dt2 = (float)i2 * TO_UNIT;
+        float idt2 = dt2 > 1e-7f ? 1.0f / dt2 : 1.0f;
+
+        for (unsigned i = 0; i < n; i++) {
+            uint32_t prev2 = p2;
+            p2 += i2;
+            if ((couple == SYNTH_SID_SYNC || couple == SYNTH_SID_SYNCRING) && p2 < prev2)
+                phase = (uint32_t)(((uint64_t)p2 * sync_ratio) >> 16);
+
+            float t1 = (float)phase * TO_UNIT;
+            float t2 = (float)p2 * TO_UNIT;
+
+            /* Osc 1 */
+            float tri = t1 < 0.5f ? -1.0f + 4.0f * t1 : 3.0f - 4.0f * t1;
+            float saw = dt < 0.5f ? 2.0f * t1 - 1.0f - blep(t1, dt, idt) : 0.0f;
+            float pls = t1 < pw ? 1.0f : -1.0f;
+            if (dt < 0.5f) {
+                pls += blep(t1, dt, idt);
+                float tp = t1 - pw;
+                if (tp < 0.0f) tp += 1.0f;
+                pls -= blep(tp, dt, idt);
+            }
+            float o1;
+            if (mode6581 && shape1 >= 3 && shape1 <= 6) {
+                /* 6581-style bitwise AND combination of 8-bit quantized waves */
+                unsigned ut = (unsigned)((tri + 1.0f) * 127.5f);
+                unsigned us = (unsigned)((saw + 1.0f) * 127.5f);
+                unsigned up = pls > 0.0f ? 255u : 0u;
+                unsigned u = shape1 == 3 ? (ut & us) : shape1 == 4 ? (ut & up) : shape1 == 5 ? (us & up) : (ut & us & up);
+                o1 = (float)u * (1.0f / 127.5f) - 1.0f;
+            } else {
+                switch (shape1) {
+                case 0: o1 = tri; break;
+                case 1: o1 = saw; break;
+                case 2: o1 = pls; break;
+                case 3: o1 = 0.55f * (tri + saw); break;
+                case 4: o1 = 0.55f * (tri + pls); break;
+                case 5: o1 = 0.55f * (saw + pls); break;
+                case 6: o1 = 0.40f * (tri + saw + pls); break;
+                default: {
+                    float sub = (p2 & 0x80000000u) ? 1.0f : -1.0f;
+                    o1 = 0.55f * (saw + sub);
+                    break;
+                }
+                }
+            }
+
+            /* Osc 2 */
+            float o2;
+            if (shape2 == 0) {
+                o2 = t2 < 0.5f ? -1.0f + 4.0f * t2 : 3.0f - 4.0f * t2;
+            } else if (shape2 == 1 || shape2 == 7) {
+                o2 = dt2 < 0.5f ? 2.0f * t2 - 1.0f - blep(t2, dt2, idt2) : 0.0f;
+            } else {
+                o2 = t2 < 0.5f ? 1.0f : -1.0f;
+            }
+
+            float y;
+            if (couple == SYNTH_SID_RING || couple == SYNTH_SID_SYNCRING)
+                y = o1 * (1.0f - mix) + (o1 * o2) * mix;
+            else if (couple == SYNTH_SID_SYNC)
+                y = a->fmfb ? o1 * (1.0f - 0.5f * mix) + o2 * (0.5f * mix) : o1;
+            else
+                y = o1 * (1.0f - 0.45f * mix) + o2 * (0.45f * mix);
+
+            if (mode6581) {
+                /* subtle 12-bit DAC quantization step */
+                y = (float)((int32_t)(y * 2048.0f + 4096.5f) - 4096) * (1.0f / 2048.0f);
+            }
+            out[i] = y;
+            phase += inc;
+            inc += dinc;
+            pw += dpw;
+        }
+        v->phase2 = p2;
+        break;
+    }
     default:
         for (unsigned i = 0; i < n; i++)
             out[i] = 0;
@@ -1138,14 +1237,22 @@ static float lfo_hz(uint8_t r)
 typedef struct {
     float g, k;             /* still: the block's; a sweep: the last block's end */
     float rg, dk;           /* a sweep: g's ratio and k's step a sample */
-    int still, exact, mode;
+    int still, exact, mode, analog;
 } svf_t;
+
+static inline float svf_sat(float x)
+{
+    if (x > 2.2f) x = 2.2f;
+    else if (x < -2.2f) x = -2.2f;
+    /* warm asymmetric 6581-style saturation inside the integrator feedback */
+    return x - 0.045f * x * x * x + 0.015f * x * x;
+}
 
 static inline __attribute__((always_inline)) void svf_run(const svf_t *f, float *buf, unsigned n, float *s1,
                                                           float *s2)
 {
     float ic1 = *s1, ic2 = *s2;
-    int mode = f->mode;
+    int mode = f->mode, analog = f->analog;
     float g = f->g, k = f->k;
     if (f->still) {
         float a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2;
@@ -1156,6 +1263,8 @@ static inline __attribute__((always_inline)) void svf_run(const svf_t *f, float 
             float v2 = ic2 + a2 * ic1 + a3 * v3;
             ic1 = 2.0f * v1 - ic1;
             ic2 = 2.0f * v2 - ic2;
+            if (analog)
+                ic1 = svf_sat(ic1);
             float y;
             switch (mode) {
             case SYNTH_LOWPASS: y = v2; break;
@@ -1181,6 +1290,8 @@ static inline __attribute__((always_inline)) void svf_run(const svf_t *f, float 
             float v2 = ic2 + a2 * ic1 + a3 * v3;
             ic1 = 2.0f * v1 - ic1;
             ic2 = 2.0f * v2 - ic2;
+            if (analog)
+                ic1 = svf_sat(ic1);
             float y;
             switch (mode) {
             case SYNTH_LOWPASS: y = v2; break;
@@ -1433,6 +1544,8 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         a.mod1 = r[SYNTH_MOD1];
         a.mod2 = r[SYNTH_MOD2];
         a.fast = (f88 >> 8) >= s->rate;
+        a.flags = r[SYNTH_FLAGS];
+        a.fmfb = r[SYNTH_FMFB];
         a.inv_n = inv_n;
 
         /* the LFO, once a block, at the block's end: what it moves (the
@@ -1457,9 +1570,9 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             vol *= 1.0f - s->duck;
         float vol0 = v->fresh ? vol : v->vol;
 
-        /* FM depth: fades with MODDECAY */
+        /* FM depth / SID Osc 2 pitch env: fades with MODDECAY */
         float depth = (a.mod2 ? a.mod2 : 40) * (1.0f / 32.0f);
-        a.depth0 = depth * v->menv;
+        a.depth0 = wave == SYNTH_SID ? (r[SYNTH_MODDECAY] ? v->menv : 1.0f) : depth * v->menv;
         if (r[SYNTH_MODDECAY]) {
             float c = ecoef(reg_seconds(r[SYNTH_MODDECAY]) + 0.001f, 4.6f, s->rate);
             v->menv *= powf(c, (float)n);
@@ -1539,6 +1652,7 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
             v->fk = k1;
             svf_t f;
             f.mode = fm & 3;
+            f.analog = (fm & SYNTH_ANALOG_FLT) != 0;
             float dg = g1 - g;
             if ((dg < 0 ? -dg : dg) <= 1e-5f * g1 && k == k1) {
                 /* still (a change under a 50th of a cent: the end of a
@@ -1588,6 +1702,17 @@ static void render_voice(synth_t *s, unsigned ch, const volatile uint8_t *r, uns
         uint8_t cr = r[SYNTH_CRUSH];
         if (cr)
             crush_run(v, cr, buf, buf2, n);
+        else if (r[SYNTH_FILTER] & SYNTH_16BIT) {
+            for (unsigned i = 0; i < n; i++) {
+                float y = buf[i] > 2.0f ? 2.0f : buf[i] < -2.0f ? -2.0f : buf[i];
+                buf[i] = (float)((int32_t)(y * 32768.0f + 65536.5f) - 65536) * (1.0f / 32768.0f);
+            }
+            if (buf2)
+                for (unsigned i = 0; i < n; i++) {
+                    float y = buf2[i] > 2.0f ? 2.0f : buf2[i] < -2.0f ? -2.0f : buf2[i];
+                    buf2[i] = (float)((int32_t)(y * 32768.0f + 65536.5f) - 65536) * (1.0f / 32768.0f);
+                }
+        }
         v->inc = inc;
         v->vol = vol;
         v->fresh = 0;

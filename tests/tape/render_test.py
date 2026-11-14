@@ -263,11 +263,11 @@ def main():
 
     # the live keys play every sound: ] loads the next sound into the track, a key is held for a moment
     play = key(5, KEY_2) + key(10, MOD[0])
-    for n in range(45):
+    for n in range(49):
         play += key(20 + 20 * n, RB) + ["%d keys %d" % (23 + 20 * n, KEY_U), "%d keys none" % (33 + 20 * n)]
-    play += key(940, MOD[1]) + key(950, KEY_O)                    # and a pad
-    code, out = run(host, cart, script(play), tmp + "/shots/play", 17)
-    check("the live keys play 44 sounds (the list wraps once) and a pad without a Lua error", code == 0 and " ok" in out)
+    play += key(1020, MOD[1]) + key(1030, KEY_O)                    # and a pad
+    code, out = run(host, cart, script(play), tmp + "/shots/play", 19)
+    check("the live keys play 48 sounds (the list wraps once) and a pad without a Lua error", code == 0 and " ok" in out)
 
     # the PCM scene (engine 8): the sample of the sound is named on the scene; audio_samples() of the cartridge lists the 24 samples
     names = [l.split()[0] for l in open(ROOT + "/tests/tape/felucca_golden.txt") if l.strip() and not l.startswith("#")]

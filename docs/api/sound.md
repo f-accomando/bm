@@ -120,7 +120,7 @@ The keys of `tone()` (all optional; the missing ones stay as they are):
 | Key | Value |
 |---|---|
 | `preset` | a ready-made instrument to start from |
-| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"` |
+| `wave` | `"square"`, `"triangle"`, `"saw"`, `"noise"`, `"sine"`, `"metal"`, `"fm"`, `"pluck"`, `"supersaw"`, `"organ"`, `"sample"`, `"pink"`, `"brown"`, `"crackle"`, `"sid+"` |
 | `vol`, `duty`, `sustain` | 0–1 |
 | `attack`, `decay`, `release` | ms (up to 2000) |
 | `cutoff` | the **filter**: Hz (0 = no filter) |
@@ -144,6 +144,9 @@ The keys of `tone()` (all optional; the missing ones stay as they are):
 | `trem` | tremolo: the `lfo` on the volume, how deep (0–1) |
 | `duck` | ducking: this voice pushes the others down while it sounds (0–1): a kick that pumps a pad, an effect that lowers the music |
 | `chorus` | how much the voice sends to the chorus (0–1; `chorus()` sets it) |
+| `analog` | `true`: non-linear analog saturation inside the resonant filter (`SYNTH_ANALOG_FLT`) |
+| `bit16` | `true`: 16-bit digital voice quantization (24-bit Hi-Fi is the default; `raw` is 8-bit) |
+| `s6581` | `true`: 6581-style bitwise combined-wave and 12-bit DAC character for `"sid+"` |
 | `raw` | `true`: this voice is 8-bit (the effects above are ignored, as in `retro`) |
 
 Every new key at 0 (or missing) is the sound as it was. `play()` and `play_at()` take the
@@ -166,7 +169,7 @@ chorus(0.5, 4, 1)                                   -- a slower, wider chorus
 retro(true)                                         -- the 8-bit sound of before
 ```
 
-**Ready-made instruments** (`core/src/audio/presets.c`, 50): drums `kick`, `punch`, `snare`, `clap`,
+**Ready-made instruments** (`core/src/audio/presets.c`, 55): drums `kick`, `punch`, `snare`, `clap`,
 `hat`, `openhat`, `tom`, `rim`, `crash`, `cowbell`, `shaker` (and `chipkick`, `chipsnr`,
 `chiphat` in 8 bits), `kit` (the kit's drums as samples: `"kit:0"`…`"kit:7"`), `pump` (the
 kit's kick ducking the rest: a sidechain pump); basses `bass`, `acid`, `sub`, `fmbass`,
@@ -174,7 +177,8 @@ kit's kick ducking the rest: a sidechain pump); basses `bass`, `acid`, `sub`, `f
 `glock`, `rhodes` (with tremolo and chorus); pads `pad`, `strings`, `warm`, `glass`, `lush`
 (supersaw in the chorus), `choir` (singing "aah"); strings `pluck`, `guitar`, `harp`; leads
 `lead`, `sawlead`, `flute`, `brass`, `triangle`, `chip`, `chiptri`, `solo` (warm drive,
-vibrato, echo); effects `laser`, `blip`, `boom`, `wind`, `vinyl` (a record's crackle). The
+vibrato, echo); effects `laser`, `blip`, `boom`, `wind`, `vinyl` (a record's crackle); SID+ analog-digital
+`sidlead`, `sidsync`, `sidbass`, `sidring`, `sidpad`. The
 same in bm Sound's *Instrument...* menu.
 
 **The console's kit**: eight drums made by the synthesizer when the console starts (nothing

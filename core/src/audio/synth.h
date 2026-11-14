@@ -83,6 +83,7 @@
 #define SYNTH_FLAG_COLOR 0x06   /* flags bits 1-2: the noise mix's colour, SYNTH_COLOR_* */
 #define SYNTH_FLAG_CURVE 0x38   /* flags bits 3-5: the drive's curve, SYNTH_CURVE_* */
 #define SYNTH_FLAG_REVERSE 0x40 /* flags: a sample plays backwards, from its end */
+#define SYNTH_FLAG_6581 0x80    /* flags: 6581 bitwise/stepped character for SYNTH_SID */
 #define SYNTH_COLOR_SHIFT 1
 #define SYNTH_CURVE_SHIFT 3
 enum { SYNTH_COLOR_WHITE, SYNTH_COLOR_PINK, SYNTH_COLOR_BROWN, SYNTH_COLOR_CRACKLE };
@@ -103,6 +104,8 @@ enum {
 #define SYNTH_KEYTRACK  0x04    /* the cutoff follows the note (C4 = as set) */
 #define SYNTH_VOWEL     0x38    /* bits 3-5: 0 none, SYNTH_VOWEL_A .. SYNTH_VOWEL_U */
 #define SYNTH_VOWEL_SHIFT 3
+#define SYNTH_ANALOG_FLT 0x40   /* non-linear analog saturation inside the SVF */
+#define SYNTH_16BIT     0x80    /* 16-bit digital voice quantization */
 enum { SYNTH_VOWEL_NONE, SYNTH_VOWEL_A, SYNTH_VOWEL_E, SYNTH_VOWEL_I, SYNTH_VOWEL_O, SYNTH_VOWEL_U, SYNTH_VOWELS };
 
 #define SYNTH_SQUARE    0
@@ -120,7 +123,11 @@ enum { SYNTH_VOWEL_NONE, SYNTH_VOWEL_A, SYNTH_VOWEL_E, SYNTH_VOWEL_I, SYNTH_VOWE
 #define SYNTH_PINK      11      /* pink noise, -3 dB an octave (the note does not matter): rain, surf */
 #define SYNTH_BROWN     12      /* brown noise, -6 dB an octave: rumble, wind, waves */
 #define SYNTH_CRACKLE   13      /* random clicks, MOD1 how many (0: 100 a second): vinyl, fire */
-#define SYNTH_WAVES     14
+#define SYNTH_SID       14      /* SID+ dual-oscillator: combined waves, hard sync, ring mod */
+#define SYNTH_WAVES     15
+
+/* SYNTH_SID coupling modes (MOD1 bits 3-4) */
+enum { SYNTH_SID_MIX, SYNTH_SID_SYNC, SYNTH_SID_RING, SYNTH_SID_SYNCRING };
 
 /* A sample: 16-bit frames (interleaved if stereo) at its own rate. The
  * buffer holds one guard frame before frame 0 and three after the last

@@ -5,7 +5,7 @@
 
 const char *const au_wave_names[] = {
     "square", "triangle", "saw", "noise", "sine", "metal", "fm", "pluck", "supersaw", "organ", "sample",
-    "pink", "brown", "crackle"
+    "pink", "brown", "crackle", "sid+"
 };
 _Static_assert(sizeof au_wave_names / sizeof au_wave_names[0] == SYNTH_WAVES, "a name for every wave");
 
@@ -157,6 +157,30 @@ const au_preset_t au_presets[] = {
     P("vinyl", "fx", "an old record: crackle and a little hiss",
       SYNTH_CRACKLE, 128, 150, 0, 0, 255, 50, 0, 0, 0, 0, T(MOD1) = 10, T(NOISEMIX) = 12,
       T(FLAGS) = SYNTH_COLOR_PINK << SYNTH_COLOR_SHIFT, T(CUTOFF) = 200, T(REVERB) = 20),
+    /* SID+ analog-digital */
+    P("sidlead", "lead", "SID+ PWM lead with analog filter and echo",
+      SYNTH_SID, 96, 170, 2, 40, 210, 35, 0, 0, 12, 55,
+      T(MOD1) = 5 | (SYNTH_SID_MIX << 3) | (3 << 5), T(MOD2) = 2,
+      T(CUTOFF) = 185, T(RESONANCE) = 95, T(FILTER) = SYNTH_ANALOG_FLT,
+      T(LFO_RATE) = 60, T(LFO_PWM) = 140, T(ECHO) = 80, T(REVERB) = 50),
+    P("sidsync", "lead", "SID+ hard sync lead with pitch sweep",
+      SYNTH_SID, 128, 175, 1, 50, 200, 30, 0, 0, 0, 0,
+      T(MOD1) = 1 | (SYNTH_SID_SYNC << 3) | (1 << 5), T(MOD2) = 144, T(MODDECAY) = 45,
+      T(CUTOFF) = 205, T(RESONANCE) = 110, T(FILTER) = SYNTH_ANALOG_FLT, T(REVERB) = 60),
+    P("sidbass", "bass", "SID+ fat analog bass with sub-oscillator",
+      SYNTH_SID, 110, 200, 0, 45, 170, 18, 0, 0, 0, 0,
+      T(MOD1) = 7 | (SYNTH_SID_MIX << 3) | (3 << 5), T(MOD2) = 1,
+      T(CUTOFF) = 105, T(RESONANCE) = 135, T(FILTER) = SYNTH_ANALOG_FLT,
+      T(FENV) = 48, T(FDECAY) = 32, T(DRIVE) = 60, T(REVERB) = 15),
+    P("sidring", "fx", "SID+ ring-modulated metallic bell",
+      SYNTH_SID, 128, 170, 0, 110, 0, 120, 0, 0, 0, 0,
+      T(MOD1) = 0 | (SYNTH_SID_RING << 3) | (0 << 5), T(MOD2) = 116,
+      T(CUTOFF) = 210, T(RESONANCE) = 60, T(FILTER) = SYNTH_ANALOG_FLT, T(REVERB) = 110),
+    P("sidpad", "pad", "SID+ wide combined-wave pad with chorus",
+      SYNTH_SID, 90, 140, 85, 90, 200, 100, 0, 0, 0, 0,
+      T(MOD1) = 4 | (SYNTH_SID_MIX << 3) | (0 << 5), T(MOD2) = 2,
+      T(CUTOFF) = 155, T(RESONANCE) = 75, T(FILTER) = SYNTH_ANALOG_FLT,
+      T(LFO_RATE) = 50, T(LFO_PWM) = 120, T(CHORUS) = 180, T(REVERB) = 140),
 };
 const int au_preset_count = sizeof au_presets / sizeof au_presets[0];
 
@@ -188,6 +212,8 @@ int au_wave_find(const char *name)
     for (int i = 0; i < SYNTH_WAVES; i++)
         if (same(name, au_wave_names[i]))
             return i;
+    if (same(name, "sid") || same(name, "hybrid"))
+        return SYNTH_SID;
     return -1;
 }
 
@@ -306,6 +332,11 @@ int au_tone_num(volatile uint8_t *r, const char *k, double v)
     else if (same(k, "vowel"))      r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_VOWEL) | (v >= 0 && v < SYNTH_VOWELS ? (int)v : 0) << SYNTH_VOWEL_SHIFT);
     else if (same(k, "curve"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_CURVE) | (v >= 0 && v < SYNTH_CURVES ? (int)v : 0) << SYNTH_CURVE_SHIFT);
     else if (same(k, "color"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_COLOR) | (v >= 0 && v < 4 ? (int)v : 0) << SYNTH_COLOR_SHIFT);
+    else if (same(k, "analog"))     r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_ANALOG_FLT) | (v != 0 ? SYNTH_ANALOG_FLT : 0));
+    else if (same(k, "bit16"))      r[SYNTH_FILTER] = (uint8_t)((r[SYNTH_FILTER] & ~SYNTH_16BIT) | (v != 0 ? SYNTH_16BIT : 0));
+    else if (same(k, "s6581"))      r[SYNTH_FLAGS] = (uint8_t)((r[SYNTH_FLAGS] & ~SYNTH_FLAG_6581) | (v != 0 ? SYNTH_FLAG_6581 : 0));
+    else if (same(k, "mod1"))       r[SYNTH_MOD1] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
+    else if (same(k, "mod2"))       r[SYNTH_MOD2] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
     else
         return -1;
     return 0;

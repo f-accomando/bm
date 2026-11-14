@@ -1812,9 +1812,10 @@ static void test_presets(void)
         if (snd->wave == SYNTH_SAMPLE)
             CHECK(synth_active(&syn) == 0);
     }
-    CHECK(au_preset_count == 50 && au_preset_find("kit") >= 42 && au_preset_find("vinyl") == 49);
+    CHECK(au_preset_count == 55 && au_preset_find("kit") >= 42 && au_preset_find("vinyl") == 49 &&
+          au_preset_find("sidlead") == 50 && au_preset_find("sidpad") == 54);
     CHECK(au_wave_find("sample") == SYNTH_SAMPLE && au_wave_find("crackle") == SYNTH_CRACKLE &&
-          au_wave_find("13") == -1);
+          au_wave_find("sid+") == SYNTH_SID && au_wave_find("13") == -1);
 
     /* the tone's keys in plain units */
     uint8_t r[SYNTH_VOICE_BYTES] = { 0 };
@@ -1836,6 +1837,39 @@ static void test_presets(void)
           au_tone_str(r, "sample", "nothing") == -1);
     CHECK(au_tone_num(r, "begin", 0.5) == 0 && r[SYNTH_MOD2] == 128 && au_tone_num(r, "sample", 3) == 0 &&
           r[SYNTH_MOD1] == 3);
+    CHECK(au_tone_num(r, "analog", 1) == 0 && (r[SYNTH_FILTER] & SYNTH_ANALOG_FLT) != 0);
+    CHECK(au_tone_num(r, "bit16", 1) == 0 && (r[SYNTH_FILTER] & SYNTH_16BIT) != 0);
+    CHECK(au_tone_num(r, "s6581", 1) == 0 && (r[SYNTH_FLAGS] & SYNTH_FLAG_6581) != 0);
+    CHECK(au_tone_str(r, "wave", "sid+") == 0 && r[SYNTH_WAVEFORM] == SYNTH_SID);
+
+    /* SID+: hard sync, ring mod, 6581 mode and analog filter render cleanly without NaN or clipping */
+    for (int m = 0; m < 4; m++) {
+        synth_t sid;
+        uint8_t sr[SYNTH_REG_BYTES] = { 0 };
+        synth_init(&sid, 48000);
+        sr[SYNTH_FREQ_LO] = 220;
+        sr[SYNTH_WAVEFORM] = SYNTH_SID;
+        sr[SYNTH_DUTY] = 100;
+        sr[SYNTH_VOLUME] = 200;
+        sr[SYNTH_SUSTAIN] = 255;
+        sr[SYNTH_MOD1] = (uint8_t)(4 | (m << 3) | (1 << 5));
+        sr[SYNTH_MOD2] = 96;
+        sr[SYNTH_CUTOFF] = 160;
+        sr[SYNTH_RESONANCE] = 140;
+        sr[SYNTH_FILTER] = SYNTH_ANALOG_FLT | (m == 1 ? SYNTH_16BIT : 0);
+        sr[SYNTH_FLAGS] = m == 3 ? SYNTH_FLAG_6581 : 0;
+        sr[SYNTH_CONTROL] = SYNTH_GATE;
+        int pk = 0;
+        for (int b = 0; b < 32; b++) {
+            int16_t o[SYNTH_BLOCK * 2];
+            synth_render(&sid, sr, o, SYNTH_BLOCK);
+            for (int i = 0; i < SYNTH_BLOCK * 2; i++) {
+                int v = o[i] < 0 ? -o[i] : o[i];
+                if (v > pk) pk = v;
+            }
+        }
+        CHECK(pk > 1000 && pk <= 32767);
+    }
 }
 
 int main(void)

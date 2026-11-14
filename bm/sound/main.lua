@@ -45,13 +45,13 @@ local C = {
 }
 local TRACK_C = { C.orange, C.yellow, C.green, C.cyan, C.blue, C.purple, C.pink, C.white }
 local WAVE_C = { C.blue, C.green, C.orange, C.white, C.cyan, C.yellow, C.pink, C.purple, C.red, C.green,
-                 C.yellow, C.pink, C.orange, C.white }
+                 C.yellow, C.pink, C.orange, C.white, C.purple }
 local PAGE_C = { C.blue, C.green, C.orange, C.purple }
 
 -- the synthesizer's waves (core/src/audio/synth.h): SAMPLE plays a sample of the
--- bank (or of the console's kit), the last three are noises
+-- bank (or of the console's kit), the last three are noises, SID+ is dual-osc
 local WAVES = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK", "SUPERSAW", "ORGAN",
-                "SAMPLE", "PINK", "BROWN", "CRACKLE" }
+                "SAMPLE", "PINK", "BROWN", "CRACKLE", "SID+" }
 local NOTE = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }
 local CHORDS = { "OCTAVE", "MAJOR", "MINOR", "SUS2", "SUS4", "MAJ7", "MIN7", "DOM7", "DIM", "AUG",
                  "POWER", "POWER+8", "MAJOR+8", "MINOR+8", "OCT DOWN", "2 OCTAVES" }
@@ -939,8 +939,15 @@ local function cutoff_hz(v) return 20 * 2 ^ ((v - 1) * 9.9658 / 254) end
 local function lfo_hz(v) return 0.1 * 2 ^ ((v - 1) * 7.64 / 254) end
 -- the wave's own settings: what they mean depends on the wave (synth.h)
 local MOD_LABEL = { [6] = { "FM RATIO", "FM DEPTH" }, [7] = { "BRIGHT", "RING" }, [8] = { "SPREAD", "-" },
-                    [9] = { "BARS 1 2", "BARS 3 4" }, [10] = { "SAMPLE", "START" } }
-local function mod_text(n)
+                    [9] = { "BARS 1 2", "BARS 3 4" }, [10] = { "SAMPLE", "START" }, [14] = { "SID SHAPE", "OSC2 PITCH" } }
+local FILTERS = { "LOW PASS", "BAND PASS", "HIGH PASS", "NOTCH" }
+local mod_text, SGROUPS
+do
+local SID_SHAPES = { "TRI", "SAW", "PLS", "T+S", "T+P", "S+P", "TSP", "SUB+S" }
+local SID_COUPLES = { "MIX", "SYNC", "RING", "S+R" }
+local SID_OSC2 = { "TRI", "SAW", "SQR", "-12st", "+12st", "+7st", "+24st", "SYNC" }
+local DEPTHS = { "24-BIT", "16-BIT", "8-BIT" }
+mod_text = function(n)
   return function(v, s)
     local w = s.wave
     if w == 6 then
@@ -952,12 +959,14 @@ local function mod_text(n)
       if s.tone[7] == 0 and s.tone[8] == 0 then return "AUTO" end
       return (v >> 4) .. " " .. (v & 15)
     elseif w == 10 then return n == 1 and ui.sample_name(v) or pct(v)
+    elseif w == 14 then
+      if n == 1 then return SID_SHAPES[(v & 7) + 1] end
+      return v == 0 and "UNISON" or string.format("+%.1f st", v / 8)
     end
     return "-"
   end
 end
-local FILTERS = { "LOW PASS", "BAND PASS", "HIGH PASS", "NOTCH" }
-local SGROUPS = {
+SGROUPS = {
   { name = "SOUND", c = C.blue, cols = {
     { field("wave", "WAVE", 0, #WAVES - 1, function(v) return WAVES[v + 1] end, 1),
       field("duty", "DUTY", 0, 255, pct, 16), field("vol", "VOLUME", 0, 255, pct, 16),
@@ -979,16 +988,35 @@ local SGROUPS = {
     { tbyte(14, "LFO SPEED", 0, 255, off_or(function(v) return string.format("%.1f Hz", lfo_hz(v)) end), 12),
       tbyte(15, "LFO CUT", 0, 255, off_or(function(v) return string.format("%.1f oct", v * 4 / 255) end), 16),
       tbyte(16, "LFO DUTY", 0, 255, off_or(pct), 16),
-      tbits(18, 1, 0, "8-BIT", 0, 1, function(v) return v == 1 and "ON" or "OFF" end) } } },
+      { label = "BIT DEPTH", lo = 0, hi = 2, step = 1, fmt = function(v) return DEPTHS[v + 1] end,
+        get = function(s) return (s.tone[18] & 1) ~= 0 and 2 or (s.tone[3] & 128) ~= 0 and 1 or 0 end,
+        put = function(s, v)
+          set(s.tone, 18, (s.tone[18] & ~1 & 255) | (v == 2 and 1 or 0))
+          set(s.tone, 3, (s.tone[3] & ~128 & 255) | (v == 1 and 128 or 0))
+        end } } } },
   { name = "WAVE & SPACE", c = C.orange, cols = {
-    { tbyte(7, function(s) return (MOD_LABEL[s.wave] or { "WAVE SET 1" })[1] end, 0, 255, mod_text(1), 16),
+    { { label = function(s) return (MOD_LABEL[s.wave] or { "WAVE SET 1" })[1] end, lo = 0, hi = 255, step = 1,
+        fmt = mod_text(1),
+        get = function(s) return s.wave == 14 and (s.tone[7] & 7) or s.tone[7] end,
+        put = function(s, v)
+          if s.wave == 14 then set(s.tone, 7, (s.tone[7] & ~7 & 255) | (v & 7))
+          else set(s.tone, 7, v & 255) end
+        end },
       tbyte(8, function(s) return (MOD_LABEL[s.wave] or { "", "WAVE SET 2" })[2] end, 0, 255, mod_text(2), 16),
-      tbyte(9, "FM FADE", 0, 255, function(v, s) return s.wave ~= 6 and "-" or v == 0 and "STAYS" or ms_text(v) end, 10),
-      tbyte(17, "FM FEEDBACK", 0, 255, function(v, s) return s.wave ~= 6 and "-" or pct(v) end, 16) },
+      tbyte(9, function(s) return s.wave == 14 and "OSC2 FADE" or "FM FADE" end, 0, 255,
+        function(v, s) return (s.wave ~= 6 and s.wave ~= 14) and "-" or v == 0 and "STAYS" or ms_text(v) end, 10),
+      tbyte(17, function(s) return s.wave == 14 and "OSC2 MIX" or "FM FEEDBACK" end, 0, 255,
+        function(v, s) return (s.wave ~= 6 and s.wave ~= 14) and "-" or (s.wave == 14 and v == 0) and "100%" or pct(v) end, 16) },
     { tbyte(6, "PAN", -127, 127, function(v)
         return v == 0 and "CENTER" or (v < 0 and "LEFT " or "RIGHT ") .. math.floor(math.abs(v) * 100 / 127) .. "%" end, 16, true),
-      tbyte(12, "ROOM", 0, 255, off_or(pct), 16), tbyte(13, "ECHO", 0, 255, off_or(pct), 16) } } },
+      tbyte(12, "ROOM", 0, 255, off_or(pct), 16), tbyte(13, "ECHO", 0, 255, off_or(pct), 16),
+      tbits(3, 64, 6, "ANALOG FLT", 0, 1, function(v) return v == 1 and "ON" or "OFF" end) },
+    { tbits(7, 24, 3, "SID COUPLE", 0, 3, function(v, s) return s.wave == 14 and SID_COUPLES[v + 1] or "-" end),
+      tbits(7, 224, 5, "SID OSC2", 0, 7, function(v, s) return s.wave == 14 and SID_OSC2[v + 1] or "-" end),
+      tbits(18, 128, 7, "6581 MODE", 0, 1, function(v) return v == 1 and "ON" or "OFF" end),
+      tbyte(21, "CHORUS", 0, 255, off_or(pct), 16) } } },
 }
+end
 local function plabel(d, s) return type(d.label) == "function" and d.label(s) or d.label end
 
 local sp = { group = 1, col = 1, row = 1 }      -- row 0: the name
@@ -1022,6 +1050,22 @@ local function wave_y(s, p, seed)
     local sum, y = 0, 0
     for h = 1, 4 do sum = sum + b[h]; y = y + b[h] * math.sin(2 * math.pi * h * p) end
     return sum > 0 and y / sum * 1.2 or 0
+  elseif w == 14 then
+    local sh1, cpl, sh2 = s.tone[7] & 7, (s.tone[7] >> 3) & 3, (s.tone[7] >> 5) & 7
+    local semi = ({ [0]=0,0,0,-12,12,7,24,0 })[sh2] + s.tone[8] / 8
+    local r = 2 ^ (semi / 12)
+    local p2 = (p * r) % 1
+    local p1 = (cpl == 1 or cpl == 3) and ((p2 * (1 / r)) % 1) or p
+    local tri = p1 < 0.5 and -1 + 4 * p1 or 3 - 4 * p1
+    local sw = saw(p1)
+    local pls = p1 < duty / 256 and 1 or -1
+    local o1 = sh1 == 0 and tri or sh1 == 1 and sw or sh1 == 2 and pls
+      or sh1 == 3 and 0.55 * (tri + sw) or sh1 == 4 and 0.55 * (tri + pls)
+      or sh1 == 5 and 0.55 * (sw + pls) or sh1 == 6 and 0.4 * (tri + sw + pls)
+      or 0.55 * (sw + (p2 < 0.5 and 1 or -1))
+    local o2 = sh2 == 0 and (p2 < 0.5 and -1 + 4 * p2 or 3 - 4 * p2) or (sh2 == 1 or sh2 == 7) and saw(p2) or (p2 < 0.5 and 1 or -1)
+    if cpl == 2 or cpl == 3 then return o1 * o2 end
+    return cpl == 1 and o1 or 0.55 * (o1 + o2)
   else
     local k = math.floor(p * (w == 5 and 8 or 24)) + seed
     return ((k * 7919 + (w == 5 and k % 3 or k * k) * 104729) % 97) / 48 - 1

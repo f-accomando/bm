@@ -2288,7 +2288,7 @@ static const luaL_Reg api[] = {
     { "save", l_save }, { "saved", l_saved }, { "saves", l_saves }, { "delsave", l_delsave },
     { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet }, { "snes_tiles", l_snes_tiles },
     { "snes_info", l_snes_info }, { "snes_dsp_firmware", l_snes_dsp_firmware }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
-    { "snes_peek", l_snes_peek }, { "snes_mem", l_snes_mem }, { "snes_poke", l_snes_poke }, { "snes_regs", l_snes_regs }, { "snes_step", l_snes_step }, { "snes_break", l_snes_break }, { "snes_run", l_snes_run },
+    { "snes_peek", l_snes_peek }, { "snes_mem", l_snes_mem }, { "snes_poke", l_snes_poke }, { "snes_regs", l_snes_regs }, { "snes_step", l_snes_step }, { "snes_break", l_snes_break }, { "snes_run", l_snes_run }, { "snes_coop", l_snes_coop },
     { "nes_load", l_nes_load }, { "nes_reset", l_nes_reset }, { "nes_frame", l_nes_frame }, { "nes_draw", l_nes_draw }, { "nes_to_sheet", l_nes_to_sheet },
     { "nes_info", l_nes_info }, { "nes_sram", l_nes_sram }, { "nes_debug", l_nes_debug },
     { "psx_list", l_psx_list }, { "psx_boot", l_psx_boot }, { "psx_reset", l_psx_reset }, { "psx_frame", l_psx_frame },
@@ -2441,7 +2441,7 @@ static lua_State *new_cart_state(const bm_cart_t *c)
     bm_require_open(L);         /* require "assist": libraries in the kernel */
     au_lua_bank = audio_bank_now;       /* play("lead"): the bank's sounds by name */
     static const char *const waves[] = { "SQUARE", "TRIANGLE", "SAW", "NOISE", "SINE", "METAL", "FM", "PLUCK",
-                                         "SUPERSAW", "ORGAN", "SAMPLE", "PINK", "BROWN", "CRACKLE" };
+                                         "SUPERSAW", "ORGAN", "SAMPLE", "PINK", "BROWN", "CRACKLE", "SID" };
     _Static_assert(sizeof waves / sizeof waves[0] == SYNTH_WAVES, "a name for every wave");
     for (int w = 0; w < SYNTH_WAVES; w++) {
         lua_pushinteger(L, w);

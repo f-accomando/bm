@@ -215,6 +215,28 @@ end
 
 end
 
+-- SID+: dual coupled oscillators over the horizon (v[1] shape, v[2] couple, v[3] osc2 pitch, v[4] 6581 mode)
+EDRAW[9] = function(t, v)
+  ground(t)
+  local sh, cpl, semi, s6581 = floor(v[1] + 0.5), floor(v[2] + 0.5), v[3], v[4] >= 0.5
+  local r = 1 + semi / 12
+  local pts1, pts2 = {}, {}
+  for x = 20, 300, s6581 and 6 or 3 do
+    local u = (x - 20) / 280 * 2 + t * 0.6
+    local p2 = (u * r) % 1
+    local p1 = (cpl == 1 or cpl == 3) and ((p2 / r) % 1) or (u % 1)
+    local o1 = sh == 0 and (p1 < 0.5 and -1 + 4 * p1 or 3 - 4 * p1) or sh == 2 and (p1 < 0.45 and 1 or -1) or (2 * p1 - 1)
+    local o2 = sin(p2 * 2 * PI)
+    local y = (cpl == 2 or cpl == 3) and (o1 * o2) or (cpl == 1 and o1 or 0.55 * (o1 + o2))
+    if s6581 then y = floor(y * 6 + 0.5) / 6 end
+    pts1[#pts1 + 1] = { x, 56 - y * 28 }
+    pts2[#pts2 + 1] = { x, 56 - o2 * 18 }
+  end
+  PL(pts2, fade(C.e3, 0.6), 1)
+  PL(pts1, s6581 and C.e4 or C.e1, 1.5)
+  T(s6581 and "6581" or "HI-FI", 160, 114, C.e4, "center")
+end
+
 -- the ENGINE page: the engine of the synth track S.syn picks the drawing and the macros
 local EPAR = {}
 for i, e in ipairs(ENGINES) do
