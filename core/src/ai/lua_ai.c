@@ -48,6 +48,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef BM_HOST_TEST
+#include <stdio.h>
+#else
+#include "fs/fat.h"
+#include "kernel/appdata.h"
+#endif
+
 #include "lauxlib.h"
 #include "lua.h"
 
@@ -62,14 +69,26 @@ extern const uint8_t bm_assist_bin[], bm_assist_bin_end[];
 #define BLOB_LEN ((uint32_t)(bm_assist_bin_end - bm_assist_bin))
 #endif
 
-#ifndef BM_HOST_TEST
-#include "kernel/appdata.h"
-#endif
+static const uint8_t *active_blob;
+static uint32_t active_len;
 
 static void ready(lua_State *L)
 {
     if (ai_is_open())
         return;
+#ifndef BM_HOST_TEST
+    fat_entry_t e;
+    uint8_t *sd_data = NULL;
+    size_t sd_len = 0;
+    if (fat_find("/bm/assist.bin", &e) == 0 && fat_load(&e, &sd_data, &sd_len) == 0 && sd_len > 0) {
+        if (ai_open(sd_data, (uint32_t)sd_len) == 0) {
+            active_blob = sd_data;
+            active_len = (uint32_t)sd_len;
+            return;
+        }
+        free(sd_data);
+    }
+#endif
     const uint8_t *blob = BLOB;
     uint32_t blob_len = BLOB_LEN;
 #ifndef BM_HOST_TEST
@@ -82,6 +101,8 @@ static void ready(lua_State *L)
     int r = ai_open(blob, blob_len);
     if (r)
         luaL_error(L, "assistant: %s", ai_error(r));
+    active_blob = blob;
+    active_len = blob_len;
 }
 
 static void field_str(lua_State *L, const char *k, const char *v)
@@ -569,11 +590,84 @@ static int l_synth(lua_State *L)
     return 1;
 }
 
+static int l_learn(lua_State *L)
+{
+    const char *q = luaL_checkstring(L, 1);
+    const char *id = luaL_checkstring(L, 2);
+    int steps = (int)luaL_optinteger(L, 3, 8);
+    ready(L);
+    int r = ai_learn(q, id, steps);
+    lua_pushboolean(L, r == 0);
+    if (r == 0)
+        return 1;
+    lua_pushinteger(L, r);
+    return 2;
+}
+
+static int l_save(lua_State *L)
+{
+    ready(L);
+    if (!active_blob || !active_len) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "no BMAI blob");
+        return 2;
+    }
+    uint8_t *buf = (uint8_t *)malloc(active_len);
+    if (!buf) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "out of memory");
+        return 2;
+    }
+    memcpy(buf, active_blob, active_len);
+    int r = ai_patch_bmai(buf, active_len);
+    if (r != 0) {
+        free(buf);
+        lua_pushboolean(L, 0);
+        lua_pushinteger(L, r);
+        return 2;
+    }
+#ifdef BM_HOST_TEST
+    const char *path = luaL_optstring(L, 1, "build/assist.bin");
+    FILE *f = fopen(path, "wb");
+    if (!f) {
+        free(buf);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "fopen failed");
+        return 2;
+    }
+    size_t nw = fwrite(buf, 1, active_len, f);
+    fclose(f);
+    free(buf);
+    lua_pushboolean(L, nw == active_len);
+    return 1;
+#else
+    const char *path = luaL_optstring(L, 1, "/bm/assist.bin");
+    char dir[128] = "/bm";
+    const char *name = "assist.bin";
+    const char *sl = strrchr(path, '/');
+    if (sl && sl > path && (size_t)(sl - path) < sizeof(dir)) {
+        memcpy(dir, path, (size_t)(sl - path));
+        dir[sl - path] = '\0';
+        if (sl[1])
+            name = sl + 1;
+    } else if (!sl && *path) {
+        dir[0] = '/';
+        dir[1] = '\0';
+        name = path;
+    }
+    int wr = fat_write_file(dir, name, buf, active_len);
+    free(buf);
+    lua_pushboolean(L, wr == 0);
+    return 1;
+#endif
+}
+
 static const luaL_Reg fns[] = {
     { "lang", l_lang }, { "ask", l_ask }, { "entry", l_entry }, { "list", l_list }, { "near", l_near },
     { "sprite", l_sprite }, { "recipes", l_recipes }, { "checksum", l_checksum }, { "mesh", l_mesh }, { "script", l_script },
     { "music", ai_lua_music }, { "music_recipes", ai_lua_music_recipes },
     { "synth", l_synth },
+    { "learn", l_learn }, { "save", l_save },
     { NULL, NULL },
 };
 

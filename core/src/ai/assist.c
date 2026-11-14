@@ -34,6 +34,10 @@ static struct {
     uint16_t kmask[MAX_ENTRIES];
 } ai;
 
+static int8_t w2_mut[MAX_ENTRIES * MAX_HID] __attribute__((aligned(4)));
+static int32_t b2_mut[MAX_ENTRIES];
+static int w2_mut_ready;
+
 static uint32_t rd32(const uint8_t *p)
 {
     return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
@@ -130,6 +134,7 @@ int ai_open(const void *blob, uint32_t len)
         if (ai.ent[i] >= ai.nstrs) return -4;
     for (int i = 0; i < ai.nent; i++)
         ai.kmask[i] = (uint16_t)kind_bit(ai.strs + ai.ent[i * NFIELDS + 1]);
+    w2_mut_ready = 0;
     ai.open = 1;
     return 0;
 }
@@ -436,4 +441,107 @@ const char *ai_near(const char *word, int *dist)
     }
     if (dist) *dist = bd;
     return best;
+}
+
+static int8_t clamp_i8(int32_t v)
+{
+    if (v > 127) return 127;
+    if (v < -127) return -127;
+    return (int8_t)v;
+}
+
+int ai_learn(const char *q, const char *entry_id, int steps)
+{
+    if (!ai.open || !q || !*q || !entry_id || !*entry_id)
+        return -1;
+    int target = ai_find(entry_id);
+    if (target < 0)
+        return -2;
+    if (!w2_mut_ready) {
+        memcpy(w2_mut, ai.w2, (size_t)ai.nent * (size_t)ai.hid);
+        memcpy(b2_mut, ai.b2, (size_t)ai.nent * sizeof(int32_t));
+        ai.w2 = w2_mut;
+        ai.b2 = b2_mut;
+        w2_mut_ready = 1;
+    }
+    if (steps <= 0)
+        steps = 8;
+    if (steps > 64)
+        steps = 64;
+    if (!run(q))
+        return -3;
+    int32_t margin = ai.scale > 1e-6f ? (int32_t)(4.0f / ai.scale) : 4096;
+    if (margin < 256)
+        margin = 256;
+    for (int step = 0; step < steps; step++) {
+        if (step > 0)
+            nn_dense(w2_mut, b2_mut, hid8, ai.hid, ai.nent, out);
+        int best_other = -1;
+        int32_t best_val = INT32_MIN;
+        for (int i = 0; i < ai.nent; i++) {
+            if (i == target)
+                continue;
+            if (out[i] > best_val) {
+                best_val = out[i];
+                best_other = i;
+            }
+        }
+        if (best_other >= 0 && out[target] >= best_val + margin)
+            break;
+        int8_t *wt = w2_mut + (size_t)target * (size_t)ai.hid;
+        int8_t *wo = best_other >= 0 ? w2_mut + (size_t)best_other * (size_t)ai.hid : NULL;
+        for (int j = 0; j < ai.hid; j++) {
+            int32_t h = hid8[j];
+            if (h <= 0)
+                continue;
+            int32_t d = h >= 16 ? 2 : 1;
+            wt[j] = clamp_i8((int32_t)wt[j] + d);
+            if (wo)
+                wo[j] = clamp_i8((int32_t)wo[j] - d);
+        }
+        b2_mut[target] += 256;
+        if (best_other >= 0)
+            b2_mut[best_other] -= 256;
+    }
+    return 0;
+}
+
+int ai_patch_bmai(uint8_t *buf, uint32_t len)
+{
+    if (!ai.open || !buf || len < 16)
+        return -1;
+    if (memcmp(buf, "BMAI", 4))
+        return -1;
+    if ((buf[4] | (buf[5] << 8)) != AI_VERSION)
+        return -2;
+    int n = buf[6] | (buf[7] << 8);
+    if (8 + 12 * n > (int)len - 4)
+        return -4;
+    int found = 0;
+    for (int i = 0; i < n; i++) {
+        const uint8_t *s = buf + 8 + 12 * i;
+        if (memcmp(s, "DENS", 4))
+            continue;
+        uint32_t off = rd32(s + 4);
+        uint32_t sz = rd32(s + 8);
+        uint32_t need = 8u + (uint32_t)ai.nent * (uint32_t)ai.hid + 4u * (uint32_t)ai.nent + 4u;
+        if (off + sz > len - 4 || sz < need)
+            return -4;
+        if ((int)rd32(buf + off) != ai.hid || (int)rd32(buf + off + 4) != ai.nent)
+            return -4;
+        size_t w2_bytes = (size_t)ai.nent * (size_t)ai.hid;
+        size_t b2_bytes = (size_t)ai.nent * sizeof(int32_t);
+        memcpy(buf + off + 8, ai.w2, w2_bytes);
+        memcpy(buf + off + 8 + w2_bytes, ai.b2, b2_bytes);
+        found = 1;
+        break;
+    }
+    if (!found)
+        return -4;
+    uint32_t c = crc32(buf, len - 4);
+    buf[len - 4] = (uint8_t)c;
+    buf[len - 3] = (uint8_t)(c >> 8);
+    buf[len - 2] = (uint8_t)(c >> 16);
+    buf[len - 1] = (uint8_t)(c >> 24);
+    return 0;
 }

@@ -67,4 +67,12 @@ int ai_feats(const char *q, uint16_t *out);
  * *dist is the number of letters to change */
 const char *ai_near(const char *word, int *dist);
 
+/* On-device incremental INT8 head fine-tuning (updates DENS layer in RAM).
+ * Returns 0 on success, -1 if not open or entry_id not found. */
+int ai_learn(const char *q, const char *entry_id, int steps);
+
+/* Patches a mutable copy of the BMAI blob with updated DENS weights/biases
+ * and recomputes the trailing CRC-32. Returns 0 on success, -1 on error. */
+int ai_patch_bmai(uint8_t *buf, uint32_t len);
+
 #endif

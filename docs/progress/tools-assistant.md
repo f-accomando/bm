@@ -4,7 +4,11 @@ Split from [tools](tools.md); open work and rules stay there.
 
 ### Assistant (`core/src/ai/`, F6 in every tool, `bm/assistant` in Dev)
 - Q&A over the knowledge base `core/src/ai/kb/` (`BMAI` file, `assist.c`, small INT8 network,
-  `assist.weights` built by `make ai-model`; format in `core/src/ai/kb/README.md`).
+  `assist.weights` built by `make ai-model`; format in `core/src/ai/kb/README.md`). On-device
+  INT8 head fine-tuning (`ai_learn`, `ai.learn(q, entry_id, [steps])`) updates `DENS` in RAM
+  and `ai.save([path])` patches the `BMAI` file with CRC-32 (`ai_patch_bmai`); bare-metal
+  `ready()` loads `/bm/assist.bin` from SD before falling back to embedded `BMAI` / appdata
+  (`tests/ai/learn_test.lua`).
 - Recipes: sprites (`sprite.c`), low-poly models with skeletons (`mesh.c`), music
   (`music.c`). Panel shared by the tools (`require "assist"`).
 - Symbolic code synthesizer (`lisp.c`, `synth.c`, `ai.synth`): arena-allocated micro-Lisp (`512 KB`)
