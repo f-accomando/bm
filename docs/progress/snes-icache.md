@@ -91,7 +91,7 @@ Build the four images of "The Pi result" and play SMW and SMW2 (Yoshi's Island) 
 
 ### Open work
 - Pi read of images A and C (13 Nov 2026, SMW2, scene `m1/15/02`, kernel 143): A frame 12.21 ms, miss cpu 42904, spc 13626; C (`SNES_HOT=0`) frame 11.91 ms, miss cpu 49908, spc 13396; base (kernel 116) frame 12.06 ms, miss cpu 55963, spc 16247. The frame time is the same within the noise; the block lowers the misses and does not lower the time. The user keeps A.
-- Likely cause found (2026-11-14): the sound's lead blocked the music upload; see `docs/progress/snes.md` (Sound lead and port talk). Check the scene length on the Pi.
+- Likely cause found (2026-11-14): the sound's lead blocked the music upload; see `docs/progress/snes.md` (Sound lead and port talk). The user confirmed on the console (2026-11-15) that Super Mario Kart starts correctly.
 - Open: in SMW2 the black scene between the game menu and the stage selection (`scn=m1/17/00`, PPU 0.3 ms, CPU 5.7 ms) lasted 13 and 20 s on kernel 143 (A) and 17 s with C, and 1 to 5 s on the kernels `612e494a`, `7674e543`, `65220bc1`, `e39706c7` and `8a3f7423` (five reads). The emulator sources and their compile flags are identical in both. The two commits left are `7b551784` (the `/carts` code removal) and `5cf25a6f` (the linker takes `snes_hot_sel.ld` from the build folder in use; before it, the clean kernel read the one of `build/`). A first read of kernel 142 had only 3 lines of that scene. Not solved: a read of `7b551784` alone and of the code placement is the next step. An older log (kernel about 112) also shows 31 s of that scene.
 
 - Pi: read the table above (the numbers are not read yet).
