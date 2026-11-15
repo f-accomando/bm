@@ -1,0 +1,270 @@
+title: Graphics in video RAM
+goal: Copy the tiles of the hero to the video RAM with DMA.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/Tiles
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/Tiles
+---
+The graphics live in the video RAM (VRAM), 64 KB that only the PPU reads. You cannot write to it when the screen draws, so you do it in forced blank, as we do in the SETUP code.
+
+A tile is 8x8 pixels. With 4 bits a pixel a tile is 32 bytes. The bits of a pixel are in four planes, not in one nibble. The Sprites tab does this conversion for you and exports a .chr file.
+
+A sprite of 16x16 pixels is 4 tiles: N, N+1 on the top row and N+16, N+17 on the bottom row. The tiles are 16 on a row because the PPU thinks of the sprite sheet as 16 tiles wide. So we send the top row to tile 0 and the bottom row to tile 16.
+
+The VRAM address is in words. One 4 bit tile is 16 words. Tile 16 is at word 16 x 16 = 256 = $0100.
+
+Super Mario World keeps its graphics in compressed form in the ROM and unpacks them to the VRAM. We use plain data.
+
+## What this lesson adds
+The names go at NAMES. The upload code goes at SETUP. The tile bytes go at DATA.
+
+## The part to add
+Use Insert (i) for the text below. Then put each piece at its mark. Or open the whole program below.
+
+```text
+; >>> add at the mark NAMES (part: eq9)
+VMAIN    = $2115                ; how the video address grows after a write
+VMADDL   = $2116                ; video RAM address (16 bit, in words)
+
+; >>> add at the mark SETUP (part: tiles)
+    ; -- the hero is 16x16 pixels = 4 tiles: top-left, top-right, bottom-left, bottom-right.
+    ;    A sprite uses tile N, N+1 (top row) and N+16, N+17 (bottom row).
+    lda #$80                    ; VMAIN: the address grows after the HIGH byte is written
+    sta VMAIN
+    lda #$01                    ; DMA mode 1: two registers, $2118 then $2119
+    sta DMAP0
+    lda #$18                    ; target $2118 (VMDATAL)
+    sta BBAD0
+    ; top row: tiles 0 and 1 (2 x 32 bytes) go to video word address 0
+    rep #$20
+    stz VMADDL
+    lda #hero_top
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #^hero_top
+    sta A1B0
+    lda #$01
+    sta MDMAEN
+    ; bottom row: tiles 16 and 17. One tile is 16 words, so tile 16 is at word 16 * 16 = $0100
+    rep #$20
+    lda #$0100
+    sta VMADDL
+    lda #hero_bottom
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+
+; >>> add at the mark DATA (part: tiles)
+hero_top:   ; tiles 0 and 1: 4 bits a pixel, 32 bytes a tile
+    .byte $03, $00, $0C, $03, $10, $0F, $20, $1F
+    .byte $20, $1F, $20, $1F, $20, $1F, $20, $1F
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $C0, $00, $30, $C0, $08, $F0, $04, $C8
+    .byte $14, $C8, $04, $F8, $04, $F8, $74, $F8
+    .byte $00, $00, $00, $00, $00, $00, $30, $00
+    .byte $30, $00, $00, $00, $00, $00, $00, $00
+hero_bottom:   ; tiles 16 and 17
+    .byte $20, $1F, $10, $0F, $0C, $03, $0F, $00
+    .byte $1F, $0C, $1F, $0E, $1F, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $04, $F8, $08, $F0, $30, $C0, $FC, $00
+    .byte $FE, $0C, $FE, $1C, $FE, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+```
+
+## The whole program so far
+This program runs by itself. Use Run (r) to try it, Open (o) to start a new file from it.
+
+```asm expect=v0=03,v200=20 frames=10
+; ---------------------------------------------------------------
+; main.s - the game of the course, built one lesson at a time
+; ---------------------------------------------------------------
+.lorom                          ; ROM map: 32 KB banks at $8000
+
+INIDISP  = $2100                ; screen on/off and brightness
+NMITIMEN = $4200                ; NMI enable and pad auto-read enable
+RDNMI    = $4210                ; reading it tells the console "I got the NMI"
+vblank   = $10                  ; RAM: the NMI sets it to 1 at each frame
+frames   = $11                  ; RAM: the NMI counts the frames here
+WMDATA   = $2180                ; the work RAM port (DMA can write to it)
+WMADDL   = $2181                ; where in the work RAM the port writes (3 bytes)
+DMAP0    = $4300                ; DMA channel 0: control
+BBAD0    = $4301                ; DMA channel 0: target register ($21xx)
+A1T0L    = $4302                ; DMA channel 0: source address (16 bit)
+A1B0     = $4304                ; DMA channel 0: source bank
+DAS0L    = $4305                ; DMA channel 0: number of bytes
+MDMAEN   = $420B                ; write a bit here to start a channel
+CGADD    = $2121                ; colour number for the next CGDATA write
+CGDATA   = $2122                ; colour data (two writes: low byte, then high byte)
+BACKDROP = $2400                ; dark blue; a colour is BGR555: 0bbbbbgg gggrrrrr
+VMAIN    = $2115                ; how the video address grows after a write
+VMADDL   = $2116                ; video RAM address (16 bit, in words)
+; ===== NAMES: new lessons add names here =====
+
+.org $8000                      ; the code starts at the start of bank 0
+reset:                          ; the CPU starts here (the reset vector)
+    sei                         ; block IRQ while we set up
+    clc
+    xce                         ; native mode (carry <-> emulation flag)
+    rep #$38                    ; A, X, Y 16 bit; decimal mode off
+    ldx #$1FFF
+    txs                         ; the stack lives at the top of $0000-$1FFF
+    sep #$20                    ; A 8 bit (X and Y stay 16 bit)
+    lda #$8F
+    sta INIDISP                 ; forced blank: screen off, safe to write to the PPU
+    stz NMITIMEN                ; no NMI and no pad reading yet
+    ; -- 1. clear the PPU registers $2101-$2133 (they hold random values at power on)
+    sep #$10                    ; X and Y 8 bit for this loop
+    ldx #$00
+@ppu_clear:
+    stz $2101,x                 ; write 0 to $2101 + X
+    inx
+    cpx #$33                    ; stop after $2133
+    bne @ppu_clear
+    rep #$10                    ; X and Y 16 bit again
+    ; -- 2. clear the work RAM $0000-$1FFF with one DMA transfer
+    stz WMADDL
+    stz WMADDL+1
+    stz WMADDL+2                ; the port starts at WRAM address $000000
+    lda #$08                    ; DMA control: mode 0 (one register), fixed source address
+    sta DMAP0
+    lda #$80                    ; target register $2180 (WMDATA)
+    sta BBAD0
+    rep #$20
+    lda #zero_byte              ; the source: one byte that is 0
+    sta A1T0L
+    lda #$2000                  ; 8 KB
+    sta DAS0L
+    sep #$20
+    lda #^zero_byte
+    sta A1B0
+    lda #$01
+    sta MDMAEN                  ; start channel 0
+    ; -- the backdrop colour is colour 0 of the palette (CGRAM)
+    stz CGADD                   ; colour number 0
+    lda #<BACKDROP
+    sta CGDATA                  ; low byte
+    lda #>BACKDROP
+    sta CGDATA                  ; high byte
+    ; -- the 16 colours of the sprites: colours 128-143 (sprites use the upper half of CGRAM)
+    lda #128
+    sta CGADD
+    stz DMAP0                   ; DMA mode 0: bytes go one by one to one register
+    lda #$22
+    sta BBAD0                   ; target $2122 (CGDATA)
+    rep #$20
+    lda #hero_palette
+    sta A1T0L
+    lda #32                     ; 16 colours of 2 bytes
+    sta DAS0L
+    sep #$20
+    lda #^hero_palette
+    sta A1B0
+    lda #$01
+    sta MDMAEN
+    ; -- the hero is 16x16 pixels = 4 tiles: top-left, top-right, bottom-left, bottom-right.
+    ;    A sprite uses tile N, N+1 (top row) and N+16, N+17 (bottom row).
+    lda #$80                    ; VMAIN: the address grows after the HIGH byte is written
+    sta VMAIN
+    lda #$01                    ; DMA mode 1: two registers, $2118 then $2119
+    sta DMAP0
+    lda #$18                    ; target $2118 (VMDATAL)
+    sta BBAD0
+    ; top row: tiles 0 and 1 (2 x 32 bytes) go to video word address 0
+    rep #$20
+    stz VMADDL
+    lda #hero_top
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #^hero_top
+    sta A1B0
+    lda #$01
+    sta MDMAEN
+    ; bottom row: tiles 16 and 17. One tile is 16 words, so tile 16 is at word 16 * 16 = $0100
+    rep #$20
+    lda #$0100
+    sta VMADDL
+    lda #hero_bottom
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+    ; ===== SETUP: new lessons add set-up code here =====
+    lda #$0F
+    sta INIDISP                 ; screen on, full brightness
+    lda #$81
+    sta NMITIMEN                ; NMI on (bit 7) and pad auto-read on (bit 0)
+
+main_loop:                      ; this loop runs once for each frame
+    wai                         ; sleep until an interrupt (the NMI)
+    lda vblank
+    beq main_loop               ; not the NMI yet: sleep again
+    stz vblank                  ; we saw it
+    ; ===== INPUT: read the pad here =====
+    ; ===== LOGIC: the rules of the game go here =====
+    ; ===== DRAW: copy the result to the OAM buffer here =====
+    jmp main_loop               ; next frame (jmp reaches farther than bra)
+
+nmi:                            ; the console calls this at the start of each vertical blank
+    rep #$30
+    pha
+    phx
+    phy                         ; save A, X, Y (all 16 bit)
+    sep #$20
+    lda RDNMI                   ; tell the console that we answered
+    lda #1
+    sta vblank                  ; tell the main loop: a new frame
+    inc frames
+    ; ===== NMI: work for the vertical blank goes here =====
+    rep #$30
+    ply
+    plx
+    pla                         ; restore A, X, Y
+    rti                         ; back to the main loop
+
+zero_byte:
+    .byte 0                     ; the source of the RAM clear
+hero_palette:                   ; colour 0 of a sprite palette is always transparent
+    .word $0000                 ; 0: transparent
+    .word $1863                 ; 1: dark outline
+    .word $03FF                 ; 2: yellow
+    .word $109F                 ; 3: red
+    .word $7FFF                 ; 4: white
+    .word $68C2                 ; 5: blue
+    .res 20, 0                  ; 6-15: not used
+hero_top:   ; tiles 0 and 1: 4 bits a pixel, 32 bytes a tile
+    .byte $03, $00, $0C, $03, $10, $0F, $20, $1F
+    .byte $20, $1F, $20, $1F, $20, $1F, $20, $1F
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $C0, $00, $30, $C0, $08, $F0, $04, $C8
+    .byte $14, $C8, $04, $F8, $04, $F8, $74, $F8
+    .byte $00, $00, $00, $00, $00, $00, $30, $00
+    .byte $30, $00, $00, $00, $00, $00, $00, $00
+hero_bottom:   ; tiles 16 and 17
+    .byte $20, $1F, $10, $0F, $0C, $03, $0F, $00
+    .byte $1F, $0C, $1F, $0E, $1F, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $04, $F8, $08, $F0, $30, $C0, $FC, $00
+    .byte $FE, $0C, $FE, $1C, $FE, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+; ===== DATA: tiles, colours and tables go here =====
+```
+
+try: Draw your own hero in the Sprites tab, export the .chr, and replace the bytes. Use `.incbin` to read the file.
+try: Change `lda #$80` to `lda #$00` for VMAIN. The tiles look wrong. Why? (The address grows after the low byte.)
+
+## What you learned
+Tiles are 32 bytes with 4 bits a pixel. A 16x16 sprite uses tiles N, N+1, N+16, N+17. DMA copies them to VRAM in forced blank.

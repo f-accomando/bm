@@ -996,7 +996,8 @@ local function lookup_sym(res, v)
     return s[v] or s[slower(v)] or s[v:upper()]
 end
 
--- h: title, map, fast, sram_kb, battery, region, dev_id, version, vectors, fill, min_kb, chipset
+-- h: title, map, fast, sram_kb, battery, region, dev_id, version, vectors, fill, min_kb, chipset, mapmode
+-- (mapmode: the whole map byte of $FFD5, for a coprocessor cartridge; the bit $10 of fast is set on it)
 -- vectors: reset, nmi, irq, cop, brk, abort (a label name or a number); emu_nmi, emu_irq, emu_cop,
 -- emu_abort override the emulation vectors. A missing vector is a label named like the key, else an RTI.
 function M.build_rom(res, h)
@@ -1054,7 +1055,8 @@ function M.build_rom(res, h)
     local function put(off, str) rom = ssub(rom, 1, off) .. str .. ssub(rom, off + #str + 1) end
     local title = (h.title or "BM SNES PROGRAM"):upper():gsub("[^\32-\126]", "?")
     title = ssub(title .. string.rep(" ", 21), 1, 21)
-    local mapbyte = ((map == "hirom") and 0x21 or 0x20) | (h.fast and 0x10 or 0)
+    local mapbyte = h.mapmode or ((map == "hirom") and 0x21 or 0x20)
+    mapbyte = mapbyte | (h.fast and 0x10 or 0)
     local sram = h.sram_kb or 0
     local sramcode = 0
     if sram > 0 then

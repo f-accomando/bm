@@ -93,13 +93,13 @@ local hits = SL.search(lessons, "forced blank")
 check(#hits >= 3, "search forced blank: " .. #hits)
 check(#SL.search(lessons, "zzzzqq") == 0, "search with no hit")
 check(#SL.search(lessons, "") == 0, "search empty")
-local h2 = SL.search(lessons, "STA $2118")
+local h2 = SL.search(lessons, "STA VMAIN")
 local hit_code = false
 for _, h in ipairs(h2) do if h.block then hit_code = true end end
 check(hit_code, "search finds code lines")
 check(#SL.search(lessons, "vram forced") > 0, "search with two words in any order")
 do
-  local L = lessons[7]
+  local L = lessons[9]
   local rows = SL.layout(L, 60)
   local r = SL.find_row(rows, "vmain", 1)
   check(r ~= nil and rows[r].text:lower():find("vmain", 1, true), "find_row")

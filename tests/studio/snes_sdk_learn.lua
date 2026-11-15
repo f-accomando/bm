@@ -25,35 +25,40 @@ return function(ctx)
   local before = snapshot()
   check(before["main.s"] ~= nil, "main.s is saved in /docs")
 
-  -- the tab
+  -- the window: Ctrl+L opens it at the right of the Code tab
+  local function to_lesson() settle(); if not status():find("^Lesson") then key("^l") end; settle() end
   key("^l")
   settle()
-  check(status():find("Lesson 1 of 13: The CPU, registers and flags", 1, true), "Ctrl+L opens the Learn tab on lesson 1: " .. status())
+  check(status():find("Lesson 1 of 14: The CPU, registers and flags", 1, true), "Ctrl+L opens the lesson window on lesson 1: " .. status())
   check(sees("What the CPU") or sees("The CPU, registers"), "the lesson is on the screen")
-  check(sees("65C816 modes") and sees("A moving sprite"), "the list shows the lessons")
+  check(sees("1/14") and sees("main.s"), "the window and your file are on the screen together")
   check(same(before, docs), "opening a lesson changes no file")
   key("down", "down", "down")
   key("right")
   settle()
-  check(status():find("Lesson 2 of 13", 1, true), "Right: the next lesson: " .. status())
+  check(status():find("Lesson 2 of 14", 1, true), "Right: the next lesson: " .. status())
   key("left")
   settle()
-  check(status():find("Lesson 1 of 13", 1, true), "Left: the previous lesson")
+  check(status():find("Lesson 1 of 14", 1, true), "Left: the previous lesson")
   key("end")
   check(sees("Read more") or sees("snes.nesdev.org"), "End shows the links at the end")
   key("home")
+  key("g")
+  check(sees("Lessons") and sees("Jump with gravity"), "g lists the lessons")
+  key("esc")
 
-  -- Esc and F1 go back to the Code tab at the same cursor
+  -- Esc and F1 give the keys back to the editor (the cursor stays); Ctrl+L takes them again
   key("esc")
   settle()
-  check(status() == code_status, "Esc: back in the Code tab at the same cursor: " .. status())
+  check(status() == code_status, "Esc: the editor has the keys at the same cursor: " .. status())
+  check(sees("1/14"), "the window stays open")
   key("^l")
   key("f1")
   settle()
-  check(status() == code_status, "F1: back in the Code tab at the same cursor: " .. status())
+  check(status() == code_status, "F1: the editor has the keys at the same cursor: " .. status())
 
   -- Insert at the cursor
-  key("^l")
+  to_lesson()
   key("n")
   key("i")
   check(status():find("inserted in main.s", 1, true), "i inserts the block: " .. status())
@@ -69,7 +74,7 @@ return function(ctx)
   check(same(before, docs), "after Insert and undo the files are byte for byte the same")
 
   -- Open as a new file: a new name each time, nothing replaced
-  key("^l")
+  to_lesson()
   key("o")
   check(docs["less01.s"] ~= nil and docs["less01.s"]:find("adc #$03", 1, true), "o writes less01.s")
   key("o")
@@ -82,31 +87,33 @@ return function(ctx)
 
   -- Run alone: the machine runs the example, the files and the ROM of the project stay
   local files_before = snapshot()
-  key("^l")
+  to_lesson()
   local loads = fake.loads
   key("r")
   check(fake.loads == loads + 1 and fake.rom and #fake.rom == 32768, "r loads the example in the machine")
   check(sees("RUNNING") and sees("lesson example"), "the Run tab says it is a lesson example")
   check(same(files_before, docs), "Run alone writes no file (no ROM either)")
   key("f1")
+  key("esc")
   settle()
   check(status():find("main.s", 1, true), "back in the Code tab")
   key("f5")                                       -- your own project builds and runs again
   check(not sees("lesson example") and fake.loads == loads + 2, "F5 runs your project, not the example")
 
-  -- the split view: lesson and Code buffer
-  key("^l")
+  -- the keys go to the editor beside the window, and Ctrl+L closes the window
+  to_lesson()
   key("\t")
-  check(sees("main.s") and sees("65C816") or sees("main.s"), "Tab: the Code buffer is beside the lesson")
-  key("\t")                                       -- the keys type in the Code buffer
+  settle()
+  check(status():find("main.s", 1, true) and sees("1/14"), "Tab: the editor has the keys, the window stays")
   key("z")
-  key("\t")                                       -- back to the lesson list
-  check(sees("65C816 modes"), "Tab again: the list is back")
-  key("esc")
   key("^z")
+  key("^l")
+  key("^l")
+  settle()
+  check(not sees("1/14") and status():find("main.s", 1, true), "Ctrl+L in the window closes it")
 
   -- search all the lessons
-  key("^l")
+  to_lesson()
   key("^f")
   check(sees("search all the lessons"), "Ctrl+F asks for the words")
   type_text("forced blank")
@@ -116,7 +123,7 @@ return function(ctx)
   check(status():find("Lesson", 1, true), "Enter opens the lesson of the line: " .. status())
 
   -- a mark, a done mark, the position, then a save and an open
-  key("^l")
+  to_lesson()
   key("m")
   key("d")
   settle()
@@ -130,8 +137,7 @@ return function(ctx)
   check(not status():find("[done]", 1, true), "a new project has no marks")
   key("^o")
   key("\n")
-  key("^l")
-  settle()
+  to_lesson()
   check(status():find("[done]", 1, true), "after save and open the done mark is back: " .. status())
   key("l")
   check(sees("marked blocks (Notes)"), "after save and open the mark is back")

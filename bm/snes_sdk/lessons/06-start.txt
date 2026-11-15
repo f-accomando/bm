@@ -1,0 +1,102 @@
+title: Start the cartridge without errors
+goal: Make a cartridge that starts, runs one frame after another, and never crashes.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/Init_code
+link: SMW ROM map (SMW Central) | https://www.smwcentral.net/?p=nmap&m=smwrom
+link: Assembly for the SNES (ersanio) | https://ersanio.gitbook.io/assembly-for-the-snes/
+---
+This is the first step of a small game. In each next lesson you add one part to the same program. At the end the program has a hero that you move and make jump. The code has a comment on each line.
+
+A cartridge that does not start has almost always one of these faults:
+
+There is no `reset` label. The builder cannot write the reset vector. The error says: reset is missing.
+
+The CPU stays in emulation mode. Always run CLC and XCE first.
+
+A and X have the wrong width. Use REP and SEP and say what you want.
+
+The NMI routine does not read RDNMI ($4210), or it ends without RTI. The console calls the NMI again or the CPU runs into data.
+
+Code goes into $FFC0-$FFFF. That area is the header. The builder writes it.
+
+Commercial games start the same way. Super Mario World runs a reset routine that turns off the screen, sets the stack, clears the registers and the RAM, and then turns on the NMI. Open the SMW ROM map (link below) and look at the reset vector to see it.
+
+## What this lesson adds
+The program below is the whole skeleton. It has three parts.
+
+The reset routine runs once. It ends with the screen on and the NMI on.
+
+The main loop runs once for each frame. It sleeps with WAI. When the NMI sets the flag `vblank`, the loop does the work of one frame. Later lessons add their code at the marks INPUT, LOGIC and DRAW.
+
+The NMI routine runs at the start of each vertical blank. It saves the registers, sets the flag, counts the frames and restores the registers.
+
+The marks are comment lines with the word ===== in them. The next lessons tell you the mark to use.
+
+## The program
+This program runs by itself. Use Open (o) to start your game file from it. Use Run (r) to try it.
+
+```asm expect=w11>03,w10=00 frames=20
+; ---------------------------------------------------------------
+; main.s - the game of the course, built one lesson at a time
+; ---------------------------------------------------------------
+.lorom                          ; ROM map: 32 KB banks at $8000
+
+INIDISP  = $2100                ; screen on/off and brightness
+NMITIMEN = $4200                ; NMI enable and pad auto-read enable
+RDNMI    = $4210                ; reading it tells the console "I got the NMI"
+vblank   = $10                  ; RAM: the NMI sets it to 1 at each frame
+frames   = $11                  ; RAM: the NMI counts the frames here
+; ===== NAMES: new lessons add names here =====
+
+.org $8000                      ; the code starts at the start of bank 0
+reset:                          ; the CPU starts here (the reset vector)
+    sei                         ; block IRQ while we set up
+    clc
+    xce                         ; native mode (carry <-> emulation flag)
+    rep #$38                    ; A, X, Y 16 bit; decimal mode off
+    ldx #$1FFF
+    txs                         ; the stack lives at the top of $0000-$1FFF
+    sep #$20                    ; A 8 bit (X and Y stay 16 bit)
+    lda #$8F
+    sta INIDISP                 ; forced blank: screen off, safe to write to the PPU
+    stz NMITIMEN                ; no NMI and no pad reading yet
+    ; ===== SETUP: new lessons add set-up code here =====
+    lda #$0F
+    sta INIDISP                 ; screen on, full brightness
+    lda #$81
+    sta NMITIMEN                ; NMI on (bit 7) and pad auto-read on (bit 0)
+
+main_loop:                      ; this loop runs once for each frame
+    wai                         ; sleep until an interrupt (the NMI)
+    lda vblank
+    beq main_loop               ; not the NMI yet: sleep again
+    stz vblank                  ; we saw it
+    ; ===== INPUT: read the pad here =====
+    ; ===== LOGIC: the rules of the game go here =====
+    ; ===== DRAW: copy the result to the OAM buffer here =====
+    jmp main_loop               ; next frame (jmp reaches farther than bra)
+
+nmi:                            ; the console calls this at the start of each vertical blank
+    rep #$30
+    pha
+    phx
+    phy                         ; save A, X, Y (all 16 bit)
+    sep #$20
+    lda RDNMI                   ; tell the console that we answered
+    lda #1
+    sta vblank                  ; tell the main loop: a new frame
+    inc frames
+    ; ===== NMI: work for the vertical blank goes here =====
+    rep #$30
+    ply
+    plx
+    pla                         ; restore A, X, Y
+    rti                         ; back to the main loop
+
+; ===== DATA: tiles, colours and tables go here =====
+```
+
+try: Change the value $0F in the last INIDISP write to $05. The picture gets darker. The low 4 bits are the brightness.
+try: Remove the line `lda RDNMI` and run again. Does the program still run?
+
+## What you learned
+A cartridge needs a reset label, native mode, a stack, forced blank and an NMI that answers. The main loop waits for the flag of the NMI.

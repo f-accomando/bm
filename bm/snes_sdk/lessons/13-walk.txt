@@ -1,0 +1,476 @@
+title: Face the way you walk
+goal: Flip the hero when it goes left and play a walk animation with two poses.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/OAM
+link: SMW RAM map (SMW Central) | https://www.smwcentral.net/?p=nmap&m=smwram
+---
+The hero looks right. When it goes left we set the flip X bit (bit 6) in the attribute byte. No second picture is needed.
+
+The walk animation has two poses. The second pose is in tiles 2, 3, 18 and 19. The variable `anim` counts frames while Left or Right is held. We divide it by 8 with three LSR. The low bit says which pose to show. A 16x16 sprite uses tile 0 for pose 0 and tile 2 for pose 1.
+
+Super Mario World does the same with a frame counter and a table of tile numbers for each pose of Mario.
+
+## What this lesson adds
+The names go at NAMES. The upload of the second pose goes at SETUP. The rules go at LOGIC. The tile and the attributes go at DRAW. The bytes go at DATA.
+
+## The part to add
+Use Insert (i) for the text below. Then put each piece at its mark. Or open the whole program below.
+
+```text
+; >>> add at the mark NAMES (part: eq13)
+facing   = $16                  ; RAM: $00 looks right, $40 looks left (the flip X bit)
+anim     = $17                  ; RAM: counts frames while the hero walks
+
+; >>> add at the mark SETUP (part: pose2)
+    ; -- the second pose: tiles 2, 3 (word 32) and 18, 19 (word 288)
+    rep #$20
+    lda #$0020
+    sta VMADDL
+    lda #hero2_top
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+    rep #$20
+    lda #$0120
+    sta VMADDL
+    lda #hero2_bottom
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+
+; >>> add at the mark LOGIC (part: face)
+    ; -- which way does the hero look? Right: no flip. Left: flip X.
+    lda pad+1
+    and #$01
+    beq @not_right
+    stz facing
+@not_right:
+    lda pad+1
+    and #$02
+    beq @not_left
+    lda #$40                    ; attribute bit 6 = flip X
+    sta facing
+@not_left:
+    ; -- the walk animation: count frames while Left or Right is held
+    lda pad+1
+    and #$03
+    bne @walking
+    stz anim                    ; standing: pose 0
+    bra @anim_done
+@walking:
+    inc anim
+@anim_done:
+
+; >>> add at the mark DRAW (part: draw13)
+    lda anim
+    lsr
+    lsr
+    lsr                         ; anim / 8: changes every 8 frames
+    and #$01                    ; pose 0 or 1
+    asl                         ; pose 1 uses tile 2
+    sta oam+2                   ; sprite 0: tile
+    lda #$30                    ; priority 3, palette 0
+    ora facing                  ; plus the flip bit
+    sta oam+3                   ; sprite 0: attributes
+
+; >>> add at the mark DATA (part: tiles2)
+hero2_top:   ; pose 2, tiles 2 and 3
+    .byte $03, $00, $0C, $03, $10, $0F, $20, $1F
+    .byte $20, $1F, $20, $1F, $20, $1F, $20, $1F
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $C0, $00, $30, $C0, $08, $F0, $04, $C8
+    .byte $14, $C8, $04, $F8, $04, $F8, $74, $F8
+    .byte $00, $00, $00, $00, $00, $00, $30, $00
+    .byte $30, $00, $00, $00, $00, $00, $00, $00
+hero2_bottom:   ; pose 2, tiles 18 and 19
+    .byte $20, $1F, $10, $0F, $0C, $03, $0F, $00
+    .byte $0F, $06, $1F, $0E, $1F, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $04, $F8, $08, $F0, $30, $C0, $FC, $00
+    .byte $FE, $30, $FE, $38, $FE, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+```
+
+## The whole program so far
+This program runs by itself. Use Run (r) to try it, Open (o) to start a new file from it.
+
+```asm expect=o3=70,o2=02 frames=46 pad=0200
+; ---------------------------------------------------------------
+; main.s - the game of the course, built one lesson at a time
+; ---------------------------------------------------------------
+.lorom                          ; ROM map: 32 KB banks at $8000
+
+INIDISP  = $2100                ; screen on/off and brightness
+NMITIMEN = $4200                ; NMI enable and pad auto-read enable
+RDNMI    = $4210                ; reading it tells the console "I got the NMI"
+vblank   = $10                  ; RAM: the NMI sets it to 1 at each frame
+frames   = $11                  ; RAM: the NMI counts the frames here
+WMDATA   = $2180                ; the work RAM port (DMA can write to it)
+WMADDL   = $2181                ; where in the work RAM the port writes (3 bytes)
+DMAP0    = $4300                ; DMA channel 0: control
+BBAD0    = $4301                ; DMA channel 0: target register ($21xx)
+A1T0L    = $4302                ; DMA channel 0: source address (16 bit)
+A1B0     = $4304                ; DMA channel 0: source bank
+DAS0L    = $4305                ; DMA channel 0: number of bytes
+MDMAEN   = $420B                ; write a bit here to start a channel
+CGADD    = $2121                ; colour number for the next CGDATA write
+CGDATA   = $2122                ; colour data (two writes: low byte, then high byte)
+BACKDROP = $2400                ; dark blue; a colour is BGR555: 0bbbbbgg gggrrrrr
+VMAIN    = $2115                ; how the video address grows after a write
+VMADDL   = $2116                ; video RAM address (16 bit, in words)
+OBSEL    = $2101                ; sprite sizes and where the sprite tiles are in video RAM
+TM       = $212C                ; main screen: which layers show
+OAMADDL  = $2102                ; OAM address (low)
+OAMADDH  = $2103                ; OAM address (high)
+oam      = $0200                ; RAM: the OAM buffer, 512 bytes (4 bytes for each of 128 sprites)
+oamhi    = $0400                ; RAM: the OAM high table, 32 bytes (2 bits for each sprite)
+px       = $14                  ; RAM: X of the hero
+py       = $15                  ; RAM: Y of the hero
+HVBJOY   = $4212                ; bit 0 is 1 while the console reads the pads
+JOY1L    = $4218                ; pad 1, 16 bits: B Y Select Start Up Down Left Right A X L R
+pad      = $12                  ; RAM: the pad of this frame (16 bit, $12 low and $13 high)
+facing   = $16                  ; RAM: $00 looks right, $40 looks left (the flip X bit)
+anim     = $17                  ; RAM: counts frames while the hero walks
+; ===== NAMES: new lessons add names here =====
+
+.org $8000                      ; the code starts at the start of bank 0
+reset:                          ; the CPU starts here (the reset vector)
+    sei                         ; block IRQ while we set up
+    clc
+    xce                         ; native mode (carry <-> emulation flag)
+    rep #$38                    ; A, X, Y 16 bit; decimal mode off
+    ldx #$1FFF
+    txs                         ; the stack lives at the top of $0000-$1FFF
+    sep #$20                    ; A 8 bit (X and Y stay 16 bit)
+    lda #$8F
+    sta INIDISP                 ; forced blank: screen off, safe to write to the PPU
+    stz NMITIMEN                ; no NMI and no pad reading yet
+    ; -- 1. clear the PPU registers $2101-$2133 (they hold random values at power on)
+    sep #$10                    ; X and Y 8 bit for this loop
+    ldx #$00
+@ppu_clear:
+    stz $2101,x                 ; write 0 to $2101 + X
+    inx
+    cpx #$33                    ; stop after $2133
+    bne @ppu_clear
+    rep #$10                    ; X and Y 16 bit again
+    ; -- 2. clear the work RAM $0000-$1FFF with one DMA transfer
+    stz WMADDL
+    stz WMADDL+1
+    stz WMADDL+2                ; the port starts at WRAM address $000000
+    lda #$08                    ; DMA control: mode 0 (one register), fixed source address
+    sta DMAP0
+    lda #$80                    ; target register $2180 (WMDATA)
+    sta BBAD0
+    rep #$20
+    lda #zero_byte              ; the source: one byte that is 0
+    sta A1T0L
+    lda #$2000                  ; 8 KB
+    sta DAS0L
+    sep #$20
+    lda #^zero_byte
+    sta A1B0
+    lda #$01
+    sta MDMAEN                  ; start channel 0
+    ; -- the backdrop colour is colour 0 of the palette (CGRAM)
+    stz CGADD                   ; colour number 0
+    lda #<BACKDROP
+    sta CGDATA                  ; low byte
+    lda #>BACKDROP
+    sta CGDATA                  ; high byte
+    ; -- the 16 colours of the sprites: colours 128-143 (sprites use the upper half of CGRAM)
+    lda #128
+    sta CGADD
+    stz DMAP0                   ; DMA mode 0: bytes go one by one to one register
+    lda #$22
+    sta BBAD0                   ; target $2122 (CGDATA)
+    rep #$20
+    lda #hero_palette
+    sta A1T0L
+    lda #32                     ; 16 colours of 2 bytes
+    sta DAS0L
+    sep #$20
+    lda #^hero_palette
+    sta A1B0
+    lda #$01
+    sta MDMAEN
+    ; -- the hero is 16x16 pixels = 4 tiles: top-left, top-right, bottom-left, bottom-right.
+    ;    A sprite uses tile N, N+1 (top row) and N+16, N+17 (bottom row).
+    lda #$80                    ; VMAIN: the address grows after the HIGH byte is written
+    sta VMAIN
+    lda #$01                    ; DMA mode 1: two registers, $2118 then $2119
+    sta DMAP0
+    lda #$18                    ; target $2118 (VMDATAL)
+    sta BBAD0
+    ; top row: tiles 0 and 1 (2 x 32 bytes) go to video word address 0
+    rep #$20
+    stz VMADDL
+    lda #hero_top
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #^hero_top
+    sta A1B0
+    lda #$01
+    sta MDMAEN
+    ; bottom row: tiles 16 and 17. One tile is 16 words, so tile 16 is at word 16 * 16 = $0100
+    rep #$20
+    lda #$0100
+    sta VMADDL
+    lda #hero_bottom
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+    ; -- the OAM buffer: hide all 128 sprites. Y = $F0 is below the 224 lines of the picture.
+    ldx #$0000
+@hide_sprites:
+    stz oam,x                   ; X = 0
+    lda #$F0
+    sta oam+1,x                 ; Y = $F0
+    stz oam+2,x                 ; tile 0
+    stz oam+3,x                 ; attributes 0
+    inx
+    inx
+    inx
+    inx                         ; the next sprite (4 bytes)
+    cpx #512
+    bne @hide_sprites
+    ; -- the high table: bit 0 of each pair is X bit 8, bit 1 is the size (0 small, 1 large)
+    ldx #$0000
+@clear_high:
+    stz oamhi,x
+    inx
+    cpx #32
+    bne @clear_high
+    ; -- sprite 0 is the hero: large (16x16), palette 0, priority 3
+    lda #%00000010
+    sta oamhi                   ; sprite 0: large size
+    lda #$30                    ; attributes: priority 3 (bits 4-5), palette 0, no flip
+    sta oam+3
+    lda #120
+    sta px                      ; start position
+    lda #100
+    sta py
+    stz OBSEL                   ; sizes 8x8 and 16x16; sprite tiles at video word 0
+    lda #$10
+    sta TM                      ; main screen: sprites (bit 4)
+    ; -- the second pose: tiles 2, 3 (word 32) and 18, 19 (word 288)
+    rep #$20
+    lda #$0020
+    sta VMADDL
+    lda #hero2_top
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+    rep #$20
+    lda #$0120
+    sta VMADDL
+    lda #hero2_bottom
+    sta A1T0L
+    lda #64
+    sta DAS0L
+    sep #$20
+    lda #$01
+    sta MDMAEN
+    ; ===== SETUP: new lessons add set-up code here =====
+    lda #$0F
+    sta INIDISP                 ; screen on, full brightness
+    lda #$81
+    sta NMITIMEN                ; NMI on (bit 7) and pad auto-read on (bit 0)
+
+main_loop:                      ; this loop runs once for each frame
+    wai                         ; sleep until an interrupt (the NMI)
+    lda vblank
+    beq main_loop               ; not the NMI yet: sleep again
+    stz vblank                  ; we saw it
+    ; -- wait until the console has finished reading the pad, then copy it
+@wait_pad:
+    lda HVBJOY
+    and #$01
+    bne @wait_pad
+    rep #$20
+    lda JOY1L                   ; high byte (bit 15-8): B Y Select Start Up Down Left Right
+    sta pad                     ;  low byte (bit 7-4):  A X L R
+    sep #$20
+    ; ===== INPUT: read the pad here =====
+    ; -- Right: X + 2 (the high byte of the pad has Right in bit 0)
+    lda pad+1
+    and #$01
+    beq @no_right
+    lda px
+    clc
+    adc #2
+    cmp #241                    ; the hero is 16 wide: X must stay under 241
+    bcs @no_right
+    sta px
+@no_right:
+    ; -- Left: X - 2 (Left is bit 1)
+    lda pad+1
+    and #$02
+    beq @no_left
+    lda px
+    sec
+    sbc #2
+    bcc @no_left                ; the carry is clear: X went below 0
+    sta px
+@no_left:
+    ; -- Down: Y + 2 (bit 2), Up: Y - 2 (bit 3)
+    lda pad+1
+    and #$04
+    beq @no_down
+    lda py
+    clc
+    adc #2
+    cmp #209                    ; 224 lines - 16 high + 1
+    bcs @no_down
+    sta py
+@no_down:
+    lda pad+1
+    and #$08
+    beq @no_up
+    lda py
+    sec
+    sbc #2
+    bcc @no_up
+    sta py
+@no_up:
+    ; -- which way does the hero look? Right: no flip. Left: flip X.
+    lda pad+1
+    and #$01
+    beq @not_right
+    stz facing
+@not_right:
+    lda pad+1
+    and #$02
+    beq @not_left
+    lda #$40                    ; attribute bit 6 = flip X
+    sta facing
+@not_left:
+    ; -- the walk animation: count frames while Left or Right is held
+    lda pad+1
+    and #$03
+    bne @walking
+    stz anim                    ; standing: pose 0
+    bra @anim_done
+@walking:
+    inc anim
+@anim_done:
+    ; ===== LOGIC: the rules of the game go here =====
+    lda px
+    sta oam                     ; sprite 0: X
+    lda py
+    sta oam+1                   ; sprite 0: Y
+    lda anim
+    lsr
+    lsr
+    lsr                         ; anim / 8: changes every 8 frames
+    and #$01                    ; pose 0 or 1
+    asl                         ; pose 1 uses tile 2
+    sta oam+2                   ; sprite 0: tile
+    lda #$30                    ; priority 3, palette 0
+    ora facing                  ; plus the flip bit
+    sta oam+3                   ; sprite 0: attributes
+    ; ===== DRAW: copy the result to the OAM buffer here =====
+    jmp main_loop               ; next frame (jmp reaches farther than bra)
+
+nmi:                            ; the console calls this at the start of each vertical blank
+    rep #$30
+    pha
+    phx
+    phy                         ; save A, X, Y (all 16 bit)
+    sep #$20
+    lda RDNMI                   ; tell the console that we answered
+    lda #1
+    sta vblank                  ; tell the main loop: a new frame
+    inc frames
+    ; -- copy the OAM buffer (544 bytes) to the OAM; the PPU is not drawing now
+    stz OAMADDL
+    stz OAMADDH                 ; OAM address 0
+    stz DMAP0                   ; DMA mode 0
+    lda #$04
+    sta BBAD0                   ; target $2104 (OAMDATA)
+    rep #$20
+    lda #oam
+    sta A1T0L
+    lda #544                    ; 512 + 32 bytes
+    sta DAS0L
+    sep #$20
+    stz A1B0                    ; the buffer is in bank 0
+    lda #$01
+    sta MDMAEN
+    ; ===== NMI: work for the vertical blank goes here =====
+    rep #$30
+    ply
+    plx
+    pla                         ; restore A, X, Y
+    rti                         ; back to the main loop
+
+zero_byte:
+    .byte 0                     ; the source of the RAM clear
+hero_palette:                   ; colour 0 of a sprite palette is always transparent
+    .word $0000                 ; 0: transparent
+    .word $1863                 ; 1: dark outline
+    .word $03FF                 ; 2: yellow
+    .word $109F                 ; 3: red
+    .word $7FFF                 ; 4: white
+    .word $68C2                 ; 5: blue
+    .res 20, 0                  ; 6-15: not used
+hero_top:   ; tiles 0 and 1: 4 bits a pixel, 32 bytes a tile
+    .byte $03, $00, $0C, $03, $10, $0F, $20, $1F
+    .byte $20, $1F, $20, $1F, $20, $1F, $20, $1F
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $C0, $00, $30, $C0, $08, $F0, $04, $C8
+    .byte $14, $C8, $04, $F8, $04, $F8, $74, $F8
+    .byte $00, $00, $00, $00, $00, $00, $30, $00
+    .byte $30, $00, $00, $00, $00, $00, $00, $00
+hero_bottom:   ; tiles 16 and 17
+    .byte $20, $1F, $10, $0F, $0C, $03, $0F, $00
+    .byte $1F, $0C, $1F, $0E, $1F, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $04, $F8, $08, $F0, $30, $C0, $FC, $00
+    .byte $FE, $0C, $FE, $1C, $FE, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+hero2_top:   ; pose 2, tiles 2 and 3
+    .byte $03, $00, $0C, $03, $10, $0F, $20, $1F
+    .byte $20, $1F, $20, $1F, $20, $1F, $20, $1F
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $C0, $00, $30, $C0, $08, $F0, $04, $C8
+    .byte $14, $C8, $04, $F8, $04, $F8, $74, $F8
+    .byte $00, $00, $00, $00, $00, $00, $30, $00
+    .byte $30, $00, $00, $00, $00, $00, $00, $00
+hero2_bottom:   ; pose 2, tiles 18 and 19
+    .byte $20, $1F, $10, $0F, $0C, $03, $0F, $00
+    .byte $0F, $06, $1F, $0E, $1F, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $04, $F8, $08, $F0, $30, $C0, $FC, $00
+    .byte $FE, $30, $FE, $38, $FE, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00
+; ===== DATA: tiles, colours and tables go here =====
+```
+
+try: Change the 8 (three LSR) to 4 (two LSR). The hero walks faster.
+try: Add a third pose in tiles 4, 5, 20 and 21.
+
+## What you learned
+Flip X is one bit of the attributes. An animation is a counter that picks a tile.

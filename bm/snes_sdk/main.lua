@@ -46,7 +46,6 @@ local TABS = {
   { "Map", "f3", "the tilemap editor for the BG layers" },
   { "Music", "f4", "patterns, BRR samples and the SPC700 limits" },
   { "Run", "f5", "build the ROM and run it beside the registers and the memory" },
-  { "Learn", "^l", "lessons that you read beside your code" },
 }
 local tab = 2
 
@@ -200,6 +199,7 @@ local function meta_text()
     for j = k, min(#keys, k + 23) do w[#w + 1] = keys[j] .. "=" .. M.tp[keys[j]] end
     out[#out + 1] = "--tp " .. table.concat(w, " ")
   end
+  out[#out + 1] = SC.cart_text(M.cart or SC.cart_default())
   if #CD.order > 0 then out[#out + 1] = "--code main=" .. (CD.main or "") .. " files=" .. table.concat(CD.order, ",") end
   out[#out + 1] = END
   return table.concat(out, "\n")
@@ -230,6 +230,7 @@ local function parse_meta(lua)
       CD.want_files = {}
       for n in (code:match("files=(%S*)") or ""):gmatch("[^,]+") do CD.want_files[#CD.want_files + 1] = n end
     end
+    if line:match("^%-%-cart ") then M.cart = SC.cart_parse(line) end
     local tps = line:match("^%-%-tp (.*)$")
     if tps then for t, s in tps:gmatch("(%d+)=(%d+)") do M.tp[tonumber(t)] = tonumber(s) end end
   end
@@ -269,6 +270,7 @@ local function new_project()
   P = { path = nil, title = "", dirty = false, lua = "" }
   M.bpp, M.set, M.large, M.cur, M.sel, M.ch, M.pals, M.tp = 4, 0, false, 1, 2, 1, {}, {}
   M.fx, M.fy, M.prio = false, false, 0
+  M.cart = SC.cart_default()
   ix = {}
   -- a first palette: a few colours to start with
   local first = { 0x0000, 0x001F, 0x03E0, 0x7C00, 0x7FFF, 0x0000, 0x03FF, 0x7FE0, 0x7C1F, 0x4210 }
@@ -287,6 +289,7 @@ local function open_file(path)
   LN.load(P.lua)
   M.bpp, M.set, M.large, M.cur, M.sel, M.ch, M.pals, M.tp = 4, 0, false, 1, 2, 1, {}, {}
   M.fx, M.fy, M.prio = false, false, 0
+  M.cart = SC.cart_default()
   local had = parse_meta(P.lua)
   subpal(1)
   ix = {}
@@ -692,13 +695,14 @@ local function draw_sprites()
   y = y + 8
 
   -- the sprite editor (left) and the OAM preview (right)
-  local ez = max(1, 96 // rs)
+  -- the zoom: as large as the room allows (at least 96 pixels), so that a 32x32 or 64x64 sprite is not tiny
+  local room = max(96, min(HINT_Y - y - 8, W - PX - 8 - 176))
+  local ez = max(1, room // rs)
   local ew = rs * ez
-  if ew > 96 then ez = 1; ew = rs end
   ED_X, ED_Y, ED_Z = PX, y, ez
   checker(ED_X, ED_Y, ew, ew, 8)
   sspr(rx, ry, rs, rs, ED_X, ED_Y, false, false, ez)
-  if ez >= 6 then
+  if ez >= 4 then
     for g = 0, rs do
       rectfill(ED_X + g * ez, ED_Y, 1, ew, C_GRID)
       rectfill(ED_X, ED_Y + g * ez, ew, 1, C_GRID)
@@ -707,13 +711,13 @@ local function draw_sprites()
   U.zone(ED_X, ED_Y, ew, ew, "ed", ez)
   if edit then rect(ED_X + ex * ez, ED_Y + ey * ez, max(ez, 2), max(ez, 2), C_PT) end
   rect(ED_X - 1, ED_Y - 1, ew + 2, ew + 2, edit and C_ACC or C_GRID8)
-  local ox = ED_X + 104
-  local pw = rs * max(1, 80 // rs)
+  local ox = ED_X + ew + 8
+  local box = 80                                    -- the OAM preview: the sprite, as large as the box allows
   local pz = max(1, 80 // rs)
-  if pw > 80 then pz = 1; pw = rs end
-  checker(ox, y, 80, 80, 8)
-  sspr(rx, ry, rs, rs, ox + (80 - pw) // 2, y + (80 - pw) // 2, M.fx, M.fy, pz)
-  rect(ox + (80 - pw) // 2 - 1, y + (80 - pw) // 2 - 1, pw + 2, pw + 2, C_GRID8)
+  local pw = rs * pz
+  checker(ox, y, box, box, 8)
+  sspr(rx, ry, rs, rs, ox + (box - pw) // 2, y + (box - pw) // 2, M.fx, M.fy, pz)
+  rect(ox + (box - pw) // 2 - 1, y + (box - pw) // 2 - 1, pw + 2, pw + 2, C_GRID8)
   local tile = (ry // 8) * 16 + (rx // 8)
   local e = G.oam_entry(0, 0, tile, (M.cur - 1) & 7, M.prio, M.fx, M.fy)
   local tx = ox + 88
@@ -854,7 +858,8 @@ local function code_build()
   for n, b in pairs(CD.files) do files[n] = BF.text(b) end
   local main = CD.files[CD.main or ""] and CD.main or CD.cur
   local title = (P.path and P.path:match("([^/]+)%.[^.]*$")) or main:match("^(.-)%.[^.]*$")
-  local rom, res = SC.build(files, main, title, function(n) return doc_read and doc_read(n) end)
+  local rom, res = SC.build(files, main, title, function(n) return doc_read and doc_read(n) end,
+                      SC.cart_header(M.cart or SC.cart_default()))
   CD.help = nil
   if not rom then
     CD.errs, CD.esel, CD.show_errs = res, 1, true
@@ -1425,8 +1430,16 @@ local function draw_code()
       print(((e.file or "?") .. ":" .. (e.line or "?") .. "  " .. e.msg):sub(1, (W - 16) // 8), 8, y, C_TEXT)
     end
   end
-  hint({ { { "ctrl", "b" }, "build" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "go to" }, { { "ctrl", "f" }, "find" },
-         { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" } })
+  local hw = W
+  if LN.win then W = LN.full_w end                -- the lesson window takes the right half; the hint row is the whole width
+  if LN.has_keys() then
+    hint({ { { "i" }, "insert" }, { { "o" }, "open file" }, { { "r" }, "run" }, { { "g" }, "lessons" }, { { "n", "p" }, "block" },
+           { { "tab" }, "editor" }, { { "ctrl", "l" }, "close" } })
+  else
+    hint({ { { "ctrl", "b" }, "build" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "go to" }, { { "ctrl", "f" }, "find" },
+           { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" }, { { "ctrl", "l" }, "lessons" } })
+  end
+  W = hw
 end
 
 ----------------------------------------------------------------- the Learn tab
@@ -1447,6 +1460,7 @@ end
 function LN.reset()
   LN.st = SL.new_state()
   LN.cur, LN.top, LN.sel, LN.split, LN.focus, LN.rows, LN.visited = 1, 1, 1, false, "lesson", nil, false
+  LN.win = false
 end
 
 function LN.load(lua)
@@ -1468,6 +1482,10 @@ end
 local function learn_geom()
   local top = 32
   local nrows = max(1, (HINT_Y - top) // 16)
+  if LN.win then                                  -- the window at the right of the Code tab: a header line, then the lesson
+    local x0 = W // 2
+    return top + 16, max(1, nrows - 1), x0 + 12, max(16, (W - x0 - 28) // 8), 0, x0, W - x0
+  end
   if LN.split then return top, nrows, 8, max(16, (W // 2 - 20) // 8), 0, W // 2, W - W // 2 - 4 end
   return top, nrows, 224, max(16, (W - 232) // 8), 216, 0, 0
 end
@@ -1625,9 +1643,12 @@ end
 
 function LN.key(k)
   learn_clamp()
-  if k == "\t" then learn_view(); return end
+  if LN.win then
+    if k == "\t" or k == "esc" then LN.focus = "code"; return end     -- the window stays; the keys go to the editor
+    if k == "g" then LN.pick_lesson(); return end
+  elseif k == "\t" then learn_view(); return end
   if k == "^f" and not (LN.split and LN.focus == "code") then learn_search_ask(); return end
-  if LN.split and LN.focus == "code" then
+  if LN.split and not LN.win and LN.focus == "code" then
     local b = cur_buf()
     if not b then say("Ctrl+E in the Code tab opens or makes a source file first", C_DIM); return end
     local _, nrows = learn_geom()
@@ -1657,11 +1678,35 @@ function LN.key(k)
   end
 end
 
+-- the list of the lessons, as a menu (the window has no list on its side)
+function LN.pick_lesson()
+  local rows = {}
+  for i, L in ipairs(lessons()) do
+    local e = LN.st.lessons[L.name]
+    rows[i] = { string.format("%s%2d %s", (e and e.done) and "*" or " ", L.id, L.title), function() learn_show(i); LN.focus = "lesson" end }
+  end
+  choose("Lessons", rows, LN.cur)
+end
+
+-- Ctrl+L: the lesson window opens at the right of the Code tab; from the editor it takes the keys; from the window it closes
+function LN.toggle()
+  if tab ~= 1 then tab = 1 end
+  if not LN.win then
+    LN.win, LN.focus = true, "lesson"
+    code_ensure()
+    LN.rows_key = nil
+    learn_show(LN.cur)
+  elseif LN.focus ~= "lesson" then LN.focus = "lesson"
+  else LN.win = false; LN.focus = "code" end
+end
+
+function LN.has_keys() return tab == 1 and LN.win and LN.focus == "lesson" end
+
 function LN.pad()
   if rp[2] then learn_scroll(-1) elseif rp[3] then learn_scroll(1)
   elseif rp[0] then learn_show(LN.cur - 1) elseif rp[1] then learn_show(LN.cur + 1)
   elseif btnp(4) then local _, blk = learn_block(); if blk and blk.run then learn_run() else learn_insert() end
-  elseif btnp(5) then tab = 1
+  elseif btnp(5) then if LN.win then LN.focus = "code" else tab = 1 end
   elseif tap[6] then learn_insert()
   elseif tap[7] then local L = lessons()[LN.cur]; learn_select(LN.sel % max(1, L and #SL.blocks(L) or 1) + 1) end
 end
@@ -1673,11 +1718,13 @@ function LN.mouse()
   local top, nrows, rx0, cols, lw, cx0 = learn_geom()
   if U.wheel ~= 0 then
     local b = cur_buf()
-    if LN.split and U.x >= cx0 and b then b.top = clamp(b.top - U.wheel * 3, 1, #b.lines) else learn_scroll(-U.wheel * 3) end
+    if LN.split and not LN.win and U.x >= cx0 and b then b.top = clamp(b.top - U.wheel * 3, 1, #b.lines) else learn_scroll(-U.wheel * 3) end
     return
   end
   if not U.pressed(0) then return end
-  if z.kind == "llist" then learn_show(z.a); LN.focus = "lesson"
+  if z.kind == "lnav" then learn_show(LN.cur + z.a)
+  elseif z.kind == "lpick" then LN.pick_lesson()
+  elseif z.kind == "llist" then learn_show(z.a); LN.focus = "lesson"
   elseif z.kind == "lbtn" then
     LN.sel = z.a
     if z.b == "insert" then learn_insert(z.a) elseif z.b == "open" then learn_open(z.a)
@@ -1705,9 +1752,23 @@ end
 
 function LN.draw()
   LN.visited = true
-  cls(C_BG)
+  local win = LN.win
+  if not win then cls(C_BG) end
   local ls = lessons()
   local top, nrows, rx0, cols, lw, cx0, cw = learn_geom()
+  if win then                                     -- the panel and its header: lesson, the arrows, how to close
+    rectfill(cx0, 16, cw, HINT_Y - 16, C_PANEL)
+    rectfill(cx0 - 2, 16, 2, HINT_Y - 16, LN.focus == "lesson" and C_ACC or C_GRID)
+    local L0 = ls[LN.cur]
+    local head = L0 and string.format("%d/%d %s", LN.cur, #ls, L0.title) or "no lessons"
+    rectfill(cx0, 32, cw, 16, C_BAR)
+    U.zone(cx0, 32, 24, 16, "lnav", -1)
+    print("<", cx0 + 8, 32, C_ACC)
+    U.zone(cx0 + 24, 32, cw - 48, 16, "lpick")
+    print(head:sub(1, max(1, (cw - 56) // 8)), cx0 + 32, 32, 0xFFFFFF)
+    U.zone(cx0 + cw - 24, 32, 24, 16, "lnav", 1)
+    print(">", cx0 + cw - 16, 32, C_ACC)
+  end
   if #ls == 0 then
     print("no lessons in this build (SNESLESSONS is empty)", 16, 48, C_ERR)
     hint({ { { "esc" }, "code" } })
@@ -1716,7 +1777,7 @@ function LN.draw()
   learn_clamp()
   local L = ls[LN.cur]
   local rows = learn_rows()
-  if not LN.split then                            -- the list of the lessons
+  if not LN.split and not win then                -- the list of the lessons
     rectfill(0, 16, lw, HINT_Y - 16, C_PANEL)
     local first = clamp(LN.cur - nrows // 2, 1, max(1, #ls - nrows + 1))
     for i = first, min(#ls, first + nrows - 1) do
@@ -1728,7 +1789,7 @@ function LN.draw()
       print(t:sub(1, lw // 8 - 1), 4, y, i == LN.cur and 0xFFFFFF or ((e and e.done) and C_ACC or C_TEXT))
     end
   end
-  U.zone(0, 16, W, HINT_Y - 16, "lread")
+  U.zone(win and cx0 or 0, 16, win and cw or W, HINT_Y - 16, "lread")
   local width = cols * 8 + 8
   local notes = LN.st.notes
   for r = 0, nrows - 1 do
@@ -1771,7 +1832,7 @@ function LN.draw()
   end
   -- the done mark, at the right of the first line
   local e = SL.entry(LN.st, L.name)
-  if LN.top == 1 and not LN.split then
+  if LN.top == 1 and (win or not LN.split) then
     local t = e.done and "[done]" or "[ ]"
     U.zone(rx0 + width - #t * 8 - 8, top, #t * 8 + 8, 16, "ldone")
     print(t, rx0 + width - #t * 8 - 4, top, e.done and C_ACC or C_DIM)
@@ -1780,7 +1841,7 @@ function LN.draw()
     local h = HINT_Y - top
     rectfill(rx0 + width - 2, top + (LN.top - 1) * h // #rows, 3, max(4, nrows * h // #rows), C_GRID8)
   end
-  if LN.split then                                -- the Code buffer beside the lesson
+  if LN.split and not win then                    -- the Code buffer beside the lesson
     rectfill(cx0 - 6, 16, 2, HINT_Y - 16, LN.focus == "code" and C_ACC or C_GRID)
     code_ensure()
     local b = cur_buf()
@@ -1804,6 +1865,7 @@ function LN.draw()
       end
     end
   end
+  if win then return end
   hint({ { { "i" }, "insert" }, { { "o" }, "open file" }, { { "r" }, "run" }, { { "m" }, "note" }, { { "d" }, "done" },
          { { "tab" }, LN.split and "view" or "split" }, { { "ctrl", "f" }, "search" }, { { "esc" }, "code" } })
 end
@@ -1843,6 +1905,24 @@ end
 ----------------------------------------------------------------- input
 
 local MENU
+-- the cartridge settings: each row changes one setting (Enter) and the menu opens again on that row
+function M.cart_menu(sel)
+  M.cart = M.cart or SC.cart_default()
+  local lines, chip = SC.cart_lines(M.cart)
+  local rows = {}
+  for i, l in ipairs(lines) do
+    rows[i] = { string.format("%-12s %s", l[1], l[2]), function()
+      SC.cart_cycle(M.cart, l[3], 1)
+      P.dirty = true
+      M.cart_menu(i)
+    end }
+  end
+  rows[#rows + 1] = { "Done", function()
+    local c = SC.cart_chip(M.cart.chip)
+    say(c.emu and ("cartridge: " .. c.name .. ". Ctrl+B builds it.") or ("cartridge: " .. c.note), c.emu and C_ACC or C_ERR, 300)
+  end }
+  choose("Cartridge: " .. chip.note, rows, sel)
+end
 local function menu_actions()
   choose("bm SNES SDK" .. (P.path and (" - " .. P.path) or ""), MENU)
 end
@@ -1852,6 +1932,7 @@ MENU = {
   { "Open...   (Ctrl+O)", open_other },
   { "Save   (Ctrl+S)", save_now },
   { "Save as...   (Ctrl+Shift+S)", save_as },
+  { "Cartridge: map, ROM size, save RAM, chip...", function() M.cart_menu(1) end },
   { "Sheet size...", resize },
   { LY.label(), LY.switch },
   { "Exit bm SNES SDK", function() if not P.dirty or confirmed("exit", "unsaved changes: choose again to exit") then quit() end end },
@@ -1863,7 +1944,8 @@ local function global_key(k)
   elseif k == "f5" then rn_f5(); return true
   elseif k == "f9" and (tab == 1 or tab == 5) then rn_f9(); return true
   elseif k == "f10" and (tab == 1 or tab == 5) then rn_step(); return true
-  elseif tab == 6 and k == "f1" then tab = 1; return true             -- F1 and Esc: back to the Code tab, same cursor
+  elseif k == "^l" then LN.toggle(); return true
+  elseif k == "f1" and LN.has_keys() then LN.focus = "code"; return true
   end
   for i, t in ipairs(TABS) do
     if k == t[2] then
@@ -1873,18 +1955,18 @@ local function global_key(k)
     end
   end
   if k == "esc" then
-    if tab == 6 then tab = 1
+    if LN.has_keys() then LN.focus = "code"
     elseif tab == 1 and (CD.help or CD.show_errs) then CD.help, CD.show_errs = nil, false else menu_actions() end
     return true
   elseif k == "^s" then
-    if tab == 1 or tab == 6 then code_save_all() end
-    if (tab ~= 1 and tab ~= 6) or P.path then save_now() end
+    if tab == 1 then code_save_all() end
+    if tab ~= 1 or P.path then save_now() end
     return true
   elseif k == "^S" then save_as(); return true
   elseif k == "^o" then open_other(); return true
   elseif k == "^n" then new_other(); return true
-  elseif k == "^z" then if tab == 1 or (tab == 6 and LN.split and LN.focus == "code") then return false end; if tab == 2 then do_undo(undo, redo, "undo") end; return true
-  elseif k == "^y" then if tab == 1 or (tab == 6 and LN.split and LN.focus == "code") then return false end; if tab == 2 then do_undo(redo, undo, "redo") end; return true
+  elseif k == "^z" then if tab == 1 then return false end; if tab == 2 then do_undo(undo, redo, "undo") end; return true
+  elseif k == "^y" then if tab == 1 then return false end; if tab == 2 then do_undo(redo, undo, "redo") end; return true
   elseif k == "\t" and tab == 2 then sprites_actions(); return true
   end
   return false
@@ -1959,7 +2041,7 @@ local function sprites_pad()
 end
 
 local HELP = {
-  { "f1 ... f5 / ctrl l", "the tabs: Code, Sprites, Map, Music, Run, Learn" },
+  { "f1 ... f5", "the tabs: Code, Sprites, Map, Music, Run" },
   { "esc", "the menu (new, open, save, sheet size)" },
   { "ctrl s / o / n", "save, open, new" },
   { "ctrl z / y", "undo, redo" },
@@ -1973,13 +2055,14 @@ local HELP = {
   { "ctrl e / ctrl w", "the source files; close the file" },
   { "ctrl q", "start or stop a selection (the mouse drags one too)" },
   { "ctrl c / x / v / k / d", "copy, cut, paste, cut line, copy line down" },
-  "Learn",
-  { "up down / pgup pgdn", "scroll the lesson; left right: the other lesson" },
+  "Lessons (the window of the Code tab, Ctrl+L)",
+  { "ctrl l", "open the lesson window; from the window: close it" },
+  { "up down / pgup pgdn", "scroll the lesson; left right: the other lesson; g: the list" },
   { "n / p", "select the next / previous code block" },
   { "i / o / r", "insert the block in your file; open it as a new file; run it alone in the Run tab" },
   { "m / l / d", "mark the block (Notes); list the marks; mark the lesson done" },
-  { "tab", "lesson + Code buffer side by side; Tab again types in the Code buffer; again: back" },
-  { "ctrl f / esc / f1", "search all the lessons; back to the Code tab" },
+  { "tab / esc / f1", "give the keys back to the editor (the window stays open)" },
+  { "ctrl f", "search all the lessons" },
   "Sprites",
   { "arrows", "the sprite (or the pixel while drawing)" },
   { "enter / space", "draw on / off; paint the pixel" },
@@ -2035,8 +2118,14 @@ function _update()
       elseif z and z.kind == "shade" then U.press("esc")
       elseif z and z.kind == "field" and input then U.line_click(input, input.x0 or 96, 8) end
     elseif tab == 2 then sprites_mouse()
-    elseif tab == 1 then code_mouse()
-    elseif tab == 6 then LN.mouse()
+    elseif tab == 1 then
+      if LN.win and U.x >= W // 2 then
+        if U.pressed(0) then LN.focus = "lesson" end
+        LN.mouse()
+      else
+        if LN.win and U.pressed(0) then LN.focus = "code" end
+        code_mouse()
+      end
     elseif tab == 5 then run_mouse() end
   end
   while true do
@@ -2053,7 +2142,7 @@ function _update()
       elseif k == "esc" or k == "back" then pick = nil
       elseif k == "\n" or k == "ok" then pick = nil; p.rows[p.sel][2]() end
     elseif not global_key(k) then
-      if tab == 2 then sprites_key(k) elseif tab == 1 then code_key(k) elseif tab == 6 then LN.key(k) elseif tab == 5 then run_key(k) end
+      if tab == 2 then sprites_key(k) elseif tab == 1 then if LN.has_keys() then LN.key(k) else code_key(k) end elseif tab == 5 then run_key(k) end
     end
   end
   if input then
@@ -2062,14 +2151,16 @@ function _update()
     if rp[2] then pick.sel = (pick.sel - 2) % #pick.rows + 1 elseif rp[3] then pick.sel = pick.sel % #pick.rows + 1
     elseif btnp(4) then local p = pick; pick = nil; p.rows[p.sel][2]() elseif btnp(5) then pick = nil end
   elseif tab == 2 then sprites_pad()
-  elseif tab == 6 then LN.pad()
+  elseif LN.has_keys() then LN.pad()
   elseif tap[7] then menu_actions() end
 end
 
 function _draw()
   LY.poll()
   U.begin()
-  if tab == 2 then draw_sprites() elseif tab == 1 then draw_code() elseif tab == 5 then draw_run() elseif tab == 6 then LN.draw() else draw_soon(tab) end
+  if tab == 2 then draw_sprites() elseif tab == 1 then
+    if LN.win then local fw = W; LN.full_w = fw; W = fw // 2; draw_code(); W = fw; LN.draw() else draw_code() end
+  elseif tab == 5 then draw_run() else draw_soon(tab) end
 
   rectfill(0, 0, W, 16, C_BAR)                 -- the tabs: each with its key
   local x = U.bar_title("bm SNES SDK", C_ACC)
@@ -2086,7 +2177,7 @@ function _draw()
   U.bar_file(P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
-  local status = msg_t > 0 and msg or tab == 1 and code_status() or tab == 6 and LN.status() or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
+  local status = msg_t > 0 and msg or tab == 1 and (LN.has_keys() and LN.status() or code_status()) or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
                                                       M.sel - 1, M.cur, M.bpp)
   print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end

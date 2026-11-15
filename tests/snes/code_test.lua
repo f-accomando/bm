@@ -271,5 +271,60 @@ do
   check(b.top == 2 and b.left == 3, "scroll follows the cursor")
 end
 
+----------------------------------------------------------------- the cartridge settings
+
+do
+  local prog = ".lorom\n.org $8000\nreset:\n    sei\n    rts\n"
+  local function header(cfg)
+    local rom = SC.build({ ["m.s"] = prog }, "m.s", "cart", nil, SC.cart_header(cfg))
+    return rom
+  end
+  local cfg = SC.cart_default()
+  local rom = header(cfg)
+  check(rom and #rom == 32768 and rom:byte(0x7FD8) == 5 and rom:byte(0x7FD7) == 0x00, "default cart: 32 KB, no chip")
+  SC.cart_cycle(cfg, "rom", 1)
+  SC.cart_cycle(cfg, "rom", 1)
+  rom = header(cfg)
+  check(rom and #rom == 131072 and rom:byte(0x7FD8) == 7, "ROM 128 KB: size code 7")
+  SC.cart_cycle(cfg, "sram", 1)
+  SC.cart_cycle(cfg, "sram", 1)
+  rom = header(cfg)
+  check(rom and rom:byte(0x7FD9) == 3 and rom:byte(0x7FD7) == 0x02, "8 KB save RAM with battery: code 3, chipset $02")
+  SC.cart_cycle(cfg, "battery")
+  check(header(cfg):byte(0x7FD7) == 0x01, "no battery: chipset $01")
+  SC.cart_cycle(cfg, "fast")
+  check(header(cfg):byte(0x7FD6) == 0x30, "FastROM: map byte $30")
+  SC.cart_cycle(cfg, "map")
+  check(cfg.map == "hirom" and cfg.rom_kb >= 64, "HiROM raises the ROM to 64 KB")
+  local hp = ".hirom\n.org $C08000\nreset:\n    sei\n    rts\n"
+  rom = SC.build({ ["m.s"] = hp }, "m.s", "cart", nil, SC.cart_header(cfg))
+  check(rom and #rom >= 65536 and rom:byte(0xFFD6) == 0x31, "HiROM FastROM map byte $31")
+  -- the coprocessors: the chipset byte of real cartridges
+  local function chip_of(key, ram, battery)
+    local c = SC.cart_default()
+    c.chip, c.sram_kb, c.battery = key, ram, battery
+    return SC.cart_chipset(c)
+  end
+  check(chip_of("dsp1", 0, true) == 0x03 and chip_of("dsp1", 2, true) == 0x05 and chip_of("dsp1", 2, false) == 0x04, "DSP-1 chipset bytes")
+  check(chip_of("gsu", 32, true) == 0x15 and chip_of("gsu", 32, false) == 0x14 and chip_of("gsu", 0, false) == 0x13, "Super FX chipset bytes")
+  check(chip_of("sa1", 32, true) == 0x35 and chip_of("sa1", 32, false) == 0x34, "SA-1 chipset bytes")
+  check(chip_of("cx4", 0, false) == 0xF3 and chip_of("spc7110", 0, false) == 0xF5 and chip_of("srtc", 0, false) == 0x55, "other chips")
+  local g = SC.cart_default()
+  SC.cart_cycle(g, "chip", 1)
+  SC.cart_cycle(g, "chip", 1)
+  check(g.chip == "gsu" and g.map == "lorom" and g.sram_kb == 32, "the Super FX comes with LoROM and RAM")
+  local grom = header(g)
+  check(grom and grom:byte(0x7FD6) == 0x20 and grom:byte(0x7FD7) == 0x15, "Super FX header: map $20, chipset $15")
+  SC.cart_cycle(g, "chip", 1)
+  check(g.chip == "sa1" and g.rom_kb >= 64, "SA-1 needs at least 64 KB")
+  local arom = header(g)
+  check(arom and arom:byte(0x7FD6) == 0x23 and arom:byte(0x7FD7) == 0x35, "SA-1 header: map $23, chipset $35")
+  -- the project line
+  local back = SC.cart_parse(SC.cart_text(g))
+  check(back.chip == "sa1" and back.rom_kb == g.rom_kb and back.sram_kb == g.sram_kb and back.battery == g.battery and back.map == "lorom", "cart line round trip")
+  check(SC.cart_parse("garbage").chip == "none" and SC.cart_parse(nil).rom_kb == 32, "a bad line gives the default")
+  check(#SC.cart_lines(g) == 6, "six lines in the menu")
+end
+
 io.write(string.format("snes code: %d checks, %d failed\n", checks, fails))
 os.exit(fails == 0 and 0 or 1)

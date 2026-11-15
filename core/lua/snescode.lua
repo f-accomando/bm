@@ -452,7 +452,7 @@ end
 ----------------------------------------------------------------- build
 
 -- files: { [name] = text } (the open files). main: the name of the first file. reader(name): the text of any other file. Returns rom, res (ok) or nil, errors, res.
-function SC.build(files, main, title, reader)
+function SC.build(files, main, title, reader, header)
   local function read(path)
     path = path:gsub("^/docs/", "")
     local low = path:lower()
@@ -461,7 +461,10 @@ function SC.build(files, main, title, reader)
   end
   local res = A.assemble(files[main] or "", { name = main, read = read })
   if not res.ok then return nil, SC.errors(res, files), res end
-  local ok, rom, why = pcall(A.build_rom, res, { title = (title or "SNES SDK"):upper():sub(1, 21) })
+  local h = {}
+  for k, v in pairs(header or {}) do h[k] = v end
+  h.title = (title or "SNES SDK"):upper():sub(1, 21)
+  local ok, rom, why = pcall(A.build_rom, res, h)
   if not ok or not rom then
     local msg = ok and tostring(why) or (type(rom) == "table" and rom.msg or tostring(rom))
     return nil, { { file = main, line = 1, msg = SC.plain(msg, ""), raw = msg } }, res
@@ -583,6 +586,124 @@ wait_pad:
 
 function SC.snippet(key)
   for _, s in ipairs(SC.snippets) do if s.key == key then return s end end
+end
+
+----------------------------------------------------------------- the cartridge settings
+
+-- What a real cartridge has: the map, the speed of the ROM, the ROM size, the save RAM and a coprocessor.
+-- SC.cart_default() is the setting of a new project. SC.cart_header(cfg) turns it into the header options of
+-- A.build_rom. The chip codes are those of the header byte $FFD6 of real cartridges.
+-- emu = true: the SNES core of bm runs this chip. A chip with emu = false only gets its header (the core
+-- would not run its code yet).
+SC.CART_CHIPS = {
+  { key = "none", name = "None (plain ROM)", emu = true, note = "A plain cartridge: ROM and, if you want, save RAM." },
+  { key = "dsp1", name = "DSP-1 (maths: Super Mario Kart)", emu = true, chip = 0x03, map = 0x20, note = "Needs the DSP firmware file in /snes to run." },
+  { key = "gsu", name = "Super FX / GSU (3D: Star Fox)", emu = true, chip = 0x13, map = 0x20, lorom = true,
+    note = "The GSU CPU runs from the ROM. The header says LoROM; the chip adds its own memory map." },
+  { key = "sa1", name = "SA-1 (second CPU: Super Mario RPG)", emu = true, chip = 0x32, map = 0x23, lorom = true,
+    note = "A 10 MHz second 65816 with its own RAM. The core runs it." },
+  { key = "obc1", name = "OBC-1 (sprite helper)", emu = false, chip = 0x25, map = 0x20, note = "Header only: the core has no OBC-1 yet." },
+  { key = "sdd1", name = "S-DD1 (graphics decompression)", emu = false, chip = 0x43, map = 0x22, note = "Header only: the core has no S-DD1 yet." },
+  { key = "srtc", name = "S-RTC (real-time clock)", emu = false, chip = 0x55, map = 0x20, note = "Header only: the core has no S-RTC yet." },
+  { key = "cx4", name = "Cx4 (wireframe maths)", emu = false, chip = 0xF3, map = 0x20, note = "Header only: the core has no Cx4 yet." },
+  { key = "spc7110", name = "SPC7110 (decompression, data ROM)", emu = false, chip = 0xF5, map = 0x3A, note = "Header only: the core has no SPC7110 yet." },
+}
+SC.CART_ROM_KB = { 32, 64, 128, 256, 512, 1024, 2048, 4096 }       -- sizes of real ROM chips
+SC.CART_SRAM_KB = { 0, 2, 8, 32, 128 }                              -- 0 = no save RAM
+
+function SC.cart_default()
+  return { map = "lorom", fast = false, rom_kb = 32, sram_kb = 0, battery = true, chip = "none" }
+end
+
+function SC.cart_chip(key)
+  for _, c in ipairs(SC.CART_CHIPS) do if c.key == key then return c end end
+  return SC.CART_CHIPS[1]
+end
+
+-- the next value of a list (step = 1 or -1)
+local function nextof(list, v, step)
+  local at = 1
+  for i, x in ipairs(list) do if x == v then at = i end end
+  return list[(at - 1 + (step or 1)) % #list + 1]
+end
+
+-- change one setting by one step; the settings that depend on each other stay right
+function SC.cart_cycle(cfg, what, step)
+  step = step or 1
+  if what == "map" then cfg.map = cfg.map == "lorom" and "hirom" or "lorom"
+  elseif what == "fast" then cfg.fast = not cfg.fast
+  elseif what == "rom" then cfg.rom_kb = nextof(SC.CART_ROM_KB, cfg.rom_kb, step)
+  elseif what == "sram" then cfg.sram_kb = nextof(SC.CART_SRAM_KB, cfg.sram_kb, step)
+  elseif what == "battery" then cfg.battery = not cfg.battery
+  elseif what == "chip" then
+    local keys = {}
+    for i, c in ipairs(SC.CART_CHIPS) do keys[i] = c.key end
+    cfg.chip = nextof(keys, cfg.chip, step)
+  end
+  local c = SC.cart_chip(cfg.chip)
+  if c.lorom then cfg.map = "lorom" end                      -- the GSU and the SA-1 headers are LoROM
+  if cfg.chip == "gsu" or cfg.chip == "sa1" then
+    if cfg.sram_kb == 0 then cfg.sram_kb = 32 end             -- both chips come with RAM
+    if cfg.chip == "sa1" and cfg.rom_kb < 64 then cfg.rom_kb = 64 end
+  end
+  if cfg.map == "hirom" and cfg.rom_kb < 64 then cfg.rom_kb = 64 end   -- a HiROM bank is 64 KB
+  return cfg
+end
+
+-- the chipset byte of the header for a chip, with RAM and battery
+function SC.cart_chipset(cfg)
+  local c = SC.cart_chip(cfg.chip)
+  local ram = cfg.sram_kb > 0
+  if c.key == "none" then return ram and (cfg.battery and 0x02 or 0x01) or 0x00 end
+  if c.key == "dsp1" then return ram and (cfg.battery and 0x05 or 0x04) or 0x03 end
+  if c.key == "gsu" then return ram and (cfg.battery and 0x15 or 0x14) or 0x13 end
+  if c.key == "sa1" then return ram and (cfg.battery and 0x35 or 0x34) or 0x32 end
+  if c.key == "sdd1" then return ram and 0x45 or 0x43 end
+  if c.key == "obc1" then return ram and 0x25 or 0x23 end
+  return c.chip
+end
+
+function SC.cart_header(cfg)
+  cfg = cfg or SC.cart_default()
+  local c = SC.cart_chip(cfg.chip)
+  local h = { map = cfg.map, fast = cfg.fast, min_kb = cfg.rom_kb, sram_kb = cfg.sram_kb,
+              battery = cfg.battery, chipset = SC.cart_chipset(cfg) }
+  if c.map and c.key ~= "none" then h.mapmode = c.map end    -- the map byte of that chip's real cartridges
+  return h
+end
+
+-- the lines of the menu: { label, value, note }
+function SC.cart_lines(cfg)
+  local c = SC.cart_chip(cfg.chip)
+  return {
+    { "Map", cfg.map == "lorom" and "LoROM (32 KB banks at $8000)" or "HiROM (64 KB banks)", "map" },
+    { "ROM speed", cfg.fast and "FastROM (120 ns, 3.58 MHz)" or "SlowROM (200 ns, 2.68 MHz)", "fast" },
+    { "ROM size", cfg.rom_kb >= 1024 and (cfg.rom_kb // 1024) .. " MB" or cfg.rom_kb .. " KB", "rom" },
+    { "Save RAM", cfg.sram_kb == 0 and "none" or cfg.sram_kb .. " KB", "sram" },
+    { "Battery", cfg.battery and "yes (the save stays)" or "no", "battery" },
+    { "Coprocessor", c.name, "chip" },
+  }, c
+end
+
+-- the project line: "--cart map=lorom fast=0 rom=32 sram=0 batt=1 chip=none"
+function SC.cart_text(cfg)
+  return string.format("--cart map=%s fast=%d rom=%d sram=%d batt=%d chip=%s", cfg.map, cfg.fast and 1 or 0, cfg.rom_kb,
+                       cfg.sram_kb, cfg.battery and 1 or 0, cfg.chip)
+end
+
+function SC.cart_parse(line)
+  local cfg = SC.cart_default()
+  local v = {}
+  for k, x in (line or ""):gmatch("(%a+)=(%w+)") do v[k] = x end
+  if v.map == "hirom" then cfg.map = "hirom" end
+  cfg.fast = v.fast == "1"
+  local rom = tonumber(v.rom)
+  for _, n in ipairs(SC.CART_ROM_KB) do if n == rom then cfg.rom_kb = n end end
+  local sram = tonumber(v.sram)
+  for _, n in ipairs(SC.CART_SRAM_KB) do if n == sram then cfg.sram_kb = n end end
+  cfg.battery = v.batt ~= "0"
+  for _, c in ipairs(SC.CART_CHIPS) do if c.key == v.chip then cfg.chip = c.key end end
+  return cfg
 end
 
 return SC

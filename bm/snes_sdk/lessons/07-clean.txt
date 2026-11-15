@@ -1,0 +1,168 @@
+title: A clean start
+goal: Clear the PPU registers and the work RAM so that the game never sees random values.
+link: SNESdev Wiki | https://snes.nesdev.org/wiki/Init_code
+link: SMW ROM map (SMW Central) | https://www.smwcentral.net/?p=nmap&m=smwrom
+---
+When the console starts, the PPU registers and the RAM hold random values. A game that reads a RAM cell before it writes it can behave in a different way on each start. So every game begins with a clean-up. Super Mario World does this, too.
+
+This lesson does two things. First, a loop writes 0 to the PPU registers $2101 to $2133. Second, one DMA transfer clears the work RAM from $0000 to $1FFF.
+
+The DMA transfer uses a trick. The control byte $08 sets bit 3: the source address does not move. So the DMA reads the same zero byte 8192 times and writes each copy to the work RAM port $2180. The port moves its own address after each write.
+
+## What this lesson adds
+You add three things. The names go at the mark NAMES. The clean-up code goes at the mark SETUP. The zero byte goes at the mark DATA.
+
+## The part to add
+Use Insert (i) for the text below. Then put each piece at its mark. Or open the whole program below.
+
+```text
+; >>> add at the mark NAMES (part: eq7)
+WMDATA   = $2180                ; the work RAM port (DMA can write to it)
+WMADDL   = $2181                ; where in the work RAM the port writes (3 bytes)
+DMAP0    = $4300                ; DMA channel 0: control
+BBAD0    = $4301                ; DMA channel 0: target register ($21xx)
+A1T0L    = $4302                ; DMA channel 0: source address (16 bit)
+A1B0     = $4304                ; DMA channel 0: source bank
+DAS0L    = $4305                ; DMA channel 0: number of bytes
+MDMAEN   = $420B                ; write a bit here to start a channel
+
+; >>> add at the mark SETUP (part: clean)
+    ; -- 1. clear the PPU registers $2101-$2133 (they hold random values at power on)
+    sep #$10                    ; X and Y 8 bit for this loop
+    ldx #$00
+@ppu_clear:
+    stz $2101,x                 ; write 0 to $2101 + X
+    inx
+    cpx #$33                    ; stop after $2133
+    bne @ppu_clear
+    rep #$10                    ; X and Y 16 bit again
+    ; -- 2. clear the work RAM $0000-$1FFF with one DMA transfer
+    stz WMADDL
+    stz WMADDL+1
+    stz WMADDL+2                ; the port starts at WRAM address $000000
+    lda #$08                    ; DMA control: mode 0 (one register), fixed source address
+    sta DMAP0
+    lda #$80                    ; target register $2180 (WMDATA)
+    sta BBAD0
+    rep #$20
+    lda #zero_byte              ; the source: one byte that is 0
+    sta A1T0L
+    lda #$2000                  ; 8 KB
+    sta DAS0L
+    sep #$20
+    lda #^zero_byte
+    sta A1B0
+    lda #$01
+    sta MDMAEN                  ; start channel 0
+
+; >>> add at the mark DATA (part: zero)
+zero_byte:
+    .byte 0                     ; the source of the RAM clear
+```
+
+## The whole program so far
+This program runs by itself. Use Run (r) to try it, Open (o) to start a new file from it.
+
+```asm expect=w10=00,w11>03 frames=20
+; ---------------------------------------------------------------
+; main.s - the game of the course, built one lesson at a time
+; ---------------------------------------------------------------
+.lorom                          ; ROM map: 32 KB banks at $8000
+
+INIDISP  = $2100                ; screen on/off and brightness
+NMITIMEN = $4200                ; NMI enable and pad auto-read enable
+RDNMI    = $4210                ; reading it tells the console "I got the NMI"
+vblank   = $10                  ; RAM: the NMI sets it to 1 at each frame
+frames   = $11                  ; RAM: the NMI counts the frames here
+WMDATA   = $2180                ; the work RAM port (DMA can write to it)
+WMADDL   = $2181                ; where in the work RAM the port writes (3 bytes)
+DMAP0    = $4300                ; DMA channel 0: control
+BBAD0    = $4301                ; DMA channel 0: target register ($21xx)
+A1T0L    = $4302                ; DMA channel 0: source address (16 bit)
+A1B0     = $4304                ; DMA channel 0: source bank
+DAS0L    = $4305                ; DMA channel 0: number of bytes
+MDMAEN   = $420B                ; write a bit here to start a channel
+; ===== NAMES: new lessons add names here =====
+
+.org $8000                      ; the code starts at the start of bank 0
+reset:                          ; the CPU starts here (the reset vector)
+    sei                         ; block IRQ while we set up
+    clc
+    xce                         ; native mode (carry <-> emulation flag)
+    rep #$38                    ; A, X, Y 16 bit; decimal mode off
+    ldx #$1FFF
+    txs                         ; the stack lives at the top of $0000-$1FFF
+    sep #$20                    ; A 8 bit (X and Y stay 16 bit)
+    lda #$8F
+    sta INIDISP                 ; forced blank: screen off, safe to write to the PPU
+    stz NMITIMEN                ; no NMI and no pad reading yet
+    ; -- 1. clear the PPU registers $2101-$2133 (they hold random values at power on)
+    sep #$10                    ; X and Y 8 bit for this loop
+    ldx #$00
+@ppu_clear:
+    stz $2101,x                 ; write 0 to $2101 + X
+    inx
+    cpx #$33                    ; stop after $2133
+    bne @ppu_clear
+    rep #$10                    ; X and Y 16 bit again
+    ; -- 2. clear the work RAM $0000-$1FFF with one DMA transfer
+    stz WMADDL
+    stz WMADDL+1
+    stz WMADDL+2                ; the port starts at WRAM address $000000
+    lda #$08                    ; DMA control: mode 0 (one register), fixed source address
+    sta DMAP0
+    lda #$80                    ; target register $2180 (WMDATA)
+    sta BBAD0
+    rep #$20
+    lda #zero_byte              ; the source: one byte that is 0
+    sta A1T0L
+    lda #$2000                  ; 8 KB
+    sta DAS0L
+    sep #$20
+    lda #^zero_byte
+    sta A1B0
+    lda #$01
+    sta MDMAEN                  ; start channel 0
+    ; ===== SETUP: new lessons add set-up code here =====
+    lda #$0F
+    sta INIDISP                 ; screen on, full brightness
+    lda #$81
+    sta NMITIMEN                ; NMI on (bit 7) and pad auto-read on (bit 0)
+
+main_loop:                      ; this loop runs once for each frame
+    wai                         ; sleep until an interrupt (the NMI)
+    lda vblank
+    beq main_loop               ; not the NMI yet: sleep again
+    stz vblank                  ; we saw it
+    ; ===== INPUT: read the pad here =====
+    ; ===== LOGIC: the rules of the game go here =====
+    ; ===== DRAW: copy the result to the OAM buffer here =====
+    jmp main_loop               ; next frame (jmp reaches farther than bra)
+
+nmi:                            ; the console calls this at the start of each vertical blank
+    rep #$30
+    pha
+    phx
+    phy                         ; save A, X, Y (all 16 bit)
+    sep #$20
+    lda RDNMI                   ; tell the console that we answered
+    lda #1
+    sta vblank                  ; tell the main loop: a new frame
+    inc frames
+    ; ===== NMI: work for the vertical blank goes here =====
+    rep #$30
+    ply
+    plx
+    pla                         ; restore A, X, Y
+    rti                         ; back to the main loop
+
+zero_byte:
+    .byte 0                     ; the source of the RAM clear
+; ===== DATA: tiles, colours and tables go here =====
+```
+
+try: Put a value into $0020 with `lda #$55` and `sta $20` before the clean-up. Run to the end. What is in $0020?
+try: Use the Run tab (F5) and look at the work RAM with the hex view.
+
+## What you learned
+Clear the registers and the RAM at the start. A DMA with a fixed source is the fast way to fill memory.
