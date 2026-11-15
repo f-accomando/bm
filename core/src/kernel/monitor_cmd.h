@@ -30,6 +30,8 @@ typedef struct mcmd {
     /* extra words for the Tab key after this command's words: the i-th, NULL at the end
      * (the keys of "set"). A word that ends in '=' gets no space after it. */
     const char *(*cand)(int i);
+    /* 1: the words are SD card paths: the Tab key completes the files and folders (monitor_fs.c) */
+    int path;
 } mcmd_t;
 
 /* errors of the core (a handler returns 0 or a small positive/-1 value) */

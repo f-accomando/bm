@@ -6,6 +6,16 @@
 
 #include <string.h>
 
+/* The file names for the Tab key (monitor_fs.c). This default, for a build without the SD
+ * card (the PC test), has none. */
+__attribute__((weak)) int mfs_complete(const char *part, const char **out, int max)
+{
+    (void)part;
+    (void)out;
+    (void)max;
+    return 0;
+}
+
 /* ------------------------------------------------------------- text out */
 
 typedef struct {
@@ -603,6 +613,8 @@ static int collect(medit_t *e, const char *part, size_t pl, const char **c, int 
         row = row->sub ? mcmd_find(row->sub, words[i]) : NULL;
     if (!row)
         return 0;
+    if (row->path)
+        return mfs_complete(part, c, max);
     if (row->sub)
         for (const mcmd_t *s = row->sub; s->name && n < max; s++)
             if (!s->alias && !strncmp(s->name, part, pl))
@@ -646,7 +658,7 @@ static void complete(medit_t *e)
         char add[MEDIT_LINE_MAX];
         memcpy(add, c[0], common);
         add[common] = 0;
-        if (n == 1 && (common == 0 || add[common - 1] != '='))
+        if (n == 1 && (common == 0 || (add[common - 1] != '=' && add[common - 1] != '/')))
             strcat(add, " ");
         delete_range(e, ps, e->pos);
         insert(e, add);

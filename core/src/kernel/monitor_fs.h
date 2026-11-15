@@ -18,4 +18,9 @@ int mfs_resolve(const char *base, const char *arg, char *out, unsigned cap);
 /* The path of a word from the current folder, as the commands read it. 0, or -1 if it does not fit. */
 int mfs_path(const char *word, char *out, unsigned cap);
 
+/* The Tab key on a path word: the files and folders of the folder that starts with `part`
+ * (the typed text, with its folders). A folder gets a '/' at its end. The strings stay valid
+ * until the next call. Returns how many were put in out[] (at most max). */
+int mfs_complete(const char *part, const char **out, int max);
+
 #endif

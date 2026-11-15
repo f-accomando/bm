@@ -83,6 +83,40 @@ int mfs_path(const char *word, char *out, unsigned cap)
     return mfs_resolve(cwd, word, out, cap);
 }
 
+#define MFS_CAND_N 48
+#define MFS_CAND_W 160
+
+static char cand_buf[MFS_CAND_N][MFS_CAND_W];
+
+int mfs_complete(const char *part, const char **out, int max)
+{
+    const char *slash = strrchr(part, '/');
+    size_t dl = slash ? (size_t)(slash - part) + 1 : 0;   /* the typed folders, with the '/' */
+    const char *name = part + dl;
+    size_t nl = strlen(name);
+    char dir[PATH_MAX_BM], res[PATH_MAX_BM];
+    if (dl >= sizeof dir)
+        return 0;
+    memcpy(dir, part, dl);
+    dir[dl] = 0;
+    if (mfs_resolve(cwd, dir, res, sizeof res) != 0)     /* "" is the current folder */
+        return 0;
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, res) != 0)
+        return 0;
+    int n = 0;
+    while (n < max && n < MFS_CAND_N && fat_readdir(&d, &e)) {
+        if (strncasecmp(e.name, name, nl) != 0)
+            continue;
+        if (ksnprintf(cand_buf[n], MFS_CAND_W, "%s%s%s", dir, e.name, e.is_dir ? "/" : "") >= MFS_CAND_W)
+            continue;
+        out[n] = cand_buf[n];
+        n++;
+    }
+    return n;
+}
+
 int mfs_pwd(int argc, char **argv)
 {
     (void)argc;
