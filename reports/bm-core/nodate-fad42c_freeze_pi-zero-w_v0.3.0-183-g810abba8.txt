@@ -1,0 +1,55 @@
+bm report
+kind: freeze
+kernel: v0.3.0-183-g810abba8
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-fad42c_freeze_pi-zero-w_v0.3.0-183-g810abba8.txt
+
+the Pi froze (the watchdog restarted it) while: bootoCore firmware does not answer (mailbox, frame 0, 10195 s after boot, kernel v0.3.0-183-g810abba8, ring 207442, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17857 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17859 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 95 us, free time used 41 us (300 frames)
+menu frame: 1x, a frame averages draw 17858 us, enlarge 0 us, flip 94 us, free time used 41 us (300 frames)
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 1608037 ms, 1 jobs)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2038 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 1610059 ms, 1 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> net: not served for 2131 ms (up 10198000 ms), while: boot
+net:   pc at 1s: 00143a08
+net:   pc at 2s: 001439ac
+> > > > > > 
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-6 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-6 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+fb_init_depth: mbox_call failed
+menu: the GPU cannot draw 3x, 360p on the ARM
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
