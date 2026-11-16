@@ -38,11 +38,9 @@ ARCH    := -mcpu=cortex-a55 -mno-outline-atomics -mbranch-protection=none \
 # compiler also searches glibc's (libc6-dev-arm64-cross, which apt installs
 # with it) and the PC's /usr/include, which are not a kernel's (mbedTLS
 # found sys/socket.h there, and it clashed with picolibc's types)
-CLEAN_KERNEL ?= 0
-CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 SYSINC  := -nostdinc -isystem $(shell $(CC) -print-file-name=include)
 COMMON  := $(ARCH) --specs=picolibc.specs $(SYSINC) -std=c11 -O2 -Wall -Wextra -g -Icore/src -Icore/src/rgb30 \
-           -ffunction-sections -fdata-sections $(PLAT_DEF) $(CLEAN_DEFS) -DBM_RGB30 \
+           -ffunction-sections -fdata-sections $(PLAT_DEF) -DBM_RGB30 \
            -Wno-format
 CFLAGS   = $(COMMON) -D_DEFAULT_SOURCE -Icore/third_party/lua \
            -Icore/third_party/mbedtls/include -Icore/third_party/lwip/src/include -Icore/src/net \
@@ -53,7 +51,7 @@ ifneq ($(strip $(PI_O3_FILES)),)
 $(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
 endif
 # -Wa,-I$(BUILD): the cartridges built here that bm_embed.S takes with .incbin
-ASFLAGS := $(ARCH) $(PLAT_DEF) $(CLEAN_DEFS) -g -Icore/src -Icore/src/rgb30 -Wa,-I$(BUILD)
+ASFLAGS := $(ARCH) $(PLAT_DEF) -g -Icore/src -Icore/src/rgb30 -Wa,-I$(BUILD)
 LDFLAGS := $(ARCH) --specs=picolibc.specs -nostartfiles -static -no-pie -Wl,--gc-sections \
            -Wl,--defsym=KERNEL_BASE=$(KERNEL_BASE)
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group

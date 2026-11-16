@@ -6437,12 +6437,12 @@ def test_riff_code(b, opts):
 
 
 def _clean_build(opts):
-    """The folder of the clean kernel (CLEAN_KERNEL=1, the one that ships) with the Assistant and bm Code as apps; made
+    """The folder of the kernel that ships (no embedded tools) with the Assistant and bm Code as apps; made
     on the first use, next to the build folder."""
     d = os.path.join(os.path.dirname(os.path.abspath(opts.build)), "build-clean")
     need = [os.path.join(d, n) for n in ("kernel.img", "assistant.bm", "code.bm")]
     if not all(os.path.exists(n) for n in need):
-        subprocess.run(["make", "-j4", "BUILD=" + d, "CLEAN_KERNEL=1"] + need, check=True,
+        subprocess.run(["make", "-j4", "BUILD=" + d] + need, check=True,
                        cwd=os.path.join(HERE, ".."))
     return d
 

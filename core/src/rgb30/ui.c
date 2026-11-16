@@ -330,15 +330,15 @@ static int load_tick(void)
     return 0;
 }
 
-/* Just before a game starts or resumes: a WiFi try of the menu's stops (not under a game), the reads show the
- * loading screen, and a game gets the retro intro while it loads (an app or a utility opens with none). */
+/* Just before a game starts or resumes: a WiFi try of the menu's stops (not under a game). No system splash:
+ * a game that wants an intro draws its own (bm/snake). */
 static void rgb_play_begin(const lib_game_t *g, int resume)
 {
+    (void)g;
+    (void)resume;
     wifi_auto_stop();
     fat_load_tick = load_tick;
     bm_parse_tick = load_tick;
-    if (!resume && !lib_is_dev(g) && !lib_no_splash(g))
-        loading_begin(fb);
 }
 
 static void play_bm(int i)
@@ -381,7 +381,6 @@ static void play_net(void)
         page_message("Game", lines, 4);
         return;
     }
-    loading_begin(fb);
     kprintf("play: from the network (%lu bytes)\n", (uint32_t)net_play_len);
     bm_stats_t st;
     bm_play(fb, net_play_buf, net_play_len, LIB_PLAY_SECS, &st);

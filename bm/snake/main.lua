@@ -9,7 +9,7 @@ local GW, GH = W // CELL, (H - TOP) // CELL
 local BG, GRID, WALL = 0x0C1A10, 0x122818, 0x2E5E3A
 local HEAD, BODY, APPLE, TEXT, ACCENT = 0xB8F070, 0x6CC04A, 0xE84040, 0xF0F0F0, 0xFFD050
 
-local state = "title"                   -- "title", "play", "over"
+local state = "splash"                  -- "splash", "title", "play", "over"
 local snake, dir, next_dir, apple
 local score, best = 0, 0
 local step_frames, timer, grow
@@ -49,6 +49,144 @@ local function new_game()
   jingle({ { 392, 5 }, { 523, 5 }, { 659, 10 } })
 end
 
+---------------------------------------------------------------- splash
+-- The bm intro, the game's own first screen (the system draws no splash): the logo
+-- falls, lands with a jingle, a ring of dots turns. Same animation as core/src/bm/loading.c,
+-- on a 160x90 canvas made bigger. Any button skips it after the logo has landed.
+
+local LOGO_PAL = {
+  a = 0x105D9C, b = 0x6BBAFF, c = 0x1896FF, d = 0x84B2FF, e = 0x29559C, f = 0x394D9C, g = 0x52459C, h = 0x63389C, i = 0x428AFF, j = 0x9CAAFF, k = 0x6379FF, l = 0x846DFF, m = 0xADA2FF, n = 0xA55DFF, o = 0xC696FF
+}
+local LOGO = {
+  ".abba.......................................",
+  "acccc.......................................",
+  "cccccb......................................",
+  "cccccc......................................",
+  "cccccc......................................",
+  "cccccc......................................",
+  "cccccc.abdddde..........fffg......ggh.......",
+  "ccccccacciiiiid......fjjkkklmm..mmllnooh....",
+  "ccccccaaciiiiiide...fkkkkkklllmmllllnnnno...",
+  "ccccccaaciiiiiiiie.fkkkkkkklllllllllnnnnno..",
+  "ccccccaaciiiiiiiiifffkkkkkklllllllllnnnnnno.",
+  "ccccccacciiiiiiiiikffkkkkkklllllllllnnnnnnn.",
+  "ccccccaa....eiiiiikfffkkffkllllllllghnnnnnnh",
+  "cccccca......eiiiikfffkf...lllllll....nnnnnn",
+  "cccccc........iiiikkfff....glllll.....nnnnnn",
+  "cccccc........eiiikkfff....glllll.....nnnnnn",
+  "cccccc........eiiikkfff....glllll.....nnnnnn",
+  "cccccc........iiiikffff....glllll.....nnnnnn",
+  "acccccb......eiiiikfff.....glllll.....nnnnnn",
+  ".ccccccb....eiiiiikfff.....glllll.....nnnnnn",
+  ".accccccbdddiiiiiiffff.....glllll.....nnnnnn",
+  "..ccccccciiiiiiiiiffff.....glllll.....nnnnnn",
+  "..acccccciiiiiiiieffff.....glllll.....nnnnnn",
+  "...accccciiiiiiieeffff......lllll.....hnnnnn",
+  ".....accciiiiie..effff......glllg......nnnn.",
+  ".......aaiiee.....ff.........gg.........hh..",
+}
+
+local SPLASH_BG, LAND, BOUNCE, SPLASH_END = 0x000810, 0.5, 0.15, 1.8
+local CW, CH, LOGO_Y = 160, 90, 22
+local logo_runs                         -- {y, x, len, rgb}: one rectfill per run of one colour
+local splash_t0, splash_note = nil, 1
+local S_JINGLE = {                      -- {at, tone, hz, ms, vol, voice}: voices 5-7, free of the game's
+  { 0.00, "kick", 150, 140, 50, 5 }, { 0.00, "harp", 523, 420, 70, 6 }, { 0.09, "harp", 659, 420, 70, 7 },
+  { 0.18, "harp", 784, 420, 70, 6 }, { 0.27, "epiano", 1047, 900, 75, 7 }, { 0.27, "warm", 262, 900, 70, 5 },
+}
+
+local function lighter(c)               -- half way to white
+  local r, g, b = (c >> 16) & 255, (c >> 8) & 255, c & 255
+  return ((r + 255) // 2) << 16 | ((g + 255) // 2) << 8 | (b + 255) // 2
+end
+
+local function build_runs()
+  logo_runs = {}
+  for y, row in ipairs(LOGO) do
+    local x = 1
+    while x <= #row do
+      local ch = row:sub(x, x)
+      local e = x
+      while e < #row and row:sub(e + 1, e + 1) == ch do e = e + 1 end
+      if ch ~= "." then logo_runs[#logo_runs + 1] = { y - 1, x - 1, e - x + 1, LOGO_PAL[ch] } end
+      x = e + 1
+    end
+  end
+end
+
+local function splash_sound(t)
+  while splash_note <= #S_JINGLE and t >= LAND + S_JINGLE[splash_note][1] do
+    local n = S_JINGLE[splash_note]
+    tone(n[6], n[2])
+    note(n[6], n[3], n[4], nil, n[5])
+    splash_note = splash_note + 1
+  end
+end
+
+local function splash_done()
+  for v = 5, 7 do tone(v) end           -- the voices as a game finds them
+  state = "title"
+end
+
+local function splash_update()
+  if not logo_runs then build_runs() end
+  splash_t0 = splash_t0 or time()
+  local t = time() - splash_t0
+  splash_sound(t)
+  local skip = t > LAND + BOUNCE and (btnp(4) or btnp(5) or btnp(8))
+  if t >= SPLASH_END or skip then splash_done() end
+end
+
+local function splash_draw()
+  if not logo_runs then build_runs() end
+  splash_t0 = splash_t0 or time()
+  local t = time() - splash_t0
+  cls(SPLASH_BG)
+  local s = math.max(1, math.min(W // CW, H // CH))
+  local ox, oy = (W - CW * s) // 2, (H - CH * s) // 2
+  local lw, lh = #LOGO[1], #LOGO
+  local x0 = (CW - lw) // 2
+  local y0
+  if t < LAND then
+    local k = t / LAND                  -- falling faster and faster
+    y0 = math.floor(-lh + (LOGO_Y + lh) * k * k)
+  elseif t < LAND + BOUNCE then
+    y0 = LOGO_Y - math.floor(4 * math.sin(math.pi * (t - LAND) / BOUNCE))
+  else
+    y0 = LOGO_Y
+  end
+  for pass = 0, 1 do                    -- its shadow, then the logo
+    local d = pass == 0 and 2 or 0
+    for _, r in ipairs(logo_runs) do
+      rectfill(ox + (x0 + r[2] + d) * s, oy + (y0 + r[1] + d) * s, r[3] * s, s, pass == 0 and 0x000000 or r[4])
+    end
+  end
+  if t > LAND + 0.12 and t < LAND + 0.52 then     -- a shine across the letters after the landing
+    local shine = math.floor((t - LAND - 0.12) * 200) - 10
+    for y = 0, lh - 1 do
+      local row = LOGO[y + 1]
+      for k = 0, 3 do
+        local x = y + shine + k
+        if x >= 0 and x < lw then
+          local ch = row:sub(x + 1, x + 1)
+          if ch ~= "." then rectfill(ox + (x0 + x) * s, oy + (y0 + y) * s, s, s, lighter(LOGO_PAL[ch])) end
+        end
+      end
+    end
+  end
+  if t > LAND + 0.3 then                -- a circle of dots turning
+    local dx = { 0, 5, 7, 5, 0, -5, -7, -5 }
+    local dy = { -7, -5, 0, 5, 7, 5, 0, -5 }
+    local cx, cy = CW // 2, LOGO_Y + lh + 4 + 7 + 2
+    local head = math.floor(t * 1000 / 85) % 8
+    local shade = { 0xFFFFFF, 0xA5A5FF, 0x6B83FF, 0x4A5EAA, 0x252525 }
+    for i = 0, 7 do
+      local behind = (head - i) % 8
+      rectfill(ox + (cx + dx[i + 1] - 1) * s, oy + (cy + dy[i + 1] - 1) * s, 2 * s, 2 * s, shade[math.min(behind, 4) + 1])
+    end
+  end
+end
+
 function _init()
   local data = saved()                  -- the record survives power off (SD card)
   if data and data.best then best = data.best end
@@ -61,6 +199,7 @@ local function turn(x, y)
 end
 
 function _update()
+  if state == "splash" then return splash_update() end
   update_jingle()
   if state ~= "play" then
     if btnp(4) or btnp(5) then new_game() end
@@ -116,6 +255,7 @@ local function cell(x, y, c, inset)
 end
 
 function _draw()
+  if state == "splash" then return splash_draw() end
   cls(BG)
   for x = 0, GW - 1, 2 do
     for y = (x // 2) % 2, GH - 1, 2 do

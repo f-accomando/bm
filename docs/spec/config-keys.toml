@@ -223,7 +223,7 @@ name = "game_intro"
 scope = "all"
 values = "0 = no loading intro; anything else = intro"
 default = "intro shown"
-meaning = "The retro loading screen before a game."
+meaning = "No effect since 16 Nov 2026: the system draws no loading screen (a game draws its own intro). The code of loading.c stays."
 settings = ""
 read_in = "core/src/bm/loading.c:285"
 

@@ -38,12 +38,10 @@ SOC     :=
 # its tests (test-hyp) to make test. make test-zero2 builds it anyway.
 ZERO2   ?= 0
 export ZERO2
-CLEAN_KERNEL ?= 0
-CLEAN_DEFS := $(if $(filter 1,$(CLEAN_KERNEL)),-DBM_CLEAN_KERNEL)
 K7      := $(if $(filter 1,$(ZERO2)),$(BUILD)/kernel7.img)
 COMMON  = $(ARCH) $(SOC) -std=c11 -O2 -Wall -Wextra -g -Icore/src -Icore/third_party \
           -ffunction-sections -fdata-sections \
-          -DUART_BAUD=$(BAUD) $(CLEAN_DEFS)
+          -DUART_BAUD=$(BAUD)
 # Kernel: hosted C on top of newlib (libc, libm), see core/src/lib/syscalls.c.
 CFLAGS  = $(COMMON) -D_DEFAULT_SOURCE -Icore/third_party/lua \
           -Icore/third_party/lwip/src/include -Icore/src/net \
@@ -59,7 +57,7 @@ $(patsubst %,$(BUILD)/k/%.o,$(PI_O3_FILES)): CFLAGS += -O3
 endif
 # Chainloader: freestanding, no libc.
 LCFLAGS := $(COMMON) -Os -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
-ASFLAGS = $(ARCH) $(SOC) $(CLEAN_DEFS) -g -Icore/src -Icore/src/kernel -Wa,-I$(BUILD)
+ASFLAGS = $(ARCH) $(SOC) -g -Icore/src -Icore/src/kernel -Wa,-I$(BUILD)
 LDFLAGS = $(ARCH) -nostartfiles -Wl,--gc-sections
 LDLIBS  := -Wl,--start-group -lc -lm -lgcc -Wl,--end-group
 LLDLIBS := -nostdlib -lgcc
@@ -98,15 +96,9 @@ FORCE:
 
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
-EMBED_TOOLS := $(if $(filter 1,$(CLEAN_KERNEL)),,$(BUILD)/editor.bm $(BUILD)/sound.bm \
-               $(BUILD)/studio.bm $(BUILD)/animator.bm $(BUILD)/mesh.bm $(BUILD)/pixel.bm \
-               $(BUILD)/assistant.bm $(BUILD)/code.bm)
 # Lua scripts embedded with .incbin
 $(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua) core/keys/release-pub.pem core/keys/market-pub.pem \
-                                 $(EMBED_TOOLS) \
-                                 $(BUILD)/assist.bin core/src/ai/assist.lua \
-                                 core/src/ai/predict.lua $(BUILD)/words.lua \
-                                 core/src/ai/padtype.lua
+                                 core/src/ai/assist.lua core/src/ai/predict.lua core/src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
 # into the kernel. The network is trained on the PC (numpy) by `make
@@ -127,7 +119,7 @@ $(BUILD)/words.lua: $(WORDS_SRC)
 	@mkdir -p $(dir $@)
 	$(PYTHON) core/scripts/mkwords.py -o $@
 
-# The built-in tools (code, assistant, editor, sound, studio, animator, mesh, pixel) are built as
+# The tools (code, assistant, editor, sound, studio, animator, mesh, pixel) are Market apps, built as
 # $(BUILD)/<tool>.bm by the cart rule below (TOOL_BMS).
 
 # ---- Cartridges: one data-driven recipe (how to add a cart: docs/PROJECT-LAYOUT.md) ----
@@ -1169,15 +1161,14 @@ firmware:
 # the firmware start kernel7.img on a Pi Zero 2 W and kernel.img on the
 # other boards, so one card works in every Pi bm runs on.
 KERNEL ?= kernel
-# The kernel that ships (card, image, release) is built clean (CLEAN_KERNEL=1) in its own
-# folder: the bm suite and the Assistant come from the Market. The kernel for the tests and
-# for the QEMU runs stays complete in $(BUILD). SHIP_KERNEL=build/kernel.img ships the complete one.
+# No kernel embeds the bm suite or the Assistant: they come from the Market (Market > Apps). The kernel that
+# ships (card, image, release) is built in its own folder.
 SHIP_BUILD  := build-clean
 SHIP_KERNEL ?= $(SHIP_BUILD)/kernel.img
 SHIP_IMG    := $(if $(filter kernel,$(KERNEL)),$(SHIP_KERNEL),$(BUILD)/$(KERNEL).img)
 ifeq ($(BUILD),build)
 $(SHIP_BUILD)/kernel.img: FORCE
-	$(MAKE) BUILD=$(SHIP_BUILD) CLEAN_KERNEL=1 $(SHIP_BUILD)/kernel.img
+	$(MAKE) BUILD=$(SHIP_BUILD) $(SHIP_BUILD)/kernel.img
 endif
 SD_CARTS := $(GAME_CARTS)
 # the WiFi and Bluetooth chips' firmware (make firmware), in bm/: the Zero

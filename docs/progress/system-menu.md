@@ -19,9 +19,10 @@ Cut from [system](system.md): the menu and kernel services. Open work and rules 
   tab's covers first), the frozen game (`lib_is_suspended`, `lib_suspend_*`), the save data, the
   panel (`lib_panel`), the rows that stay in the menu (`lib_act`), `lib_play` and
   `lib_menu_idle`. Still apart: the two main loops (input, questions, launches).
-- Splash only for games: the suite (SDK, editors, Sound, Studio, Animator, Mesh, Pixel,
-  projects) opens without it (`lib_is_dev`; the Pi menu shows it in `cm_launch`, the RGB30 in
-  `rgb_play_begin`).
+- The system draws no splash when a game or an app starts (16 Nov 2026). The menu closes and the cartridge starts.
+  A game that wants an intro draws its own, as `bm/snake` does (`splash_*` in its `main.lua`).
+  `core/src/bm/loading.c` stays in the tree, with its logo, but nothing calls `loading_begin`.
+  The boot logo (`splash.c`) stays.
 - Bar icons: controllers, keyboard and mouse without a player number; Bluetooth keeps a blue
   dot (`ICON_DOT`, `status_icons()` in `menu_ui.c`).
 - Market job (`market.c`): `fiber_slice()` between the steps of the catalog (check, parse,
@@ -111,6 +112,5 @@ Settings > Screen has a new row after Menu size: **Menu layout**, Scaled or Nati
 ## Menu icons and emulator start (2026-11-11)
 
 - The Market has one list. Games and apps install into `/bm`. The tab of a local title follows the cartridge `type` of bm.info: bm Tape is `type: game`, so it shows in Games.
-- Emulators (files `snes`, `nes`, `psx`, `ps1` in `/bm`) start with no bm splash (`lib_no_splash`).
 - Flat menu icons with no text: `python3 core/scripts/mkmenuicons.py` writes `art/icons/<market|nes|snes|psx|bm|settings>_<1080|720|360>.png` (192, 128 and 64 px) and `sheet.png`. The menu does not use them yet.
 - NES and SNES tabs (2026-11-14, Pi and RGB30): the tabs are Market, NES, SNES, Games, Dev, Settings (keys 1 to 6; the tab icons are drawn in `icons.c`, `tab_nes` and `tab_snes`). `romtabs.c` lists `/nes` (.nes) and `/snes` (.sfc, .smc) by title and makes a portrait box cover for each ROM (`menu_make_box_cover`: 64 x 88, NES black box or light PAL/JP SNES box, a picture from the title's hash; no game artwork). `menu_item_t.box` draws the card portrait in its cell. A on a ROM starts `nes.bm` or `snes.bm` with `bm_set_arg(path)`; the carts open that ROM at once and their last menu row (Back to the menu) quits. Not checked on the Pi or the RGB30 screen yet.

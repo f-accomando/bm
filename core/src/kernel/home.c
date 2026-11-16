@@ -101,7 +101,6 @@ static void t_bench3d(framebuffer_t *fb)
  * sprites it would give an editor (also the monitor's I) */
 void home_assistant(framebuffer_t *fb)
 {
-    extern const uint8_t bm_assistant_cart[], bm_assistant_cart_end[];
     bm_stats_t bs;
     fat_entry_t e;
     uint8_t *sd_data = NULL;
@@ -112,12 +111,7 @@ void home_assistant(framebuffer_t *fb)
         free(sd_data);
         return;
     }
-    size_t len = (size_t)(bm_assistant_cart_end - bm_assistant_cart);
-    if (len == 0) {
-        kprintf("assistant: not installed (get it from Market > Apps)\n");
-        return;
-    }
-    bm_play(fb, bm_assistant_cart, len, 24u * 3600u, &bs);
+    kprintf("assistant: not installed (get it from Market > Apps)\n");
 }
 
 typedef struct {
@@ -131,19 +125,11 @@ typedef struct {
     int group;                          /* a utility: 1 = Settings > Screen, 0 = Settings > System */
 } tool_t;
 
-/* bm Code, the code editor */
-static void t_code(framebuffer_t *fb)
-{
-    carts_code(fb, NULL);
-}
-
 static tool_t tools[] = {
-    /* the Dev tab, after the SDK */
-    { "bm Code", "code editor: tabs, two pages, small font", MENU_ICON_CODE, 0x1E8A5A, t_code, 0, { 0 }, NULL, 0 },
-    { "Assistant", "help with code and sprites; F6 in the tools", MENU_ICON_ASSIST, 0x2A6A9A, home_assistant, 0, { 0 }, NULL, 0 },
+    /* the Dev tab: bm Code, the Assistant and the other editors are apps of the Market (Market > Apps) */
     { "Monitor", "the text console with every command (h: help)", MENU_ICON_TERMINAL, 0x2A3A4A, NULL, 0, { 0 }, NULL, 0 },
     { "Lua", "Lua 5.4 prompt (USB keyboard); Ctrl-D or exit() returns", MENU_ICON_LUA, 0x2A3A9A, t_lua, 0, { 0 }, NULL, 0 },
-#define NDEV 4
+#define NDEV 2
     /* the utilities: Settings > System > Utilities, and group 1 in Settings > Screen */
     { "3D Bench", "every 3D test, every driver: bars, report on the SD", MENU_ICON_GAUGE, 0x2A6A8A, t_bench3d, 1,
       { 0 }, NULL, 1 },
@@ -153,15 +139,6 @@ static tool_t tools[] = {
 
 void home_init(void)
 {
-    /* bm Code: the bm Suite's icon, the COVER of its cartridge */
-    extern const uint8_t bm_code_cart[], bm_code_cart_end[];
-    bm_cart_t bc;
-    char err[8];
-    size_t code_len = (size_t)(bm_code_cart_end - bm_code_cart);
-    if (!tools[0].cover.px && code_len > 0 &&
-        bm_parse(bm_code_cart, code_len, &bc, err, sizeof err) == 0 &&
-        bc.cover_rgba)
-        menu_load_cover(&tools[0].cover, bc.cover_rgba, bc.cover_w, bc.cover_h);
     for (int i = 0; i < NDEV; i++)
         if (!tools[i].cover.px)
             menu_make_tool_cover(&tools[i].cover, tools[i].title, tools[i].icon, tools[i].rgb);

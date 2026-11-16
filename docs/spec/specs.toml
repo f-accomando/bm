@@ -157,7 +157,7 @@ since = 3
 status = "implemented"
 platforms = "all"
 where = ["core/src/bm/project.h", "core/scripts/mkbm.py", "core/src/kernel/settings.c", "core/src/kernel/home.h"]
-note = "docs/BM-FORMAT.md. The type bits are in the header (project.h), written by mkbm.py from bm.info. Pi: carts.c reads bm_type_of_head and lists app and utility cartridges in Dev, with no splash; home.c defines the utilities. RGB30: core/src/rgb30/ui.c does the same (D51, QEMU test_cart_type_dev) and defines its utilities (D52). Not seen on the RGB30 panel"
+note = "docs/BM-FORMAT.md. The type bits are in the header (project.h), written by mkbm.py from bm.info. Pi: carts.c reads bm_type_of_head and lists app and utility cartridges in Dev (no cartridge has a system splash since 16 Nov 2026); home.c defines the utilities. RGB30: core/src/rgb30/ui.c does the same (D51, QEMU test_cart_type_dev) and defines its utilities (D52). Not seen on the RGB30 panel"
 
 [[item]]
 id = "folders-bm-bme"

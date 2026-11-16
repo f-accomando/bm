@@ -576,7 +576,7 @@ action = "future: alpha, screen and bilinear textures on the GPU"
 [[divergence]]
 id = "D51"
 area = "menu / cartridge type"
-pi = "a cartridge whose header declares type app or utility (bm.info `type:`) is listed in Dev and opens with no splash"
+pi = "a cartridge whose header declares type app or utility (bm.info `type:`) is listed in Dev and opens with no splash (as every cartridge since 16 Nov 2026: the system draws none)"
 rgb30 = "same since 25 Oct 2026: scan_games reads bm_type_of_head, the apps and utilities are listed in Dev after the bm SDK, play_bm skips loading_begin for them"
 cause = "history"
 priority = 4

@@ -50,13 +50,6 @@
 #include <string.h>
 
 
-extern const uint8_t bm_editor_cart[], bm_editor_cart_end[];
-extern const uint8_t bm_sound_cart[], bm_sound_cart_end[];
-extern const uint8_t bm_studio_cart[], bm_studio_cart_end[];
-extern const uint8_t bm_animator_cart[], bm_animator_cart_end[];
-extern const uint8_t bm_code_cart[], bm_code_cart_end[];
-extern const uint8_t bm_mesh_cart[], bm_mesh_cart_end[];
-extern const uint8_t bm_pixel_cart[], bm_pixel_cart_end[];
 
 static char last_msg[96];
 static char perf_msg[80];          /* speed of the last .bm game */
@@ -173,39 +166,11 @@ static const char *tool_id_of(const lib_game_t *c)
     return c->tool;
 }
 
-static int has_sd_tool(const char *tid)
-{
-    for (int i = 0; i < library.nsd; i++) {
-        const char *t = tool_id_of(&library.g[i]);
-        if (t && strcmp(t, tid) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-/* the tools always come last (up from the first cartridge); skipped if
- * already installed on the SD card from Market > Apps or if CLEAN_KERNEL=1 */
-static void add_builtins(void)
-{
-    if (&bm_editor_cart_end[0] > &bm_editor_cart[0] && !has_sd_tool("sdk"))
-        lib_add_builtin(&library, "editor (built-in)", "sdk", bm_editor_cart, bm_editor_cart_end);
-    if (&bm_sound_cart_end[0] > &bm_sound_cart[0] && !has_sd_tool("sound"))
-        lib_add_builtin(&library, "sound (built-in)", "sound", bm_sound_cart, bm_sound_cart_end);
-    if (&bm_studio_cart_end[0] > &bm_studio_cart[0] && !has_sd_tool("studio"))
-        lib_add_builtin(&library, "studio (built-in)", "studio", bm_studio_cart, bm_studio_cart_end);
-    if (&bm_animator_cart_end[0] > &bm_animator_cart[0] && !has_sd_tool("animator"))
-        lib_add_builtin(&library, "animator (built-in)", "animator", bm_animator_cart, bm_animator_cart_end);
-    if (&bm_mesh_cart_end[0] > &bm_mesh_cart[0] && !has_sd_tool("mesh"))
-        lib_add_builtin(&library, "mesh (built-in)", "mesh", bm_mesh_cart, bm_mesh_cart_end);
-    if (&bm_pixel_cart_end[0] > &bm_pixel_cart[0] && !has_sd_tool("pixel"))
-        lib_add_builtin(&library, "pixel (built-in)", "pixel", bm_pixel_cart, bm_pixel_cart_end);
-}
-
 /* the folders of the Pi: the root, /bm (the games folder of both consoles since 25 Oct 2026: nothing reads /carts
  * any more) and the projects (.bme, project.h) */
 static const char *const pi_dirs[] = { "/", "/bm", BM_PROJECTS_DIR, NULL };
 static const lib_backend_t pi_backend = {
-    .dirs = pi_dirs, .target = BM_TARGET_PI, .add_builtins = add_builtins, .stop_background = background_stop,
+    .dirs = pi_dirs, .target = BM_TARGET_PI, .stop_background = background_stop,
     .panel = LIB_CAP_SDK | LIB_CAP_TOOLS | LIB_CAP_COPY | LIB_CAP_PUBLISH | LIB_CAP_SEND,
     .jobs = menu_jobs, .njobs = (int)(sizeof menu_jobs / sizeof *menu_jobs),
     .write_waits = idle_write_waits, .before_jobs = idle_before_jobs,
@@ -310,13 +275,13 @@ void carts_play_buffer(framebuffer_t *fb, const uint8_t *data, size_t len)
 /* The tools a tool can open on its file with lib_game_tool(name, path) (bm
  * Studio's "Open in bm Animator" and back). */
 static const devtool_t tools[] = {
-    { "studio", "bm Studio", bm_studio_cart, bm_studio_cart_end },
-    { "animator", "bm Animator", bm_animator_cart, bm_animator_cart_end },
-    { "mesh", "bm Mesh", bm_mesh_cart, bm_mesh_cart_end },
-    { "pixel", "bm Pixel", bm_pixel_cart, bm_pixel_cart_end },
-    { "code", "bm Code", bm_code_cart, bm_code_cart_end },
-    { "sdk", "SDK", bm_editor_cart, bm_editor_cart_end },
-    { "sound", "Sound editor", bm_sound_cart, bm_sound_cart_end },
+    { "studio", "bm Studio", NULL, NULL },
+    { "animator", "bm Animator", NULL, NULL },
+    { "mesh", "bm Mesh", NULL, NULL },
+    { "pixel", "bm Pixel", NULL, NULL },
+    { "code", "bm Code", NULL, NULL },
+    { "sdk", "SDK", NULL, NULL },
+    { "sound", "Sound editor", NULL, NULL },
 };
 static const devtools_t suite = { tools, sizeof tools / sizeof tools[0], NULL };
 
@@ -335,32 +300,29 @@ const char *carts_tool_session(framebuffer_t *fb, const uint8_t *cart, size_t ca
 }
 
 /* the SDK or the Sound editor */
-static const char *editor_session(framebuffer_t *fb, const char *open, const uint8_t *cart, const uint8_t *end)
+static const char *editor_session(framebuffer_t *fb, const char *open, int sound)
 {
-    return carts_tool_session(fb, cart, (size_t)(end - cart), cart == bm_sound_cart ? "Sound editor" : "SDK",
-                              open);
+    return carts_tool_session(fb, NULL, 0, sound ? "Sound editor" : "SDK", open);
 }
 
 const char *carts_code(framebuffer_t *fb, const char *open)
 {
-    return carts_tool_session(fb, bm_code_cart, (size_t)(bm_code_cart_end - bm_code_cart), "bm Code", open);
+    return carts_tool_session(fb, NULL, 0, "bm Code", open);
 }
 
 static const char *studio_session(framebuffer_t *fb, const char *open)
 {
-    return carts_tool_session(fb, bm_studio_cart, (size_t)(bm_studio_cart_end - bm_studio_cart), "bm Studio",
-                              open);
+    return carts_tool_session(fb, NULL, 0, "bm Studio", open);
 }
 
 static const char *animator_session(framebuffer_t *fb, const char *open)
 {
-    return carts_tool_session(fb, bm_animator_cart, (size_t)(bm_animator_cart_end - bm_animator_cart),
-                              "bm Animator", open);
+    return carts_tool_session(fb, NULL, 0, "bm Animator", open);
 }
 
 static const char *mesh_session(framebuffer_t *fb, const char *open)
 {
-    return carts_tool_session(fb, bm_mesh_cart, (size_t)(bm_mesh_cart_end - bm_mesh_cart), "bm Mesh", open);
+    return carts_tool_session(fb, NULL, 0, "bm Mesh", open);
 }
 
 const char *carts_mesh(framebuffer_t *fb)
@@ -370,7 +332,7 @@ const char *carts_mesh(framebuffer_t *fb)
 
 static const char *pixel_session(framebuffer_t *fb, const char *open)
 {
-    return carts_tool_session(fb, bm_pixel_cart, (size_t)(bm_pixel_cart_end - bm_pixel_cart), "bm Pixel", open);
+    return carts_tool_session(fb, NULL, 0, "bm Pixel", open);
 }
 
 const char *carts_pixel(framebuffer_t *fb)
@@ -380,12 +342,12 @@ const char *carts_pixel(framebuffer_t *fb)
 
 const char *carts_editor(framebuffer_t *fb)
 {
-    return editor_session(fb, NULL, bm_editor_cart, bm_editor_cart_end);
+    return editor_session(fb, NULL, 0);
 }
 
 const char *carts_sound_editor(framebuffer_t *fb)
 {
-    return editor_session(fb, NULL, bm_sound_cart, bm_sound_cart_end);
+    return editor_session(fb, NULL, 1);
 }
 
 const char *carts_studio(framebuffer_t *fb)
@@ -1419,22 +1381,13 @@ static void cm_launch(cmenu_t *m)
     market_set_active(0);               /* nothing loads behind a game */
     market_lan(0);
     background_stop();                  /* the covers: later */
-    /* an application (a game, a tool): the system's splash while it
-     * loads, never the log (2026-10-04); a suspended game comes back
-     * at once */
+    /* an application (a game, a tool): the menu closes quietly, never the log; no system splash
+     * (a game that wants an intro draws its own, as bm/snake does) */
     const int app = m->go >= GO_PLAY && m->go <= GO_PIXEL;
-    const int resume = m->go == GO_PLAY && m->go_cart >= 0 && lib_is_suspended(&library.g[m->go_cart]);
     if (m->gfx && app)
         menu_ui_close_quiet(m->fb);
     else if (m->gfx)
         menu_ui_close(m->fb);
-    /* the bm suite (editor, Studio, Animator, Mesh, Pixel, Sound, a project) opens
-     * with no splash; the splash is for games */
-    const int suite = (m->go >= GO_SDK && m->go <= GO_PIXEL) ||
-                      (m->go == GO_PLAY && m->go_cart >= 0 &&
-                       (lib_is_dev(&library.g[m->go_cart]) || lib_no_splash(&library.g[m->go_cart])));
-    if (app && !resume && !suite)
-        loading_begin(m->fb);
     /* the file of a tool: a cartridge of the menu, or none */
     const char *gpath = m->go_cart >= 0 ? library.g[m->go_cart].path : "";
     const char *gname = m->go_cart >= 0 ? library.g[m->go_cart].name : "";
@@ -1450,8 +1403,7 @@ static void cm_launch(cmenu_t *m)
     case GO_SOUND:
         lib_suspend_close();
         ksnprintf(last_msg, sizeof last_msg, "last: %s on %s",
-                  editor_session(m->fb, gpath, m->go == GO_SDK ? bm_editor_cart : bm_sound_cart,
-                                 m->go == GO_SDK ? bm_editor_cart_end : bm_sound_cart_end),
+                  editor_session(m->fb, gpath, m->go == GO_SOUND),
                   gname);
         crumb("cartridge menu", NULL);
         m->depth = 0;

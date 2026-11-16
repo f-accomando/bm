@@ -16,8 +16,9 @@ Cut from [tools](tools.md): the suite and its editors. Open work and rules stay 
   16x16 tiles (a 16x16 tile is 2x2 cells), groups, boolean tile properties to flags 0-4, add or
   replace; host tests in `sdk_host.lua`. Not undoable (reopen the project).
 - **Tool session** (`core/src/kernel/devtool.c`): the tool, the games it tries (`cart_run`, back with
-  `cart_arg()`), the tools it opens (`cart_tool`); prefers SD-installed Market apps (`/bm/`) over embedded kernel copies so tools can be updated from the Market and kernels can be
-  built clean with `CLEAN_KERNEL=1`.
+  `cart_arg()`), the tools it opens (`cart_tool`); loads the tool from the SD card (`/bm/`, from Market > Apps). No kernel embeds a tool since 16 Nov 2026:
+  `CLEAN_KERNEL` is gone, `embed.S` has no `*_cart` symbol, and the Dev tab has no bm Code and no Assistant tile.
+  Without the app on the SD card the session prints "not installed (get it from Market > Apps)".
 - **bm Code** (`bm/code`): tabs, two pages, 6×12/8×14/8×16 fonts; Ctrl+Q / Y+X help on the API function, API lint on save (`predict.lint`, same rules as `core/scripts/api_lint.py`); completion
   (`predict`, [`docs/PREDICT.md`](../PREDICT.md)), pad typing (`padtype`,
   [`docs/PADTYPE.md`](../PADTYPE.md)), F6 assistant and `#entry: … #` lines, F8
