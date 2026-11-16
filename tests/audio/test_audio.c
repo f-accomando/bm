@@ -1872,6 +1872,68 @@ static void test_presets(void)
     }
 }
 
+/* SID+: the share of a voice's energy that is not at a harmonic of its
+ * period (dB): the aliasing of the oscillators. A pitch with a fraction
+ * (1/256 Hz steps), so the folded harmonics do not land on the harmonics. */
+static double sid_alias_db(int duty, int shape1, int couple, int shape2, int hz)
+{
+    enum { N = 4096, SKIP = 8192 };
+    static int32_t o[SYNTH_BLOCK * 2];
+    static double x[N];
+    synth_t s;
+    uint8_t r[SYNTH_REG_BYTES] = { 0 };
+    synth_init(&s, RATE);
+    r[SYNTH_FREQ_FRAC] = 95;
+    r[SYNTH_FREQ_LO] = hz & 255;
+    r[SYNTH_FREQ_HI] = hz >> 8;
+    r[SYNTH_WAVEFORM] = SYNTH_SID;
+    r[SYNTH_DUTY] = duty;
+    r[SYNTH_VOLUME] = 200;
+    r[SYNTH_SUSTAIN] = 255;
+    r[SYNTH_MOD1] = (uint8_t)(shape1 | (couple << 3) | (shape2 << 5));
+    r[SYNTH_MOD2] = 96;                 /* osc 2 an octave up: one period for both */
+    r[SYNTH_CONTROL] = SYNTH_GATE;
+    for (int b = 0; b < (SKIP + N) / SYNTH_BLOCK; b++) {
+        synth_render32(&s, r, o, SYNTH_BLOCK, 24);
+        if (b * SYNTH_BLOCK >= SKIP)
+            for (int i = 0; i < SYNTH_BLOCK; i++)
+                x[b * SYNTH_BLOCK - SKIP + i] = (double)o[2 * i] / 2147483648.0;
+    }
+    double mean = 0;
+    for (int i = 0; i < N; i++)
+        mean += x[i];
+    mean /= N;
+    for (int i = 0; i < N; i++)
+        x[i] = (x[i] - mean) * (0.5 - 0.5 * cos(2.0 * M_PI * i / (N - 1)));
+    double f0 = hz + 95.0 / 256.0;
+    if (couple == SYNTH_SID_SYNC || couple == SYNTH_SID_SYNCRING)
+        f0 *= 2.0;                      /* osc 2 resets osc 1: its period */
+    double tot = 0, bad = 0;
+    for (int k = 1; k < N / 2; k++) {
+        double re = 0, im = 0, w = 2.0 * M_PI * k / N;
+        for (int i = 0; i < N; i++) {
+            re += x[i] * cos(w * i);
+            im += x[i] * sin(w * i);
+        }
+        double e = re * re + im * im;
+        double fk = (double)k * RATE / N, h = floor(fk / f0 + 0.5);
+        tot += e;
+        if (fabs(fk - h * f0) > 4.0 * RATE / N)
+            bad += e;
+    }
+    return 10.0 * log10(bad / tot + 1e-30);
+}
+
+static void test_sid_alias(void)
+{
+    /* before the band limiting of the reset and of osc 2's square: -17 dB,
+     * -19 dB and -19 dB */
+    CHECK(sid_alias_db(128, 1, SYNTH_SID_MIX, 2, 2345) < -26.0);    /* saw + square of osc 2 */
+    CHECK(sid_alias_db(64, 1, SYNTH_SID_SYNC, 1, 2345) < -20.0);    /* hard sync, saw */
+    CHECK(sid_alias_db(64, 2, SYNTH_SID_SYNC, 2, 2345) < -24.0);    /* hard sync, pulse */
+    CHECK(sid_alias_db(128, 1, SYNTH_SID_MIX, 1, 2345) < -26.0);    /* saw + saw: stays as it was */
+}
+
 int main(void)
 {
     test_synth();
@@ -1885,6 +1947,7 @@ int main(void)
     test_samples();
     test_effects();
     test_presets();
+    test_sid_alias();
     printf("audio: %d/%d checks passed\n", checks - fails, checks);
     return fails != 0;
 }

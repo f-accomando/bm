@@ -905,6 +905,40 @@ typedef struct {
     float fb;               /* FM feedback (rad) */
 } wave_args_t;
 
+/* SID+ oscillator 1 at the phase t1 (0..1): the shape, band limited (BLEP)
+ * where the wave jumps by itself (bl: 0 = the plain wave, for the jump of a
+ * reset). sub: the high bit of oscillator 2 (shape 7) */
+static inline float sid_o1(unsigned shape1, int mode6581, int bl, float t1, float dt, float idt, float pw, uint32_t sub_bit)
+{
+    float tri = t1 < 0.5f ? -1.0f + 4.0f * t1 : 3.0f - 4.0f * t1;
+    float saw = dt < 0.5f ? 2.0f * t1 - 1.0f - (bl ? blep(t1, dt, idt) : 0.0f) : 0.0f;
+    float pls = t1 < pw ? 1.0f : -1.0f;
+    if (bl && dt < 0.5f) {
+        pls += blep(t1, dt, idt);
+        float tp = t1 - pw;
+        if (tp < 0.0f) tp += 1.0f;
+        pls -= blep(tp, dt, idt);
+    }
+    if (mode6581 && shape1 >= 3 && shape1 <= 6) {
+        /* 6581-style bitwise AND combination of 8-bit quantized waves */
+        unsigned ut = (unsigned)((tri + 1.0f) * 127.5f);
+        unsigned us = (unsigned)((saw + 1.0f) * 127.5f);
+        unsigned up = pls > 0.0f ? 255u : 0u;
+        unsigned u = shape1 == 3 ? (ut & us) : shape1 == 4 ? (ut & up) : shape1 == 5 ? (us & up) : (ut & us & up);
+        return (float)u * (1.0f / 127.5f) - 1.0f;
+    }
+    switch (shape1) {
+    case 0: return tri;
+    case 1: return saw;
+    case 2: return pls;
+    case 3: return 0.55f * (tri + saw);
+    case 4: return 0.55f * (tri + pls);
+    case 5: return 0.55f * (saw + pls);
+    case 6: return 0.40f * (tri + saw + pls);
+    default: return 0.55f * (saw + (sub_bit ? 1.0f : -1.0f));
+    }
+}
+
 /* The clean voice. */
 static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, const wave_args_t *a,
                        float *out, unsigned n)
@@ -1142,49 +1176,43 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
         float mix = a->fmfb ? (float)a->fmfb * (1.0f / 255.0f) : 1.0f;
         float dt2 = (float)i2 * TO_UNIT;
         float idt2 = dt2 > 1e-7f ? 1.0f / dt2 : 1.0f;
+        float i2_inv = 1.0f / (float)i2;
+        int nobl = 0;
 
         for (unsigned i = 0; i < n; i++) {
             uint32_t prev2 = p2;
             p2 += i2;
-            if ((couple == SYNTH_SID_SYNC || couple == SYNTH_SID_SYNCRING) && p2 < prev2)
+            int synced = 0;
+            uint32_t phase_old = phase;
+            if ((couple == SYNTH_SID_SYNC || couple == SYNTH_SID_SYNCRING) && p2 < prev2) {
                 phase = (uint32_t)(((uint64_t)p2 * sync_ratio) >> 16);
+                synced = 1;
+            }
 
             float t1 = (float)phase * TO_UNIT;
             float t2 = (float)p2 * TO_UNIT;
 
             /* Osc 1 */
-            float tri = t1 < 0.5f ? -1.0f + 4.0f * t1 : 3.0f - 4.0f * t1;
-            float saw = dt < 0.5f ? 2.0f * t1 - 1.0f - blep(t1, dt, idt) : 0.0f;
-            float pls = t1 < pw ? 1.0f : -1.0f;
-            if (dt < 0.5f) {
-                pls += blep(t1, dt, idt);
-                float tp = t1 - pw;
-                if (tp < 0.0f) tp += 1.0f;
-                pls -= blep(tp, dt, idt);
-            }
-            float o1;
-            if (mode6581 && shape1 >= 3 && shape1 <= 6) {
-                /* 6581-style bitwise AND combination of 8-bit quantized waves */
-                unsigned ut = (unsigned)((tri + 1.0f) * 127.5f);
-                unsigned us = (unsigned)((saw + 1.0f) * 127.5f);
-                unsigned up = pls > 0.0f ? 255u : 0u;
-                unsigned u = shape1 == 3 ? (ut & us) : shape1 == 4 ? (ut & up) : shape1 == 5 ? (us & up) : (ut & us & up);
-                o1 = (float)u * (1.0f / 127.5f) - 1.0f;
-            } else {
-                switch (shape1) {
-                case 0: o1 = tri; break;
-                case 1: o1 = saw; break;
-                case 2: o1 = pls; break;
-                case 3: o1 = 0.55f * (tri + saw); break;
-                case 4: o1 = 0.55f * (tri + pls); break;
-                case 5: o1 = 0.55f * (saw + pls); break;
-                case 6: o1 = 0.40f * (tri + saw + pls); break;
-                default: {
-                    float sub = (p2 & 0x80000000u) ? 1.0f : -1.0f;
-                    o1 = 0.55f * (saw + sub);
-                    break;
-                }
-                }
+            if (synced)
+                nobl = 1;                       /* t1 near 0 is a reset, not a wrap */
+            else if (t1 >= dt)
+                nobl = 0;
+            float o1 = sid_o1(shape1, mode6581, !nobl, t1, dt, idt, pw, p2 & 0x80000000u);
+            float pre = 0.0f;
+            if (synced) {
+                /* the reset is a jump of osc 1: band limited like a wave's own
+                 * (BLEP). d: how long ago the reset was, in samples. The sample
+                 * before it is written already: it gets its part of the step
+                 * after the mix, below, and loses the BLEP of a wrap that the
+                 * reset took the place of */
+                float old = sid_o1(shape1, mode6581, 0, (float)phase_old * TO_UNIT, dt, idt, pw, p2 & 0x80000000u);
+                float step = 0.5f * (o1 - old);
+                float d = (float)p2 * i2_inv;
+                if (d > 1.0f) d = 1.0f;
+                o1 += step * (d + d - d * d - 1.0f);
+                float tp = (float)(phase_old - inc) * TO_UNIT;
+                pre = step * d * d - (sid_o1(shape1, mode6581, 1, tp, dt, idt, pw, 0) -
+                                      sid_o1(shape1, mode6581, 0, tp, dt, idt, pw, 0));
             }
 
             /* Osc 2 */
@@ -1195,6 +1223,11 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
                 o2 = dt2 < 0.5f ? 2.0f * t2 - 1.0f - blep(t2, dt2, idt2) : 0.0f;
             } else {
                 o2 = t2 < 0.5f ? 1.0f : -1.0f;
+                if (dt2 < 0.5f) {
+                    float tq = t2 - 0.5f;
+                    if (tq < 0.0f) tq += 1.0f;
+                    o2 += blep(t2, dt2, idt2) - blep(tq, dt2, idt2);
+                }
             }
 
             float y;
@@ -1208,6 +1241,13 @@ static void wave_clean(synth_t *s, synth_voice_t *v, unsigned ch, uint8_t wave, 
             if (mode6581) {
                 /* subtle 12-bit DAC quantization step */
                 y = (float)((int32_t)(y * 2048.0f + 4096.5f) - 4096) * (1.0f / 2048.0f);
+            }
+            if (pre != 0.0f && i > 0) {
+                /* the sample before the reset, with osc 1's gain in the mix */
+                float g1 = (couple == SYNTH_SID_RING || couple == SYNTH_SID_SYNCRING) ? 1.0f - mix + o2 * mix
+                         : couple == SYNTH_SID_SYNC ? (a->fmfb ? 1.0f - 0.5f * mix : 1.0f)
+                         : 1.0f - 0.45f * mix;
+                out[i - 1] += pre * g1;
             }
             out[i] = y;
             phase += inc;

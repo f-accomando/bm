@@ -18,6 +18,9 @@ Detail: [audio-output.md](audio-output.md) (depth, dither, ramps), [audio-sample
   metal noise, two-operator FM with feedback, plucked string (Karplus-Strong with a Thiran
   allpass), supersaw (three saws), organ (four drawbars), sample, pink/brown/crackle noise,
   and SID+ (`SYNTH_SID`: dual-oscillator combined waves, hard sync, ring mod, optional 6581 toggle).
+  Band limiting of SID+ (16 Nov 2026): the hard-sync reset is a BLEP step, osc 2's square has BLEP, and a reset
+  does not add the BLEP of a wrap. Aliasing at 2345 Hz: sync saw -17 to -25 dB, sync pulse -19 to -30 dB,
+  saw + square -16 to -33 dB (`test_sid_alias` in `tests/audio/test_audio.c`).
   PolyBLEP/BLAMP band limiting.
 - Per voice: white noise mix, drive, TPT state-variable filter (low/band/high pass, notch,
   key tracking, optional `SYNTH_ANALOG_FLT` non-linear saturation) with its own envelope, LFO
@@ -86,6 +89,7 @@ come from a small INT8 network (`MUS_NFEAT` 116 inputs, `MUS_NOUT` 24 outputs, `
 
 ## Rules (do not break)
 
+- **SID+ band limiting.** Evaluate osc 1 through `sid_o1()` (`core/src/audio/synth.c`). On a sync reset, compute the step with `bl = 0` and add the BLEP of the step. Do not add the BLEP of a wrap near phase 0 after a reset. `test_sid_alias` fails if a change makes the aliasing worse.
 - **bm Tape voices.** The sequencer queues notes with `play_at` and keeps `play_voices(0, 1, 2, 3, 4, 5)`. Live play uses `play(6 or 7, ...)`. Keep this split: a live key must not take a voice of the sequencer.
 - **Felucca-Engines in bm Tape.** Compile `core/third_party/felucca-engines/` (MIT) on the PC only, through `core/scripts/felpack.py`. The kernel does not link it. Change no file of that folder. Do not copy code of the GPL-3.0 firmware `hugelton/Felucca`. Keep the PCM total of the tape bank at 2.5 MB or less. After a new commit of the engines, make the golden file `tests/tape/felucca_golden.txt` again and review the change.
 - **The bank format lives in three places**, changed together: C `au_parse`
