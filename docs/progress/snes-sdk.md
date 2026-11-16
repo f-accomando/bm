@@ -110,6 +110,14 @@ First, the Sprites tab (done; the rest of it is here). Then the tabs below, in t
    3. A hook in the Code tab of `bm/snes_sdk`: the F6 result goes in at the cursor, with the same marks as `bm Code` (`BL.integrate_block`, `ai_marks`), and the lessons of the Learn tab are the first examples for the query set.
    4. Tests: assemble every emitted pattern and compare the bytes with the opcode table (`A.opcodes`); run each pattern in the core (`tests/snes/`, as `make test-snes-m7rom` does) and check A, X, Y, P and memory; add the cases to `tests/ai/synth_test.lua` (`make test-ai`).
    Rules: offline, no PC at run time, the arena of 512 KB, the step and depth budget of `lisp.c`; the Pi Zero W is the benchmark. Not started.
+10. NES emulator for the SNES core (user choice, 2026-11-16; ROADMAP APP-35). An SDK project that builds a `.sfc` which reads a `.nes` and runs it. Not started. Steps:
+   1. The CPU: run the 6502 on the 65C816 (emulation mode e=1 or native mode). Intercept each access to `$2000-$2007`, `$4000-$4017` and the mapper writes. The decimal flag has no effect on the NES.
+   2. The picture: write the PPU registers as SNES PPU, VRAM, CGRAM and OAM writes by DMA. Convert the 2bpp planar NES tiles to SNES 2bpp. Convert the 64 NES colours to BGR555. Map the attributes to BG sub-palettes. Use the sprite 0 hit through the H/V IRQ, and the split scroll through HDMA.
+   3. The sound: an SPC700 driver for the pulse, triangle and noise channels. The DMC comes last.
+   4. The input: `$4016/$4017` from the auto-read at `$4218`.
+   5. The cartridge: map the ROM into LoROM banks. Start with mappers 0, 2 and 3, then 1 and 4. Use `core/src/bm/nes.c` as the reference to compare.
+   6. Tests: a test ROM that `make_testrom.py` builds; run it in the core and compare the frame with `nes.c` (`tests/nes/`). Run nestest through the SNES program.
+   Rule: bm NES in C (`nes.c`) stays the main emulator. The SNES program is an SDK showcase.
 
 Other open work:
 
