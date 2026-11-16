@@ -1,7 +1,7 @@
 # bm SNES SDK
 
 Area sheet for the SNES SDK of bm: tools to make SNES games inside bm, in 65C816 assembly, with the keyboard and the mouse.
-Back to [snes.md](snes.md) (the emulator that runs the ROMs). Phase 1 of the plan is the assembler, the ROM builder, the code tab, the debug API, the sprite tab and the templates. This sheet covers the assembler and the ROM builder. Other sessions do the debug API and the sprite tab.
+Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, in order: [snes-sdk-roadmap.md](snes-sdk-roadmap.md). Phase 1 of the plan is the assembler, the ROM builder, the code tab, the debug API, the sprite tab and the templates. This sheet covers the assembler and the ROM builder. Other sessions do the debug API and the sprite tab.
 
 ## What is in it
 
