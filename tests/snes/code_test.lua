@@ -326,5 +326,51 @@ do
   check(#SC.cart_lines(g) == 6, "six lines in the menu")
 end
 
+do
+  local lines = {}
+  for i = 1, 30 do lines[i] = "line" .. i .. " foo_bar  baz" end
+  local b = B.new(table.concat(lines, "\n") .. "\n")
+  B.nav(b, "right", { ctrl = true }, 10)
+  check(b.cy == 1 and b.cx == 6, "Ctrl+Right: the start of the next word: " .. b.cx)
+  B.nav(b, "right", { ctrl = true }, 10)
+  check(b.cx == 15, "Ctrl+Right again: " .. b.cx)
+  B.nav(b, "left", { ctrl = true }, 10)
+  check(b.cx == 6, "Ctrl+Left: the start of the word: " .. b.cx)
+  B.nav(b, "right", { ctrl = true, alt = true }, 10)
+  check(b.cx == #b.lines[1], "Ctrl+Alt+Right: the end of the line")
+  B.nav(b, "left", { ctrl = true, alt = true }, 10)
+  check(b.cx == 0, "Ctrl+Alt+Left: the start of the line")
+  B.nav(b, "down", { alt = true }, 10)
+  check(b.cy == 11, "Alt+Down: a page down: " .. b.cy)
+  B.nav(b, "up", { alt = true }, 10)
+  check(b.cy == 1, "Alt+Up: a page up")
+  B.nav(b, "down", { ctrl = true, alt = true }, 10)
+  check(b.cy == 30 and b.cx == #b.lines[30], "Ctrl+Alt+Down: the end of the text")
+  B.nav(b, "up", { ctrl = true, alt = true }, 10)
+  check(b.cy == 1 and b.cx == 0, "Ctrl+Alt+Up: the start of the text")
+  -- Shift selects; a move without Shift clears
+  B.nav(b, "right", { shift = true }, 10)
+  B.nav(b, "right", { shift = true }, 10)
+  B.nav(b, "down", { shift = true }, 10)
+  local y0, x0, y1, x1 = B.sel_range(b)
+  check(y0 == 1 and x0 == 0 and y1 == 2 and x1 == 2, "Shift+arrows select from where it began")
+  B.nav(b, "right", { shift = true, ctrl = true }, 10)
+  check(b.mark and b.mark.cy == 1 and b.mark.cx == 0, "Shift+Ctrl+Right keeps the mark")
+  B.nav(b, "left", {}, 10)
+  check(b.mark == nil, "a move without Shift clears the selection")
+  -- a mark of Ctrl+Q stays when you move
+  B.key(b, "^q")
+  B.nav(b, "right", {}, 10)
+  check(b.mark ~= nil, "a Ctrl+Q mark stays when you move")
+  B.key(b, "^q")
+  check(not B.nav(b, "x", {}, 10), "a letter is not a movement key")
+  -- typing replaces a Shift selection
+  b.cy, b.cx, b.mark = 1, 0, nil
+  B.nav(b, "right", { shift = true }, 10)
+  B.nav(b, "right", { shift = true }, 10)
+  B.key(b, "Z")
+  check(b.lines[1]:sub(1, 3) == "Zne", "typing replaces the selection: " .. b.lines[1])
+end
+
 io.write(string.format("snes code: %d checks, %d failed\n", checks, fails))
 os.exit(fails == 0 and 0 or 1)

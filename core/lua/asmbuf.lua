@@ -5,6 +5,7 @@
 --   local B = loadfile("core/lua/asmbuf.lua")()
 --   local b = B.new(text)
 --   B.key(b, k)          one key of keyp(): moves, types, deletes, undo, copy, paste; true when the buffer took it
+--   B.nav(b, k, mods, rows) a movement key with Shift, Ctrl and Alt (the keys of shell code; below)
 --   B.text(b)            the whole text
 --   B.labels(b)          { { name, line }, ... } the labels of the text (not the local ones with @)
 --   B.find(b, text, back) find the next place (from the cursor), move there and select it; false when none
@@ -124,6 +125,62 @@ end
 
 B.clipboard = nil
 
+-- Movement keys with the modifiers, as in the shell code editor (a keyboard with no Page Up and Page Down still moves a page):
+--   Shift + a movement key   extends the selection (the first Shift key sets the mark; a move without Shift clears it)
+--   Ctrl + Left / Right      one word left / right
+--   Ctrl + Alt + Left / Right  the start / the end of the line
+--   Alt + Up / Down          one page up / down
+--   Ctrl + Alt + Up / Down   the start / the end of the text
+-- mods = { shift, ctrl, alt }. Returns true when the key was a movement key and the buffer took it.
+local NAV = { up = true, down = true, left = true, right = true, home = true, ["end"] = true, pgup = true, pgdn = true }
+local function wordc(ch) return ch ~= "" and ch:match("[%w_]") ~= nil end
+
+function B.nav(b, k, m, rows)
+  if not NAV[k] then return false end
+  m = m or {}
+  rows = rows or 20
+  if m.shift then
+    if not b.mark then b.mark = { cy = b.cy, cx = b.cx }; b.shiftmark = b.mark end
+  elseif b.shiftmark and b.mark == b.shiftmark then b.mark = nil; b.shiftmark = nil end
+  local keep = b.mark                                      -- B.key clears the mark on a move: put it back after
+  local l = b.lines[b.cy]
+  if (k == "left" or k == "right") and (m.ctrl or m.alt) then
+    if m.ctrl and m.alt then b.cx = (k == "left") and 0 or #l
+    elseif m.ctrl then
+      if k == "left" then
+        if b.cx == 0 and b.cy > 1 then b.cy = b.cy - 1; b.cx = #b.lines[b.cy]
+        else
+          while b.cx > 0 and not wordc(l:sub(b.cx, b.cx)) do b.cx = b.cx - 1 end
+          while b.cx > 0 and wordc(l:sub(b.cx, b.cx)) do b.cx = b.cx - 1 end
+        end
+      else
+        if b.cx >= #l and b.cy < #b.lines then b.cy = b.cy + 1; b.cx = 0
+        else
+          while b.cx < #l and wordc(l:sub(b.cx + 1, b.cx + 1)) do b.cx = b.cx + 1 end
+          while b.cx < #l and not wordc(l:sub(b.cx + 1, b.cx + 1)) do b.cx = b.cx + 1 end
+        end
+      end
+    else local r = B.key(b, k, rows); b.mark = keep; return r end     -- Alt alone: a plain move
+    b.want = b.cx
+    clamp(b)
+    return true
+  elseif (k == "up" or k == "down") and m.alt then
+    if m.ctrl then
+      if k == "up" then b.cy, b.cx = 1, 0 else b.cy = #b.lines; b.cx = #b.lines[b.cy] end
+      b.want = b.cx
+    else
+      b.cy = b.cy + ((k == "up") and -rows or rows)
+      b.cy = math.max(1, math.min(#b.lines, b.cy))
+      b.cx = math.min(b.want, #b.lines[b.cy])
+    end
+    clamp(b)
+    return true
+  end
+  local r = B.key(b, k, rows)
+  b.mark = keep
+  return r
+end
+
 -- One key. `rows` is the number of lines a page moves.
 function B.key(b, k, rows)
   rows = rows or 20
@@ -201,6 +258,7 @@ function B.key(b, k, rows)
   elseif k == "^y" then if not restore(b, b.redo, b.undo) then return false end
   elseif k == "^q" then                                   -- the mark of a selection on / off (the mouse drags one too)
     if b.mark then b.mark = nil else b.mark = { cy = b.cy, cx = b.cx } end
+    b.shiftmark = nil
     return true
   elseif k == "^c" then
     B.clipboard = B.sel_text(b) or (l .. "\n")

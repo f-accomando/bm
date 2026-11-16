@@ -143,6 +143,8 @@ E.btn = function(i) return pad[i] == true end
 E.btnp = function(i) return pad[i] == true and not padprev[i] end
 E.keyp = function() return table.remove(keyq, 1) end
 E.keyheld = function(n) return n == "space" and space_held end
+local usages = {}                       -- keydown(): the modifiers held (USB usages $E0-$E7)
+E.keydown = function(u) return usages[u] == true end
 -- the mouse (bmui): MS as a USB mouse would give it
 local MS = { x = 0, y = 0, b = 0, w = 0, p = 0 }
 E.mouse = function(on) if on ~= nil then return true end; return MS.x, MS.y, MS.b, MS.w, true end
@@ -433,7 +435,6 @@ end
 -- gives it (FAKE.pcs), one frame is one walk from the first to the last. The real core is tested by tests/snes/debug_test.c.
 local FAKE = { pcs = {}, idx = 1, brk = {}, ram = {}, frames = 0, loads = 0, resets = 0, runs = 0, draws = 0 }
 local function fpc() return FAKE.pcs[FAKE.idx] or 0x8000 end
-E.keydown = function() return false end
 E.target_create = function(w, h) return { w = w, h = h, draw = function() end } end
 E.snes_load = function(rom) FAKE.rom, FAKE.idx, FAKE.loads = rom, 1, FAKE.loads + 1; return true end
 E.snes_reset = function() FAKE.idx, FAKE.resets = 1, FAKE.resets + 1 end
@@ -489,6 +490,13 @@ local function key(...)
   frames(5)                             -- a save waits for frames that say so
 end
 
+-- a key with modifiers held: mkey({ "shift", "alt" }, "down")
+local MODU = { ctrl = 0xE0, shift = 0xE1, alt = 0xE2 }
+local function mkey(mods, k)
+  for _, m in ipairs(mods) do usages[MODU[m]] = true end
+  key(k)
+  for _, m in ipairs(mods) do usages[MODU[m]] = nil end
+end
 local function sees(s) return screen():find(s, 1, true) ~= nil end
 local function status()
   for _, t in ipairs(texts) do if t[3] == 336 then return t[1] end end
@@ -635,7 +643,7 @@ key("esc")
 -- the Code tab
 local code_checks = dofile(ROOT .. "/tests/studio/snes_sdk_code.lua")
 code_checks({ check = check, key = key, frames = frames, sees = sees, status = status, click = click, mouse = mouse,
-              docs = docs, type_text = type_text })
+              docs = docs, type_text = type_text, mkey = mkey })
 
 -- the Run tab
 dofile(ROOT .. "/tests/studio/snes_sdk_run.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
@@ -643,7 +651,7 @@ dofile(ROOT .. "/tests/studio/snes_sdk_run.lua")({ check = check, key = key, fra
 
 -- the Learn tab
 dofile(ROOT .. "/tests/studio/snes_sdk_learn.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
-                                                   docs = docs, type_text = type_text, fake = FAKE })
+                                                   docs = docs, type_text = type_text, fake = FAKE, mkey = mkey })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm SNES SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,

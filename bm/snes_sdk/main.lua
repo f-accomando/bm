@@ -1286,6 +1286,13 @@ local function draw_run()
          { { "g" }, "go to" }, { { "w" }, "poke" }, { { "tab" }, "memory" }, { { "esc" }, "menu" } })
 end
 
+-- Shift, Ctrl and Alt held now (keydown: USB usages $E0-$E7, left then right)
+function M.mods()
+  local kd = keydown
+  if not kd then return {} end
+  return { shift = kd(0xE1) or kd(0xE5), ctrl = kd(0xE0) or kd(0xE4), alt = kd(0xE2) or kd(0xE6) }
+end
+
 local function code_key(k)
   code_ensure()
   if k == "f1" then code_help()
@@ -1301,7 +1308,7 @@ local function code_key(k)
     local b = cur_buf()
     if not b then say("Ctrl+E opens or makes a source file", C_DIM); return end
     local _, rows = code_geom()
-    if BF.key(b, k, rows - 1) then
+    if BF.nav(b, k, M.mods(), rows - 1) or BF.key(b, k, rows - 1) then
       CD.help = nil
       code_scroll_to(b, rows)
     end
@@ -1363,7 +1370,7 @@ local function draw_code()
     local f = CD.files[n]
     local label = n .. (f.dirty and "*" or "") .. (CD.main == n and " >" or "")
     local w = #label * 8 + 16
-    if n == CD.cur then rectfill(x - 4, 16, w, 16, C_SEL) end
+    if n == CD.cur then rectfill(x - 4, 16, w, 16, (LN.win and LN.focus == "lesson") and C_BAR or C_SEL) end
     U.zone(x - 4, 16, w, 16, "ftab", n)
     print(label, x + 4, 16, n == CD.cur and 0xFFFFFF or C_DIM)
     x = x + w + 4
@@ -1434,7 +1441,7 @@ local function draw_code()
   if LN.win then W = LN.full_w end                -- the lesson window takes the right half; the hint row is the whole width
   if LN.has_keys() then
     hint({ { { "i" }, "insert" }, { { "o" }, "open file" }, { { "r" }, "run" }, { { "g" }, "lessons" }, { { "n", "p" }, "block" },
-           { { "tab" }, "editor" }, { { "ctrl", "l" }, "close" } })
+           { { "ctrl", "l" }, "editor" }, { { "ctrl", "shift", "l" }, "close" } })
   else
     hint({ { { "ctrl", "b" }, "build" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "go to" }, { { "ctrl", "f" }, "find" },
            { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" }, { { "ctrl", "l" }, "lessons" } })
@@ -1643,8 +1650,11 @@ end
 
 function LN.key(k)
   learn_clamp()
+  local m = M.mods()                              -- Alt+Up/Down: a page; Ctrl+Alt+Up/Down: the start / the end
+  if m.alt and k == "up" then k = m.ctrl and "home" or "pgup"
+  elseif m.alt and k == "down" then k = m.ctrl and "end" or "pgdn" end
   if LN.win then
-    if k == "\t" or k == "esc" then LN.focus = "code"; return end     -- the window stays; the keys go to the editor
+    if k == "esc" then LN.focus = "code"; return end     -- the window stays; the keys go to the editor
     if k == "g" then LN.pick_lesson(); return end
   elseif k == "\t" then learn_view(); return end
   if k == "^f" and not (LN.split and LN.focus == "code") then learn_search_ask(); return end
@@ -1688,7 +1698,8 @@ function LN.pick_lesson()
   choose("Lessons", rows, LN.cur)
 end
 
--- Ctrl+L: the lesson window opens at the right of the Code tab; from the editor it takes the keys; from the window it closes
+-- Ctrl+L: the lesson window opens at the right of the Code tab. With the window open, Ctrl+L gives the keys to the other side
+-- (editor or lessons). Ctrl+Shift+L closes the window.
 function LN.toggle()
   if tab ~= 1 then tab = 1 end
   if not LN.win then
@@ -1696,9 +1707,9 @@ function LN.toggle()
     code_ensure()
     LN.rows_key = nil
     learn_show(LN.cur)
-  elseif LN.focus ~= "lesson" then LN.focus = "lesson"
-  else LN.win = false; LN.focus = "code" end
+  else LN.focus = (LN.focus == "lesson") and "code" or "lesson" end
 end
+function LN.close() LN.win = false; LN.focus = "code" end
 
 function LN.has_keys() return tab == 1 and LN.win and LN.focus == "lesson" end
 
@@ -1723,6 +1734,7 @@ function LN.mouse()
   end
   if not U.pressed(0) then return end
   if z.kind == "lnav" then learn_show(LN.cur + z.a)
+  elseif z.kind == "lclose" then LN.close()
   elseif z.kind == "lpick" then LN.pick_lesson()
   elseif z.kind == "llist" then learn_show(z.a); LN.focus = "lesson"
   elseif z.kind == "lbtn" then
@@ -1761,13 +1773,15 @@ function LN.draw()
     rectfill(cx0 - 2, 16, 2, HINT_Y - 16, LN.focus == "lesson" and C_ACC or C_GRID)
     local L0 = ls[LN.cur]
     local head = L0 and string.format("%d/%d %s", LN.cur, #ls, L0.title) or "no lessons"
-    rectfill(cx0, 32, cw, 16, C_BAR)
+    rectfill(cx0, 32, cw, 16, LN.focus == "lesson" and C_SEL or C_BAR)
     U.zone(cx0, 32, 24, 16, "lnav", -1)
     print("<", cx0 + 8, 32, C_ACC)
-    U.zone(cx0 + 24, 32, cw - 48, 16, "lpick")
-    print(head:sub(1, max(1, (cw - 56) // 8)), cx0 + 32, 32, 0xFFFFFF)
-    U.zone(cx0 + cw - 24, 32, 24, 16, "lnav", 1)
-    print(">", cx0 + cw - 16, 32, C_ACC)
+    U.zone(cx0 + 24, 32, cw - 72, 16, "lpick")
+    print(head:sub(1, max(1, (cw - 80) // 8)), cx0 + 32, 32, 0xFFFFFF)
+    U.zone(cx0 + cw - 48, 32, 24, 16, "lnav", 1)
+    print(">", cx0 + cw - 40, 32, C_ACC)
+    U.zone(cx0 + cw - 24, 32, 24, 16, "lclose")
+    print("x", cx0 + cw - 16, 32, C_ERR)
   end
   if #ls == 0 then
     print("no lessons in this build (SNESLESSONS is empty)", 16, 48, C_ERR)
@@ -1945,6 +1959,7 @@ local function global_key(k)
   elseif k == "f9" and (tab == 1 or tab == 5) then rn_f9(); return true
   elseif k == "f10" and (tab == 1 or tab == 5) then rn_step(); return true
   elseif k == "^l" then LN.toggle(); return true
+  elseif k == "^L" then LN.close(); return true
   elseif k == "f1" and LN.has_keys() then LN.focus = "code"; return true
   end
   for i, t in ipairs(TABS) do
@@ -2053,15 +2068,21 @@ local HELP = {
   { "f8", "next error" },
   { "ctrl j", "insert a snippet (reset, nmi, dma, joypad, colour)" },
   { "ctrl e / ctrl w", "the source files; close the file" },
+  { "shift + arrows / home / end", "select while you move (a move without Shift clears the selection)" },
+  { "ctrl left / right", "one word left / right" },
+  { "ctrl alt left / right", "the start / the end of the line (Home, End)" },
+  { "alt up / down", "one page up / down (Page Up, Page Down)" },
+  { "ctrl alt up / down", "the start / the end of the file" },
   { "ctrl q", "start or stop a selection (the mouse drags one too)" },
   { "ctrl c / x / v / k / d", "copy, cut, paste, cut line, copy line down" },
   "Lessons (the window of the Code tab, Ctrl+L)",
-  { "ctrl l", "open the lesson window; from the window: close it" },
+  { "ctrl l", "open the lesson window; with it open: the keys go to the other side (editor or lessons)" },
+  { "ctrl shift l", "close the lesson window" },
   { "up down / pgup pgdn", "scroll the lesson; left right: the other lesson; g: the list" },
   { "n / p", "select the next / previous code block" },
   { "i / o / r", "insert the block in your file; open it as a new file; run it alone in the Run tab" },
   { "m / l / d", "mark the block (Notes); list the marks; mark the lesson done" },
-  { "tab / esc / f1", "give the keys back to the editor (the window stays open)" },
+  { "esc / f1", "give the keys back to the editor (the window stays open)" },
   { "ctrl f", "search all the lessons" },
   "Sprites",
   { "arrows", "the sprite (or the pixel while drawing)" },
