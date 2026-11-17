@@ -1,0 +1,80 @@
+bm report
+kind: freeze
+kernel: v0.3.0-183-g810abba8
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-68c0fd_freeze_pi-zero-w_v0.3.0-183-g810abba8.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 43 s after boot, kernel v0.3.0-183-g810abba8, ring 5333, sink on
+--- the last lines printed ---
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
+000002
+wifi: CMD3 address 00000001
+wifi: CMD7 selected 00001e00
+wifi: CCCR/SDIO revision 00000032
+wifi: 4-bit bus
+wifi: clock 25 MHz
+wifi: block sizes: function 1 64, function 2 512
+wifi: function 1 ready
+wifi: backplane clock (ALP) on
+wifi: chip 43430 (a9a6) rev 1: BCM43430/43438, ok
+wifi: cores: ARM 18003/18103, RAM 18004/18104, SDIO 18002 (rev 21), D11 18101
+wifi: chip RAM 512 KB
+wifi: firmware 389 KB written and checked in 107 ms
+wifi: board settings (NVRAM) 676 bytes
+wifi: chip ARM started
+wifi: fast clock (HT) on
+wifi: function 2 ready
+wifi: firmware: wl0: Jul 19 2021 03:24:18 version 7.45.98 (TOB) (56df937 CY) FWID 01-8e14b897 
+wifi: MAC b8:27:eb:9d:83:f7
+wifi: regulatory data (CLM) 4733 bytes loaded
+wifi: radio up
+wifi: scanning...
+wifi: 4 networks
+   1   -75 dBm  ch  1  WPA2  Wind3 HUB - ED4188
+   2   -80 dBm  ch  6  WPA2  SKYWIFI_DNPH2
+   3   -81 dBm  ch  6  WPA2  FASTWEB-5j5SAq
+   4   -84 dBm  ch 11  WPA2  TIM-27163036
+wifi: joining "FASTWEB-36AB12" (WPA2)...
+wifi: password accepted, keys set
+wifi: associated
+wifi: connected to "FASTWEB-36AB12" 
+net: asking for an address (DHCP)...
+cartridge menu
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-6 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-6 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 10769 ms, 0 jobs)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: after a vertex shader draw that left nothing: ERRSTAT 00001010 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00002447
+gpu3d: vertex shader probe (VPM in bytes): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe (VPM in words): 0000 0000 0000 0000 (clockwise bit 0)
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001030 after job 1 (t 10823 ms)
+menu: 1920x1080, drawn by the GPU
+covers: all 27 read
+menu idle: 300/300 frames, 165 of 899 ms taken, 1.4 ms past a frame; covers 152 ms (+2.9, stk 0.9/16K); min slack -38197 us, paced 0
+menu idle: sd first word <1ms 194 <3ms 10 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 18120 us, enlarge 0 us, flip 96 us, free time used 552 us (300 frames)
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+fiber: reports did not yield: 8.3 ms past its slice
+tls: 21 root certificates
+fiber: reports did not yield: 15.6 ms past its slice
+menu idle: 300/300 frames, 896 of 899 ms taken, 15.2 ms past a frame; reports 877 ms (+15.6, stk 7.6/128K); min slack -20353 us, paced 0
+menu idle: sd first word <1ms 28 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15930 us, enlarge 0 us, flip 96 us, free time used 2986 us (300 frames)
+report: not sent (GET /repos/f-accomando/bm/git/ref/heads/reports: the clock is not set yet (no answer from pool.ntp.org)): it waits in bm/reports
+report: on the SD card: GET /repos/f-accomando/bm/git/ref/heads/reports: the clock is not set yet (no a
+menu idle: 300/300 frames, 421 of 899 ms taken, 14.5 ms past a frame; reports 409 ms (+14.5, stk 7.6/128K); min slack -17222 us, paced 0
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 16120 us, enlarge 0 us, flip 97 us, free time used 1406 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 16154 us, enlarge 0 us, flip 97 us, free time used 47 us (300 frames)
+menu frame: 1x, a frame averages draw 16273 us, enlarge 0 us, flip 98 us, free time used 49 us (300 frames)
+menu frame: 1x, a frame averages draw 16220 us, enlarge 0 us, flip 96 us, free time used 50 us (300 frames)
+net: restarting with the new kernel in 1 s
