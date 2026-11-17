@@ -1,0 +1,51 @@
+bm report
+kind: freeze
+kernel: v0.3.0-183-g810abba8
+branch: bm-core
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-a1784e_freeze_pi-zero-w_v0.3.0-183-g810abba8.txt
+
+the Pi froze (the watchdog restarted it) while: boot, frame 0, 880 s after boot, kernel v0.3.0-183-g810abba8, ring 22719, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 8821 us, enlarge 1 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8798 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8712 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8635 us, enlarge 1 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8864 us, enlarge 0 us, flip 94 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8786 us, enlarge 1 us, flip 93 us, free time used 45 us (300 frames)
+menu idle: sd first word <1ms 7 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8761 us, enlarge 1 us, flip 94 us, free time used 45 us (300 frames)
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 8722 us, enlarge 0 us, flip 92 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8855 us, enlarge 0 us, flip 92 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8766 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8678 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8707 us, enlarge 1 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8838 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8751 us, enlarge 1 us, flip 92 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8664 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8752 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8824 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8739 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8652 us, enlarge 0 us, flip 91 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8801 us, enlarge 0 us, flip 90 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8809 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8720 us, enlarge 0 us, flip 91 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8633 us, enlarge 0 us, flip 92 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8837 us, enlarge 0 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8791 us, enlarge 0 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8705 us, enlarge 0 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8638 us, enlarge 0 us, flip 89 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8869 us, enlarge 1 us, flip 91 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8781 us, enlarge 0 us, flip 90 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 8694 us, enlarge 0 us, flip 91 us, free time used 44 us (300 frames)
+menu frame: 1x, a frame averages draw 8694 us, enlarge 1 us, flip 90 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 8849 us, enlarge 1 us, flip 92 us, free time used 40 us (300 frames)
+menu frame: 1x, a frame averages draw 8761 us, enlarge 0 us, flip 90 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8677 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+menu frame: 1x, a frame averages draw 8728 us, enlarge 0 us, flip 91 us, free time used 42 us (300 frames)
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+restarting: this run's log in bm/lastrun.txt
