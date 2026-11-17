@@ -85,7 +85,28 @@ static void flush(void)
 {
     if (cr_live && !cr.crashed)             /* the live state: a freeze report shows how far the ring got */
         ring_state();
-    dcache_clean_range(&cr, sizeof cr);     /* in SDRAM even if the CPU stops */
+    dcache_clean_range(&cr, sizeof cr);     /* out of the ARM's cache (still in the L2: l2_push) */
+}
+
+/* The ARM of the BCM2835 reaches the SDRAM through the VideoCore's L2 cache (128 KB; the firmware turns it on for
+ * the ARM: disable_l2cache=0). A watchdog reset loses what only the L2 holds. 17 Nov 2026, Pi Zero W and Pi 1: after
+ * each clean restart the next boot read a record minutes old, line by line ("the Pi froze", the text of a freeze
+ * hours before), and opened the menu in safe mode on the ARM. Reading 1 MB of other memory (the kernel's code) moves
+ * the record's lines out of the L2 into the SDRAM. About 3 ms: only after the rare writes (crumb, boot, clean exit,
+ * crash), not after crumb_tick or crumb_frame. */
+#define L2_PUSH (1024u * 1024u)
+static void l2_push(void)
+{
+#if defined(__arm__)
+    extern char __text_end[];
+    dcache_clean_range(&ring, sizeof ring);             /* the ring's last lines go with it */
+    const uintptr_t end = (uintptr_t)__text_end & ~31u;
+    const volatile uint32_t *p = (const volatile uint32_t *)(end - L2_PUSH);
+    uint32_t sum = 0;
+    for (uint32_t i = 0; i < L2_PUSH / 4; i += 8)       /* one read per 32-byte line */
+        sum += p[i];
+    __asm__ volatile("" : : "r"(sum));
+#endif
 }
 
 void crumbs_boot(void)
@@ -163,6 +184,7 @@ void crumbs_boot(void)
     ring.at = 0;
     dcache_clean_range(&ring, sizeof ring);
     klog_set_ring(ring_putc);
+    l2_push();                          /* this boot's record and last_build in the SDRAM */
 }
 
 /* The ring as it stands, oldest first, characters that are not text as
@@ -240,7 +262,7 @@ void crumbs_crashed(void)
     }
     cr.crashed = 1;
     flush();
-    dcache_clean_range(&ring, sizeof ring);
+    l2_push();
 }
 
 uint32_t crumbs_uptime_ms(void)
@@ -256,6 +278,7 @@ void crumb(const char *what, const char *name)
     ksnprintf(cr.what, sizeof cr.what, name ? "%s \"%s\"" : "%s", what, name);
     cr.frame = 0;
     flush();
+    l2_push();
 }
 
 const char *crumbs_what(void)
@@ -298,6 +321,7 @@ void crumbs_clean_exit(void)
 {
     cr.magic = 0;
     flush();
+    l2_push();
 }
 
 int crumbs_new_build(void)
