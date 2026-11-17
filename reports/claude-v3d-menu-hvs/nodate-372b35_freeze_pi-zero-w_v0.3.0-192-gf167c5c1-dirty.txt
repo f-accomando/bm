@@ -1,0 +1,59 @@
+bm report
+kind: freeze
+kernel: v0.3.0-192-gf167c5c1-dirty
+branch: claude/v3d-menu-hvs
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-372b35_freeze_pi-zero-w_v0.3.0-192-gf167c5c1-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, inside IRQ 21, 46 s after boot, kernel v0.3.0-192-gf167c5c1-dirty, ring 7587, sink on
+--- the last lines printed ---
+3 core/tools/bm_net.py 192.168.1.108
+net: time 2026-11-17 19:28 UTC
+menu idle: 300/300 frames, 165 of 899 ms taken, 1.5 ms past a frame; covers 151 ms (+2.9, stk 0.8/16K); min slack -41936 us, paced 0
+menu idle: sd first word <1ms 180 <3ms 8 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 17563 us, enlarge 0 us, flip 96 us, free time used 553 us (300 frames)
+hvs: menu: ch0 00000000/12673000/0 ch1 80780438/a0012007/2452 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 00060000 9e68e800 9e694200 00000f00 00000008; the page shown 5e68e800; the plane address changed 0 times in 0 frames
+menu idle: sd first word <1ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 15388 us, enlarge 0 us, flip 105 us, free time used 42 us (300 frames)
+hvs: menu: ch0 00000000/119b3000/0 ch1 80780438/a003f11b/1636 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 011a0000 9e68e800 9e796e00 00000f00 00000008; the page shown 5e68e800; the plane address changed 298 times in 300 frames
+menu frame: 1x, a frame averages draw 15519 us, enlarge 0 us, flip 90 us, free time used 40 us (300 frames)
+hvs: menu: ch0 00000000/12673000/0 ch1 80780438/a002c1b1/2452 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 01b00000 9e29a000 9e42f000 00000f00 00000008; the page shown 5e68e800; the plane address changed 300 times in 300 frames
+menu frame: 1x, a frame averages draw 15429 us, enlarge 0 us, flip 95 us, free time used 42 us (300 frames)
+hvs: menu: ch0 00000000/12673000/0 ch1 80780438/a0019247/2452 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 02460000 9e29a000 9e4bba00 00000f00 00000008; the page shown 5e68e800; the plane address changed 300 times in 300 frames
+menu frame: 1x, a frame averages draw 15403 us, enlarge 0 us, flip 95 us, free time used 40 us (300 frames)
+hvs: menu: ch0 00000000/12673000/0 ch1 80780438/800062dc/2452 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 02dc0000 9e29a000 9e548400 00000f00 00000008; the page shown 5e68e800; the plane address changed 300 times in 300 frames
+
+net: console opened from 192.168.1.115
+> v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+v3d: QPUs off through the firmware: ok in 53 us
+gpu3d: quiet before the menu closes: ERRSTAT 00007030 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT deadbeef DBGE deadbeef FDBGO deadbeef FDBGB deadbeef FDBGR deadbeef FDBGS deadbeef (t 39039 ms, 1 jobs)
+hvs: before the menu's video mode: ch0 00000000/12673000/0 ch1 80780438/a001c403/2452 ch2 00000000/10000000/0; plane 48405814 ff000000 04380780 04030000 9e29a000 9e65cd00 00000f00 00000008; the page shown 5e29a000; the plane address changed 147 times in 147 frames
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2051 ms ago (tag 0x00030012)
+mbox: V3D ERRSTAT deadbeef DBGE deadbeef FDBGO deadbeef FDBGB deadbeef FDBGR deadbeef FDBGS deadbeef
+fb_init_depth: mbox_call failed
+v3d: QPUs on through the firmware: NO ANSWER in 2076001 us
+v3d: after the menu's video mode: ERRSTAT deadbeef DBGE deadbeef FDBGO deadbeef FDBGB deadbeef FDBGR deadbeef FDBGS deadbeef (t 43154 ms, 1 jobs)
+back to the monitor
+
+bm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, Esc the cartridge menu
+> :
+:net: not served for 4234 ms (up 41100 ms), while: boot
+net:   pc at 1s: 00143ffc
+net:   pc at 2s: 00144058
+net:   pc at 3s: 00144058
+net:   pc at 4s: 00143ffc
+log
+: log
+report: 20261117-192920_log_pi-zero-w_v0.3.0-192-gf167c5c1-dirty.txt saved as bm/reports/rpt00001.txt
+tls: 21 root certificates
+report: sending 20261117-192920_log_pi-zero-w_v0.3.0-192-gf167c5c1-dirty.txt
+report: sent to f-accomando/bm, branch reports: reports/claude-v3d-menu-hvs/20261117-192920_log_pi-zero-w_v0.3.0-192-gf167c5c1-dirty.txt
+the line is done
+> 
+net: console closed
+net: restarting with the new kernel in 1 s
+net: restarting with the new kernel...
+wifi: left "FASTWEB-36AB12"
+the VideoCore firmware does not answe
