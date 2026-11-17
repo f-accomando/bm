@@ -43,8 +43,11 @@ int font_bmf_scan(char list[][16], int max_fonts)
                     }
                 }
                 if (!dup) {
-                    strncpy(list[n++], stem, 15);
-                    list[n - 1][15] = 0;
+                    size_t k = 0;
+                    while (k < 15 && stem[k])
+                        k++;
+                    memcpy(list[n], stem, k);
+                    list[n++][k] = 0;
                 }
             }
         }

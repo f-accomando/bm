@@ -77,11 +77,14 @@ void romtabs_scan(void)
             while (nroms[pl] < ROMTABS_MAX && fat_readdir(&d, &e)) {
                 if (e.is_dir || e.name[0] == '.' || !wanted(pl, e.name))
                     continue;
+                const size_t dl = strlen(dirs[pl]), nl = strlen(e.name);
+                if (dl + 1 + nl >= sizeof roms[pl][0].path)
+                    continue;                                   /* a cut path opens no file */
                 rom_entry_t *r = &roms[pl][nroms[pl]++];
                 memset(r, 0, sizeof *r);
-                strncpy(r->path, dirs[pl], sizeof r->path - 1);
-                strncat(r->path, "/", sizeof r->path - strlen(r->path) - 1);
-                strncat(r->path, e.name, sizeof r->path - strlen(r->path) - 1);
+                memcpy(r->path, dirs[pl], dl);
+                r->path[dl] = '/';
+                memcpy(r->path + dl + 1, e.name, nl + 1);
                 make_title(e.name, r->title, sizeof r->title);
                 for (int i = 0; i < nold; i++)                  /* a cover made before stays */
                     if (old[i].cover.px && !strcmp(old[i].path, r->path)) {

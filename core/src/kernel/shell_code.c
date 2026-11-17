@@ -2116,7 +2116,7 @@ static void sc_format_f32(float v, char *buf, size_t cap)
         ip++;
         fp -= 1000000u;
     }
-    char frac[8];
+    char frac[12];
     snprintf(frac, sizeof(frac), "%06lu", (unsigned long)fp);
     int flen = 6;
     while (flen > 1 && frac[flen - 1] == '0')

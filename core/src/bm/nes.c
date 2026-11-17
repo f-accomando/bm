@@ -189,7 +189,7 @@ static inline unsigned pal_index(unsigned a)
 static inline uint8_t ppu_rd(uint16_t a)
 {
     a &= 0x3FFF;
-    if (a < 0x2000) return chr_pg[a >> 10][a & 0x3FF];
+    if (a < 0x2000) return chr_pg[(a >> 10) & 7][a & 0x3FF];
     if (a < 0x3F00) return nt_pg[(a >> 10) & 3][a & 0x3FF];
     return pal[pal_index(a)];
 }

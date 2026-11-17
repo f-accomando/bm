@@ -166,7 +166,7 @@ static void command(uint32_t cmd)
     psx_cd_stat_cmds++;
     busy = 1;
     cd_last_cmd = cmd;
-    TRACE("cmd %02X params %02X %02X %02X  (cycles %llu) ra %08x sp %08x%c", cmd, param[0], param[1], param[2], (unsigned long long)psx_cpu.cycles, psx_cpu.r[31], psx_cpu.r[29], 10);
+    TRACE("cmd %02X params %02X %02X %02X  (cycles %llu) ra %08x sp %08x%c", (unsigned)cmd, param[0], param[1], param[2], (unsigned long long)psx_cpu.cycles, (unsigned)psx_cpu.r[31], (unsigned)psx_cpu.r[29], 10);
     memmove(trace, trace + 1, 11 * sizeof trace[0]);
     trace[11] = cmd | (uint32_t)param[0] << 8 | (uint32_t)param[1] << 16 | (uint32_t)param[2] << 24;
     const uint8_t s = stat();
@@ -261,7 +261,7 @@ static void command(uint32_t cmd)
 
 uint32_t psx_cd_read(uint32_t reg)
 {
-    if (reg != 0) TRACE("    R %u.%d  pc %08x%c", reg, index_, psx_cpu.cur_pc, 10);
+    if (reg != 0) TRACE("    R %u.%d  pc %08x%c", (unsigned)reg, index_, (unsigned)psx_cpu.cur_pc, 10);
     switch (reg) {
     case 0:
         return (uint32_t)index_ | (nparam == 0 ? 8u : 0u) | 0x10u | (resp_pos < nresp ? 0x20u : 0u) |
@@ -277,7 +277,7 @@ uint32_t psx_cd_read(uint32_t reg)
 void psx_cd_write(uint32_t reg, uint32_t v)
 {
     v &= 0xFF;
-    TRACE("    W %u.%d = %02X  pc %08x%c", reg, index_, v, psx_cpu.cur_pc, 10);
+    TRACE("    W %u.%d = %02X  pc %08x%c", (unsigned)reg, index_, (unsigned)v, (unsigned)psx_cpu.cur_pc, 10);
     if (reg == 0) { index_ = (int)(v & 3); return; }
     switch (index_ * 4 + (int)reg) {
     case 1: command(v); break;                          /* index 0, reg 1: the command */

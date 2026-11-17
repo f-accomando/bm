@@ -899,7 +899,7 @@ static void rq_flush(r3d_t *r, uint16_t *zbuf)
         if (nb > RQ_BANDS)
             nb = RQ_BANDS;
         const int y0 = r->g->cy0, rows = r->g->cy1 - r->g->cy0;
-        void *blks[RQ_BANDS];
+        void *blks[RQ_BANDS] = { 0 };
         for (int i = 0; i < nb; i++) {
             rq_band_t *j = &rq_band[i];
             j->lists = rq_list;

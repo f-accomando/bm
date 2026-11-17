@@ -3211,7 +3211,7 @@ static const be_rm_t *be_rm_get(const r3d_mesh_t *m, const r3d_env_t *env, int k
     const int smooth = sl && env->smooth && m->vnormals;
     for (int i = 0; i < be_nrm; i++) {
         const be_rm_t *r = &be_rms[i];
-        if (r->m == m && r->version == m->version && r->nfaces == m->nfaces && r->detail == env->detail && r->kind == kind &&
+        if (r->m == m && r->version == m->version && r->nfaces == m->nfaces && r->detail == (int)env->detail && r->kind == kind &&
             r->unlit == unlit && r->colsum == cs && r->smooth == smooth && r->tex == (sl ? (const void *)m->tex : NULL) && (!sl || (r->iw == sl->iw && r->ih == sl->ih)))
             return r;
     }

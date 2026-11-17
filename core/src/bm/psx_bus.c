@@ -161,7 +161,7 @@ static void dma_run(int ch)
     uint32_t words = 0;
     dma_runs++;
     const uint32_t dma_t0 = psx_now_us();
-    TRACE("DMA ch%d madr %06x bcr %08x chcr %08x dpcr %08x dicr %08x%c", ch, dma_madr[ch], dma_bcr[ch], chcr, dpcr, dicr, 10);
+    TRACE("DMA ch%d madr %06x bcr %08x chcr %08x dpcr %08x dicr %08x%c", ch, (unsigned)dma_madr[ch], (unsigned)dma_bcr[ch], (unsigned)chcr, (unsigned)dpcr, (unsigned)dicr, 10);
     if (mode == 2) {                                           /* linked list: only the GPU */
         int guard = 0x40000;
         uint32_t addr = madr;

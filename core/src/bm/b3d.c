@@ -1253,6 +1253,9 @@ typedef struct {
     int stress;                         /* after the ramp: the frame at 1x and 2x the load of 60 fps (stress_phase) */
 } test_t;
 
+/* the fields after `future` are left out where they are 0 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 static const test_t tests[] = {
     { "spheres", "spheres, 96 faces, flat", "spheres", 1, 8000, M_LIT | M_AA | M_WC | M_VSS | M_VSA, sp_flat, spheres, sp_undo, NULL, 0, 0 },
     { "spheres_smooth", "spheres, Gouraud", "spheres", 1, 8000, M_LIT, sp_smooth, spheres, sp_undo, NULL, 0, 0 },
@@ -1342,6 +1345,7 @@ static const test_t tests[] = {
     { "cel_outline", "cel: lit hero with the outline (inverted hull)", "heroes", 1, 64, M_ARM | M_VS, cel_setup_outline, cel_scene,
       cel_free, NULL, 0, 0, 1, NULL, "cel" },
 };
+#pragma GCC diagnostic pop
 #define NTESTS ((int)(sizeof tests / sizeof tests[0]))
 
 /* numbers measured on the Pi with the drivers before (docs/M33-PRIMA-

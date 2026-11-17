@@ -1558,7 +1558,7 @@ int l_picture3d(lua_State *L)
     if (strcmp(action, "take") == 0) {
         const char *url = luaL_checkstring(L, 2);
         const char *name = "model";
-        glb_opts_t o = { 2.0f, 1200, 256 };
+        glb_opts_t o = { 2.0f, 1200, 256, 0 };
         if (lua_istable(L, 3)) {
             lua_getfield(L, 3, "name");
             if (lua_isstring(L, -1))
