@@ -13,9 +13,11 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, i
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |
 | `core/lua/snescode.lua`, `core/lua/asmbuf.lua` | the helpers of the Code tab: colours, F1 texts, errors in plain words, snippets, the text buffer (no bm API) |
 | `tests/snes/code_test.lua` | the tests of the two modules above (`make test-snes-code`) |
+| `core/lua/snesrom.lua` | a ROM opened read only: header, map (LoROM, HiROM, ExHiROM), vectors, offsets, a 65C816 disassembly that follows `rep` and `sep`, the tiles of a part of the ROM (no bm API) |
+| `tests/snes/rom_test.lua` | the tests of `snesrom.lua`: the disassembly assembles again to the same bytes (`make test-snes-rom`) |
 | `tests/snes/asm_cli.lua` | a command line: `build/host/luahost tests/snes/asm_cli.lua in.s out.sfc [--title T] [--map hirom] [--sym f]` |
 
-Test: `make test-snes-asm`, `make test-snes-code`.
+Test: `make test-snes-asm`, `make test-snes-code`, `make test-snes-rom`.
 
 ## The API
 
@@ -71,6 +73,11 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - Cartridge settings (Esc menu, "Cartridge..."): the map (LoROM or HiROM), the ROM speed (SlowROM or FastROM), the ROM size (32 KB to 4 MB, the builder makes it larger when the code needs it), the save RAM (none, 2, 8, 32, 128 KB) with a battery switch, and a coprocessor: none, DSP-1, Super FX, SA-1 (the core runs these three) and OBC-1, S-DD1, S-RTC, Cx4, SPC7110 (header only: the core has no chip yet; the status line says so). The settings are the chipset byte and the map byte of real cartridges (`SC.cart_header` in `core/lua/snescode.lua`). They are kept in the line `--cart` of the project and used by every build. The Super FX and the SA-1 force LoROM and save RAM; HiROM forces 64 KB. Test: `make test-snes-code`.
 - Frame: the project is a `.bme` in `/bme` (Ctrl+N new, Ctrl+O open, Ctrl+S save, Esc menu). The sheet is its SHEET8. The data of the Sprites tab is text between `-- snes-sdk:begin` and `-- snes-sdk:end` in its Lua section: depth, sizes, the sub-palettes (BGR555 words) and the sub-palette of each tile. Other tabs keep their own data outside these marks.
 - Sprites tab: depth 2/4/8 bpp, the size pairs 8/16, 8/32, 8/64, 16/32, 16/64, 32/64 (small or large), 8 sub-palettes of BGR555 with colour 0 clear, 5-bit channel bars with a live preview, the sub-palette of each tile on the grid, a sprite editor (pencil, fill, mouse or keys), an OAM preview (flip X, flip Y, priority, palette bits), PNG import with the quantiser (15 colours + clear), export of `.chr` (planar tiles, rows padded to 16 tiles: use a sheet 128 wide) and `.pal` (all sub-palettes, low byte first) to `/docs`.
+  - The pencil held: Space (or the pad's A) paints the pixel and starts a stroke. While the key stays held, each pixel the arrows (or the DPAD) go to is painted too. Del held clears in the same way. One stroke is one undo step. The mouse paints while its button is held.
+- A ROM, read only (Ctrl+O lists the `.sfc` and `.smc` of `/snes` and `/docs` after the projects; Esc menu "Open a ROM"; a `.sfc` path from the file manager opens it too). Nothing is written: Save, the Cartridge menu, typing, drawing, snippets and the lesson Insert and Open say "read only". The module is `core/lua/snesrom.lua` (the global `SNESROM`); the state is `RX.v` in `main.lua`.
+  - Code tab: one read-only buffer, the disassembly of one bank from an address (the reset vector first). The head lines give the title, the map, the size, the chips, the save RAM, the region and the vectors. Each line is assembly text with the address and the bytes in its comment. The vectors and the targets of the jumps and branches have labels (`reset:`, `L808123:`); Ctrl+G and a double click go to them. `rep` and `sep` change the widths and write `.a16`, `.i8` lines. Ctrl+E: the vectors, an address, the bank before or after, the widths of A and X at the start. F1 gives the help of the instruction. F5 runs the ROM as it is. F9 sets a breakpoint on the address of the line. When the CPU stops, the cursor goes to its line (a new disassembly when the address is outside the buffer).
+  - Sprites tab: the bytes of the ROM as tiles in a sheet of 128x256, with grey sub-palettes. PgUp and PgDn a page, `<` and `>` one tile, `j` an offset or a CPU address, `b` the depth (2, 4, 8 bpp). The palette, the sizes and the OAM preview change only the view. `e` exports the tiles of the page as `.chr` and `.pal` to `/docs`.
+  - Test: `tests/studio/snes_sdk_rom.lua` (in `make test-studio`), with a ROM in a stand-in `/snes` folder. Checked by hand once with a real 512 KB LoROM: the header is right, a bank of 18792 lines takes 0.04 s on the PC.
 - The pixels are indices in the sub-palette of their tile (the data); the colours of the runtime sheet come from the palette. A change of a colour repaints the sheet.
 - Converters: `core/lua/snesgfx.lua` (no UI, no bm API). Test: `make test-snes-gfx`. Host test of the app: `tests/studio/snes_sdk_host.lua` (in `make test-studio`).
 - Build: the Makefile adds the converter after `main.lua` as the global `SNESGFX` (`build/snes_sdk/main.lua`; a cart has no other Lua file). The cart reads it lazily (`G`), because the global exists only after the main chunk ran.
@@ -79,7 +86,8 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 ## Rules (do not break)
 
 - The assembler is original code. The references (PVSnesLib, the ersanio course, the SMW disassembly, libSFX, the WDC datasheet) are read only: no code and no data from them enters the repository.
-- The ROM goes to a buffer that the cart gives to `snes_load`. A cart writes a ROM file to `/docs` (`doc_write`). `/sfc` is read only for carts: the SNES cart reads `.sfc` from `/sfc` and, for a ROM of the SDK, from `/docs`.
+- The ROM goes to a buffer that the cart gives to `snes_load`. A cart writes a ROM file to `/docs` (`doc_write`). `/snes` is read only for carts: bm SNES reads `.sfc` and `.smc` from `/snes` and, for a ROM of the SDK, from `/docs`.
+- The SDK opens a ROM read only. Never write a byte of it: a change goes into a project of its own.
 - One module `snes_asm` holds the assembler and the builder. Register a new built-in library in the same places as `snes_asm` (`core/src/bm/require.c`, `core/src/script/embed.S`, `core/src/rgb30/bm_embed.S`, `tests/host/libs.S`, `core/rgb30.mk`, `Makefile`, `core/scripts/mkweblibs.py`).
 - The opcode test of `asm_test.lua` lists the 256 opcodes in the order of the opcode map, apart from the table of the assembler. Keep it so: the two lists check each other.
 - Pass 1 decides the size of each instruction and pass 2 only writes bytes. A change to the size rules must keep the two passes equal.
@@ -92,7 +100,7 @@ local rom, res = A.build(source, opts, header)            -- both steps; on an e
 - Register a new shared module of the SDK (`snesrun.lua`) in the build of `$(BUILD)/snes_sdk/main.lua` as a global (`SNESRUN`), as for `SNESCODE`.
 - Write the text of docs and comments in ASD-STE100.
 - A lesson example is a whole program that assembles and runs by itself, with an `expect=` check. A new lesson goes in `bm/snes_sdk/lessons/` and in `LIST`. Lessons are English and original: links to outside sources only, no copied text or code.
-- The lesson window code is one function inside `main.lua` (the main chunk is at the limit of 200 local variables). Do not add top-level locals to `main.lua`: use fields of `LN` and `M`.
+- The lesson window code is one function inside `main.lua` (the main chunk is at the limit of 200 local variables). Do not add top-level locals to `main.lua`: use fields of `LN`, `M` and `RX` (the ROM opened read only).
 - The lessons 6 to 14 repeat the whole program so far. Change them only in `core/scripts/snes_lessons.py`, then run it and `make test-snes-learn`.
 - The window draws the Code tab in the left half by changing `W` for the call of `draw_code`. Keep that call as it is: a new Code tab part that reads `W` works in both sizes.
 
@@ -105,7 +113,7 @@ First, the Sprites tab (done; the rest of it is here). Then the tabs below, in t
 2. Run tab (done; the rest of it is here): the speed of the picture every frame (`snes_draw` scaled) and of `snes_run` on the Pi Zero W and the RGB30 is not measured. The DSP firmware of `snes_info().dsp` is not loaded for the SDK ROM. The save RAM is not kept. No pad keys while stopped. Only the S-CPU is debugged (SA-1 and Super FX are not).
 3. Lesson window (done; the rest of it is here): more lessons for the course: the stack and subroutines (`jsr`), a background layer and scrolling, a second sprite and a collision test, HDMA, sound. The old lessons on the background layer and the tilemap were removed when the course came: write them again as steps of the same program. The links to outside sources are not checked online. Typing with the pad is not done (reading, Insert, Open and Run work with the pad). The Pi Zero W and RGB30 are not tested. The links to the SMW Central maps and to the pages of the SNESdev Wiki are from memory: open each one once. The course does not copy the SMW disassembly: the lessons point to the maps and say where Super Mario World does the same thing.
 4. Step-by-step run as a teaching tool: the registers have colours, and the one that changed shows.
-5. A disassembler that follows M and X: the true flags from `snes_regs` when the CPU is stopped, and `REP` and `SEP` when it is not. It uses the opcode table of the assembler (`A.opcodes`).
+5. A disassembler that follows M and X: done for a ROM opened read only (`core/lua/snesrom.lua`, from `A.opcodes`; it follows `REP` and `SEP`). Still to do: the true flags from `snes_regs` when the CPU is stopped; a disassembly of the project's own ROM in the Run tab; data bytes that are not code (the disassembly reads them as instructions). A ROM: "Save as a project" with its tiles is not done; Del held is not checked by the host test (it has no Delete key).
 6. OAM view: the table of the 128 sprites (from `snes_debug` or `snes_peek`) and boxes on the screen; a click on a box selects the sprite.
 7. A watch on the writes to one address. Measure the cost on the Pi Zero W before you keep it.
 8. Map and Music tabs (Phase 2 and 3).

@@ -9,6 +9,7 @@ Back to [snes-sdk.md](snes-sdk.md) (what is built, the rules, the open work of e
 - Measure the build time and the colour speed of the Code tab on the Pi Zero W.
 - Open each link of the lessons (SMW Central maps, SNESdev Wiki pages) once. They come from memory.
 - Find the fault in the sprite pixels. The reader must say the sprite size, the depth and what is wrong.
+- Open a `.sfc` of `/snes` read only (Code and Sprites tabs) and draw with Space or A held, on both devices.
 
 ## 2. Code tab
 
@@ -33,7 +34,7 @@ Write each lesson as a step of the same program, in `core/scripts/snes_lessons.p
 ## 4. Teaching tools of the Run tab
 
 - Step by step with coloured registers: the register that changed shows.
-- A disassembler that follows M and X.
+- A disassembler that follows M and X: done for a ROM opened read only (Code tab). Still to do: the true flags from `snes_regs` when the CPU stops, and the project's own ROM.
 - An OAM view: the table of 128 sprites and boxes on the screen, with a click to select.
 - A watch on the writes to one address. Measure its cost on the Pi Zero W first.
 

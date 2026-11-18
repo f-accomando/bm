@@ -423,10 +423,11 @@ E.doc_write = function(name, bytes)
   docs[name] = bytes
   return true
 end
-E.doc_read = function(name) return docs[name] end
-E.doc_list = function()
+local snes = {}                         -- the folder /snes (the ROMs of bm SNES): doc_read(name, "snes")
+E.doc_read = function(name, folder) if folder == "snes" then return snes[name] end return docs[name] end
+E.doc_list = function(folder)
   local out = {}
-  for n, b in pairs(docs) do out[#out + 1] = { name = n, size = #b } end
+  for n, b in pairs(folder == "snes" and snes or docs) do out[#out + 1] = { name = n, size = #b } end
   table.sort(out, function(a, b) return a.name < b.name end)
   return out
 end
@@ -652,6 +653,11 @@ dofile(ROOT .. "/tests/studio/snes_sdk_run.lua")({ check = check, key = key, fra
 -- the Learn tab
 dofile(ROOT .. "/tests/studio/snes_sdk_learn.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
                                                    docs = docs, type_text = type_text, fake = FAKE, mkey = mkey })
+
+-- the pencil held, and a ROM opened read only (the Code and Sprites tabs)
+dofile(ROOT .. "/tests/studio/snes_sdk_rom.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
+                                                 snes = snes, pad = pad, fake = FAKE, type_text = type_text, S = S,
+                                                 hold = function(v) space_held = v end, asm = E.require("snes_asm") })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
   name = "bm SNES SDK", check = check, texts = function() return texts end, hy = 320, w = 640, chip_w = chip_w,
