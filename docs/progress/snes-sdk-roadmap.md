@@ -70,13 +70,16 @@ Not now (decision of 2026-11-13). The plan is in the open work of [snes-sdk.md](
 - Split [snes-sdk.md](snes-sdk.md): it has more than 120 lines.
 - Add the new editor keys and the lesson window to `docs/spec/ui-reference.md` when the Pi and RGB30 runs pass.
 
-## 10. ROM projects: save, then export to .sfc or .smc
+## 10. ROM projects (`.bms`): save, then export to .sfc or .smc
 
 Last in the queue (user request, 2026-11-18). Today a ROM opens read only and nothing is saved.
 
-- A project format for a ROM that the SDK opened. Keep the name, the size and the CRC32 of the original ROM, and the changes as a patch (byte ranges, tiles, palettes). Keep the original file as it is.
-- Save as, on a ROM opened read only, makes this project. Opening the project reads the original ROM from `/snes` or `/docs`, checks the CRC32 and applies the patch. If the CRC32 is not the same, say which ROM is needed.
-- The Code and Sprites tabs edit the project, not the ROM: the tiles of a page, the palettes and bytes written as assembly.
-- Export to `.sfc` (no copier header) or to `.smc` (the 512-byte copier header first), in `/docs`. Write the checksum and its complement in the header again.
-- Do not put the bytes of a commercial ROM in the repository or in the project: the patch holds only the changes.
-- Tests: open, change, save, open again, export both formats; the export has the patch, a correct checksum, and the original ROM is not changed.
+- The format is `.bms` (user decision, 2026-11-18): the project of a ROM that the SDK opened. A `.bms` is a project, not a cartridge: the only cartridge type stays `.bm`.
+- Put the `.bms` files in their own folder `/bms` at the root of the SD card. Do not write them to `/docs`.
+- A `.bms` keeps the name, the size and the CRC32 of the original ROM, and the changes as a patch (byte ranges, tiles, palettes). Keep the original file as it is.
+- Save as, on a ROM opened read only, makes a `.bms` in `/bms`. Ctrl+O lists the `.bms` files with the projects. Opening one reads the original ROM from `/snes`, checks the CRC32 and applies the patch. If the CRC32 is not the same, say which ROM is needed.
+- The Code and Sprites tabs edit the `.bms`, not the ROM: the tiles of a page, the palettes and bytes written as assembly.
+- Export to `.sfc` (no copier header) or to `.smc` (the 512-byte copier header first), in `/snes`, so bm SNES and the SNES tab of the menu list it. Do not write the export to `/docs`. Write the checksum and its complement in the header again. Do not write over the original ROM: ask for a new name.
+- The kernel: `doc_list`, `doc_read`, `doc_write` and `doc_delete` take the folders `docs`, `snes` and `nes` today (`core/src/bm/api_docs.c`). Add `bms`, with the same permission. Update `docs/api/system.md` and the host stubs.
+- Do not put the bytes of a commercial ROM in the repository or in the `.bms`: the patch holds only the changes.
+- Tests: open, change, save to `/bms`, open again, export both formats to `/snes`; the export has the patch and a correct checksum, `/docs` gets no file, and the original ROM is not changed.
