@@ -359,7 +359,7 @@ board_name() {
 }
 
 net_version() {                                 # the version a console on the network runs, or nothing
-    python3 -c 'import sys; sys.path.insert(0, "tools"); import bm_net; print(bm_net.console_version(sys.argv[1]) or "")' \
+    python3 -c 'import sys; sys.path.insert(0, "core/tools"); import bm_net; print(bm_net.console_version(sys.argv[1]) or "")' \
         "$1" 2>/dev/null || true
 }
 
