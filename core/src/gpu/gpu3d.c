@@ -3780,7 +3780,9 @@ static int probe_gl(const g16_t *pg)
      * then as Mesa: the clipper on for every draw, its scaling written;
      * the V3D's error registers after the first draw of each way that
      * left nothing (what the VPM and the front end saw) */
-    for (int mesa = 0; mesa < 2; mesa++) {
+    /* Mesa's way first: it draws on the Pi. A way that draws nothing leaves VPMEWR and VPMERR in ERRSTAT, and nothing
+     * clears them (18 Nov 2026). */
+    for (int mesa = 1; mesa >= 0; mesa--) {
         G.gl_clip_all = mesa;
         G.clipper[0] = G.clipper[1] = -1;
         int told = 0;

@@ -2301,6 +2301,29 @@ void menu_ui_frame(framebuffer_t *fb, const menu_view_t *v)
         moved_tab = v->tab;
         moved_at = timer_ticks() | 1;           /* 0 means "never moved" */
     }
+#ifndef BM_RGB30
+    /* A still GPU menu draws 1 frame in 4. On the Pi Zero W the firmware stopped answering the video mode change at the
+     * menu's close (tag 0x48003) more often with more V3D jobs in the menu: 7000 jobs 6/60, 1900 jobs about 3%, 275 jobs
+     * 0/60, no V3D 0/60 (18 Nov 2026). A move, a panel, a question or the pointer gives all the frames for 1 s. */
+    if (gpu_draw) {
+        static unsigned skip;
+        static uint32_t busy_at;
+        const pointer_t *pt = pointer_get();
+        if (v->panel || v->ask || v->keys_help || v->notice || (pt && (pt->moved || pt->buttons || pt->wheel)))
+            busy_at = timer_ticks() | 1;
+        const int still = menu_ui_still(1000000u) && (!busy_at || (uint32_t)(timer_ticks() - busy_at) >= 1000000u);
+        if (still && (skip++ & 3)) {
+            const uint32_t until = timer_ticks() + FRAME_US;
+            if (v->idle)
+                v->idle(until);                 /* the covers load in the frame not drawn */
+            while ((int32_t)(timer_ticks() - until) < 0)
+                ;
+            return;
+        }
+        if (!still)
+            skip = 0;
+    }
+#endif
     frame_target(fb);
     float t = (float)(timer_ticks() - t0) * 1e-6f;
     const menu_item_t *cur = v->sel >= 0 && v->sel < v->n ? &v->items[v->sel] : NULL;
