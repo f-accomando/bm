@@ -23,6 +23,7 @@ Not here: history (git log), measurements ([`docs/PERFORMANCE.md`](PERFORMANCE.m
 | [graphics](progress/graphics.md) | framebuffer, 2D, software 3D, V3D driver, rendering tests | `core/src/drivers/fb.c`, `core/src/bm/gfx16.c`, `core/src/bm/r3d.c`, `core/src/gpu/` |
 | [graphics-2d](progress/graphics-2d.md) | 2D on the Pi Zero W: GPU light, packed tile pool, 2D call costs, sprite stacking, 2D benchmarks, speed checks, 2D API gaps against the LOVE API | `core/src/bm/gfx16.c`, `core/src/gpu/` |
 | [hero](progress/hero.md) | Hero Stress cart: heroes in a plaza, live 3D options, cost panel | `bm/hero/`, `tests/hero/` |
+| [sidbox](progress/sidbox.md) | SIDBOX cart: SID-style synth and 4-track step sequencer for the USB keyboard, drum kits, visualizer | `bm/sidbox/`, `tests/sidbox/` |
 | [darknight](progress/darknight.md) | Dark Night: the playable Hunter in the Clinic (map kit, models, keys, combat, menu) | `bm/darknight/`, `tests/darknight/`, `art/maps/clinic/`, `art/models/hunter/` |
 | [graphics-mali](progress/graphics-mali.md) | the RGB30's Mali-G52: bring-up, descriptors, shaders, triangle | `core/src/rgb30/mali.c`, `core/src/rgb30/mali_desc.c`, `core/tools/mali/` |
 | [graphics-mali-bringup](progress/graphics-mali-bringup.md) | Mali-G52 bringup (the first triangle, 25 Oct 2026 root causes) and the variant probe of `mali.c` | `core/src/rgb30/mali.c`, `core/tools/mali/` |

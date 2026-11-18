@@ -194,6 +194,25 @@ def ko2(a):
     a.over(lay)
 
 
+def sidbox(a):
+    a.glow(44, 34, 34, 0x7068F0, 0.5)
+
+    def body(dr, c):
+        dr.rounded_rectangle(P([(12, 12), (76, 56)])[0] + P([(12, 12), (76, 56)])[1], 4 * S, fill=c)
+    a.shadow(body)
+    lay, d = a.draw()
+    body(d, (46, 44, 155, 255))                              # the blue C64 screen
+    d.rectangle(P([(15, 15), (73, 20)]), fill=(112, 109, 235, 255))
+    rows = ((0xA9FF9F, (1, 0, 0, 1, 0, 1, 0, 0)), (0xEDF171, (1, 0, 1, 0, 0, 1, 1, 0)),
+            (0x75CEC8, (0, 1, 0, 0, 1, 0, 0, 1)), (0xC46C71, (1, 1, 0, 1, 1, 0, 1, 0)))
+    for r, (col, bits) in enumerate(rows):                   # four tracks of eight pads
+        for i, on in enumerate(bits):
+            x, y = 16 + i * 7.1, 23 + r * 7.6
+            c = rgb(col) + (255,) if on else (30, 28, 90, 255)
+            d.rectangle(P([(x, y), (x + 5.6, y + 5.8)]), fill=c)
+    a.over(lay)
+
+
 def nano8(a):
     a.glow(44, 36, 32, 0xC060FF, 0.6)
     stars(a, 31, 24, 30, (230, 210, 255))
@@ -488,6 +507,7 @@ COVERS = {
     "astrowing": ("Astro Wing", 0x0A1030, 0x2A3A78, astrowing),
     "kitchen": ("Chaos Kitchen", 0x6A2A18, 0xD08038, kitchen),
     "ko2": ("KO-II", 0x10161E, 0x2A3A4E, ko2),
+    "sidbox": ("SIDBOX", 0x14123A, 0x3A34A0, sidbox),
     "nano8": ("nano8", 0x1C1040, 0x4A2A78, nano8),
     "overbit": ("Overbit", 0x2A1A50, 0xE87848, overbit),
     "pong": ("Pong", 0x0A1030, 0x14308A, pong),

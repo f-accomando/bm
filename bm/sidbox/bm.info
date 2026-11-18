@@ -1,0 +1,13 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: SIDBOX
+desc: A 4-track SID-style synth and step sequencer: pulse, saw, triangle, noise, ring mod, hard sync, ADSR, PWM, filter, arpeggiator, drum kits and a visualizer.
+author: bm
+license: LicenseRef-BM-Community-1.0
+version: 1.0
+type: game
+tags: music, synth, sequencer, sid, c64, keyboard
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard
+aspect: wide
+needs: audio

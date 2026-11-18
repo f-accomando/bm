@@ -182,7 +182,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) core/scripts/mkbm
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/bm/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 bench3d font
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 sidbox bench3d font
 GAME_CARTS := $(patsubst %,$(BUILD)/bm/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -213,7 +213,7 @@ $(BUILD)/bm/%.bm: $$(call c_lua,$$*) core/scripts/mkbm.py core/scripts/bmmesh.py
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb agent hero
+BME_CARTS := kitchen bmweb agent hero sidbox
 $(BME_CARTS:%=$(BUILD)/bm/%.bme): $(BUILD)/bm/%.bme: $$(call c_lua,$$*) core/scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 
@@ -758,6 +758,10 @@ test-islandbench: $(BUILD)/host/bmhost-bin $(BUILD)/bm/islandbench.bm tests/isla
 
 # Dark Night (bm/darknight): a script of keys plays the game in bmhost (dodges, attacks, the saw, the charge, the
 # pistol, the lock, the hall door, death and a new start) and the test reads the event lines of the game
+# SIDBOX (bm/sidbox): every instrument and drum kit is heard, the three pages draw, the song is saved (tests/sidbox/check.py)
+test-sidbox: $(BUILD)/host/bmhost-bin $(BUILD)/bm/sidbox.bm tests/sidbox/check.py
+	$(PYTHON) tests/sidbox/check.py $< $(BUILD)/bm/sidbox.bm $(BUILD)/sidbox/test
+
 test-darknight: $(BUILD)/host/bmhost-bin $(BUILD)/bm/darknight.bm tests/darknight/check.py $(BUILD)/host/test_hero_mesh
 	$(PYTHON) tests/darknight/check.py $< $(BUILD)/bm/darknight.bm $(BUILD)/darknight/test
 	$(BUILD)/host/test_hero_mesh $(BUILD)/bm/darknight.bm hunter_c hunter_o villager huntsman dog    # every character on the GPU (vs_lit2)
@@ -1086,7 +1090,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/bm/bench3d.bm tests/bench3d/
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-m7rom test-snes-m7rom-arm test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-rom test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-m7rom test-snes-m7rom-arm test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-rom test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-sidbox test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

@@ -126,7 +126,7 @@ credit: knight.bmm - Ada Rossi - CC0-1.0 - https://example.org/knight
 | `pong` | `bm.info` |
 | `yharnam` | `bm.info`; `sheet.png`, `map_*.csv` in `assets/`; `mk*.py`, `mapview.py`, `art/` in `build/` (they find `main.lua` and `assets/` from there) |
 | `smw` | `bm.info`; code in `src/` (`physics.lua`, `game.lua`), joined into `main.lua` by `build/build.py`. The assets come from the player's own ROM into `extracted/` (ignored by git) |
-| `snake`, `shooter`, `astrowing`, `typing`, `write`, `ko2` | `bm.info` (their `title_<id>` lines left the Makefile) |
+| `snake`, `shooter`, `astrowing`, `typing`, `write`, `ko2`, `sidbox` | `bm.info` (their `title_<id>` lines left the Makefile) |
 | `kitchen`, `titan` | `bm.info`; `sheet.png` in `assets/`; `build.py`, `mkassets.py` and the other scripts (`import_chefs.py`, `mkrobot.py`, `art.py`) in `build/`; `titan_ex` shares `titan/assets/sheet.png` |
 | `nano8` | `bm.info`; `build.py` and `mkdemo.py` in `build/` |
 | `darknight` | `bm.info`; `main.lua`; no sheet, no map file: the map kit `art/maps/clinic.bmk` and the models `art/models/dnhunter.bmm` are merged in by `bmres.py` (rule in the Makefile); `darknight.bme` is the project |

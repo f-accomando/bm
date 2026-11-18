@@ -139,7 +139,7 @@ Everything in a cartridge can be created with the bm editors. They are built int
 - **Titan Clash**: a fighting game of giant robots, 1 or 2 players.
 - **Chaos Kitchen**: a cooperative cooking game for 1 to 4 players on one screen.
 - **Yharnam**: an endless gothic town at night, seen from above, at 360×360.
-- **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `core/scripts/mkartcovers.py`.
+- **Also in the repository**: Pong, Snake, Star Shooter, KO-II (a keyboard groovebox), SIDBOX (a SID-style synth with a 4-track step sequencer and drum kits), `nano8` (PICO-8 carts), Pad Typing, bm Write, bm Web (a web browser for HTML5, CSS and JavaScript pages, https only), Hero Stress and the 3D Bench. The covers are drawn by `core/scripts/mkartcovers.py`.
 - **bm Market**: an online catalog with a Games page and an Apps page (the editors, bm Write, Pad Typing, the 3D Bench). It downloads free cartridges to the SD card and checks each file with its SHA-256 ([`market/README.md`](market/README.md)).
 
 ---
