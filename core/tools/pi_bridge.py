@@ -30,7 +30,8 @@ DEV = ""            # --dev NAME: one bridge per device
 sys.path.insert(0, HERE)
 import bm_net  # noqa: E402  (status asks the greeting of the console)
 # the keys the Pi can be told to press, by name: 'q' in the menu goes to the monitor (the bm shell). No free keys.
-KEYS = {"monitor": "q"}
+KEYS = {"monitor": "q",
+        "menu-move": "da" * 25}     # 10 s of moves in the menu: right, left (a moving menu for the class B test)
 # the voluntary crashes and the reboot: a fixed line of commands (the bm shell has no single keys; a ':' line works from the
 # menu and from the shell). Fixed text: it does not go through check_line.
 KEY_LINES = {"crash-dabt": "sys crash dabt", "crash-undef": "sys crash undef", "crash-prefetch": "sys crash pabt",

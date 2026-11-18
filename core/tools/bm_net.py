@@ -554,7 +554,7 @@ def main():
                     help="run a monitor line (commands separated by ';': b3d tests=... "
                          "profiles=..., set key=value, send...) and show its output")
     ap.add_argument("--game-exit", action="store_true", help="end the game running (the Ctrl-backslash byte, the menu is back)")
-    ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 8) one by one")
+    ap.add_argument("--keys", metavar="SEQ", help="press the keys of SEQ (letters and digits, at most 64) one by one")
     ap.add_argument("--config", nargs="*", metavar="KEY=VALUE",
                     help="the console's bm/config.txt: shown (secrets hidden), KEY=VALUE sets a key, "
                          "KEY= removes it")
@@ -615,8 +615,8 @@ def main():
         finally:
             sock.close()
     if args.keys is not None:
-        if not re.fullmatch(r"[A-Za-z0-9]{1,8}", args.keys):
-            print("--keys: letters and digits only, at most 8")
+        if not re.fullmatch(r"[A-Za-z0-9]{1,64}", args.keys):
+            print("--keys: letters and digits only, at most 64")
             return 1
         try:
             return run_keys(sock, args.keys, answer)
