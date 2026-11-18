@@ -6,8 +6,9 @@
 -- the rest of the Sprites data (depth, sizes, sub-palettes, the sub-palette of each tile) is text between
 -- the marks "-- snes-sdk:begin" and "-- snes-sdk:end" in its Lua section (read back when it opens).
 -- Keys: F1..F5 the tabs, Esc the menu, Ctrl+S save, Ctrl+O open, Ctrl+N new, F12 (held) the keys.
--- Ctrl+O also opens a ROM (.sfc, .smc of /snes or /docs) read only: the Code tab shows its disassembly
--- (core/lua/snesrom.lua), the Sprites tab its bytes as tiles, F5 runs it. Nothing is saved.
+-- Ctrl+O also opens a ROM (.sfc, .smc of /snes or /docs) read only, beside the project: the right window of the Code
+-- tab shows its disassembly (core/lua/snesrom.lua; Ctrl+T swaps it with the lessons), Ctrl+T in the Sprites tab its
+-- tiles beside your sheet. The ROM is never written; i and c copy from it into your project.
 -- The converters are in core/lua/snesgfx.lua (no interface; tests/snes/snesgfx_test.lua).
 
 local LY = require("bmlib").layout
@@ -71,7 +72,7 @@ local RN = { state = "off", set = {}, info = {}, lines = nil, built = {}, space 
              pw = 0, ph = 0, rows = 8, bpr = 4 }
 -- the Learn tab: the lesson shown (cur), the first row on the screen (top), the selected code block (sel), the view
 -- (split: lesson and Code buffer side by side; focus "lesson" or "code"), and what the project keeps (st: see sneslearn.lua)
-local LN = { cur = 1, top = 1, sel = 1, split = false, focus = "lesson", st = nil, rows = nil, rows_key = nil }
+local LN = { cur = 1, top = 1, sel = 1, split = false, focus = "lesson", st = nil, rows = nil, rows_key = nil, view = "lesson" }
 local M = { bpp = 4, set = 0, large = false, cur = 1, sel = 2, ch = 1, fx = false, fy = false, prio = 0,
             pals = {}, tp = {} }                  -- the Sprites data of the project
 local sw, sh = 128, 128                          -- the sheet
@@ -79,7 +80,8 @@ local ix = {}                                    -- the pixels: ix[y * sw + x] =
 local rx, ry, rs = 0, 0, 16                      -- the sprite: its corner and size
 local ex, ey = 0, 0                              -- the pixel cursor inside the sprite
 local edit, fill_tool = false, false
--- RX.v, a ROM opened read only (.sfc, .smc): { name, folder, rom (snesrom), off (the first byte of the Sprites page), m8, x8 }
+-- RX.v, a ROM opened read only (.sfc, .smc): { name, folder, rom (snesrom), buf (its disassembly), off and bpp (its tiles), ... }
+-- RX.side: the Sprites tab shows the ROM's tiles at the right. LN.view: the right window of the Code tab shows "lesson" or "rom".
 local undo, redo = {}, {}
 local clip = nil
 local pick, input, busy = nil, nil, nil
@@ -269,7 +271,6 @@ local function reset_view()
 end
 
 local function new_project()
-  RX.v = nil
   code_reset()
   LN.reset()
   cart_new()
@@ -291,7 +292,6 @@ end
 local function open_file(path)
   local p, e = cart_load(path)
   if not p then say("cannot open " .. path .. ": " .. tostring(e), C_ERR); return false end
-  RX.v = nil
   code_reset()
   sw, sh = cart_sheet()
   P = { path = path, title = p.title or "", dirty = false, lua = p.lua or "" }
@@ -313,51 +313,29 @@ local function open_file(path)
   return true
 end
 
--- the sub-palettes of a ROM: greys from dark to light (the ROM has no palette next to its tiles)
-function RX.greys()
-  local n = npal()
-  for s = 1, nsub() do
-    local p = subpal(s)
-    for k = 1, n do
-      local v = (k - 1) * 31 // max(1, n - 1)
-      p[k] = v | (v << 5) | (v << 10)
-    end
-  end
-end
-
--- a ROM, read only: the Code tab shows its disassembly, the Sprites tab its bytes as tiles, F5 runs it
+-- a ROM, read only, beside the project: the right window of the Code tab shows its disassembly (Ctrl+T swaps it with
+-- the lessons), the right half of the Sprites tab its bytes as tiles (Ctrl+T there). The project on the left is not changed.
 function RX.is(name) return name:lower():match("%.s[fm]c$") ~= nil end
 function RX.open(name, folder)
   local bytes, why = doc_read and doc_read(name, folder)
   if not bytes then say("cannot read " .. name .. ": " .. tostring(why), C_ERR); return false end
   if #bytes < 0x8000 then say(name .. " is too small for a SNES ROM (" .. #bytes .. " bytes)", C_ERR); return false end
   local rom = RX.R.open(bytes)
-  code_reset()
-  LN.reset()
-  cart_new()
-  if not pcall(cart_sheet, 128, 256) then pcall(cart_sheet, 128, 128) end
-  sw, sh = cart_sheet()
-  P = { path = nil, title = rom.title or name, dirty = false, lua = "" }
-  M.bpp, M.set, M.large, M.cur, M.sel, M.ch, M.pals, M.tp = 4, 0, false, 1, 2, 1, {}, {}
-  M.fx, M.fy, M.prio = false, false, 0
-  M.cart = SC.cart_default()
-  RX.v = { name = name, folder = folder or "docs", rom = rom, off = 0, m8 = true, x8 = true }
-  RN.set, RN.info, RN.lines, RN.built, RN.scratch, RN.pcf, RN.pcln = {}, {}, nil, {}, nil, nil, nil
-  if RN.state ~= "off" then snes_break(nil); RN.state = "off" end
-  RX.greys()
-  ix = {}
-  reset_view()
-  RX.page()
-  say(string.format("%s: read only. Code: the disassembly; Sprites: the bytes as tiles; F5 runs it. %s %d KB",
+  RX.v = { name = name, folder = folder or "docs", rom = rom, off = 0, bpp = 4, m8 = true, x8 = true, qx = 0, qy = 0,
+           stale = true, find = "" }
+  local v = RX.R.vectors(rom)[1]
+  if not (v and RX.code(v.addr, true)) then RX.code(RX.R.addr(rom, 0), true) end
+  LN.view = "rom"
+  if tab ~= 2 then tab = 1; LN.win, LN.focus = true, "lesson" else RX.side = true end
+  say(string.format("%s, read only, at the right: %s %d KB. Ctrl+T swaps it with the lessons; your project stays at the left",
                     name, rom.map == "lo" and "LoROM" or (rom.map == "hi" and "HiROM" or "ExHiROM"), rom.size // 1024), C_ACC, 400)
   return true
 end
 function RX.ro_say()
-  say("read only: a ROM is not changed. Ctrl+N makes a project of your own", C_DIM, 150)
+  say("read only: the ROM is not changed. i puts the line in your file at the left", C_DIM, 150)
 end
 
 local function save_to(path, from, after)
-  if RX.v then RX.ro_say(); return end
   if not path then say("no name yet: Esc > Save as", C_ERR); return end
   local pal = {}
   for s = 1, nsub() do
@@ -378,7 +356,6 @@ local function save_to(path, from, after)
 end
 
 local function save_as()
-  if RX.v then RX.ro_say(); return end
   ask("file name (8.3, in /bme)", P.path and P.path:match("([^/]+)$") or "mygame.bme", function(t)
     if t == "" then return end
     save_to(U.project_path(t), P.path)
@@ -445,7 +422,6 @@ local function resize()
     end
     M.tp, undo, redo = tp, {}, {}
     fit_sprite()
-    if RX.v then RX.page() end
     P.dirty = true
     say("the sheet is " .. sw .. "x" .. sh, C_ACC)
   end)
@@ -521,26 +497,25 @@ function RX.held()
   return keyheld ~= nil and keyheld("space")
 end
 
--- the Sprites page of a ROM: the tiles from the byte RX.v.off, at the depth M.bpp, in all the sheet
+-- the tiles of the ROM, at the right of the Sprites tab (Ctrl+T): a page of 128x256 from the byte RX.v.off, at the
+-- depth RX.v.bpp (its own, not the project's), in greys. RX.v.ix holds the indices; a render target holds the picture.
+RX.TW, RX.TH = 128, 256
 function RX.where()
   local r = RX.v.rom
   local a = RX.R.addr(r, RX.v.off)
-  return string.format("ROM $%06X-$%06X (%02X:%04X)", RX.v.off, min(r.size, RX.v.off + RX.R.page_bytes(sw, sh, M.bpp)) - 1,
+  return string.format("ROM $%06X-$%06X (%02X:%04X)", RX.v.off, min(r.size, RX.v.off + RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp)) - 1,
                        a >> 16, a & 0xFFFF)
 end
 function RX.page()
-  if not RX.v then return end
   local r = RX.v.rom
-  local tb = M.bpp * 8
+  local tb = RX.v.bpp * 8
   RX.v.off = clamp(RX.v.off - RX.v.off % tb, 0, max(0, r.size - tb))
-  ix = RX.R.tiles(r, RX.v.off, sw, sh, M.bpp, G.decode_tile)
-  M.tp = {}
-  paint_sub(nil)
+  RX.v.ix = RX.R.tiles(r, RX.v.off, RX.TW, RX.TH, RX.v.bpp, G.decode_tile)
+  RX.v.stale = true
 end
 function RX.move(bytes)
-  local r = RX.v.rom
   local was = RX.v.off
-  RX.v.off = clamp(RX.v.off + bytes, 0, max(0, r.size - M.bpp * 8))
+  RX.v.off = clamp(RX.v.off + bytes, 0, max(0, RX.v.rom.size - RX.v.bpp * 8))
   if RX.v.off == was then say(bytes < 0 and "the start of the ROM" or "the end of the ROM", C_DIM, 60); return end
   RX.page()
 end
@@ -559,9 +534,56 @@ function RX.jump_ask()
     RX.page()
   end)
 end
--- the keys of the Sprites tab that change the sheet: a ROM is read only
-RX.RO_SPRITE = { [" "] = true, del = true, ["\b"] = true, g = true, a = true, h = true, v = true, ["^v"] = true,
-                    i = true, ["\n"] = true }
+-- a block of the ROM's tiles (the size of the project's sprite) to the clipboard: Ctrl+V puts it in your sprite
+function RX.copy()
+  local w = min(rs, RX.TW - RX.v.qx)
+  local h = min(rs, RX.TH - RX.v.qy)
+  local d = {}
+  for j = 0, h - 1 do for i = 0, w - 1 do d[#d + 1] = RX.v.ix[(RX.v.qy + j) * RX.TW + RX.v.qx + i] or 0 end end
+  clip = { x = 0, y = 0, w = w, h = h, d = d }
+  say(string.format("copied %dx%d of the ROM (indices, %d bpp): Ctrl+V puts it in your sprite", w, h, RX.v.bpp), C_ACC, 200)
+end
+-- the keys of the ROM's tiles; false: the key is the project's
+function RX.tile_key(k)
+  if k == "pgup" then RX.move(-RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp))
+  elseif k == "pgdn" then RX.move(RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp))
+  elseif k == "<" then RX.move(-RX.v.bpp * 8)
+  elseif k == ">" then RX.move(RX.v.bpp * 8)
+  elseif k == "j" then RX.jump_ask()
+  elseif k == "c" then RX.copy()
+  elseif k == "B" then
+    RX.v.bpp = RX.v.bpp == 2 and 4 or (RX.v.bpp == 4 and 8 or 2)
+    RX.page()
+    say("the ROM's tiles as " .. RX.v.bpp .. " bpp", C_ACC, 120)
+  else return false end
+  return true
+end
+-- the picture of the page: drawn again in its render target only when the page or the depth changes
+function RX.draw_tiles(x0, y0)
+  if not RX.v.ix then RX.page() end
+  if RX.v.stale or not RX.v.tgt then
+    RX.v.tgt = RX.v.tgt or target_create(RX.TW, RX.TH)
+    target(RX.v.tgt)
+    rectfill(0, 0, RX.TW, RX.TH, C_CHK1)
+    local n = (1 << RX.v.bpp) - 1
+    local ixs = RX.v.ix
+    for y = 0, RX.TH - 1 do
+      local row = y * RX.TW
+      for x = 0, RX.TW - 1 do
+        local i = ixs[row + x]
+        if i and i > 0 then
+          local g = 40 + i * 215 // n
+          pset(x, y, (g << 16) | (g << 8) | g)
+        end
+      end
+    end
+    target()
+    RX.v.stale = false
+  end
+  RX.v.tgt:draw(x0, y0)
+  U.zone(x0, y0, RX.TW, RX.TH, "rtile")
+  rect(x0 + RX.v.qx - 1, y0 + RX.v.qy - 1, rs + 2, rs + 2, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
+end
 
 local function transform(what)
   begin()
@@ -654,29 +676,12 @@ end
 
 local ACTIONS = {}
 local function sprites_actions()
-  if RX.v then choose("Sprites of " .. RX.v.name .. " (read only): " .. M.bpp .. " bpp", RX.ACTIONS)
+  if RX.v and RX.side then choose("the tiles of " .. RX.v.name .. " (read only, at the right)", RX.ACTIONS)
   else choose("Sprites: " .. M.bpp .. " bpp", ACTIONS) end
 end
 
 local function sprites_key(k)
-  if RX.v then
-    if RX.RO_SPRITE[k] then RX.ro_say(); return end
-    local page = RX.R.page_bytes(sw, sh, M.bpp)
-    if k == "pgup" then RX.move(-page); return
-    elseif k == "pgdn" then RX.move(page); return
-    elseif k == "<" then RX.move(-M.bpp * 8); return
-    elseif k == ">" then RX.move(M.bpp * 8); return
-    elseif k == "j" then RX.jump_ask(); return
-    elseif k == "home" then RX.v.off = 0; rx, ry = 0, 0; RX.page(); return
-    elseif k == "b" then
-      M.bpp = M.bpp == 2 and 4 or (M.bpp == 4 and 8 or 2)
-      M.cur, M.sel = clamp(M.cur, 1, nsub()), clamp(M.sel, 1, npal())
-      RX.greys()
-      RX.page()
-      say(M.bpp .. " bits per pixel: the same bytes as " .. M.bpp .. " bpp tiles", C_ACC, 150)
-      return
-    end
-  end
+  if RX.v and RX.side and RX.tile_key(k) then return end      -- the ROM's tiles at the right take their keys first
   if k == "left" then if edit then ex = max(0, ex - 1) else rx = max(0, rx - rs) end
   elseif k == "right" then if edit then ex = min(rs - 1, ex + 1) else rx = min(sw - rs, rx + rs) end
   elseif k == "up" then if edit then ey = max(0, ey - 1) else ry = max(0, ry - rs) end
@@ -752,12 +757,9 @@ RX.ACTIONS = {
   { "One tile on (>)", function() sprites_key(">") end },
   { "One tile back (<)", function() sprites_key("<") end },
   { "Go to an offset or a CPU address... (j)", function() sprites_key("j") end },
-  { "Depth 2 / 4 / 8 bpp (b)", function() sprites_key("b") end },
-  { "Sprite sizes: next pair (s)", function() sprites_key("s") end },
-  { "Next sub-palette (.)", function() sprites_key(".") end },
-  { "Read a .pal from /docs (shift l)", function() sprites_key("L") end },
-  { "Export these tiles as .chr and .pal to /docs (e)", function() sprites_key("e") end },
-  { "Sheet size... (shift r)", function() sprites_key("R") end },
+  { "The ROM's tiles as 2 / 4 / 8 bpp (shift b)", function() sprites_key("B") end },
+  { "Copy the block in the box: Ctrl+V puts it in your sprite (c)", function() sprites_key("c") end },
+  { "The panel of your project again (Ctrl+T)", function() RX.side = false end },
 }
 
 ----------------------------------------------------------------- drawing
@@ -810,6 +812,19 @@ local function draw_sprites()
   local sx, sy = SV_X + floor(rx * z), SV_Y + floor(ry * z)
   rect(sx - 1, sy - 1, floor(rs * z) + 2, floor(rs * z) + 2, 0x000000)
   rect(sx, sy, floor(rs * z), floor(rs * z), (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
+
+  if RX.v and RX.side then                          -- the right half: the ROM's tiles, read only, beside your sheet
+    RX.draw_tiles(PX, 32)
+    local tx, ty = PX + RX.TW + 16, 32
+    local lines = { RX.v.name, "read only", RX.v.bpp .. " bpp (shift b)", "",
+                    string.format("box at (%d,%d) %dx%d", RX.v.qx, RX.v.qy, rs, rs), "c: copy it", "ctrl v: into your", "sprite at the left" }
+    for i, l in ipairs(lines) do print(l:sub(1, max(1, (W - tx - 4) // 8)), tx, ty + (i - 1) * 16, i <= 2 and C_ACC or C_TEXT) end
+    rectfill(0, 16, W, 16, C_BG)
+    print((RX.where() .. string.format("   your sprite at (%d,%d)", rx, ry)):sub(1, (W - 16) // 8), 8, 16, C_ACC)
+    hint({ { { "pgup", "pgdn" }, "page" }, { { "<", ">" }, "tile" }, { { "j" }, "go to" }, { { "c" }, "copy" },
+           { { "ctrl", "v" }, "paste" }, { { "ctrl", "t" }, "panel" }, { { "tab" }, "more" } })
+    return
+  end
 
   -- the panel: depth, sizes, sub-palette
   local p = subpal(M.cur)
@@ -894,12 +909,6 @@ local function draw_sprites()
   item("prio " .. M.prio, "p", tx, y + 64, C_TEXT)
 
   rectfill(0, 16, W, 16, C_BG)
-  if RX.v then
-    print((RX.where() .. string.format("  sprite at (%d,%d)  read only", rx, ry)):sub(1, (W - 16) // 8), 8, 16, C_ACC)
-    hint({ { { "pgup", "pgdn" }, "page" }, { { "<", ">" }, "tile" }, { { "j" }, "go to" }, { { "b" }, "depth" },
-           { { ",", "." }, "sub-palette" }, { { "+", "-" }, "channel" }, { { "e" }, "export" }, { { "tab" }, "more" } })
-    return
-  end
   print(string.format("sheet %dx%d  sprite at (%d,%d) %dx%d  %s%s", sw, sh, rx, ry, rs, rs, fill_tool and "fill" or "pencil",
                       sw ~= 128 and "  (OAM: 128 wide)" or ""), 8, 16, C_TEXT)
   hint({ { { "enter" }, edit and "choose" or "draw" }, { { "space" }, edit and "hold: paint" or "paint" }, { { "b" }, "depth" },
@@ -973,32 +982,34 @@ local function code_open(name, text_if_new, quiet)
   return CD.files[name]
 end
 
--- a ROM: one read-only buffer, the disassembly of one bank from an address (the reset vector at first). Its name is
--- the address; it is not a file of /docs (src_ok is false for it).
+-- the ROM in the right window of the Code tab: one read-only buffer (RX.v.buf), the disassembly of one bank from an
+-- address (the reset vector at first). It is not a file of the project.
 function RX.vectors() return RX.R.vectors(RX.v.rom) end
+-- the right window: the first text row, the rows, the columns, the left edge (W is the whole width here)
+function RX.geom()
+  local x0 = W // 2
+  return 48, max(1, (HINT_Y - 48) // 16), max(16, (W - x0 - 28) // 8), x0
+end
 function RX.code(start, quiet)
   local d, why = RX.R.disasm(RX.v.rom, start, { name = RX.v.name, m8 = RX.v.m8, x8 = RX.v.x8 })
   if not d then say(why, C_ERR); return false end
-  local name = string.format("%02x:%04x", start >> 16, start & 0xFFFF)   -- lower case, as code_goto looks it up
   local b = BF.new(d.text)
-  b.ro, b.dis = true, d
-  CD.files, CD.order, CD.cur, CD.main = { [name] = b }, { name }, name, name
-  CD.help, CD.errs, CD.show_errs = nil, {}, false
-  RX.v.start = start
+  b.dis = d
+  RX.v.buf, RX.v.start = b, start
   BF.set_cursor(b, d.line_of[d.off0] or d.first, 4)
-  local _, rows, cols = code_geom()
+  local _, rows, cols = RX.geom()
   b.top = max(1, b.cy - 2)
   BF.scroll(b, rows, cols)
-  if not quiet then say(string.format("disassembly from %s to the end of its bank: %d lines", name, #b.lines), C_ACC, 200) end
+  if not quiet then say(string.format("disassembly from %02X:%04X to the end of its bank: %d lines", start >> 16, start & 0xFFFF, #b.lines), C_ACC, 200) end
   return true
 end
 -- the line of a CPU address: in this buffer, or a new disassembly from it
 function RX.go(a)
-  local b = CD.cur and CD.files[CD.cur]
-  local l = b and b.dis and RX.R.line_of(b.dis, RX.v.rom, a)
+  local b = RX.v.buf
+  local l = b and RX.R.line_of(b.dis, RX.v.rom, a)
   if l then
     BF.set_cursor(b, l, 4)
-    local _, rows, cols = code_geom()
+    local _, rows, cols = RX.geom()
     b.top = max(1, l - rows // 2)
     BF.scroll(b, rows, cols)
     return true
@@ -1009,11 +1020,6 @@ end
 -- the first visit: the files the project names, or main.s (from /docs, or a new one with the reset snippet)
 local function code_ensure()
   if CD.cur then return end
-  if RX.v then
-    local v = RX.vectors()[1]
-    if not (v and RX.code(v.addr, true)) then RX.code(RX.R.addr(RX.v.rom, 0), true) end
-    return
-  end
   if CD.want_files and #CD.want_files > 0 then
     for _, n in ipairs(CD.want_files) do if src_ok(n) then code_open(n, "", true) end end
     if CD.want_main and CD.files[CD.want_main] then CD.main = CD.want_main end
@@ -1030,7 +1036,7 @@ local function code_save_all(quiet)
   local n = 0
   for _, name in ipairs(CD.order) do
     local b = CD.files[name]
-    if b.dirty and not b.ro then
+    if b.dirty then
       local ok, e = doc_write(name, BF.text(b))
       if not ok then say("cannot save " .. name .. ": " .. tostring(e), C_ERR); return false end
       b.dirty = false
@@ -1048,7 +1054,7 @@ end
 
 local function code_goto(file, line, col)
   file = file and file:lower()
-  if not file or not (src_ok(file) or (CD.files[file] and CD.files[file].ro)) then return false end
+  if not file or not src_ok(file) then return false end
   local b = code_open(file)
   BF.set_cursor(b, line or 1, col or 0)
   local _, rows = code_geom()
@@ -1063,10 +1069,6 @@ end
 
 local function code_build()
   code_ensure()
-  if RX.v then                                      -- a ROM is built already: F5 and Ctrl+B run it as it is
-    RN.lines, RN.built = nil, {}
-    return RX.v.rom.bytes
-  end
   if not code_save_all(true) then return end
   local files = {}
   for n, b in pairs(CD.files) do files[n] = BF.text(b) end
@@ -1176,7 +1178,6 @@ end
 
 local function code_snippets()
   code_ensure()
-  if RX.v then RX.ro_say(); return end
   local rows = {}
   for _, sn in ipairs(SC.snippets) do
     rows[#rows + 1] = { string.format("%-8s %s", sn.key, sn.name), function()
@@ -1227,7 +1228,7 @@ function RX.code_menu()
       RX.go(a)
     end)
   end }
-  local d = CD.cur and CD.files[CD.cur] and CD.files[CD.cur].dis
+  local d = RX.v.buf and RX.v.buf.dis
   if d then
     local span = RX.v.rom.map == "lo" and 0x8000 or 0x10000
     local bank0 = d.off0 - d.off0 % span
@@ -1245,7 +1246,6 @@ end
 
 local function code_files_menu()
   code_ensure()
-  if RX.v then RX.code_menu(); return end
   local names, seen = {}, {}
   for _, n in ipairs(CD.order) do names[#names + 1] = n; seen[n] = true end
   for _, d in ipairs(doc_list and doc_list() or {}) do
@@ -1332,7 +1332,6 @@ local function rn_build()
 end
 
 local function rn_fresh()
-  if RX.v then return true end
   if not RN.lines or RN.scratch then return false end
   for n, b in pairs(CD.files) do if RN.built[n] ~= BF.text(b) then return false end end
   return true
@@ -1353,12 +1352,12 @@ local function rn_stopped(pc)
   RN.state = "stop"
   rn_refresh()
   local file, line = RR.line_of_addr(RN.lines, pc)
-  if RX.v and not RN.scratch then                   -- a ROM: the line of the disassembly (a new one when pc is out of it)
-    code_ensure()
-    if RX.go(pc) then file = CD.cur; line = cur_buf().cy end
+  if RN.scratch == "rom" and RX.v then             -- the ROM of the right window runs: its line there (a new disassembly when pc is out of it)
+    RX.go(pc)
+    file, line = nil, nil
   end
   RN.pcf, RN.pcln = file, line
-  if file and not RN.scratch and not RX.v then code_goto(file, line) end
+  if file and not RN.scratch then code_goto(file, line) end
   say("stopped at " .. rn_addr_text(pc) .. (file and (" (" .. file .. " line " .. line .. ")") or ""), C_ACC, 300)
 end
 
@@ -1394,20 +1393,12 @@ local function rn_break_ask()
 end
 
 local function rn_f9()
+  if tab == 1 and LN.has_keys() and LN.view == "rom" and RX.v then RX.brk(); return end
   if tab == 1 then
     local b = cur_buf()
     if not b then say("Ctrl+E opens or makes a source file", C_DIM); return end
     for a, i in pairs(RN.info) do
       if i.file == CD.cur and i.line == b.cy then rn_toggle(a); say("breakpoint cleared", C_DIM); return end
-    end
-    if b.dis then                                   -- a ROM: the address of the first instruction on or after the line
-      local l = b.cy
-      while l <= #b.lines and not (b.dis.addr[l] and not b.lines[l]:find("data", 1, true)) do l = l + 1 end
-      local a = b.dis.addr[l]
-      if not a then say("no instruction on or after this line", C_ERR); return end
-      for _, i in pairs(RN.info) do if i.file == CD.cur and i.line == l then say("line " .. l .. " has a breakpoint already", C_DIM); return end end
-      if rn_toggle(a, CD.cur, l) then say("breakpoint at " .. rn_addr_text(a) .. ", line " .. l, C_ACC) end
-      return
     end
     if not rn_fresh() then
       say("building to find the address", C_DIM)
@@ -1505,7 +1496,7 @@ local function draw_run()
   end
   local y = top
   local st = RN.state == "run" and "RUNNING" or RN.state == "stop" and "STOPPED" or "NOT RUNNING"
-  print(st .. (RN.scratch and RN.state ~= "off" and "  (lesson example)" or ""), px, y, RN.state == "stop" and C_ERR or RN.state == "run" and C_ACC or C_DIM)
+  print(st .. (RN.scratch == "rom" and RN.state ~= "off" and RX.v and ("  (" .. RX.v.name .. ")") or RN.scratch and RN.state ~= "off" and "  (lesson example)" or ""), px, y, RN.state == "stop" and C_ERR or RN.state == "run" and C_ACC or C_DIM)
   if RN.state == "off" then
     print("Press F5 (or Ctrl+B) to build the", px, y + 24, C_DIM)
     print("project of the Code tab and run it.", px, y + 40, C_DIM)
@@ -1571,7 +1562,6 @@ local function code_key(k)
     local b = cur_buf()
     if not b then say("Ctrl+E opens or makes a source file", C_DIM); return end
     local _, rows = code_geom()
-    if b.ro and not RX.RO_CODE[k] then RX.ro_say(); return end
     if BF.nav(b, k, M.mods(), rows - 1) or BF.key(b, k, rows - 1) then
       CD.help = nil
       code_scroll_to(b, rows)
@@ -1616,11 +1606,6 @@ end
 local function code_status()
   local b = cur_buf()
   if not b then return "Code: Ctrl+E opens or makes a source file" end
-  if b.ro then                                     -- a ROM: the address of the line first (F1 gives the help)
-    local a = b.dis and b.dis.addr[b.cy]
-    return string.format("%s (read only)  line %d of %d%s   F1: help  Ctrl+E: vectors, address, bank", RX.v and RX.v.name or CD.cur,
-                         b.cy, #b.lines, a and string.format("  %02X:%04X", a >> 16, a & 0xFFFF) or "")
-  end
   local w = word_under(b)
   local inf = (w and SC.info(w)) or nil
   if inf then return inf.short .. "   (F1: more)" end
@@ -1708,12 +1693,12 @@ local function draw_code()
   end
   local hw = W
   if LN.win then W = LN.full_w end                -- the lesson window takes the right half; the hint row is the whole width
-  if LN.has_keys() then
+  if LN.has_keys() and LN.view == "rom" and RX.v then
+    hint({ { { "i" }, "insert line" }, { { "r" }, "run ROM" }, { { "f9" }, "breakpoint" }, { { "ctrl", "e" }, "vectors" },
+           { { "ctrl", "g" }, "label" }, { { "ctrl", "t" }, "lessons" }, { { "ctrl", "l" }, "editor" } })
+  elseif LN.has_keys() then
     hint({ { { "i" }, "insert" }, { { "o" }, "open file" }, { { "r" }, "run" }, { { "g" }, "lessons" }, { { "n", "p" }, "block" },
            { { "ctrl", "l" }, "editor" }, { { "ctrl", "shift", "l" }, "close" } })
-  elseif RX.v then
-    hint({ { { "f5" }, "run" }, { { "f9" }, "breakpoint" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "label" },
-           { { "ctrl", "f" }, "find" }, { { "ctrl", "e" }, "vectors, address" } })
   else
     hint({ { { "ctrl", "b" }, "build" }, { { "f1" }, "help" }, { { "ctrl", "g" }, "go to" }, { { "ctrl", "f" }, "find" },
            { { "ctrl", "j" }, "snippet" }, { { "ctrl", "e" }, "files" }, { { "ctrl", "l" }, "lessons" } })
@@ -1824,7 +1809,6 @@ local function learn_insert(n)
   code_ensure()
   local b = cur_buf()
   if not b then say("Ctrl+E in the Code tab opens or makes a source file first", C_ERR); return end
-  if b.ro then RX.ro_say(); return end
   BF.insert_block(b, blk.text)
   CD.help = nil
   say(string.format("inserted in %s at line %d: Ctrl+Z in the Code tab takes it back", CD.cur, b.cy), C_ACC, 300)
@@ -1833,7 +1817,6 @@ end
 local function learn_open(n)
   local L, blk = learn_block(n)
   if not blk then return end
-  if RX.v then RX.ro_say(); return end
   if not doc_write then say("this console cannot write files", C_ERR); return end
   local listed = {}
   for _, d in ipairs(doc_list and doc_list() or {}) do listed[d.name:lower()] = true end
@@ -1922,7 +1905,191 @@ local function learn_view()                       -- Tab: lesson list > lesson a
   learn_clamp()
 end
 
+----------------------------------------------------------------- the ROM view of the right window (LN.view == "rom")
+-- The same window as the lessons: Ctrl+T swaps the two views, Ctrl+L gives the keys to the other side, the editor of
+-- your project stays at the left. The ROM is read only: i copies a line (or the selection) into your file.
+
+-- the row of the views at the top of the window: Lessons, the ROM
+function RX.win_tabs(x0, cw)
+  rectfill(x0, 16, cw, 16, C_BAR)
+  local x = x0 + 8
+  local function one(label, view)
+    local on = LN.view == view
+    local w = #label * 8 + 8
+    if on then rectfill(x - 4, 16, w, 16, C_SEL) end
+    U.zone(x - 4, 16, w, 16, "lview", view)
+    print(label, x, 16, on and 0xFFFFFF or C_DIM)
+    x = x + w + 8
+  end
+  one("Lessons", "lesson")
+  if RX.v then one("ROM: " .. RX.v.name:sub(1, max(4, (cw - 160) // 8)), "rom") end
+  print("^T", x0 + cw - 24, 16, C_DIM)
+end
+
+-- Ctrl+T: in the Sprites tab the ROM's tiles or your panel at the right; elsewhere the view of the right window
+function RX.swap()
+  if tab == 2 then
+    if not RX.v then say("no ROM: Esc > Open a ROM (.sfc, .smc of /snes)", C_DIM); return end
+    RX.side = not RX.side
+    return
+  end
+  tab = 1
+  if not LN.win then
+    LN.win, LN.focus = true, "lesson"
+    LN.view = RX.v and "rom" or "lesson"
+    code_ensure()
+  elseif RX.v then LN.view = (LN.view == "rom") and "lesson" or "rom"; LN.focus = "lesson"
+  else say("no ROM: Esc > Open a ROM (.sfc, .smc of /snes)", C_DIM) end
+  LN.rows_key = nil
+end
+
+function RX.scroll()
+  local _, rows, cols = RX.geom()
+  BF.scroll(RX.v.buf, rows, cols)
+end
+-- i: the selection (or the line) of the ROM into your file, at the cursor; the address comment comes with it
+function RX.insert()
+  local b = RX.v.buf
+  local text = BF.sel_text(b) or (b.lines[b.cy] .. "\n")
+  code_ensure()
+  local lb = cur_buf()
+  if not lb then say("Ctrl+E in the Code tab opens or makes a source file first", C_ERR); return end
+  BF.insert_block(lb, text)
+  b.mark = nil
+  local _, rows = code_geom()
+  code_scroll_to(lb, rows)
+  say(string.format("into %s at line %d (Ctrl+Z at the left takes it back)", CD.cur, lb.cy), C_ACC, 200)
+end
+-- r: the ROM runs in the Run tab as it is (F5 or Ctrl+B builds and runs your project again)
+function RX.run()
+  local ok, err = snes_load(RX.v.rom.bytes)
+  if not ok then say("cannot load the ROM: " .. tostring(err), C_ERR); return end
+  RN.state, RN.scratch, RN.lines, RN.built, RN.pcf, RN.pcln = "run", "rom", nil, {}, nil, nil
+  rn_arm()
+  rn_refresh()
+  tab = 5
+  say("running " .. RX.v.name .. ": your project is not changed. F5 builds and runs your project again", C_ACC, 300)
+end
+-- F9: a breakpoint at the first instruction on or after the line
+function RX.brk()
+  local b = RX.v.buf
+  local l = b.cy
+  while l <= #b.lines and not (b.dis.addr[l] and not b.lines[l]:find(":%s*$") and not b.lines[l]:find("data", 1, true)) do l = l + 1 end
+  local a = b.dis.addr[l]
+  if not a then say("no instruction on or after this line", C_ERR); return end
+  local on = rn_toggle(a, nil, nil)
+  if on ~= nil then say((on and "breakpoint at " or "breakpoint cleared at ") .. rn_addr_text(a) .. ": r runs the ROM", C_ACC) end
+end
+function RX.labels()
+  local rows = {}
+  for _, d in ipairs(BF.labels(RX.v.buf)) do
+    local ln = d.line
+    rows[#rows + 1] = { string.format("%-24s line %d", d.name, ln), function() BF.set_cursor(RX.v.buf, ln, 0); RX.v.buf.top = max(1, ln - 3); RX.scroll() end }
+  end
+  if #rows == 0 then say("no labels in this disassembly", C_DIM); return end
+  choose("labels of " .. RX.v.name, rows)
+end
+function RX.find(back)
+  local function go(t)
+    RX.v.find = t
+    if BF.find(RX.v.buf, t, back) then RX.v.buf.top = max(1, RX.v.buf.cy - 3); RX.scroll() else say("not found: " .. t, C_ERR) end
+  end
+  if back == nil or RX.v.find == "" then
+    ask("find in " .. RX.v.name, RX.v.find, function(t) if t ~= "" then back = false; go(t) end end)
+  else go(RX.v.find) end
+end
+
+function RX.win_key(k)
+  local b = RX.v.buf
+  local _, rows = RX.geom()
+  if k == "i" then RX.insert()
+  elseif k == "r" then RX.run()
+  elseif k == "^e" then RX.code_menu()
+  elseif k == "^g" then RX.labels()
+  elseif k == "^f" then RX.find(nil)
+  elseif k == "f6" then RX.find(false)
+  elseif k == "f7" then RX.find(true)
+  elseif k == "^c" then BF.key(b, k, rows - 1); say("copied: Ctrl+L, then Ctrl+V puts it in your file", C_DIM, 120)
+  elseif RX.RO_CODE[k] then
+    if BF.nav(b, k, M.mods(), rows - 1) or BF.key(b, k, rows - 1) then RX.scroll() end
+  else RX.ro_say() end
+end
+
+function RX.pad()
+  local b = RX.v.buf
+  local _, rows = RX.geom()
+  if rp[2] then BF.key(b, "up", rows) elseif rp[3] then BF.key(b, "down", rows)
+  elseif rp[0] then BF.key(b, "pgup", rows) elseif rp[1] then BF.key(b, "pgdn", rows)
+  elseif btnp(4) then RX.insert()
+  elseif btnp(5) then LN.focus = "code"
+  elseif tap[6] then RX.code_menu() end
+  RX.scroll()
+end
+
+function RX.mouse(z)
+  local b = RX.v.buf
+  local top = RX.geom()
+  if U.wheel ~= 0 then b.top = clamp(b.top - U.wheel * 3, 1, #b.lines); return end
+  if not U.pressed(0) then return end
+  if z.kind == "lclose" then LN.close()
+  elseif z.kind == "rcode" then
+    LN.focus = "lesson"
+    BF.set_cursor(b, clamp(b.top + (U.y - top) // 16, 1, #b.lines), max(0, b.left + (U.x - z.x - 12 + 4) // 8))
+    if U.double then                              -- a label name: go to it
+      local w = SC.word_at(b.lines[b.cy], b.cx + 1)
+      for _, d in ipairs(w and BF.labels(b) or {}) do
+        if d.name == w then BF.set_cursor(b, d.line, 0); b.top = max(1, d.line - 3); RX.scroll(); break end
+      end
+    end
+  end
+end
+
+function RX.status()
+  local b = RX.v.buf
+  local w = SC.word_at(b.lines[b.cy] or "", b.cx + 1)
+  local inf = w and SC.info(w)
+  local a = b.dis.addr[b.cy]
+  return string.format("%s (read only)  line %d of %d%s%s", RX.v.name, b.cy, #b.lines,
+                       a and string.format("  %02X:%04X", a >> 16, a & 0xFFFF) or "", inf and ("  " .. inf.short) or "")
+end
+
+function RX.draw_win()
+  local top, rows, cols, x0 = RX.geom()
+  local cw = W - x0
+  local b = RX.v.buf
+  rectfill(x0, 16, cw, HINT_Y - 16, C_PANEL)
+  rectfill(x0 - 2, 16, 2, HINT_Y - 16, LN.focus == "lesson" and C_ACC or C_GRID)
+  RX.win_tabs(x0, cw)
+  rectfill(x0, 32, cw, 16, LN.focus == "lesson" and C_SEL or C_BAR)
+  print(string.format("from %02X:%04X, read only  (Ctrl+E: vectors, banks)", RX.v.start >> 16, RX.v.start & 0xFFFF):sub(1, max(1, (cw - 40) // 8)),
+        x0 + 8, 32, 0xFFFFFF)
+  U.zone(x0 + cw - 24, 32, 24, 16, "lclose")
+  print("x", x0 + cw - 16, 32, C_ERR)
+  BF.scroll(b, rows, cols)
+  U.zone(x0, top, cw, rows * 16, "rcode")
+  local y0, _, y1 = BF.sel_range(b)
+  local pc = RN.scratch == "rom" and RN.state == "stop" and RN.regs and RN.regs.pc24
+  local tx = x0 + 12
+  for r = 0, rows - 1 do
+    local ln, y = b.top + r, top + r * 16
+    if ln > #b.lines then break end
+    local l = b.lines[ln]
+    if ln == b.cy then rectfill(x0, y, cw, 16, C_CURLINE) end
+    if y0 and ln >= y0 and ln <= y1 then rectfill(x0, y, cw, 16, C_SEL) end
+    local a = b.dis.addr[ln]
+    local code = a and not l:find(":%s*$")
+    if code and RN.set[a] then rectfill(x0 + 2, y + 5, 6, 6, 0xE03030) end
+    if code and pc and (a & 0xFFFFFF) == pc then print(">", x0 + 2, y, C_ACC) end
+    for _, t in ipairs(SC.tokens(l)) do
+      local s0, s1 = max(t[1], b.left + 1), min(t[2], b.left + cols)
+      if s1 >= s0 then print(l:sub(s0, s1), tx + (s0 - 1 - b.left) * 8, y, CC[t[3]] or C_TEXT) end
+    end
+    if ln == b.cy and LN.focus == "lesson" and (frame // 20) % 2 == 0 then rectfill(tx + (b.cx - b.left) * 8, y, 2, 16, 0xFFFFFF) end
+  end
+end
+
 function LN.key(k)
+  if LN.view == "rom" and RX.v then return RX.win_key(k) end
   learn_clamp()
   local m = M.mods()                              -- Alt+Up/Down: a page; Ctrl+Alt+Up/Down: the start / the end
   if m.alt and k == "up" then k = m.ctrl and "home" or "pgup"
@@ -1977,7 +2144,7 @@ end
 function LN.toggle()
   if tab ~= 1 then tab = 1 end
   if not LN.win then
-    LN.win, LN.focus = true, "lesson"
+    LN.win, LN.focus, LN.view = true, "lesson", "lesson"
     code_ensure()
     LN.rows_key = nil
     learn_show(LN.cur)
@@ -1988,6 +2155,7 @@ function LN.close() LN.win = false; LN.focus = "code" end
 function LN.has_keys() return tab == 1 and LN.win and LN.focus == "lesson" end
 
 function LN.pad()
+  if LN.view == "rom" and RX.v then return RX.pad() end
   if rp[2] then learn_scroll(-1) elseif rp[3] then learn_scroll(1)
   elseif rp[0] then learn_show(LN.cur - 1) elseif rp[1] then learn_show(LN.cur + 1)
   elseif btnp(4) then local _, blk = learn_block(); if blk and blk.run then learn_run() else learn_insert() end
@@ -2000,6 +2168,8 @@ function LN.mouse()
   if U.menu_open() then return end
   local z = U.at()
   if not z then return end
+  if z.kind == "lview" then if U.pressed(0) then LN.view = z.a; LN.focus = "lesson" end; return end
+  if LN.view == "rom" and RX.v then return RX.mouse(z) end
   local top, nrows, rx0, cols, lw, cx0 = learn_geom()
   if U.wheel ~= 0 then
     local b = cur_buf()
@@ -2029,6 +2199,7 @@ function LN.mouse()
 end
 
 function LN.status()
+  if LN.view == "rom" and RX.v then return RX.status() end
   local L = lessons()[LN.cur]
   if not L then return "Learn: no lessons in this build" end
   local e = SL.entry(LN.st, L.name)
@@ -2037,6 +2208,7 @@ function LN.status()
 end
 
 function LN.draw()
+  if LN.win and LN.view == "rom" and RX.v then return RX.draw_win() end
   LN.visited = true
   local win = LN.win
   if not win then cls(C_BG) end
@@ -2045,6 +2217,7 @@ function LN.draw()
   if win then                                     -- the panel and its header: lesson, the arrows, how to close
     rectfill(cx0, 16, cw, HINT_Y - 16, C_PANEL)
     rectfill(cx0 - 2, 16, 2, HINT_Y - 16, LN.focus == "lesson" and C_ACC or C_GRID)
+    RX.win_tabs(cx0, cw)
     local L0 = ls[LN.cur]
     local head = L0 and string.format("%d/%d %s", LN.cur, #ls, L0.title) or "no lessons"
     rectfill(cx0, 32, cw, 16, LN.focus == "lesson" and C_SEL or C_BAR)
@@ -2195,7 +2368,6 @@ end
 local MENU
 -- the cartridge settings: each row changes one setting (Enter) and the menu opens again on that row
 function M.cart_menu(sel)
-  if RX.v then RX.ro_say(); return end
   M.cart = M.cart or SC.cart_default()
   local lines, chip = SC.cart_lines(M.cart)
   local rows = {}
@@ -2219,9 +2391,7 @@ MENU = {
   { "Continue", function() end },
   { "New project   (Ctrl+N)", new_other },
   { "Open...   (Ctrl+O)", open_other },
-  { "Open a ROM (.sfc, .smc), read only...", function()
-    if not P.dirty or confirmed("open", "unsaved changes: choose again to open a ROM") then open_chooser(true) end
-  end },
+  { "Open a ROM (.sfc, .smc), read only, at the right...", function() open_chooser(true) end },
   { "Save   (Ctrl+S)", save_now },
   { "Save as...   (Ctrl+Shift+S)", save_as },
   { "Cartridge: map, ROM size, save RAM, chip...", function() M.cart_menu(1) end },
@@ -2237,6 +2407,7 @@ local function global_key(k)
   elseif k == "f9" and (tab == 1 or tab == 5) then rn_f9(); return true
   elseif k == "f10" and (tab == 1 or tab == 5) then rn_step(); return true
   elseif k == "^l" then LN.toggle(); return true
+  elseif k == "^t" then RX.swap(); return true
   elseif k == "^L" then LN.close(); return true
   elseif k == "f1" and LN.has_keys() then LN.focus = "code"; return true
   end
@@ -2286,12 +2457,18 @@ end
 local function sprites_mouse()
   local z = U.at()
   if not z then return end
-  if z.kind == "view" then
+  if z.kind == "rtile" then                       -- the ROM's tiles: a click puts the box there, a double click copies it
+    if U.pressed(0) and RX.v then
+      RX.v.qx = clamp((U.x - z.x) // rs * rs, 0, RX.TW - rs)
+      RX.v.qy = clamp((U.y - z.y) // rs * rs, 0, RX.TH - rs)
+      if U.double then RX.copy() end
+    end
+  elseif z.kind == "view" then
     if U.pressed(0) then
       local x = clamp(floor((U.x - SV_X) / zoom_sheet), 0, sw - 1)
       local y = clamp(floor((U.y - SV_Y) / zoom_sheet), 0, sh - 1)
       local nx, ny = x // rs * rs, y // rs * rs
-      if U.double and nx == rx and ny == ry and not RX.v then edit = true end
+      if U.double and nx == rx and ny == ry then edit = true end
       rx, ry = nx, ny
       fit_sprite()
     end
@@ -2302,7 +2479,6 @@ local function sprites_mouse()
     if U.pressed(0) then M.ch = z.a; chan_set(z.a, floor((U.x - z.x) / (z.w / 32))) end
     if U.wheel ~= 0 then M.ch = z.a; chan_add(U.wheel > 0 and 1 or -1) end
   elseif z.kind == "ed" then
-    if RX.v then if U.pressed(0) or U.pressed(2) then RX.ro_say() end; return end
     local x, y = clamp((U.x - ED_X) // ED_Z, 0, rs - 1), clamp((U.y - ED_Y) // ED_Z, 0, rs - 1)
     if U.pressed(0) or U.pressed(2) then begin(); edit = true; ex, ey = x, y end
     if U.down(0) or U.down(2) then
@@ -2380,12 +2556,15 @@ local HELP = {
   { "i / shift l", "import a PNG (quantise) / read a .pal" },
   { "e", "export .chr and .pal to /docs" },
   { "shift r", "the sheet size" },
-  "A ROM (.sfc, .smc: Ctrl+O, read only)",
-  { "code: ctrl e", "the vectors, an address, the bank before or after, the widths of A and X" },
-  { "code: f5 / f9 / f10", "run the ROM; a breakpoint on the line; one step" },
-  { "sprites: pgup pgdn", "the next or previous page of the ROM as tiles" },
-  { "sprites: < > / j", "one tile on or back; go to an offset or a CPU address" },
-  { "sprites: b", "the same bytes as 2, 4 or 8 bpp tiles (grey colours)" },
+  "A ROM, read only, at the right (Ctrl+O: .sfc, .smc of /snes); your project stays at the left",
+  { "ctrl t", "Code: the right window shows the lessons or the ROM; Sprites: the ROM's tiles or your panel" },
+  { "ctrl l", "the keys to the other side (your editor or the window)" },
+  { "code: i / ctrl c", "the line (or the selection) of the ROM into your file; copy it" },
+  { "code: r / f9", "run the ROM in the Run tab; a breakpoint on the line" },
+  { "code: ctrl e / ctrl g / ctrl f", "vectors, an address, a bank, the widths of A and X; a label; find" },
+  { "sprites: pgup pgdn / < >", "the ROM's tiles: a page; one tile" },
+  { "sprites: j / shift b", "go to an offset or a CPU address; 2, 4 or 8 bpp" },
+  { "sprites: c / ctrl v", "copy the box of the ROM (a click moves it); put it in your sprite" },
   "pad",
   { "DPAD A", "the sprite; draw the pixel" },
   { "A held + DPAD", "paint each pixel the cursor goes to" },
@@ -2400,9 +2579,10 @@ function _init()
   U.wants()
   if keyhelp then keyhelp(HELP, "bm SNES SDK") end
   local a = cart_arg()
-  if a and a.path and RX.is(a.path) then                -- a ROM given by the file manager: /snes/name.sfc or /docs/name.sfc
-    local folder = a.path:lower():match("^/?snes/") and "snes" or "docs"
-    if RX.open(a.path:match("([^/]+)$"), folder) then return end
+  if a and a.path and RX.is(a.path) then                -- a ROM given by the file manager: a new project, the ROM at the right
+    new_project()
+    RX.open(a.path:match("([^/]+)$"), a.path:lower():match("^/?snes/") and "snes" or "docs")
+    return
   elseif a and a.path and open_file(a.path) then return end
   new_project()
 end
@@ -2465,7 +2645,6 @@ function _update()
   elseif tab == 2 then sprites_pad()
   elseif LN.has_keys() then LN.pad()
   elseif tap[7] then menu_actions() end
-  if RX.v then P.dirty = false end                -- a ROM is read only: the palette and the view are not saved
 end
 
 function _draw()
@@ -2487,7 +2666,7 @@ function _draw()
     print(t[1], lx, 0, i == tab and 0xFFFFFF or C_DIM)
     x = x + w + 12
   end
-  U.bar_file(RX.v and (RX.v.name .. " (read only)") or P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
+  U.bar_file(P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
   local status = msg_t > 0 and msg or tab == 1 and (LN.has_keys() and LN.status() or code_status()) or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],

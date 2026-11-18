@@ -437,6 +437,7 @@ end
 local FAKE = { pcs = {}, idx = 1, brk = {}, ram = {}, frames = 0, loads = 0, resets = 0, runs = 0, draws = 0 }
 local function fpc() return FAKE.pcs[FAKE.idx] or 0x8000 end
 E.target_create = function(w, h) return { w = w, h = h, draw = function() end } end
+E.target = function() end                -- the ROM's tiles of the Sprites tab are drawn in a render target
 E.snes_load = function(rom) FAKE.rom, FAKE.idx, FAKE.loads = rom, 1, FAKE.loads + 1; return true end
 E.snes_reset = function() FAKE.idx, FAKE.resets = 1, FAKE.resets + 1 end
 E.snes_draw = function() FAKE.draws = FAKE.draws + 1; return 224 end
