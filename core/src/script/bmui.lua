@@ -539,7 +539,8 @@ end
 
 -- The files a picker lists: /bme first, then the old places. exts: { bm = true, bme = true,
 -- b16 = true } (a set of lower case extensions); extra: more folders to read after those.
--- A path once only (case does not matter). Returns the paths, and a table of their sizes.
+-- A path once only (case does not matter). bm's own apps (ls marks them as tool) are not listed. Returns the
+-- paths, and a table of their sizes.
 function U.project_files(exts, extra)
   local dirs = { U.PROJECTS }
   for _, d in ipairs(OLD_DIRS) do dirs[#dirs + 1] = d end
@@ -549,7 +550,7 @@ function U.project_files(exts, extra)
     for _, f in ipairs(ls(dir) or {}) do
       local ext = f.name:lower():match("%.(%w+)$")
       local p = (dir == "/" and "" or dir) .. "/" .. f.name
-      if not f.dir and ext and exts[ext] and not (dir == U.PROJECTS and ext ~= "bme") and not seen[p:upper()] then
+      if not f.dir and not f.tool and ext and exts[ext] and not (dir == U.PROJECTS and ext ~= "bme") and not seen[p:upper()] then
         seen[p:upper()] = true
         out[#out + 1] = p
         sizes[p] = f.size

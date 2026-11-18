@@ -11,6 +11,7 @@ import argparse
 import base64
 import hashlib
 import re
+import atexit
 import os
 import shutil
 import socket
@@ -762,7 +763,7 @@ def test_keys_help(b, opts):
     the menu shows them with the keys' pictures, then the menu's own; let
     go, the menu again. In an app (bm Studio) the same, then the app's
     (keyhelp()); Ctrl+Esc leaves it."""
-    q = Qemu(b("kernel.img"), USB_KBD)
+    q = Qemu(b("kernel.img"), USB_KBD + tool_drive(b, "studio"))
     try:
         q.expect(MENU, timeout=30)
         time.sleep(1.0)
@@ -5048,6 +5049,31 @@ def test_permissions(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# The tools of the suite are apps on the SD card (no kernel embeds one): the play word, the file on the card.
+TOOL_BM = {"editor": "editor.bm", "code": "code.bm", "sound": "sound.bm", "studio": "studio.bm",
+           "pixel": "pixel.bm", "animator": "animator.bm", "mesh": "mesh.bm", "assistant": "assistant.bm"}
+_TOOL_TMP = []
+
+
+def tools(b, *words):
+    """The files of the tools for mksd.build: each as /bm/<file>, plus the Assistant (its dictionaries are the word
+    completion of bm Code and of the SDK)."""
+    names = list(dict.fromkeys(list(words) + ["assistant"]))
+    return [(b(TOOL_BM[w]), "bm/" + TOOL_BM[w]) for w in names]
+
+
+def tool_drive(b, *words):
+    """An SD card with only the tools on it, as QEMU arguments (for a test that had no card)."""
+    d = tempfile.mkdtemp(prefix="bm-tools-")
+    _TOOL_TMP.append(d)
+    img = os.path.join(d, "sd.img")
+    mksd.build(img, tools(b, *words))
+    return ["-drive", f"if=sd,format=raw,file={img}"]
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _TOOL_TMP])
+
+
 def open_tool(q, word, wait=0.0):
     """A tool of the suite from the monitor, by the word `play` knows: editor (bm SDK), code, sound,
     studio, mesh, pixel, animator, assistant. A line, so it does not depend on a single-key shortcut."""
@@ -5270,7 +5296,7 @@ def test_sound_editor(b, opts):
     (PONG.BME), after the console's question."""
     tmp = tempfile.mkdtemp(prefix="bm-snd-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")] + tools(b, "sound"))
     drive = ["-drive", f"if=sd,format=raw,file={img}"]
     q = Qemu(b("kernel.img"), drive)
 
@@ -5347,7 +5373,7 @@ def test_sound_assistant(b, opts):
     """The music assistant in bm Sound (F6, core/src/ai/music.c): a lo-fi backing
     track for the words goes into new patterns with a song of its own, then
     a coin into a free sound effect; the kernel's network chose them."""
-    q = Qemu(b("kernel.img"))
+    q = Qemu(b("kernel.img"), tool_drive(b, "sound"))
 
     def k(s, gap=0.25):
         q.send(s)
@@ -5381,7 +5407,7 @@ def test_sound_riff(b, opts):
     """bm Sound's Riff... (F7, require "riff"): the first example (four on
     the floor) plays live, an arpeggio from the examples too, then
     Ctrl+Enter puts four bars of it into the bank as a song of its own."""
-    q = Qemu(b("kernel.img"))
+    q = Qemu(b("kernel.img"), tool_drive(b, "sound"))
 
     def k(s, gap=0.25):
         q.send(s)
@@ -5446,7 +5472,7 @@ def test_sound_import(b, opts):
     mid_path = os.path.join(tmp, "tune.mid")
     with open(mid_path, "wb") as f:
         f.write(b"MThd" + struct.pack(">IHHH", 6, 0, 1, 96) + b"MTrk" + struct.pack(">I", len(body)) + body)
-    mksd.build(img, [(cfg, "bm/config.txt"), (wav_path, "docs/tone.wav"), (mid_path, "docs/tune.mid")])
+    mksd.build(img, [(cfg, "bm/config.txt"), (wav_path, "docs/tone.wav"), (mid_path, "docs/tune.mid")] + tools(b, "sound"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.3):
@@ -5908,7 +5934,7 @@ def test_assistant(b, opts):
     times the network on this CPU; Esc closes the panel, Ctrl+Esc (Ctrl+\
     on the serial line) leaves. The tools open the same panel (require
     "assist") with F6."""
-    q = Qemu(b("kernel.img"))
+    q = Qemu(b("kernel.img"), tool_drive(b, "assistant"))
 
     def k(s, gap=0.05):
         for c in s:
@@ -6000,7 +6026,7 @@ def test_debugger(b, opts):
     cart = os.path.join(tmp, "dbg.bm")
     with open(cart, "wb") as f:
         f.write(mkbm.pack(DEBUG_CART.encode(), title="debug me", author="tests"))
-    mksd.build(img, [(cart, "bm/DBG.BM")])
+    mksd.build(img, [(cart, "bm/DBG.BM")] + tools(b, "code"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.04):
@@ -6084,7 +6110,7 @@ def test_code_editor(b, opts):
     still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-code-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/mapkit.bm"), "bm/Il mio demo.bm"), (b("bm/pong.bm"), "bm/pong.bm")] + tools(b, "code"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     log = []
 
@@ -6259,7 +6285,7 @@ def test_code_templates(b, opts):
     /bme/game1.bme. The card is still a clean FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-codetpl-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/astrowing.bm"), "bm/demo.bm")])
+    mksd.build(img, [(b("bm/astrowing.bm"), "bm/demo.bm")] + tools(b, "code"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def k(s, gap=0.04):
@@ -6375,7 +6401,7 @@ def test_riff_code(b, opts):
     the sound's clock: the status line says MUSIC 2, the words of the notes
     sounding light up; a mistake marks its line and says why, the music goes
     on; Ctrl+. (ESC [ 29 ~) stops it."""
-    q = Qemu(b("kernel.img"))
+    q = Qemu(b("kernel.img"), tool_drive(b, "code"))
 
     def k(s, gap=0.04):
         for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
@@ -6521,7 +6547,7 @@ def test_code_completion(b, opts):
     is: Lua in the code, Italian after "--", the questions to the assistant
     after "#entry:"; in the find prompt the tab's names; in the assistant's
     panel the question. Tab before any letter still indents."""
-    q = Qemu(b("kernel.img"))
+    q = Qemu(b("kernel.img"), tool_drive(b, "code"))
 
     def k(s, gap=0.05):
         for c in re.findall(r"\x1b\[[0-9]*[~A-Z]|\x1bO[A-Z]|.", s, re.S):
@@ -6669,7 +6695,7 @@ def test_pad_typing(b, opts):
     with open(cfg, "w") as f:
         f.write(f"layout=it\nbt_pad=1c:66:6d:01:02:03 {key.hex()}\n")
     mksd.build(img, [(hcd, "bm/BCM43430A1.hcd"), (cfg, "bm/config.txt"),
-                     (b("bm/typing.bm"), "bm/typing.bm")])
+                     (b("bm/typing.bm"), "bm/typing.bm")] + tools(b, "code"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"], mini_uart=True)
     q.mini_buf = b""
     HAT = {None: 8, "up": 0, "right": 2, "down": 4, "left": 6}
@@ -6825,7 +6851,7 @@ def test_editor(b, opts):
     FAT32 volume."""
     tmp = tempfile.mkdtemp(prefix="bm-ed-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")])
+    mksd.build(img, [(b("bm/pong.bm"), "bm/pong.bm")] + tools(b, "editor"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
 
@@ -6945,7 +6971,7 @@ def test_sdk_layers(b, opts):
     read back by bm.h's rules."""
     tmp = tempfile.mkdtemp(prefix="bm-sdl-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [])
+    mksd.build(img, tools(b, "editor"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F3 = "\x1bOR"
 
@@ -7024,7 +7050,7 @@ def test_sdk_map3d_roundtrip(b, opts):
     map page, the 3D preview opens, and a save keeps the cells."""
     tmp = tempfile.mkdtemp(prefix="bm-map3d-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [])
+    mksd.build(img, tools(b, "editor"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F3 = "\x1bOR"
 
@@ -7150,7 +7176,7 @@ def test_sdk_suite(b, opts):
     bm SDK"; the SDK comes back on the project."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")] + tools(b, "editor", "studio"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F4, F6 = "\x1bOP", "\x1bOS", "\x1b[17~"
 
@@ -7240,7 +7266,7 @@ def test_sdk_elastic(b, opts):
     tab bar at the top, the hint row and the status bar at the bottom."""
     tmp = tempfile.mkdtemp(prefix="bm-elastic-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")])
+    mksd.build(img, [(b("bm/testkit.bm"), "bm/testkit.bm")] + tools(b, "editor"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F1, F2, F3, F4 = "\x1bOP", "\x1bOQ", "\x1bOR", "\x1bOS"
     UP = "\x1b[A"
@@ -7325,7 +7351,7 @@ def test_suite_elastic(b, opts):
         cfg = os.path.join(tmp, "config.txt")
         with open(cfg, "w") as f:
             f.write("layout=us\nbm_screen=1280x720\n")
-        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/testkit.bm"), "bm/testkit.bm")])
+        mksd.build(img, [(cfg, "bm/config.txt"), (b("bm/testkit.bm"), "bm/testkit.bm")] + tools(b, "editor", name))
         q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
         def k(s, gap=0.4):
@@ -7530,7 +7556,7 @@ def test_sdk_code_pi(b, opts):
     Ctrl+S saves the project; its LUA section has the typed text."""
     tmp = tempfile.mkdtemp(prefix="bm-sdcp-")
     img = os.path.join(tmp, "sd.img")
-    mksd.build(img, [])
+    mksd.build(img, tools(b, "editor"))
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
     F2 = "\x1bOQ"
 

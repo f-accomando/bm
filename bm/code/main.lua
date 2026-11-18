@@ -2486,8 +2486,9 @@ function _update()
   LY.poll()
   frame = frame + 1
   if status_t > 0 then status_t = status_t - 1 end
-  if focus and focus.tab and focus.tab.ai_marks and focus.tab.ai_marks.ttl > 0 then
-    focus.tab.ai_marks.ttl = focus.tab.ai_marks.ttl - 1
+  local ft = tabs[panes[focus].tab]        -- focus is the pane number: its tab fades the AI marks
+  if ft and ft.ai_marks and ft.ai_marks.ttl > 0 then
+    ft.ai_marks.ttl = ft.ai_marks.ttl - 1
   end
   riff_frame()
   mouse_frame()

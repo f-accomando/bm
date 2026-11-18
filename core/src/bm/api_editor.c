@@ -8,6 +8,7 @@
 #include "display.h"            /* fb_init_game */
 #endif
 #include "runtime.h"
+#include "kernel/toolnames.h"   /* bm_tool_id_of_file: the app files ls() marks */
 #include "bm.h"
 #include "gfx16.h"
 #include "r3d.h"
@@ -280,10 +281,12 @@ const char *bm_last_error(void)
     return last_error;
 }
 
-/* ls([dir]) -> { {name=, size=, dir=}, ... } */
+/* ls([dir]) -> { {name=, size=, dir=, tool=}, ... }: tool is the id of one of bm's tools ("code", "sdk", ...) for
+ * the app files of /bm (kernel/toolnames.h), so the pickers of the editors leave them out */
 int l_ls(lua_State *L)
 {
     const char *dir = luaL_optstring(L, 1, "/");
+    const int in_bm = strcasecmp(dir, "/bm") == 0 || strcasecmp(dir, "/bm/") == 0;
     lua_newtable(L);
     fat_dir_t d;
     fat_entry_t e;
@@ -300,6 +303,11 @@ int l_ls(lua_State *L)
         lua_setfield(L, -2, "size");
         lua_pushboolean(L, e.is_dir);
         lua_setfield(L, -2, "dir");
+        const char *tool = in_bm && !e.is_dir ? bm_tool_id_of_file(e.name) : NULL;
+        if (tool) {
+            lua_pushstring(L, tool);
+            lua_setfield(L, -2, "tool");
+        }
         lua_rawseti(L, -2, i++);
     }
     return 1;

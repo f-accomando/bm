@@ -2453,7 +2453,7 @@ local function list_files()
     local l = ls(dir)
     table.sort(l, function(a, b) return a.name:lower() < b.name:lower() end)
     for _, e in ipairs(l) do
-      if not e.dir and is_bm(e.name) then
+      if not e.dir and not e.tool and is_bm(e.name) then      -- bm's own apps (ls marks them) are not games
         out[#out + 1] = { path = (dir == "/" and "" or dir) .. "/" .. e.name, name = e.name, kind = kind, size = e.size }
       end
     end

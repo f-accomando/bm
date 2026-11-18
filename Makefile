@@ -1290,7 +1290,8 @@ HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-
       test-release test-smp test-qpu test-qpurun test-qpucheck test-snes-g2 test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
 	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-shell-code test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
-QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/bm/hero.bm $(BUILD)/bm/mapkit.bm $(BUILD)/bm/testkit.bm
+QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/bm/hero.bm $(BUILD)/bm/mapkit.bm $(BUILD)/bm/testkit.bm \
+              $(patsubst %,$(BUILD)/%.bm,code assistant editor sound studio pixel animator mesh)
 QEMU_TESTS = $(PYTHON) tests/qemu_test.py --build $(BUILD) $(if $(SHARD),--shard $(SHARD))
 
 test: all $(HOST_TESTS) $(QEMU_DEPS)
