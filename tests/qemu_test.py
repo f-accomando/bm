@@ -6453,7 +6453,10 @@ def test_assistant_app(b, opts):
     answers (the network gives the integers of the Python reference) and bm Code completes words."""
     d = _clean_build(opts)
     clean = lambda n: os.path.join(d, n)
-    assert os.path.getsize(clean("kernel.img")) < 3 * 1024 * 1024, "the clean kernel still holds the Assistant's data"
+    # the dictionaries are not in the kernel: bm_lib_words and bm_lib_words_end are at the same address
+    syms = dict((m.group(2), m.group(1)) for m in re.finditer(
+        r"^\s+(0x[0-9a-f]+)\s+(bm_lib_words(?:_end)?)\s*$", open(clean("kernel.map")).read(), re.M))
+    assert len(syms) == 2 and syms["bm_lib_words"] == syms["bm_lib_words_end"], "the kernel still holds the Assistant's data"
     q = Qemu(clean("kernel.img"))
     try:
         q.boot()

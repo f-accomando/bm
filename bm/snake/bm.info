@@ -4,6 +4,6 @@ name: Snake
 desc: Eat the apples, do not bite yourself or the walls.
 author: bm
 license: LicenseRef-BM-Community-1.0
-version: 1.0
+version: 1.1
 tags: game, arcade
 resolution: 640x360
