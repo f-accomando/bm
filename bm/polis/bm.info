@@ -1,12 +1,13 @@
 # bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
 name: Polis
-desc: Gioco da tavolo politico-economico a turni: leggi neutrali, banca pubblica o privata, token del popolo e condizioni di vittoria multiple.
+desc: Gioco da tavolo politico-economico a turni: leggi neutrali, voto a maggioranza, banca pubblica o privata e token del popolo.
 author: bm
 license: BM Community License 1.0
-version: 0.1
+version: 0.2
 tags: game, strategy, boardgame
 type: game
 resolution: 640x360
 targets: pi,rgb30
 input: keyboard,pad
 aspect: wide
+needs: audio
