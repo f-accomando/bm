@@ -1,7 +1,7 @@
 -- snes_sdk_rom.lua: checks of bm SNES SDK, called by snes_sdk_host.lua (make test-studio).
 -- 1. The pencil held: Space (or the pad's A) held while the arrows move paints a line, one undo step.
 -- 2. A ROM (.sfc in /snes) opened read only at the right of the Code tab (the project stays at the left): no typing, i puts a
---    line in your file, F9 a breakpoint, r runs it; Ctrl+T in Sprites shows its tiles beside your sheet, c copies a block.
+--    line in your file, F9 a breakpoint, r runs it; Ctrl+T in Sprites shows its tiles beside your sprite, c copies a block.
 return function(t)
   local check, key, frames, sees, status, S = t.check, t.key, t.frames, t.sees, t.status, t.S
 
@@ -73,7 +73,7 @@ loop:
 
   key("f2", "^t")
   check(sees("ROM $000000-$003FFF"), "Sprites, Ctrl+T: the ROM's tiles at the right (128x256 at 4 bpp = 16 KB)")
-  check(sees("sheet") or sees("your sprite at"), "your sheet stays at the left")
+  check(sees("sheet") or sees("your sprite at"), "your sprite stays at the left")
   key("pgdn")
   check(sees("ROM $004000-$007FFF"), "PgDn: the next page")
   key(">")

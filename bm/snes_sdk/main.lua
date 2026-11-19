@@ -8,7 +8,7 @@
 -- Keys: F1..F5 the tabs, Esc the menu, Ctrl+S save, Ctrl+O open, Ctrl+N new, F12 (held) the keys.
 -- Ctrl+O also opens a ROM (.sfc, .smc of /snes or /docs) read only, beside the project: the right window of the Code
 -- tab shows its disassembly (core/lua/snesrom.lua; Ctrl+T swaps it with the lessons), Ctrl+T in the Sprites tab its
--- tiles beside your sheet. The ROM is never written; i and c copy from it into your project.
+-- tiles beside your sprite. The ROM is never written; i and c copy from it into your project.
 -- The converters are in core/lua/snesgfx.lua (no interface; tests/snes/snesgfx_test.lua).
 
 local LY = require("bmlib").layout
@@ -34,7 +34,7 @@ local C_TEXT, C_DIM, C_ACC, C_ERR, C_SEL = 0xE0E4F0, 0x707890, 0xFFC050, 0xFF606
 local C_GRID, C_GRID8, C_PT, C_CHK1, C_CHK2 = 0x3C4254, 0x5A6280, 0xFFE070, 0x2A2E3A, 0x343846
 local PALCOL = { 0xE04040, 0x40C040, 0x4080F0, 0xE0C040, 0xC050D0, 0x40C0C0, 0xF08030, 0xA0A0A0 }
 local HINT_Y, STATUS_Y = H - 40, H - 24
-local SV_X, SV_Y, SV_W, SV_H = 8, 32, 296, 272    -- the sheet view; the panel is right of it
+local SV_X, SV_Y, SV_W, SV_H = 320, 160, 312, 152 -- the sheet view, under the panel at the right (draw_sprites sets it)
 local PX = 320
 local floor, min, max = math.floor, math.min, math.max
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
@@ -43,7 +43,6 @@ local function snap8(x) return (x + 7) // 8 * 8 end
 LY.on_resize(function(w, h)
   W, H = w, h
   HINT_Y, STATUS_Y = H - 40, H - 24
-  SV_W, SV_H = w // 2 - 24, HINT_Y - 48
   PX = w // 2
 end)
 
@@ -785,40 +784,52 @@ local ZOOMS = { 0.25, 0.5, 1, 2, 4 }
 
 local function draw_sprites()
   cls(C_BG)
-  -- the sheet, its tile grid and the sub-palette of each tile
-  local z = ZOOMS[1]
-  for _, zz in ipairs(ZOOMS) do if sw * zz <= SV_W and sh * zz <= SV_H then z = zz end end
-  zoom_sheet = z
-  local vw, vh = min(sw, floor(SV_W / z)), min(sh, floor(SV_H / z))
-  checker(SV_X, SV_Y, floor(vw * z), floor(vh * z), 16)
-  U.zone(SV_X, SV_Y, floor(vw * z), floor(vh * z), "view", z)
-  sspr(0, 0, vw, vh, SV_X, SV_Y, false, false, z)
-  local step = 8 * z
-  if step >= 4 then
-    for gx = 0, vw // 8 do rectfill(SV_X + floor(gx * step), SV_Y, 1, floor(vh * z), C_GRID) end
-    for gy = 0, vh // 8 do rectfill(SV_X, SV_Y + floor(gy * step), floor(vw * z), 1, C_GRID) end
+  local w0, h0 = dims()
+  local function item(txt, key, x, yy, c)
+    print(txt, x, yy, c or C_TEXT)
+    U.key_zone(x, yy, #txt * 8, 16, key)
+    return x + #txt * 8 + 16
   end
-  local tw = sw // 8
-  for t, s in pairs(M.tp) do
-    local tx, ty = t % tw, t // tw
-    if tx < vw // 8 and ty < vh // 8 then
-      local x, y = SV_X + floor(tx * step), SV_Y + floor(ty * step)
-      local c = PALCOL[(s - 1) % 8 + 1]
-      local m = max(2, min(5, floor(step / 3)))
-      rectfill(x + 1, y + 1, m, m, c)
-      if step >= 16 then print(tostring(s), x + 4, y + 1, c) end
+
+  -- the left column: the sprite editor at the top, the OAM preview under it.
+  -- The editor takes about half of the height of the column, so that the preview fits under it.
+  local room = max(64, min(PX - 16, (HINT_Y - 40) // 2))
+  local ez = max(1, room // rs)
+  local ew = rs * ez
+  ED_X, ED_Y, ED_Z = 8, 32, ez
+  checker(ED_X, ED_Y, ew, ew, 8)
+  sspr(rx, ry, rs, rs, ED_X, ED_Y, false, false, ez)
+  if ez >= 4 then
+    for g = 0, rs do
+      rectfill(ED_X + g * ez, ED_Y, 1, ew, C_GRID)
+      rectfill(ED_X, ED_Y + g * ez, ew, 1, C_GRID)
     end
   end
-  local sx, sy = SV_X + floor(rx * z), SV_Y + floor(ry * z)
-  rect(sx - 1, sy - 1, floor(rs * z) + 2, floor(rs * z) + 2, 0x000000)
-  rect(sx, sy, floor(rs * z), floor(rs * z), (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
+  U.zone(ED_X, ED_Y, ew, ew, "ed", ez)
+  if edit then rect(ED_X + ex * ez, ED_Y + ey * ez, max(ez, 2), max(ez, 2), C_PT) end
+  rect(ED_X - 1, ED_Y - 1, ew + 2, ew + 2, edit and C_ACC or C_GRID8)
+  local ox, oy = ED_X, ED_Y + ew + 8
+  local box = 80                                    -- the OAM preview: the sprite, as large as the box allows
+  local pz = max(1, box // rs)
+  local pw = rs * pz
+  checker(ox, oy, box, box, 8)
+  sspr(rx, ry, rs, rs, ox + (box - pw) // 2, oy + (box - pw) // 2, M.fx, M.fy, pz)
+  rect(ox + (box - pw) // 2 - 1, oy + (box - pw) // 2 - 1, pw + 2, pw + 2, C_GRID8)
+  local tile = (ry // 8) * 16 + (rx // 8)
+  local e = G.oam_entry(0, 0, tile, (M.cur - 1) & 7, M.prio, M.fx, M.fy)
+  local tx = ox + box + 8
+  print(string.format("OAM $%03X", tile), tx, oy, C_TEXT)
+  print(string.format("attr $%02X", e:byte(4)), tx, oy + 16, C_TEXT)
+  item(M.fx and "[x] flipX" or "[ ] flipX", "x", tx, oy + 32, M.fx and C_ACC or C_DIM)
+  item(M.fy and "[y] flipY" or "[ ] flipY", "y", tx, oy + 48, M.fy and C_ACC or C_DIM)
+  item("prio " .. M.prio, "p", tx, oy + 64, C_TEXT)
 
-  if RX.v and RX.side then                          -- the right half: the ROM's tiles, read only, beside your sheet
+  if RX.v and RX.side then                          -- the right column: the ROM's tiles, read only, beside your sprite
     RX.draw_tiles(PX, 32)
-    local tx, ty = PX + RX.TW + 16, 32
+    local lx, ly = PX + RX.TW + 16, 32
     local lines = { RX.v.name, "read only", RX.v.bpp .. " bpp (shift b)", "",
                     string.format("box at (%d,%d) %dx%d", RX.v.qx, RX.v.qy, rs, rs), "c: copy it", "ctrl v: into your", "sprite at the left" }
-    for i, l in ipairs(lines) do print(l:sub(1, max(1, (W - tx - 4) // 8)), tx, ty + (i - 1) * 16, i <= 2 and C_ACC or C_TEXT) end
+    for i, l in ipairs(lines) do print(l:sub(1, max(1, (W - lx - 4) // 8)), lx, ly + (i - 1) * 16, i <= 2 and C_ACC or C_TEXT) end
     rectfill(0, 16, W, 16, C_BG)
     print((RX.where() .. string.format("   your sprite at (%d,%d)", rx, ry)):sub(1, (W - 16) // 8), 8, 16, C_ACC)
     hint({ { { "pgup", "pgdn" }, "page" }, { { "<", ">" }, "tile" }, { { "j" }, "go to" }, { { "c" }, "copy" },
@@ -826,15 +837,9 @@ local function draw_sprites()
     return
   end
 
-  -- the panel: depth, sizes, sub-palette
+  -- the right column: depth, sizes, sub-palette, colour; the sheet under them
   local p = subpal(M.cur)
   local y = 32
-  local w0, h0 = dims()
-  local function item(txt, key, x, yy, c)
-    print(txt, x, yy, c or C_TEXT)
-    U.key_zone(x, yy, #txt * 8, 16, key)
-    return x + #txt * 8 + 16
-  end
   local x = PX
   x = item(M.bpp .. " bpp", "b", x, y)
   x = item("sizes " .. G.SIZE_SETS[M.set][1][1] .. "/" .. G.SIZE_SETS[M.set][2][1], "s", x, y)
@@ -875,42 +880,47 @@ local function draw_sprites()
   print("5 bits a channel", PX + 176, by0 + 16, C_DIM)
   y = y + 8
 
-  -- the sprite editor (left) and the OAM preview (right)
-  -- the zoom: as large as the room allows (at least 96 pixels), so that a 32x32 or 64x64 sprite is not tiny
-  local room = max(96, min(HINT_Y - y - 8, W - PX - 8 - 176))
-  local ez = max(1, room // rs)
-  local ew = rs * ez
-  ED_X, ED_Y, ED_Z = PX, y, ez
-  checker(ED_X, ED_Y, ew, ew, 8)
-  sspr(rx, ry, rs, rs, ED_X, ED_Y, false, false, ez)
-  if ez >= 4 then
-    for g = 0, rs do
-      rectfill(ED_X + g * ez, ED_Y, 1, ew, C_GRID)
-      rectfill(ED_X, ED_Y + g * ez, ew, 1, C_GRID)
+  -- the sheet, its tile grid and the sub-palette of each tile. The zoom is the largest that shows the whole sheet,
+  -- but not less than 1: then the view shows a part of the sheet and follows the sprite (M.sox, M.soy).
+  SV_X, SV_Y, SV_W, SV_H = PX, y, max(8, W - PX - 8), max(8, HINT_Y - 8 - y)
+  local z = ZOOMS[1]
+  for _, zz in ipairs(ZOOMS) do if sw * zz <= SV_W and sh * zz <= SV_H then z = zz end end
+  if z < 1 then z = 1 end
+  zoom_sheet = z
+  local vw, vh = min(sw, floor(SV_W / z) // 8 * 8), min(sh, floor(SV_H / z) // 8 * 8)
+  vw, vh = max(vw, min(sw, 8)), max(vh, min(sh, 8))
+  local sox, soy = M.sox or 0, M.soy or 0
+  if rx < sox then sox = rx elseif rx + rs > sox + vw then sox = rx + rs - vw end
+  if ry < soy then soy = ry elseif ry + rs > soy + vh then soy = ry + rs - vh end
+  sox, soy = clamp(sox - sox % 8, 0, max(0, sw - vw)), clamp(soy - soy % 8, 0, max(0, sh - vh))
+  M.sox, M.soy = sox, soy
+  checker(SV_X, SV_Y, floor(vw * z), floor(vh * z), 16)
+  U.zone(SV_X, SV_Y, floor(vw * z), floor(vh * z), "view", z)
+  sspr(sox, soy, vw, vh, SV_X, SV_Y, false, false, z)
+  local step = 8 * z
+  if step >= 4 then
+    for gx = 0, vw // 8 do rectfill(SV_X + floor(gx * step), SV_Y, 1, floor(vh * z), C_GRID) end
+    for gy = 0, vh // 8 do rectfill(SV_X, SV_Y + floor(gy * step), floor(vw * z), 1, C_GRID) end
+  end
+  local tw = sw // 8
+  for t, s in pairs(M.tp) do
+    local tx8, ty8 = t % tw - sox // 8, t // tw - soy // 8
+    if tx8 >= 0 and ty8 >= 0 and tx8 < vw // 8 and ty8 < vh // 8 then
+      local cx, cy = SV_X + floor(tx8 * step), SV_Y + floor(ty8 * step)
+      local c = PALCOL[(s - 1) % 8 + 1]
+      local m = max(2, min(5, floor(step / 3)))
+      rectfill(cx + 1, cy + 1, m, m, c)
+      if step >= 16 then print(tostring(s), cx + 4, cy + 1, c) end
     end
   end
-  U.zone(ED_X, ED_Y, ew, ew, "ed", ez)
-  if edit then rect(ED_X + ex * ez, ED_Y + ey * ez, max(ez, 2), max(ez, 2), C_PT) end
-  rect(ED_X - 1, ED_Y - 1, ew + 2, ew + 2, edit and C_ACC or C_GRID8)
-  local ox = ED_X + ew + 8
-  local box = 80                                    -- the OAM preview: the sprite, as large as the box allows
-  local pz = max(1, 80 // rs)
-  local pw = rs * pz
-  checker(ox, y, box, box, 8)
-  sspr(rx, ry, rs, rs, ox + (box - pw) // 2, y + (box - pw) // 2, M.fx, M.fy, pz)
-  rect(ox + (box - pw) // 2 - 1, y + (box - pw) // 2 - 1, pw + 2, pw + 2, C_GRID8)
-  local tile = (ry // 8) * 16 + (rx // 8)
-  local e = G.oam_entry(0, 0, tile, (M.cur - 1) & 7, M.prio, M.fx, M.fy)
-  local tx = ox + 88
-  print(string.format("OAM $%03X", tile), tx, y, C_TEXT)
-  print(string.format("attr $%02X", e:byte(4)), tx, y + 16, C_TEXT)
-  item(M.fx and "[x] flipX" or "[ ] flipX", "x", tx, y + 32, M.fx and C_ACC or C_DIM)
-  item(M.fy and "[y] flipY" or "[ ] flipY", "y", tx, y + 48, M.fy and C_ACC or C_DIM)
-  item("prio " .. M.prio, "p", tx, y + 64, C_TEXT)
+  local sx, sy = SV_X + floor((rx - sox) * z), SV_Y + floor((ry - soy) * z)
+  rect(sx - 1, sy - 1, floor(rs * z) + 2, floor(rs * z) + 2, 0x000000)
+  rect(sx, sy, floor(rs * z), floor(rs * z), (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
 
   rectfill(0, 16, W, 16, C_BG)
-  print(string.format("sheet %dx%d  sprite at (%d,%d) %dx%d  %s%s", sw, sh, rx, ry, rs, rs, fill_tool and "fill" or "pencil",
-                      sw ~= 128 and "  (OAM: 128 wide)" or ""), 8, 16, C_TEXT)
+  local part = (vw < sw or vh < sh) and string.format("  view (%d,%d) %dx%d", sox, soy, vw, vh) or ""
+  print(string.format("sheet %dx%d  sprite at (%d,%d) %dx%d  %s%s%s", sw, sh, rx, ry, rs, rs, fill_tool and "fill" or "pencil",
+                      sw ~= 128 and "  (OAM: 128 wide)" or "", part):sub(1, (W - 16) // 8), 8, 16, C_TEXT)
   hint({ { { "enter" }, edit and "choose" or "draw" }, { { "space" }, edit and "hold: paint" or "paint" }, { { "b" }, "depth" },
          { { "s" }, "sizes" }, { { "l" }, "large" }, { { ",", "." }, "sub-palette" }, { { "+", "-" }, "channel" },
          { { "i" }, "import PNG" }, { { "e" }, "export" }, { { "tab" }, "more" } })
@@ -2465,8 +2475,8 @@ local function sprites_mouse()
     end
   elseif z.kind == "view" then
     if U.pressed(0) then
-      local x = clamp(floor((U.x - SV_X) / zoom_sheet), 0, sw - 1)
-      local y = clamp(floor((U.y - SV_Y) / zoom_sheet), 0, sh - 1)
+      local x = clamp((M.sox or 0) + floor((U.x - SV_X) / zoom_sheet), 0, sw - 1)
+      local y = clamp((M.soy or 0) + floor((U.y - SV_Y) / zoom_sheet), 0, sh - 1)
       local nx, ny = x // rs * rs, y // rs * rs
       if U.double and nx == rx and ny == ry then edit = true end
       rx, ry = nx, ny

@@ -633,7 +633,7 @@ E.image_file = nil
 key("home")
 click(320 + 2 * 16 + 4, 68)
 check(sees("colour 2  BGR555"), "a click on a colour of the palette takes it")
-click(320 + 3 * 12 + 2, 160 + 2 * 12 + 2)
+click(8 + 3 * 8 + 2, 32 + 2 * 8 + 2)                -- the editor: top left, 16x16 at zoom 8
 check(E.sget(3, 2) ~= nil, "a click in the sprite editor paints the pixel")
 key("\t")
 check(sees("Depth 2 / 4 / 8 bpp"), "Tab lists the commands")
