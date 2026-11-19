@@ -182,10 +182,12 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) core/scripts/mkbm
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/bm/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 sidbox bench3d font
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 sidbox bench3d font wildvale
 GAME_CARTS := $(patsubst %,$(BUILD)/bm/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
+sheet_wildvale := bm/wildvale/art/sheet.png
+sheet8_wildvale := 1
 # The 3D Bench (Lua edition): its models with bones and baked light, its sprite sheet and the 8 map layers
 # of the test map8 are made by bm/bench3d/build/mkassets.py (no binary in the repository)
 models_bench3d := $(BUILD)/bench3d/models.bm
@@ -213,7 +215,7 @@ $(BUILD)/bm/%.bm: $$(call c_lua,$$*) core/scripts/mkbm.py core/scripts/bmmesh.py
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb agent hero sidbox
+BME_CARTS := kitchen bmweb agent hero sidbox wildvale
 $(BME_CARTS:%=$(BUILD)/bm/%.bme): $(BUILD)/bm/%.bme: $$(call c_lua,$$*) core/scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 

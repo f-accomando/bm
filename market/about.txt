@@ -26,3 +26,4 @@ ko2: BM Community License 1.0 | KO-II: a keyboard groovebox with 12 pads, 4 grou
 bench3d: BM Community License 1.0 | The 3D benchmark of bm3D: how many spheres, heroes, quads, sprites and map pieces the ARM and the GPU draw at 60 fps.
 font: BM Community License 1.0 | bm Font: create and edit 8x16, 8x8 and 6x12 bitmap fonts, with live preview and .bmf export.
 tape: BM Community License 1.0 | bm Tape: a pocket studio with synth, drums, step sequencer and a 4-track tape. Needs a USB keyboard.
+wildvale: BM Community License 1.0 | Top-down 2D survival action RPG with modular WxH building, seasons, permadeath and bmnet co-op.

@@ -1,0 +1,13 @@
+# bm.info: the metadata of the project (docs/PROJECT-LAYOUT.md).
+name: Wildvale
+desc: Top-down 2D survival action RPG with modular tile-based building, dynamic seasons and ecosystem, character permadeath, and co-op via bmnet.
+author: bm
+license: BM Community License 1.0
+version: 0.1
+tags: game, rpg, survival, coop
+type: game
+resolution: 640x360
+targets: pi,rgb30
+input: keyboard,pad
+aspect: wide
+needs: audio
