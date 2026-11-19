@@ -413,6 +413,10 @@ test-snes-rom: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/lua/snesr
 test-snes-oam: $(BUILD)/host/luahost core/lua/snesoam.lua core/lua/snesgfx.lua tests/snes/oam_test.lua
 	$(BUILD)/host/luahost tests/snes/oam_test.lua .
 
+# the BG view of bm SNES SDK: the layers, the tilemaps and the tiles of the machine (core/lua/snesbg.lua)
+test-snes-bg: $(BUILD)/host/luahost core/lua/snesbg.lua core/lua/snesgfx.lua tests/snes/bg_test.lua
+	$(BUILD)/host/luahost tests/snes/bg_test.lua .
+
 # the SNES graphics converters (bm Pixel, bm SNES SDK) (core/lua/snesgfx.lua)
 test-snes-gfx: $(BUILD)/host/luahost
 	$(BUILD)/host/luahost tests/snes/snesgfx_test.lua .
@@ -547,9 +551,9 @@ test-snes-learn: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/lua/sne
 	$(PYTHON) tests/snes/learn_run.py $(BUILD)/host/luahost $(BUILD)/host/snes_learn_run
 
 # bm SNES SDK: main.lua, then the converter module as the global SNESGFX, the Code tab modules as SNESCODE and ASMBUF, the Run tab module as SNESRUN, the Learn tab module as SNESLEARN, the ROM reader as SNESROM, the OAM reader as SNESOAM and the lessons as the table SNESLESSONS
-$(BUILD)/snes_sdk/main.lua: bm/snes_sdk/main.lua core/lua/snesgfx.lua core/lua/snescode.lua core/lua/asmbuf.lua core/lua/snesrun.lua core/lua/sneslearn.lua core/lua/snesrom.lua core/lua/snesoam.lua bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt)
+$(BUILD)/snes_sdk/main.lua: bm/snes_sdk/main.lua core/lua/snesgfx.lua core/lua/snescode.lua core/lua/asmbuf.lua core/lua/snesrun.lua core/lua/sneslearn.lua core/lua/snesrom.lua core/lua/snesoam.lua core/lua/snesbg.lua bm/snes_sdk/lessons/LIST $(wildcard bm/snes_sdk/lessons/*.txt)
 	@mkdir -p $(dir $@)
-	{ cat bm/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat core/lua/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat core/lua/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat core/lua/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat core/lua/snesrun.lua; printf '\nend)()\n'; printf '\nSNESLEARN = (function()\n'; cat core/lua/sneslearn.lua; printf '\nend)()\n'; printf '\nSNESROM = (function()\n'; cat core/lua/snesrom.lua; printf '\nend)()\n'; printf '\nSNESOAM = (function()\n'; cat core/lua/snesoam.lua; printf '\nend)()\n'; printf '\nSNESLESSONS = {\n'; for n in $$(cat bm/snes_sdk/lessons/LIST); do printf '{ name = "%s", text = [==[\n' $$n; cat bm/snes_sdk/lessons/$$n.txt; printf ']==] },\n'; done; printf '}\n'; } > $@
+	{ cat bm/snes_sdk/main.lua; printf '\nSNESGFX = (function()\n'; cat core/lua/snesgfx.lua; printf '\nend)()\n'; printf '\nSNESCODE = (function()\n'; cat core/lua/snescode.lua; printf '\nend)()\n'; printf '\nASMBUF = (function()\n'; cat core/lua/asmbuf.lua; printf '\nend)()\n'; printf '\nSNESRUN = (function()\n'; cat core/lua/snesrun.lua; printf '\nend)()\n'; printf '\nSNESLEARN = (function()\n'; cat core/lua/sneslearn.lua; printf '\nend)()\n'; printf '\nSNESROM = (function()\n'; cat core/lua/snesrom.lua; printf '\nend)()\n'; printf '\nSNESOAM = (function()\n'; cat core/lua/snesoam.lua; printf '\nend)()\n'; printf '\nSNESBG = (function()\n'; cat core/lua/snesbg.lua; printf '\nend)()\n'; printf '\nSNESLESSONS = {\n'; for n in $$(cat bm/snes_sdk/lessons/LIST); do printf '{ name = "%s", text = [==[\n' $$n; cat bm/snes_sdk/lessons/$$n.txt; printf ']==] },\n'; done; printf '}\n'; } > $@
 lua_snes_sdk := $(BUILD)/snes_sdk/main.lua
 
 # nano8: plays .p8 / .p8.png carts (machine in core/src/bm/n8*.c); several Lua
@@ -1094,7 +1098,7 @@ test-bench3d-all: $(BUILD)/host/bmhost-gpu $(BUILD)/bm/bench3d.bm tests/bench3d/
 	$(PYTHON) tests/bench3d/check.py $(BUILD)/bench3d-all.log --profiles ARM/VSQ/VSQ2
 
 .DEFAULT_GOAL := all
-.PHONY: FORCE test-snes-m7rom test-snes-m7rom-arm test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-rom test-snes-oam test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-sidbox test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
+.PHONY: FORCE test-snes-m7rom test-snes-m7rom-arm test-snes-asm test-snes-gfx test-snes-code test-snes-run test-snes-rom test-snes-oam test-snes-bg test-snes-learn test-snes-audio-ref test-snes-dsp77 test-snes-dsp77-arm test-snes-gsu test-snes-gsu-diff test-snes-gsu-arm test-snes-smw2 test-snes-smw2-arm bench-snes-gsu bench-snes-cpu test-snes-g2 test-typed test-bml bench-bml test-snes test-nes test-psx test-psx-cart test-tape test-snes-ppu test-snes-ppu-arm bench-snes-ppu test-islandbench test-darknight test-sidbox test-bmm test-netfetch test-web test-web-bmm test-agent test-agent-relay test-webplayer test-wasm test-wasm-3d bmhost-wasm web-player test-cel test-hero test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-write test-shot test-sheet-png test-sheet-gif test-shot test-profile test-online test-bmnet test-loading test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-bench3d-all test-impostor test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d bench3d count-insns all clean firmware image \
         image-pi1 sdcard install sdcard-chainloader qemu qemu7 qemu-screenshot \
         run-serial test test-map3d test-jobs test-bm test-res test-ai test-img2mesh ai-model test-predict test-padtype predict-bench syllables test-usb test-battery-curve test-audio \
         test-music music-model \

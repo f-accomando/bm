@@ -3,7 +3,7 @@
 Back to [snes-sdk-roadmap.md](snes-sdk-roadmap.md) (step 6).
 
 - Map: a tilemap editor for the BG layers, with an export that the code reads.
-- Map, first step: a live view of the BG layers of a running ROM, as the OAM view of the Sprites tab. Read the tilemaps from the video RAM with `BGnSC`, `BG12NBA`, `BG34NBA` and `BGMODE`. Add `BG12NBA`, `BG34NBA` and the Mode 7 registers to `snes_debug().regs` (`core/src/bm/api_snes.c`). Copy a part into your map. This works for every ROM, but it shows only the part in the video RAM.
+- Map, first step (done, 2026-11-19): the BG view of the Map tab ([snes-sdk.md](snes-sdk.md)). Still to do: the Mode 7 matrix registers in `snes_debug().regs` (the map and its tiles show without them), copy into your own map (when the map editor is there), and the 16-pixel-wide tiles of modes 5 and 6.
 - Map, second step: a capture that follows the scroll (`hofs`, `vofs`) frame after frame and puts the tiles together into the whole level. Follow the change of the scroll from frame to frame, because the scroll registers wrap at 1023. Find the 16x16 blocks from the 2x2 groups that repeat.
 - Do not write a level reader for each commercial game now. Each game keeps its levels in its own format. Add one only on request, as an extra.
 

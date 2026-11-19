@@ -439,7 +439,7 @@ local function fpc() return FAKE.pcs[FAKE.idx] or 0x8000 end
 E.target_create = function(w, h) return { w = w, h = h, draw = function() end } end
 E.target = function() end                -- the ROM's tiles of the Sprites tab are drawn in a render target
 E.target_blit = nop
-E.snes_debug = function() return { regs = "rot 0@0 mode 1 obsel 63 tm 13" } end
+E.snes_debug = function() return { regs = "rot 0@0 mode 1 obsel 63 tm 13 ts 00 sc 21 00 00 00 hofs 0 0 0 0 vofs 0 0 0 0 bgm 01 nba 2000 0000 0000 0000" } end
 E.snes_load = function(rom) FAKE.rom, FAKE.idx, FAKE.loads = rom, 1, FAKE.loads + 1; return true end
 E.snes_reset = function() FAKE.idx, FAKE.resets = 1, FAKE.resets + 1 end
 E.snes_draw = function() FAKE.draws = FAKE.draws + 1; return 224 end
@@ -542,10 +542,10 @@ frames(2)
 check(sees("bm SNES SDK") and sees("Sprites") and sees("Code") and sees("Map") and sees("Music") and sees("Run"),
       "the tab bar: Code, Sprites, Map, Music, Run")
 check(sees("4 bpp") and sees("sub-palette 1 of 8"), "it starts on Sprites: 4 bpp, 8 sub-palettes")
-for _, t in ipairs({ { "f3", "Map" }, { "f4", "Music" } }) do
-  key(t[1])
-  check(sees(t[2] .. " - coming soon"), "the " .. t[2] .. " tab says coming soon")
-end
+key("f3")
+check(sees("Map: the BG view") and sees("Run one first"), "the Map tab: nothing runs, it says how to run a ROM")
+key("f4")
+check(sees("Music - coming soon"), "the Music tab says coming soon")
 key("f2")
 check(sees("4 bpp"), "F2 is the Sprites tab")
 

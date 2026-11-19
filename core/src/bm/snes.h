@@ -89,6 +89,7 @@ typedef struct {
     uint8_t oam[544];                   /* the sprite table now */
     uint8_t bgmode, obsel, ts, sc[4];   /* the PPU registers that place the layers */
     uint16_t hofs[4], vofs[4];
+    uint16_t nba[4];                    /* the tile data of each BG: byte address in the video RAM */
     uint8_t oamrot; uint16_t oam_reload;        /* $2103 bit 7 and the OAM reload address */
 } snes_debug_t;
 void snes_debug(snes_debug_t *d);

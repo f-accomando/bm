@@ -1071,7 +1071,7 @@ void snes_debug(snes_debug_t *d)
     memcpy(d->oam, S.oam, sizeof d->oam);
     d->oamrot = S.oamrot; d->oam_reload = S.oamaddr_reload;
     d->bgmode = S.bgmode; d->obsel = S.obsel; d->ts = S.ts;
-    for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i] & 0x3FF; d->vofs[i] = S.vofs[i]; }
+    for (int i = 0; i < 4; i++) { d->sc[i] = S.sc[i]; d->hofs[i] = S.hofs[i] & 0x3FF; d->vofs[i] = S.vofs[i]; d->nba[i] = S.nba[i]; }
 }
 
 /* ------------------------------------------------------------------ the debug API of the carts (docs/api/snes.md) */

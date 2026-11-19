@@ -1,5 +1,5 @@
 -- bm SNES SDK: one app to make SNES games, with tabs: Code | Sprites | Map | Music | Run.
--- This step has the frame (the tabs, the project, the save) and the Sprites tab. The other tabs say
+-- Code, Sprites and Run work; Map has the BG view of a ROM that runs (its map editor comes later); Music says
 -- "coming soon". One SDK, many tabs: a new tool of the SDK is a new tab here, not a new app.
 --
 -- The project is a .bme in /bme. The sprite sheet is its SHEET8 (the colours of the sub-palettes first);
@@ -49,7 +49,7 @@ end)
 local TABS = {
   { "Code", "f1", "the 65C816 assembly editor: colours, errors of the assembler, build" },
   { "Sprites", "f2", "" },
-  { "Map", "f3", "the tilemap editor for the BG layers" },
+  { "Map", "f3", "the BG layers of a ROM that runs; the map editor later" },
   { "Music", "f4", "patterns, BRR samples and the SPC700 limits" },
   { "Run", "f5", "build the ROM and run it beside the registers and the memory" },
 }
@@ -1118,6 +1118,232 @@ local function draw_soon(i)
   local s = "The tab is here already: the SDK is one app, each tool is one tab."
   print(s, max(8, cx - #s * 4), H // 2 + 24, C_DIM)
   hint({ { { "f2" }, "sprites" }, { { "esc" }, "menu" }, { { "ctrl", "s" }, "save" } })
+end
+
+----------------------------------------------------------------- the Map tab: the BG view
+
+-- The BG layers of the machine of the Run tab (a ROM run with r, or your project run with F5), read only: the whole
+-- tilemap of a layer, the screen on it, the cell chosen and its tile. The reader is core/lua/snesbg.lua.
+-- RX.MP = { n (the layer 1-4), cx, cy (the cell chosen), ax, ay (the other corner of the box), r (the registers),
+-- L (the layer), vram, cgram, col (the colours), frames (of the read), pic (the map, 256x256), i (the next cell to
+-- draw in pic), cache (the tiles decoded), z (map pixels for each pixel of pic: 1, 2 or 4) }.
+-- The map editor (your own maps) comes later: docs/progress/snes-sdk-maps-sound.md.
+RX.MP = { n = 1, cx = 0, cy = 0, ax = 0, ay = 0 }
+RX.BG = setmetatable({}, { __index = function(_, k) return (SNESBG or require "snesbg")[k] end })
+function RX.map_read()
+  local m = RX.MP
+  local d = snes_debug and snes_debug() or {}
+  m.r = RX.BG.regs(d.regs)
+  m.vram = snes_mem("vram", 0, 65536) or ""
+  m.cgram = snes_mem("cgram", 0, 512) or ""
+  m.col = RX.BG.colours(m.cgram)
+  m.frames = snes_regs().frames
+  RX.map_layer()
+end
+function RX.map_layer()
+  local m = RX.MP
+  m.L = RX.BG.layer(m.r, m.n)
+  m.z = max(1, max(m.L.pw, m.L.ph) // 256)
+  m.cx, m.cy = clamp(m.cx, 0, m.L.cols - 1), clamp(m.cy, 0, m.L.rows - 1)
+  m.ax, m.ay = clamp(m.ax, 0, m.L.cols - 1), clamp(m.ay, 0, m.L.rows - 1)
+  m.i, m.cache = 0, {}
+end
+-- the box chosen: its first cell and its size
+function RX.map_box()
+  local m = RX.MP
+  return min(m.cx, m.ax), min(m.cy, m.ay), math.abs(m.cx - m.ax) + 1, math.abs(m.cy - m.ay) + 1
+end
+-- draw some cells of the map into pic (about 4096 pixels a frame): a map of 64x64 cells takes some frames
+function RX.map_paint()
+  local m, L = RX.MP, RX.MP.L
+  local total = L.cols * L.rows
+  if m.i >= total or L.bpp == 0 then return end
+  if not m.pic then m.pic = target_create(256, 256) end
+  local ts = L.t16 and 16 or 8
+  local cp = max(1, ts // m.z)                     -- the pixels of a cell in pic
+  local budget = 4096
+  target(m.pic)
+  while m.i < total and budget > 0 do
+    local col, row = m.i % L.cols, m.i // L.cols
+    local px, _, base = RX.BG.cell(m.vram, L, m.r.mode, col, row, G.decode_tile, m.cache)
+    local x0, y0 = col * cp, row * cp
+    rectfill(x0, y0, cp, cp, C_CHK1)
+    local step = ts // cp
+    for y = 0, cp - 1 do
+      for x = 0, cp - 1 do
+        local v = px[(y * step) * ts + x * step + 1]
+        if v and v > 0 then pset(x0 + x, y0 + y, G.to_rgb(m.col[(base + v) & 255])) end
+      end
+    end
+    m.i = m.i + 1
+    budget = budget - cp * cp
+  end
+  target()
+end
+function RX.map_status()
+  local m = RX.MP
+  if RN.state == "off" or not m.L then return "Map: the BG view reads the machine of the Run tab" end
+  local L = m.L
+  local x, y, w, h = RX.map_box()
+  return string.format("Map  BG%d  mode %d  cell (%d,%d)  box %dx%d  map $%04X  tiles $%04X  read only", L.n, m.r.mode,
+                       m.cx, m.cy, w, h, L.map, L.char)
+end
+-- the keys of the BG view; false: not a key of the view
+function RX.map_key(k)
+  local m = RX.MP
+  if RN.state == "off" or not m.L then return false end
+  local L = m.L
+  if #k == 1 and k >= "1" and k <= "4" then
+    m.n = tonumber(k)
+    RX.map_layer()
+    if m.L.bpp == 0 then say(string.format("BG%d is not there in mode %d", m.n, m.r.mode), C_DIM, 120) end
+    return true
+  end
+  local d = ({ left = { -1, 0 }, right = { 1, 0 }, up = { 0, -1 }, down = { 0, 1 } })[k]
+  if d then
+    m.cx, m.cy = clamp(m.cx + d[1], 0, L.cols - 1), clamp(m.cy + d[2], 0, L.rows - 1)
+    if not M.mods().shift then m.ax, m.ay = m.cx, m.cy end       -- Shift with the arrows makes the box larger
+    return true
+  end
+  if k == "home" then                              -- the cell at the top left of the screen
+    m.cx, m.cy = RX.BG.at_screen(L, 0, 0)
+    m.ax, m.ay = m.cx, m.cy
+  elseif k == "c" then RX.map_copy_words()
+  elseif k == "t" then RX.map_copy_tile()
+  elseif k == "r" then RX.map_read(); say("read the machine again", C_DIM, 60)
+  else return false end
+  return true
+end
+-- c: the words of the box as .dw lines to the clipboard of the Code tab
+function RX.map_copy_words()
+  local m = RX.MP
+  local x, y, w, h = RX.map_box()
+  local lines = RX.BG.dw_lines(m.vram, m.L, x, y, w, h)
+  table.insert(lines, 1, string.format("; BG%d, cells (%d,%d) to (%d,%d) of the map at $%04X", m.L.n, x, y, x + w - 1, y + h - 1, m.L.map))
+  ;(ASMBUF or require "asmbuf").clipboard = table.concat(lines, "\n") .. "\n"
+  say(string.format("copied %dx%d words as .dw lines: Ctrl+V in the Code tab puts them in your file", w, h), C_ACC, 240)
+end
+-- t: the pixels of the cell's tile (indices, flips done) to the clipboard of the Sprites tab
+function RX.map_copy_tile()
+  local m = RX.MP
+  local px, ts = RX.BG.cell(m.vram, m.L, m.r.mode, m.cx, m.cy, G.decode_tile, m.cache)
+  local d = {}
+  for i = 1, ts * ts do d[i] = px[i] or 0 end
+  clip = { x = 0, y = 0, w = ts, h = ts, d = d }
+  say(string.format("copied the tile of cell (%d,%d), %dx%d, %d bpp: Ctrl+V in the Sprites tab puts it in your sprite",
+                    m.cx, m.cy, ts, ts, m.L.bpp), C_ACC, 240)
+end
+function RX.map_mouse()
+  local m = RX.MP
+  local z = U.at()
+  if not z or RN.state == "off" or not m.L then return end
+  if z.kind == "mlay" then
+    if U.pressed(0) then RX.map_key(tostring(z.a)) end
+  elseif z.kind == "mmap" then
+    local ts = m.L.t16 and 16 or 8
+    local cp = max(1, ts // m.z)
+    local c, r = clamp((U.x - z.x) // cp, 0, m.L.cols - 1), clamp((U.y - z.y) // cp, 0, m.L.rows - 1)
+    if U.pressed(0) then
+      m.cx, m.cy = c, r
+      if not M.mods().shift then m.ax, m.ay = c, r end
+      m.drag = true
+      if U.double then RX.map_copy_words() end
+    elseif U.down(0) and m.drag then m.cx, m.cy = c, r
+    else m.drag = false end
+  end
+end
+function RX.draw_map()
+  cls(C_BG)
+  local m = RX.MP
+  if RN.state == "off" then
+    local cx = W // 2
+    local lines = { { "Map: the BG view", C_ACC }, { "It shows the BG layers of a ROM that runs.", C_TEXT },
+                    { "Run one first: r in the ROM view of the Code tab (Ctrl+T there),", C_DIM },
+                    { "or F5 for your project.", C_DIM }, { "", C_DIM },
+                    { "The map editor for your own maps comes later.", C_DIM } }
+    for i, l in ipairs(lines) do print(l[1], max(8, cx - #l[1] * 4), H // 2 - 64 + i * 16, l[2]) end
+    hint({ { { "f5" }, "run your project" }, { { "f1" }, "code" }, { { "esc" }, "menu" } })
+    return
+  end
+  if not m.L or snes_regs().frames ~= m.frames and m.i >= m.L.cols * m.L.rows then RX.map_read() end
+  RX.map_paint()
+  local L = m.L
+  -- the row of the layers
+  local x0, y0 = 8, 32
+  rectfill(0, y0, W, 16, C_BAR)
+  local x = 16
+  for n = 1, 4 do
+    local bpp = RX.BG.BPP[m.r.mode & 7][n]
+    local label = bpp > 0 and string.format("BG%d %d bpp", n, bpp) or string.format("BG%d -", n)
+    local w = #label * 8 + 8
+    if n == m.n then rectfill(x - 4, y0, w, 16, C_SEL) end
+    U.zone(x - 4, y0, w, 16, "mlay", n)
+    print(label, x, y0, n == m.n and 0xFFFFFF or (bpp > 0 and C_TEXT or C_DIM))
+    x = x + w + 8
+  end
+  print(string.format("mode %d%s", m.r.mode, m.r.has_nba and "" or "  (old kernel: no tile address)"), x + 8, y0, C_DIM)
+  y0 = 56
+  local mw, mh = L.pw // m.z, L.ph // m.z
+  if L.bpp == 0 then
+    print(string.format("BG%d is not there in mode %d: 1 to 4 choose a layer", L.n, m.r.mode), x0, y0, C_DIM)
+  else
+    target_blit(m.pic, x0, y0, mw, mh, 0, 0, mw, mh)
+    rect(x0 - 1, y0 - 1, mw + 2, mh + 2, C_GRID8)
+    U.zone(x0, y0, mw, mh, "mmap")
+    for _, b in ipairs(RX.BG.screen_boxes(L, 224)) do       -- the screen of the machine on the map
+      rect(x0 + b.x // m.z, y0 + b.y // m.z, max(1, b.w // m.z), max(1, b.h // m.z), 0xFFFFFF)
+    end
+    local ts = L.t16 and 16 or 8
+    local cp = max(1, ts // m.z)
+    local bx, by, bw, bh = RX.map_box()
+    rect(x0 + bx * cp - 1, y0 + by * cp - 1, bw * cp + 2, bh * cp + 2, (frame // 10) % 2 == 0 and C_PT or 0x000000)
+    if m.i < L.cols * L.rows then print("reading...", x0, y0 + mh + 4, C_DIM) end
+  end
+  -- the numbers at the right: the layer, the cell chosen, its tile
+  local tx = x0 + 256 + 16
+  local cols = max(4, (W - tx - 4) // 8)
+  local info
+  if L.bpp == 0 then info = {}
+  else
+    local wd = RX.BG.word(m.vram, L, m.cx, m.cy)
+    local f = RX.BG.fields(wd)
+    local bx, by, bw, bh = RX.map_box()
+    info = { { string.format("BG%d  %d bpp%s", L.n, L.bpp, L.on and "  on screen" or "  not on screen"), C_ACC },
+             { L.m7 and "Mode 7 map 128x128" or string.format("map $%04X  %dx%d cells", L.map, L.cols, L.rows), C_TEXT },
+             { L.m7 and "tiles in the high bytes" or string.format("tiles $%04X  %dx%d", L.char, L.t16 and 16 or 8, L.t16 and 16 or 8), C_TEXT },
+             { string.format("scroll %d,%d", L.hofs, L.vofs), C_TEXT },
+             { "", C_TEXT },
+             { string.format("cell (%d,%d)  %s", m.cx, m.cy, L.m7 and string.format("$%02X", wd) or string.format("$%04X", wd)), C_ACC },
+             L.m7 and { string.format("tile $%02X", wd), C_TEXT } or { string.format("tile $%03X pal %d prio %d", f.tile, f.pal, f.prio), C_TEXT },
+             { L.m7 and "" or string.format("flip %s%s", f.fx and "X" or "-", f.fy and "Y" or "-"), C_TEXT },
+             { string.format("box %dx%d at (%d,%d)", bw, bh, bx, by), C_TEXT },
+             { "read only", C_DIM } }
+  end
+  for i, l in ipairs(info) do print(l[1]:sub(1, cols), tx, y0 + (i - 1) * 16, l[2]) end
+  if L.bpp > 0 then                                 -- the tile of the cell, large, with the colours of its palette
+    local px, ts, base = RX.BG.cell(m.vram, L, m.r.mode, m.cx, m.cy, G.decode_tile, m.cache)
+    local by = y0 + #info * 16 + 8
+    local box = 64
+    local pz = box // ts
+    rectfill(tx, by, box, box, C_CHK1)
+    for y = 0, ts - 1 do
+      for x2 = 0, ts - 1 do
+        local v = px[y * ts + x2 + 1]
+        if v and v > 0 then rectfill(tx + x2 * pz, by + y * pz, pz, pz, G.to_rgb(m.col[(base + v) & 255])) end
+      end
+    end
+    rect(tx - 1, by - 1, box + 2, box + 2, C_GRID8)
+    local n = L.bpp == 2 and 4 or 16
+    if L.bpp ~= 8 then
+      for k = 0, n - 1 do
+        local cx, cy = tx + box + 8 + (k % 8) * 10, by + (k // 8) * 10
+        rectfill(cx, cy, 9, 9, k == 0 and C_CHK1 or G.to_rgb(m.col[(base + k) & 255]))
+      end
+      print(string.format("colours %d-%d", base, base + n - 1), tx + box + 8, by + 24, C_DIM)
+    end
+  end
+  hint({ { { "1", "4" }, "layer" }, { { "left", "right", "up", "down" }, "cell" }, { { "shift" }, "+arrows: box" }, { { "c" }, "copy .dw" },
+         { { "t" }, "copy tile" }, { { "home" }, "screen" }, { { "r" }, "read" } })
 end
 
 ----------------------------------------------------------------- the Code tab
@@ -2823,7 +3049,8 @@ function _update()
         if LN.win and U.pressed(0) then LN.focus = "code" end
         code_mouse()
       end
-    elseif tab == 5 then run_mouse() end
+    elseif tab == 5 then run_mouse()
+    elseif tab == 3 then RX.map_mouse() end
   end
   while true do
     local k = keyp()
@@ -2839,7 +3066,7 @@ function _update()
       elseif k == "esc" or k == "back" then pick = nil
       elseif k == "\n" or k == "ok" then pick = nil; p.rows[p.sel][2]() end
     elseif not global_key(k) then
-      if tab == 2 then sprites_key(k) elseif tab == 1 then if LN.has_keys() then LN.key(k) else code_key(k) end elseif tab == 5 then run_key(k) end
+      if tab == 2 then sprites_key(k) elseif tab == 1 then if LN.has_keys() then LN.key(k) else code_key(k) end elseif tab == 5 then run_key(k) elseif tab == 3 then RX.map_key(k) end
     end
   end
   if input then
@@ -2857,7 +3084,7 @@ function _draw()
   U.begin()
   if tab == 2 then draw_sprites() elseif tab == 1 then
     if LN.win then local fw = W; LN.full_w = fw; W = fw // 2; draw_code(); W = fw; LN.draw() else draw_code() end
-  elseif tab == 5 then draw_run() else draw_soon(tab) end
+  elseif tab == 5 then draw_run() elseif tab == 3 then RX.draw_map() else draw_soon(tab) end
 
   rectfill(0, 0, W, 16, C_BAR)                 -- the tabs: each with its key
   local x = U.bar_title("bm SNES SDK", C_ACC)
@@ -2874,7 +3101,7 @@ function _draw()
   U.bar_file(P.path or "new project", P.dirty, x, W, C_ACC, C_DIM)
 
   rectfill(0, STATUS_Y, W, H - STATUS_Y, C_BAR)
-  local status = msg_t > 0 and msg or tab == 1 and (LN.has_keys() and LN.status() or code_status()) or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
+  local status = msg_t > 0 and msg or tab == 1 and (LN.has_keys() and LN.status() or code_status()) or tab == 3 and RX.map_status() or string.format("%s  colour %d  sub-palette %d  %d bpp", tab == 2 and "Sprites" or TABS[tab][1],
                                                       M.sel - 1, M.cur, M.bpp)
   print(status:sub(1, W // 8 - 1), 0, STATUS_Y, (msg_t > 0 and msg_c) or C_TEXT)
   if pick then draw_pick() end

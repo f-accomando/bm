@@ -289,8 +289,9 @@ int l_snes_debug(lua_State *L)
     }
     lua_pushlstring(L, (const char *)d.oam, sizeof d.oam); lua_setfield(L, -2, "oam");
     char hex[192];
-    snprintf(hex, sizeof hex, "rot %d@%d mode %d obsel %02X tm %02X ts %02X sc %02X %02X %02X %02X hofs %d %d %d %d vofs %d %d %d %d", d.oamrot, d.oam_reload >> 2, d.bgmode & 7, d.obsel, d.tm, d.ts,
-             d.sc[0], d.sc[1], d.sc[2], d.sc[3], d.hofs[0], d.hofs[1], d.hofs[2], d.hofs[3], d.vofs[0], d.vofs[1], d.vofs[2], d.vofs[3]);
+    snprintf(hex, sizeof hex, "rot %d@%d mode %d obsel %02X tm %02X ts %02X sc %02X %02X %02X %02X hofs %d %d %d %d vofs %d %d %d %d bgm %02X nba %04X %04X %04X %04X", d.oamrot, d.oam_reload >> 2, d.bgmode & 7, d.obsel, d.tm, d.ts,
+             d.sc[0], d.sc[1], d.sc[2], d.sc[3], d.hofs[0], d.hofs[1], d.hofs[2], d.hofs[3], d.vofs[0], d.vofs[1], d.vofs[2], d.vofs[3],
+             d.bgmode, d.nba[0], d.nba[1], d.nba[2], d.nba[3]);
     lua_pushstring(L, hex); lua_setfield(L, -2, "regs");
     int n = 0;
     for (int i = 0; i < 12; i++) n += snprintf(hex + n, sizeof hex - (size_t)n, "%02X", d.cpu_code[i]);
