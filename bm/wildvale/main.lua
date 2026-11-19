@@ -39,7 +39,12 @@ local mode = "title" -- "title", "lobby", "play", "dead"
 local title_sel = 1
 local lobby_msg = ""
 local is_coop = false
-local rng
+local net_ready = false
+local rng_obj
+local function rng(a, b)
+  if a then return rng_obj:int(a, b) end
+  return rng_obj:next()
+end
 
 -- World state (deterministic, synced via lockstep in co-op)
 local world_tick = 0
@@ -133,7 +138,7 @@ local function spawn_fauna_for_biome(gx, gy, gtype)
 end
 
 local function generate_world(seed, seat_count)
-  rng = lib.rng(seed)
+  rng_obj = lib.rng(seed)
   world_tick = 0
   day_num = 1
   season_idx = 1
@@ -1041,31 +1046,43 @@ local function draw_hud()
   end
 end
 
+local function ensure_net()
+  if net_ready then return true end
+  local ok, why = net.open({ game = "WLD1", name = "Survivor" })
+  if ok then
+    net_ready = true
+    return true
+  end
+  lobby_msg = "Rete non disponibile: " .. tostring(why or "offline")
+  return false
+end
+
 function _init()
   frameskip(4)
-  net.open({ game = "WLD1", name = "Survivor" })
 end
 
 function _leave()
-  net.close()
+  if net_ready then net.close() end
 end
 
 function _update()
   if toast_timer > 0 then toast_timer = toast_timer - 1 end
 
-  for _, e in ipairs(net.update()) do
-    if e.type == "start" then
-      is_coop = true
-      my_seat = e.seat
-      generate_world(e.seed, e.seats)
-      mode = "play"
-    elseif e.type == "lost" then
-      lobby_msg = "Connessione persa"
-      mode = "title"
-    elseif e.type == "joined" then
-      lobby_msg = "Connesso! Attendi l'host..."
-    elseif e.type == "refused" then
-      lobby_msg = "Partita piena o gia' iniziata"
+  if net_ready then
+    for _, e in ipairs(net.update()) do
+      if e.type == "start" then
+        is_coop = true
+        my_seat = e.seat
+        generate_world(e.seed, e.seats)
+        mode = "play"
+      elseif e.type == "lost" then
+        lobby_msg = "Connessione persa"
+        mode = "title"
+      elseif e.type == "joined" then
+        lobby_msg = "Connesso! Attendi l'host..."
+      elseif e.type == "refused" then
+        lobby_msg = "Partita piena o gia' iniziata"
+      end
     end
   end
 
@@ -1079,20 +1096,26 @@ function _update()
         generate_world(stat(3) + 1337, 1)
         mode = "play"
       elseif title_sel == 2 then
-        net.host({ max = 4, info = "Wildvale Co-op" })
-        lobby_msg = "Hosting... Premi START per iniziare"
-        mode = "lobby"
+        if ensure_net() then
+          net.host({ max = 4, info = "Wildvale Co-op" })
+          lobby_msg = "Hosting... Premi START per iniziare"
+          mode = "lobby"
+        else
+          mode = "lobby"
+        end
       elseif title_sel == 3 then
-        lobby_msg = "Ricerca partite LAN..."
+        if ensure_net() then
+          lobby_msg = "Ricerca partite LAN..."
+        end
         mode = "lobby"
       end
     end
   elseif mode == "lobby" then
     if btnp("b") or btnp("back") then
       mode = "title"
-    elseif net.state == "hosting" and (btnp("start") or btnp("a")) then
+    elseif net_ready and net.state == "hosting" and (btnp("start") or btnp("a")) then
       net.start({ seed = stat(3) + 42, delay = 4 })
-    elseif net.state == "lobby" then
+    elseif net_ready and net.state == "lobby" then
       local hosts = net.hosts()
       if #hosts > 0 and (btnp("a") or btnp("ok")) then
         net.join(hosts[1].id)
@@ -1135,16 +1158,18 @@ function _draw()
   elseif mode == "lobby" then
     print("WILDVALE CO-OP LOBBY", 220, 60, 0xF2D478)
     print(lobby_msg, 180, 100, 0xFFFFFF)
-    local peers = net.peers()
-    for i, p in ipairs(peers) do
-      print(i .. ". " .. (p.name or "Player"), 220, 130 + i * 20, 0x90E090)
-    end
-    if net.state == "lobby" then
-      local hosts = net.hosts()
-      if #hosts > 0 then
-        print("Trovato: " .. hosts[1].name .. " (premi A per entrare)", 170, 240, 0xF2D478)
-      else
-        print("Nessun host trovato ancora...", 200, 240, 0xA0A0A0)
+    if net_ready then
+      local peers = net.peers()
+      for i, p in ipairs(peers) do
+        print(i .. ". " .. (p.name or "Player"), 220, 130 + i * 20, 0x90E090)
+      end
+      if net.state == "lobby" then
+        local hosts = net.hosts()
+        if #hosts > 0 then
+          print("Trovato: " .. hosts[1].name .. " (premi A per entrare)", 170, 240, 0xF2D478)
+        else
+          print("Nessun host trovato ancora...", 200, 240, 0xA0A0A0)
+        end
       end
     end
     print("B: Indietro", 260, 310, 0xA0A0A0)
