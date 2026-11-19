@@ -1,0 +1,66 @@
+bm report
+kind: freeze
+kernel: v0.3.0-211-gd824ffb36-dirty
+branch: claude/snes-sdk-map-bg-view
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-e299c2_freeze_pi-zero-w_v0.3.0-211-gd824ffb36-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, 195 s after boot, kernel v0.3.0-211-gd824ffb36-dirty, ring 6391, sink on
+--- the last lines printed ---
+boot log saved to bm/bootlog.txt
+
+cartridge menu: arrows or wasd, Enter plays, x options, [ ] or Tab or 1-6 change tab, q returns to the monitor
+(keyboard: Enter, Esc back, C options, Q E or 1-6 tabs, Ctrl+Esc home, Ctrl+Shift+Esc the monitor, hold F12: the keys)
+v3d: v3d_init done: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000000 FDBGB 00000000 FDBGR 00000000 FDBGS 00000407 (t 10419 ms, 0 jobs)
+gpu3d: before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147
+gpu3d: vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+v3d: ERRSTAT 00000000 -> 00001000 after job 1 (t 10456 ms)
+menu: 1920x1080, drawn by the GPU
+covers: all 26 read
+fiber: market did not yield: 21.0 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+net: IP 192.168.1.108 (gateway 192.168.1.254, name bm)
+net: console on port 3333, password ******
+     from the PC: python3 core/tools/bm_net.py 192.168.1.108
+market: nearby consoles: listening as bm-108
+tls: 21 root certificates
+net: time 2026-11-19 20:00 UTC
+fiber: market did not yield: 58.2 ms past its slice
+menu idle: 300/300 frames, 408 of 899 ms taken, 60.6 ms past a frame; covers 157 ms (+2.9, stk 0.8/16K), market 505 ms (+58.2, stk 4.0/128K); min slack -123320 us, paced 0
+menu idle: sd first word <1ms 487 <3ms 9 (max 1.5 ms)
+menu stalls: tls handshake 1x last 302.4 worst 302.4 ms
+menu frame: 1x, a frame averages draw 81229 us, enlarge 0 us, flip 101 us, free time used 1362 us (300 frames)
+menu frame: 1x, a frame averages draw 125869 us, enlarge 0 us, flip 103 us, free time used 24 us (300 frames)
+menu frame: 1x, a frame averages draw 125870 us, enlarge 0 us, flip 102 us, free time used 24 us (300 frames)
+menu frame: 1x, a frame averages draw 125870 us, enlarge 0 us, flip 103 us, free time used 24 us (300 frames)
+market: nearby consoles: listening as bm-108
+market: Checking for new games...
+market: catalog 20261119200223, 34 games
+market: cover of polis
+menu idle: 300/300 frames, 49 of 899 ms taken, 11.5 ms past a frame; market 375 ms (+17.9, stk 4.0/128K); min slack -140551 us, paced 0
+menu idle: sd first word <1ms 62 <3ms 5 (max 1.5 ms)
+menu frame: 1x, a frame averages draw 102298 us, enlarge 0 us, flip 103 us, free time used 163 us (300 frames)
+market: downloading bm/games/polis/polis.bm (74012 bytes)
+market: bm/games/polis/polis.bm -> /bm/polis.bm
+market: Polis installed
+covers: all 27 read
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 190826 ms, 1 jobs)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2089 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 192848 ms, 1 jobs)
+
+playing polis.bm
+play: /bm/polis.bm (74012 bytes)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 192901 ms, 1 jobs)
+fb_init_depth: mbox_call failed
+v3d: the cartridge's video mode failed: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 194911 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the second try: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+the VideoCore firmware does not answer: restarting
+restarti
