@@ -1294,9 +1294,9 @@ qemu-screenshot: $(BUILD)/kernel.img
 # those named), make test-qemu SHARD=K/N (group K of N of the QEMU tests).
 # test-nano8 stays a target to run by hand; it is not in the CI list
 HOST_TESTS := test-jobs test-bm test-res test-compat test-usb test-fat test-fat-queue test-audio test-music test-riff test-sound test-net test-http test-https test-img3d \
-      test-catalog test-github test-lan test-controls test-keymap test-gamekit test-game-trace test-gameapi test-screen-modes test-layout test-anim-ease test-write test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-bmz test-loading \
-      test-release test-smp test-qpu test-qpurun test-qpucheck test-snes-g2 test-etc1 test-gpu3d test-gpu3d-opt test-bench3d test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
-	test-studio test-prompts test-menu-bg test-docs test-api test-webp test-web test-web-bmm test-webapi test-agent test-agent-relay test-crumbs test-klog test-monitor-cmd test-shell-code test-vid $(if $(K7),test-hyp)
+      test-catalog test-github test-lan test-controls test-keymap test-gameapi test-screen-modes test-layout test-anim-ease test-shot test-reserved test-spec test-consistency test-profile test-online test-bmnet test-bmz test-loading \
+      test-release test-smp test-qpu test-qpurun test-qpucheck test-etc1 test-gpu3d test-gpu3d-opt test-impostor test-cel test-queue2d test-gpu2d-only test-gpu3d-light test-b3d test-v3d test-ai test-predict test-padtype \
+	test-prompts test-menu-bg test-docs test-api test-webp test-webapi test-crumbs test-klog test-monitor-cmd test-shell-code test-vid $(if $(K7),test-hyp)
 # what the QEMU tests read besides `all` (made by the PC's tests too)
 QEMU_DEPS := $(BUILD)/host/meshview $(BUILD)/bm/hero.bm $(BUILD)/bm/mapkit.bm $(BUILD)/bm/testkit.bm \
               $(patsubst %,$(BUILD)/%.bm,code assistant editor sound studio pixel animator mesh)

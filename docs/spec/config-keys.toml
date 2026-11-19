@@ -876,3 +876,12 @@ default = "on with cores=4"
 meaning = "The Mali draw build of a frame on all cores, a block of draws a core (docs/progress/multicore.md). 0 builds on core 0 only."
 settings = ""
 read_in = "core/src/rgb30/main.c:smp_boot"
+
+[[key]]
+name = "fwprobe"
+scope = "pi"
+values = "1 = probe the VideoCore firmware every 30 s while the menu is on the GPU; anything else = off"
+default = "off"
+meaning = "Diagnostic key for the Pi menu V3D freeze: queries the firmware and resets the menu video mode periodically to log whether the mailbox still answers."
+settings = ""
+read_in = "core/src/kernel/menu_ui.c:fwprobe_tick"

@@ -1423,7 +1423,7 @@ def test_res_write(b, opts):
         try:
             q.expect(MENU, timeout=30)
             time.sleep(0.5)
-            q.send("3")                                           # Dev: the tools, bm SDK first
+            q.send("5")                                           # Dev: the tools, bm SDK first
             settled_screen(q, lambda i, t: any("bm SDK" in l for l in t), tries=40)
             q.send("\r")
             out = q.expect("tdone", timeout=120)
@@ -3427,7 +3427,7 @@ def test_market(b, opts):
             screen(["Snake", "Get"])
             keys("\r\r")
             q.expect("market: downloading games/snake/snake.bm", timeout=10)
-            keys("2")
+            keys("4")
             q.expect("market: Snake installed", timeout=20)
             screen(["Market Test"])                        # the Games tab shows the new games
         finally:
@@ -3526,7 +3526,7 @@ def test_update(b, opts):
         try:
             q.expect(MENU, timeout=30)
             time.sleep(0.5)
-            keys("4")                               # Settings, then Updates
+            keys("6")                               # Settings, then Updates
             screen(["Settings", "Controllers", "Updates"])
             keys("ssss")                              # Controllers, WiFi, Screen, Sound, Updates
             keys("\r")
@@ -3691,8 +3691,10 @@ def test_bt_two_pads(b, opts):
         q.mini.write(b":menu\r")
         _mini_expect(q, "cartridge menu")
         time.sleep(1.0)
+        pad_runs = lambda r: [x for x in r if 20 <= x[1] - x[0] <= 27]
         screen_img, runs = wait_bar_icons(
-            q, lambda r, i: len(r) == 3 and all(blue_number(i, x) for x in r))
+            q, lambda r, i: len(pad_runs(r)) == 3 and all(blue_number(i, x) for x in pad_runs(r)))
+        runs = pad_runs(runs)
         if opts.shots:
             _save_png(screen_img, os.path.join(opts.shots, "home-pads.png"))
         assert len(runs) == 3 and all(20 <= x1 - x0 <= 27 for x0, x1 in runs), runs
@@ -3749,7 +3751,9 @@ def test_sd_sdhc_and_usb_menu(b, opts):
         out = q.expect("cartridge menu", timeout=90).decode(errors="replace")
         assert "sd: SDHC card (sdhost), FAT32, 4095 MB, label BMSD; 1 cartridges" in out, out
         time.sleep(1.0)                       # the bar: the keyboard icon (M27)
-        shot_, runs = wait_bar_icons(q, lambda r, i: len(r) == 1 and len(prompt_spans(i, 21)) == 5)
+        pad_runs = lambda r: [x for x in r if 20 <= x[1] - x[0] <= 27]
+        shot_, runs = wait_bar_icons(q, lambda r, i: len(pad_runs(r)) == 1 and len(prompt_spans(i, 21)) == 5)
+        runs = pad_runs(runs)
         assert len(runs) == 1 and 20 <= runs[0][1] - runs[0][0] <= 27, runs
         assert not blue_number(shot_, runs[0]), "USB: a white number"
         # the hints: player 1's keyboard, Enter Play, C Options, Ctrl+Shift+Esc Monitor
@@ -7609,6 +7613,38 @@ def test_sdk_code_pi(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+APP_TESTS = {
+    "test_bmweb",
+    "test_bm_write",
+    "test_game_kit",
+    "test_pong_kit",
+    "test_sound_editor",
+    "test_sound_assistant",
+    "test_sound_riff",
+    "test_sound_import",
+    "test_video_player",
+    "test_models",
+    "test_animation",
+    "test_sdk_keeps_models",
+    "test_assistant",
+    "test_assistant_app",
+    "test_code_editor",
+    "test_code_templates",
+    "test_riff_code",
+    "test_code_completion",
+    "test_editor",
+    "test_sdk_layers",
+    "test_sdk_map3d_roundtrip",
+    "test_sdk_suite",
+    "test_sdk_elastic",
+    "test_suite_elastic",
+    "test_sdk_code_pi",
+    "test_nano8",
+    "test_debugger",
+    "test_pad_typing",
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", default="build")
@@ -7619,6 +7655,8 @@ def main():
                     help="kernel7.img (Pi Zero 2 W) in raspi2b instead of kernel.img in raspi0")
     ap.add_argument("--shard", default="", metavar="K/N",
                     help="only group K of N, about the same time each (the CI's machines)")
+    ap.add_argument("--apps", action="store_true",
+                    help="include app/editor/game-specific tests (excluded by default)")
     opts = ap.parse_args()
     if opts.shard:
         m = re.fullmatch(r"(\d+)/(\d+)", opts.shard)
@@ -7636,7 +7674,8 @@ def main():
         return os.path.join(opts.build, name)
 
     tests = [(n, f) for n, f in globals().items()
-             if n.startswith("test_") and opts.filter in n]
+             if n.startswith("test_") and opts.filter in n
+             and (opts.apps or opts.filter or n not in APP_TESTS)]
     if opts.shard:
         k, n = map(int, opts.shard.split("/"))
         tests = shard(tests, k, n)

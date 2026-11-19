@@ -1133,7 +1133,7 @@ int main(int argc, char **argv)
     const int cut_ok = emu_tformat != 2 && emu_t16_alpha != 2;
     const int etc1_ok = emu_tformat != 2 && emu_etc1 != 2;
     snprintf(want, sizeof want, "byte a = %s, texels %s, textures in %s, MSAA %s, 16-bit textures %s, "
-             "two-thread shaders %s, vertex shader %s, "
+             "two-thread shaders %s, vertex shader %s (clipper always on), "
              "indexed yes, clipping %s, "
              "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s, "
              "ETC1 textures %s, cel light yes)",

@@ -2144,7 +2144,8 @@ static const char *f1(char *b, float v)
         ksnprintf(b, 16, "-1");
         return b;
     }
-    ksnprintf(b, 16, "%d.%d", (int)v, (int)(v * 10.0f + 0.5f) % 10);
+    const int t = (int)(v * 10.0f + 0.5f);
+    ksnprintf(b, 16, "%d.%d", t / 10, t % 10);
     return b;
 }
 

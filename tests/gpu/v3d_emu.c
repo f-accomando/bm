@@ -1768,3 +1768,19 @@ int v3d_wait(uint32_t timeout_us, uint32_t *bin_us, uint32_t *rnd_us)
     emu_async = 0;
     return r;
 }
+
+int v3d_wait_idle(uint32_t timeout_ms)
+{
+    (void)timeout_ms;
+    return v3d_wait(0, NULL, NULL);
+}
+
+void v3d_trace(const char *where)
+{
+    (void)where;
+}
+
+__attribute__((weak)) void timer_delay_ms(uint32_t ms)
+{
+    (void)ms;
+}
