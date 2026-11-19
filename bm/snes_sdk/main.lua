@@ -80,7 +80,7 @@ local rx, ry, rs = 0, 0, 16                      -- the sprite: its corner and s
 local ex, ey = 0, 0                              -- the pixel cursor inside the sprite
 local edit, fill_tool = false, false
 -- RX.v, a ROM opened read only (.sfc, .smc): { name, folder, rom (snesrom), buf (its disassembly), off and bpp (its tiles), ... }
--- RX.side: the Sprites tab shows the ROM's tiles at the right. LN.view: the right window of the Code tab shows "lesson" or "rom".
+-- RX.side: the Sprites tab shows at the right your panel (false), the ROM's tiles (true) or the OAM of the machine ("oam"). LN.view: the right window of the Code tab shows "lesson" or "rom".
 local undo, redo = {}, {}
 local clip = nil
 local pick, input, busy = nil, nil, nil
@@ -584,6 +584,130 @@ function RX.draw_tiles(x0, y0)
   rect(x0 + RX.v.qx - 1, y0 + RX.v.qy - 1, rs + 2, rs + 2, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
 end
 
+-- the OAM view at the right of the Sprites tab (Ctrl+T after the ROM's tiles): the sprite table of the machine of
+-- the Run tab (a ROM run with r, or your project run with F5), read only. RX.oam = { list, sel (an OAM number),
+-- obsel, vram, cgram, frames (of the read), scr and pic (render targets), pic_of (the sprite drawn in pic) }.
+RX.OA = setmetatable({}, { __index = function(_, k) return (SNESOAM or require "snesoam")[k] end })
+function RX.oam_read()
+  local o = RX.oam or { sel = 0 }
+  RX.oam = o
+  local d = snes_debug and snes_debug() or {}
+  o.obsel = RX.OA.obsel(d.regs)
+  o.vram = snes_mem("vram", 0, 65536) or ""
+  o.cgram = snes_mem("cgram", 0, 512) or ""
+  o.list = RX.OA.decode(snes_mem("oam", 0, 544) or "", o.obsel, 224)
+  o.frames = snes_regs().frames
+  o.stale, o.pic_of = true, nil
+  if not o.list[o.sel + 1].vis then                -- the first sprite that shows, when the one chosen does not
+    local v = RX.OA.visible(o.list)
+    if v[1] then o.sel = v[1].i end
+  end
+end
+function RX.oam_cur() return RX.oam and RX.oam.list and RX.oam.list[RX.oam.sel + 1] end
+-- the next (d = 1) or the previous (d = -1) sprite that shows; all = true: any sprite of the 128
+function RX.oam_step(d, all)
+  local o = RX.oam
+  for n = 1, 128 do
+    local i = (o.sel + d * n) % 128
+    if all or o.list[i + 1].vis then o.sel = i; return end
+  end
+  say("no sprite shows on the screen: n and shift n go through all 128", C_DIM, 120)
+end
+-- c: the pixels of the sprite (indices 0-15, not flipped) to the clipboard: Ctrl+V puts them in your sprite
+function RX.oam_copy()
+  local e = RX.oam_cur()
+  local px = RX.OA.pixels(e, RX.oam.obsel, RX.oam.vram, G.decode_tile)
+  clip = { x = 0, y = 0, w = e.w, h = e.h, d = px }
+  say(string.format("copied sprite %d (%dx%d, 4 bpp): Ctrl+V puts it in your sprite; shift p takes its colours", e.i, e.w, e.h),
+      C_ACC, 240)
+end
+-- shift p: the 16 colours of the sprite's palette into your sub-palette (4 bpp projects)
+function RX.oam_palette()
+  if M.bpp ~= 4 then say("the sprites of the SNES are 4 bpp: set your project to 4 bpp first (b)", C_ERR); return end
+  local e = RX.oam_cur()
+  local c = RX.OA.colours(RX.oam.cgram, e.pal)
+  local p = subpal(M.cur)
+  for k = 2, 16 do p[k] = c[k] end
+  P.dirty = true
+  paint_sub(M.cur)
+  say(string.format("the colours of OAM palette %d are now your sub-palette %d", e.pal, M.cur), C_ACC, 200)
+end
+-- the keys of the OAM view; false: the key is the project's
+function RX.oam_key(k)
+  if not RX.oam or RN.state == "off" then return false end
+  if k == "<" or k == ">" then RX.oam_step(k == ">" and 1 or -1)
+  elseif k == "n" or k == "N" then RX.oam_step(k == "n" and 1 or -1, true)
+  elseif k == "c" then RX.oam_copy()
+  elseif k == "P" then RX.oam_palette()
+  else return false end
+  return true
+end
+-- the picture of the machine (half size) with a box on each sprite that shows, the sprite chosen, its numbers and a list
+function RX.draw_oam(x0, y0)
+  local o = RX.oam
+  if not o or snes_regs().frames ~= o.frames then RX.oam_read(); o = RX.oam end
+  local sw2, sh2 = 128, 112
+  if not o.scr then o.scr = target_create(sw2, sh2) end
+  if o.stale then snes_draw(o.scr, sw2, sh2); o.stale = false end
+  o.scr:draw(x0, y0)
+  rect(x0 - 1, y0 - 1, sw2 + 2, sh2 + 2, C_GRID8)
+  U.zone(x0, y0, sw2, sh2, "oscr")
+  local e = RX.oam_cur()
+  local function box_at(s, grow, c)                 -- a box on the picture, cut at its edges (clip is the clipboard here)
+    local bx0, by0 = max(0, s.x // 2 - grow), max(0, s.sy // 2 - grow)
+    local bx1, by1 = min(sw2, (s.x + s.w) // 2 + grow), min(sh2, (s.sy + s.h) // 2 + grow)
+    if bx1 > bx0 and by1 > by0 then rect(x0 + bx0, y0 + by0, bx1 - bx0, by1 - by0, c) end
+  end
+  for _, s in ipairs(o.list) do if s.vis and s ~= e then box_at(s, 0, C_GRID8) end end
+  if e.vis then box_at(e, 1, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF) end
+  -- the numbers of the sprite chosen
+  local tx = x0 + sw2 + 8
+  local cols = max(4, (W - tx - 4) // 8)
+  local v = RX.OA.visible(o.list)
+  local lines = { string.format("sprite %d of 128", e.i), string.format("%d show  obsel $%02X", #v, o.obsel),
+                  string.format("x %d y %d%s", e.x, e.sy, e.vis and "" or " (off)"), string.format("tile $%d%02X  %dx%d", e.name, e.tile, e.w, e.h),
+                  string.format("pal %d  prio %d", e.pal, e.prio), string.format("flip %s%s", e.fx and "X" or "-", e.fy and "Y" or "-"),
+                  "read only" }
+  for i, l in ipairs(lines) do print(l:sub(1, cols), tx, y0 + (i - 1) * 16, i == 1 and C_ACC or (i == 7 and C_DIM or C_TEXT)) end
+  -- the sprite with its colours, as large as the box allows
+  local by = y0 + sh2 + 8
+  local box = 72
+  if o.pic_of ~= e.i then
+    o.pic = o.pic or target_create(64, 64)
+    target(o.pic)
+    rectfill(0, 0, 64, 64, C_CHK1)
+    local px = RX.OA.pixels(e, o.obsel, o.vram, G.decode_tile)
+    local c = RX.OA.colours(o.cgram, e.pal)
+    for y = 0, e.h - 1 do
+      for x = 0, e.w - 1 do
+        local i = px[y * e.w + x + 1]
+        if i and i > 0 then pset(e.fx and e.w - 1 - x or x, e.fy and e.h - 1 - y or y, G.to_rgb(c[i + 1])) end
+      end
+    end
+    target()
+    o.pic_of = e.i
+  end
+  local pz = max(1, box // max(e.w, e.h))
+  rectfill(x0, by, box, box, C_CHK1)               -- (checker is a local defined later)
+  target_blit(o.pic, x0 + (box - e.w * pz) // 2, by + (box - e.h * pz) // 2, e.w * pz, e.h * pz, 0, 0, e.w, e.h)
+  rect(x0 - 1, by - 1, box + 2, box + 2, C_GRID8)
+  -- the list of the sprites that show, around the one chosen; a click chooses one
+  local lx = x0 + box + 8
+  local rows = max(1, (HINT_Y - 8 - by) // 16)
+  local at = 1
+  for i, s in ipairs(v) do if s.i == e.i then at = i end end
+  local first = clamp(at - rows // 2, 1, max(1, #v - rows + 1))
+  local lc = max(4, (W - lx - 4) // 8)
+  for r = 0, rows - 1 do
+    local s = v[first + r]
+    if not s then break end
+    local yy = by + r * 16
+    print(RX.OA.line(s):sub(1, lc), lx, yy, s.i == e.i and C_ACC or C_TEXT)
+    U.zone(lx, yy, lc * 8, 16, "olist", s.i)
+  end
+  if #v == 0 then print(("no sprite shows"):sub(1, lc), lx, by, C_DIM) end
+end
+
 local function transform(what)
   begin()
   local t = {}
@@ -675,12 +799,14 @@ end
 
 local ACTIONS = {}
 local function sprites_actions()
-  if RX.v and RX.side then choose("the tiles of " .. RX.v.name .. " (read only, at the right)", RX.ACTIONS)
+  if RX.side == "oam" then choose("the sprite table of the machine (read only, at the right)", RX.OAM_ACTIONS)
+  elseif RX.v and RX.side then choose("the tiles of " .. RX.v.name .. " (read only, at the right)", RX.ACTIONS)
   else choose("Sprites: " .. M.bpp .. " bpp", ACTIONS) end
 end
 
 local function sprites_key(k)
-  if RX.v and RX.side and RX.tile_key(k) then return end      -- the ROM's tiles at the right take their keys first
+  if RX.side == "oam" and RX.oam_key(k) then return end      -- the OAM view at the right takes its keys first
+  if RX.v and RX.side == true and RX.tile_key(k) then return end      -- the ROM's tiles at the right take their keys first
   if k == "left" then if edit then ex = max(0, ex - 1) else rx = max(0, rx - rs) end
   elseif k == "right" then if edit then ex = min(rs - 1, ex + 1) else rx = min(sw - rs, rx + rs) end
   elseif k == "up" then if edit then ey = max(0, ey - 1) else ry = max(0, ry - rs) end
@@ -760,6 +886,16 @@ RX.ACTIONS = {
   { "Copy the block in the box: Ctrl+V puts it in your sprite (c)", function() sprites_key("c") end },
   { "The panel of your project again (Ctrl+T)", function() RX.side = false end },
 }
+-- the OAM view: the sprites of the machine are read only; c and shift p copy from them into your project
+RX.OAM_ACTIONS = {
+  { "The next sprite that shows (>)", function() sprites_key(">") end },
+  { "The sprite before that shows (<)", function() sprites_key("<") end },
+  { "The next of all 128 (n)", function() sprites_key("n") end },
+  { "The one before of all 128 (shift n)", function() sprites_key("N") end },
+  { "Copy its pixels: Ctrl+V puts them in your sprite (c)", function() sprites_key("c") end },
+  { "Its colours into your sub-palette (shift p)", function() sprites_key("P") end },
+  { "The panel of your project again (Ctrl+T)", function() RX.side = false end },
+}
 
 ----------------------------------------------------------------- drawing
 
@@ -824,7 +960,17 @@ local function draw_sprites()
   item(M.fy and "[y] flipY" or "[ ] flipY", "y", tx, oy + 48, M.fy and C_ACC or C_DIM)
   item("prio " .. M.prio, "p", tx, oy + 64, C_TEXT)
 
-  if RX.v and RX.side then                          -- the right column: the ROM's tiles, read only, beside your sprite
+  if RX.side == "oam" and RN.state ~= "off" then  -- the right column: the sprite table of the machine, read only
+    RX.draw_oam(PX, 32)
+    local e = RX.oam_cur()
+    rectfill(0, 16, W, 16, C_BG)
+    print(string.format("OAM of the Run tab: sprite %d at (%d,%d)   your sprite at (%d,%d)", e.i, e.x, e.sy, rx, ry):sub(1, (W - 16) // 8),
+          8, 16, C_ACC)
+    hint({ { { "<", ">" }, "sprite" }, { { "n" }, "all 128" }, { { "c" }, "copy" }, { { "ctrl", "v" }, "paste" },
+           { { "shift", "p" }, "colours" }, { { "ctrl", "t" }, "panel" }, { { "tab" }, "more" } })
+    return
+  end
+  if RX.v and RX.side == true then                  -- the right column: the ROM's tiles, read only, beside your sprite
     RX.draw_tiles(PX, 32)
     local lx, ly = PX + RX.TW + 16, 32
     local lines = { RX.v.name, "read only", RX.v.bpp .. " bpp (shift b)", "",
@@ -1938,9 +2084,13 @@ end
 
 -- Ctrl+T: in the Sprites tab the ROM's tiles or your panel at the right; elsewhere the view of the right window
 function RX.swap()
-  if tab == 2 then
-    if not RX.v then say("no ROM: Esc > Open a ROM (.sfc, .smc of /snes)", C_DIM); return end
-    RX.side = not RX.side
+  if tab == 2 then                                 -- your panel, then the ROM's tiles (a ROM open), then the OAM (the machine runs)
+    local oam = RN.state ~= "off"
+    if not RX.v and not oam then say("no ROM: Esc > Open a ROM (.sfc, .smc of /snes); r or F5 runs it for the OAM", C_DIM); return end
+    if not RX.side then RX.side = RX.v and true or "oam"
+    elseif RX.side == true and oam then RX.side = "oam"
+    else RX.side = false end
+    if RX.side == "oam" then RX.oam_read() end
     return
   end
   tab = 1
@@ -2467,7 +2617,15 @@ end
 local function sprites_mouse()
   local z = U.at()
   if not z then return end
-  if z.kind == "rtile" then                       -- the ROM's tiles: a click puts the box there, a double click copies it
+  if z.kind == "oscr" then                        -- the picture of the OAM view: a click chooses the sprite there
+    if U.pressed(0) then
+      local e = RX.OA.at(RX.oam.list, (U.x - z.x) * 2, (U.y - z.y) * 2)
+      if e then RX.oam.sel = e.i end
+      if e and U.double then RX.oam_copy() end
+    end
+  elseif z.kind == "olist" then
+    if U.pressed(0) then RX.oam.sel = z.a; if U.double then RX.oam_copy() end end
+  elseif z.kind == "rtile" then                       -- the ROM's tiles: a click puts the box there, a double click copies it
     if U.pressed(0) and RX.v then
       RX.v.qx = clamp((U.x - z.x) // rs * rs, 0, RX.TW - rs)
       RX.v.qy = clamp((U.y - z.y) // rs * rs, 0, RX.TH - rs)

@@ -85,6 +85,17 @@ loop:
   check(sees("ROM $000000"), "j 80:8000: the CPU address of the first byte")
   key("c")
   check(status():find("copied %d+x%d+ of the ROM") ~= nil, "c: the box of the ROM is copied: " .. status())
+  key("^t")                                         -- the machine runs the ROM (r above): the OAM view comes next
+  check(sees("OAM of the Run tab") and sees("sprite 0 of 128") and sees("obsel $63"),
+        "Ctrl+T again: the OAM of the machine, sprite 0 chosen")
+  key(">")
+  check(sees("sprite 1 of 128"), "> : the next sprite that shows")
+  key("c")
+  check(status():find("copied sprite 1", 1, true) ~= nil, "c: the pixels of the sprite are copied: " .. status())
+  key("P")
+  check(status():find("colours of OAM palette", 1, true) ~= nil, "shift p: its colours into your sub-palette: " .. status())
+  key("n")
+  check(sees("sprite 2 of 128"), "n: the next of all 128")
   key("^t")
   check(sees("sub-palette"), "Ctrl+T: your panel again")
   check(t.snes["Test Game.sfc"] == rom, "the ROM file is not changed")
