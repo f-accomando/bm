@@ -182,7 +182,7 @@ $(TOOL_BMS:%=$(BUILD)/%.bm): $(BUILD)/%.bm: $$(call c_lua,$$*) core/scripts/mkbm
 	$(call CART_RECIPE,$*)
 
 # Demo games (Lua only, sprites drawn in code): build/bm/<name>.bm
-GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 sidbox bench3d font wildvale
+GAMES := pong snake shooter astrowing kitchen titan nano8 overbit yharnam typing write ko2 sidbox bench3d font wildvale polis
 GAME_CARTS := $(patsubst %,$(BUILD)/bm/%.bm,$(GAMES))
 sheet8_yharnam := 1
 sheet8_ko2 := 1
@@ -215,7 +215,7 @@ $(BUILD)/bm/%.bm: $$(call c_lua,$$*) core/scripts/mkbm.py core/scripts/bmmesh.py
 	$(call CART_RECIPE,$*)
 
 # The projects (.bme) of the carts the Dev tab edits: the same cartridge, built the same way
-BME_CARTS := kitchen bmweb agent hero sidbox wildvale
+BME_CARTS := kitchen bmweb agent hero sidbox wildvale polis
 $(BME_CARTS:%=$(BUILD)/bm/%.bme): $(BUILD)/bm/%.bme: $$(call c_lua,$$*) core/scripts/mkbm.py $$(call c_deps,$$*)
 	$(call CART_RECIPE,$*)
 
