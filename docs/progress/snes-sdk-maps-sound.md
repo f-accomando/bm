@@ -4,7 +4,7 @@ Back to [snes-sdk-roadmap.md](snes-sdk-roadmap.md) (step 6).
 
 - Map: a tilemap editor for the BG layers, with an export that the code reads.
 - Map, first step (done, 2026-11-19): the BG view of the Map tab ([snes-sdk.md](snes-sdk.md)). Still to do: the Mode 7 matrix registers in `snes_debug().regs` (the map and its tiles show without them), copy into your own map (when the map editor is there), and the 16-pixel-wide tiles of modes 5 and 6.
-- Map, second step: a capture that follows the scroll (`hofs`, `vofs`) frame after frame and puts the tiles together into the whole level. Follow the change of the scroll from frame to frame, because the scroll registers wrap at 1023. Find the 16x16 blocks from the 2x2 groups that repeat.
+- Map, second step (done, 2026-11-19): the capture of a level that follows the scroll, with the export of the map, the tiles, the colours and the 16x16 blocks ([snes-sdk.md](snes-sdk.md)). Still to do: find a status bar of HDMA or IRQ splits by itself (today `[ ] { }` set the lines by hand), join two captures (rooms) into one level, and measure a sample on the Pi Zero W.
 - Do not write a level reader for each commercial game now. Each game keeps its levels in its own format. Add one only on request, as an extra.
 
 ### The BMAP table: the resources of the SDK's own ROMs

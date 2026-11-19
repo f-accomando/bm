@@ -1183,16 +1183,213 @@ end
 function RX.map_status()
   local m = RX.MP
   if RN.state == "off" or not m.L then return "Map: the BG view reads the machine of the Run tab" end
+  if m.view == "level" and m.cap then return RX.level_status() end
   local L = m.L
   local x, y, w, h = RX.map_box()
   return string.format("Map  BG%d  mode %d  cell (%d,%d)  box %dx%d  map $%04X  tiles $%04X  read only", L.n, m.r.mode,
                        m.cx, m.cy, w, h, L.map, L.char)
 end
+----------------------------------------------------------------- the Map tab: the capture of a level
+
+-- The capture follows the scroll of one layer while you play in the Run tab (F5) and keeps each cell that the
+-- screen showed at its place in the level (core/lua/snesbg.lua, B.cap_*). It samples every second frame, in
+-- rn_update. The level view (v) shows it; e writes the map, the tiles, the colours and the 16x16 blocks to /docs.
+-- RX.MP has for it: cap, view ("level" or nil), lx, ly, lax, lay (the cell chosen and the other corner of the box,
+-- in cells of the level), lz (pixels of a cell in the view: 8, 4, 2 or 1), lox, loy (the top left cell of the view),
+-- lpic, li, lkey (the view drawn a part each frame), ldec (the tiles decoded), lcol, lcg (the colours), ltop, lbot.
+function RX.map_cap_tick()
+  local c = RX.MP.cap
+  c.tick = (c.tick or 0) + 1
+  if c.tick % 2 ~= 0 then return end
+  local d = snes_debug and snes_debug() or {}
+  local res = RX.BG.cap_step(c, RX.BG.regs(d.regs), snes_mem("vram", 0, 65536) or "", snes_mem("cgram", 0, 512) or "")
+  if res == "jump" then say("the capture paused: the screen jumped (a new room?). F3, then Space goes on from here", C_ERR, 300)
+  elseif res == "scene" then say("the capture paused: the layer changed (a new scene). F3, then Space goes on; N starts again", C_ERR, 300) end
+end
+function RX.map_cap_new()
+  local m = RX.MP
+  local L = m.L
+  if L.m7 then say("Mode 7: the whole map is in the video RAM already; c copies it", C_DIM, 200); return end
+  if L.bpp == 0 then say(string.format("BG%d is not there in mode %d: 1 to 4 choose a layer", L.n, m.r.mode), C_DIM, 160); return end
+  m.cap = RX.BG.cap_new(m.r, m.n)
+  m.cap.top, m.cap.bot = m.ltop or 0, m.lbot or 223
+  RX.BG.cap_step(m.cap, m.r, m.vram, m.cgram)
+  m.ldec, m.lkey, m.lox, m.loy = {}, nil, nil, nil
+  m.lx, m.ly = m.cap.wx // 8, (m.cap.wy + m.cap.top) // 8
+  m.lax, m.lay, m.lz, m.view = m.lx, m.ly, m.lz or 4, "level"
+  say(string.format("capturing BG%d: play in the Run tab (F5) and go through the level; F3 comes back", m.n), C_ACC, 300)
+end
+function RX.map_cap_toggle()
+  local m = RX.MP
+  if not m.cap then RX.map_cap_new(); return end
+  if m.cap.on then m.cap.on = false; say("the capture is paused: Space goes on", C_DIM, 160); return end
+  local d = snes_debug and snes_debug() or {}
+  RX.BG.cap_resume(m.cap, RX.BG.regs(d.regs))
+  say("the capture goes on from this screen: play in the Run tab (F5)", C_ACC, 200)
+end
+function RX.map_view()
+  local m = RX.MP
+  if m.view == "level" then m.view = nil
+  elseif m.cap then m.view = "level" else say("no capture yet: Space starts one of this layer", C_DIM, 160) end
+end
+-- [ ] move the first line that the capture reads, { } the last: leave out a status bar that does not scroll
+function RX.map_lines(k)
+  local m = RX.MP
+  local top, bot = m.ltop or 0, m.lbot or 223
+  if k == "[" then top = max(0, top - 8) elseif k == "]" then top = min(bot - 7, top + 8)
+  elseif k == "{" then bot = max(top + 7, bot - 8) elseif k == "}" then bot = min(223, bot + 8) end
+  m.ltop, m.lbot = top, bot
+  if m.cap then m.cap.top, m.cap.bot = top, bot end
+  say(string.format("the capture reads the screen lines %d to %d ([ ] the first, { } the last)", top, bot), C_DIM, 200)
+end
+function RX.level_box()
+  local m = RX.MP
+  return min(m.lx, m.lax), min(m.ly, m.lay), math.abs(m.lx - m.lax) + 1, math.abs(m.ly - m.lay) + 1
+end
+function RX.level_key(k)
+  local m, c = RX.MP, RX.MP.cap
+  local d = ({ left = { -1, 0 }, right = { 1, 0 }, up = { 0, -1 }, down = { 0, 1 } })[k]
+  if d then
+    m.lx = clamp(m.lx + d[1], c.x0 or m.lx, c.x1 or m.lx)
+    m.ly = clamp(m.ly + d[2], c.y0 or m.ly, c.y1 or m.ly)
+    if not M.mods().shift then m.lax, m.lay = m.lx, m.ly end
+  elseif k == "home" then                          -- the cell at the top left of the screen of the machine
+    m.lx, m.ly = c.wx // 8, (c.wy + c.top) // 8
+    m.lax, m.lay = m.lx, m.ly
+  elseif k == "+" or k == "=" then m.lz = min(8, m.lz * 2)
+  elseif k == "-" then m.lz = max(1, m.lz // 2)
+  elseif k == "c" then
+    local x, y, w, h = RX.level_box()
+    local lines = RX.BG.cap_dw(c, x, y, w, h)
+    table.insert(lines, 1, string.format("; the level of BG%d, cells (%d,%d) to (%d,%d); the tile numbers are those of e (the .chr)",
+                                         c.n, x, y, x + w - 1, y + h - 1))
+    ;(ASMBUF or require "asmbuf").clipboard = table.concat(lines, "\n") .. "\n"
+    say(string.format("copied %dx%d words of the level as .dw lines: Ctrl+V in the Code tab", w, h), C_ACC, 240)
+  elseif k == "e" then RX.level_export()
+  else return false end
+  return true
+end
+function RX.level_export()
+  local c = RX.MP.cap
+  if not doc_write then say("export: this console cannot write files", C_ERR); return end
+  local ex = RX.BG.cap_export(c)
+  if not ex.map then say("export: " .. tostring(ex.err), C_ERR, 240); return end
+  ask("export the level as (name)", "level", function(name)
+    if not name:match("^[%w_%-]+$") then say("a name has letters, digits, _ and -", C_ERR); return end
+    for _, f in ipairs({ { ".map", ex.map }, { ".chr", ex.chr }, { ".pal", ex.pal }, { ".blk", ex.blk }, { ".bkm", ex.bkm } }) do
+      local ok, e = doc_write(name .. f[1], f[2])
+      if not ok then say("export: " .. name .. f[1] .. ": " .. tostring(e), C_ERR, 240); return end
+    end
+    say(string.format("wrote %s.map (%dx%d), .chr (%d tiles), .pal, .blk (%d blocks of 16x16) and .bkm to /docs",
+                      name, ex.w, ex.h, ex.nt, ex.nb), C_ACC, 300)
+  end)
+end
+-- draw some cells of the level view into lpic (about 4096 pixels a frame)
+function RX.level_paint(ox, oy, vw, vh, cp)
+  local m, c = RX.MP, RX.MP.cap
+  if not m.lpic then m.lpic = target_create(256, 256) end
+  if m.li >= vw * vh then return end
+  local step, budget = 8 // cp, 4096
+  local lay = { bpp = c.bpp, n = c.n }
+  target(m.lpic)
+  while m.li < vw * vh and budget > 0 do
+    local cx, cy = m.li % vw, m.li // vw
+    local v = RX.BG.cap_get(c, ox + cx, oy + cy)
+    local x, y = cx * cp, cy * cp
+    if not v then rectfill(x, y, cp, cp, 0x14161C)            -- a cell that the screen did not show
+    else
+      rectfill(x, y, cp, cp, C_CHK1)
+      local id = v >> 16
+      local px = m.ldec[id]
+      if not px then px = G.decode_tile(c.tiles[id], c.bpp, 1); m.ldec[id] = px end
+      local fx, fy = (v >> 14) & 1 == 1, (v >> 15) & 1 == 1
+      local base = RX.BG.pal_base(lay, c.mode, (v >> 10) & 7)
+      for yy = 0, cp - 1 do
+        for xx = 0, cp - 1 do
+          local sx, sy = xx * step, yy * step
+          if fx then sx = 7 - sx end
+          if fy then sy = 7 - sy end
+          local p = px[sy * 8 + sx + 1]
+          if p and p > 0 then pset(x + xx, y + yy, G.to_rgb(m.lcol[(base + p) & 255])) end
+        end
+      end
+    end
+    m.li = m.li + 1
+    budget = budget - cp * cp
+  end
+  target()
+end
+function RX.level_status()
+  local m, c = RX.MP, RX.MP.cap
+  local w, h = c.x0 and c.x1 - c.x0 + 1 or 0, c.y0 and c.y1 - c.y0 + 1 or 0
+  return string.format("Level BG%d  %dx%d cells  %d tiles  %s  camera (%d,%d)  lines %d-%d", c.n, w, h, c.nt + 1,
+                       c.on and "capturing" or "paused", c.wx, c.wy, c.top, c.bot)
+end
+function RX.draw_level(x0, y0)
+  local m, c = RX.MP, RX.MP.cap
+  local cp = m.lz
+  local vw, vh = 256 // cp, 256 // cp
+  local ox, oy = m.lox or (c.wx // 8), m.loy or (c.wy // 8)
+  if m.lx < ox then ox = m.lx elseif m.lx >= ox + vw then ox = m.lx - vw + 1 end
+  if m.ly < oy then oy = m.ly elseif m.ly >= oy + vh then oy = m.ly - vh + 1 end
+  m.lox, m.loy = ox, oy
+  local key = string.format("%d,%d,%d,%d", ox, oy, cp, c.ver)
+  if key ~= m.lkey then
+    m.lkey, m.li = key, 0
+    if c.cgram ~= m.lcg then m.lcg = c.cgram; m.lcol = RX.BG.colours(c.cgram or "") end
+  end
+  RX.level_paint(ox, oy, vw, vh, cp)
+  target_blit(m.lpic, x0, y0, 256, 256, 0, 0, 256, 256)
+  rect(x0 - 1, y0 - 1, 258, 258, C_GRID8)
+  U.zone(x0, y0, 256, 256, "lmap", cp)
+  local s = 8 // cp                                 -- level pixels for each pixel of the view
+  local function box(px, py, pw, ph, col)          -- a box in level pixels, cut at the edges of the view
+    local bx0, by0 = max(0, (px - ox * 8) // s), max(0, (py - oy * 8) // s)
+    local bx1, by1 = min(256, (px + pw - ox * 8) // s), min(256, (py + ph - oy * 8) // s)
+    if bx1 > bx0 and by1 > by0 then rect(x0 + bx0, y0 + by0, bx1 - bx0, by1 - by0, col) end
+  end
+  box(c.wx, c.wy + c.top, 256, c.bot - c.top + 1, 0xFFFFFF)   -- the screen of the machine, the lines read
+  local bx, by, bw, bh = RX.level_box()
+  box(bx * 8, by * 8, bw * 8, bh * 8, (frame // 10) % 2 == 0 and C_PT or 0x000000)
+  if m.li < vw * vh then print("drawing...", x0, y0 + 260, C_DIM) end
+  -- the numbers at the right
+  local tx = x0 + 256 + 16
+  local cols = max(4, (W - tx - 4) // 8)
+  local w, h = c.x0 and c.x1 - c.x0 + 1 or 0, c.y0 and c.y1 - c.y0 + 1 or 0
+  local wd = RX.BG.cap_word(c, m.lx, m.ly)
+  local seen = RX.BG.cap_get(c, m.lx, m.ly) ~= nil
+  local info = { { string.format("level of BG%d  %d bpp", c.n, c.bpp), C_ACC },
+                 { c.on and "capturing: play in Run (F5)" or "paused: Space goes on", c.on and C_ACC or C_DIM },
+                 { string.format("%dx%d cells  %d tiles", w, h, c.nt + 1), C_TEXT },
+                 { string.format("from (%d,%d)  %d samples", c.x0 or 0, c.y0 or 0, c.samples), C_TEXT },
+                 { string.format("camera (%d,%d)", c.wx, c.wy), C_TEXT },
+                 { string.format("lines %d-%d  ([ ] { })", c.top, c.bot), C_TEXT },
+                 { "", C_TEXT },
+                 { string.format("cell (%d,%d)  %s", m.lx, m.ly, seen and string.format("$%04X", wd) or "not seen"), C_ACC },
+                 { seen and string.format("tile %d pal %d prio %d", wd & 0x3FF, (wd >> 10) & 7, (wd >> 13) & 1) or "", C_TEXT },
+                 { string.format("box %dx%d  zoom 1/%d", bw, bh, s), C_TEXT },
+                 { "the tile numbers are those of e", C_DIM } }
+  for i, l in ipairs(info) do print(l[1]:sub(1, cols), tx, y0 + (i - 1) * 16, l[2]) end
+  hint({ { { "space" }, c.on and "pause" or "go on" }, { { "left", "right", "up", "down" }, "cell" }, { { "+", "-" }, "zoom" },
+         { { "c" }, "copy .dw" }, { { "e" }, "export" }, { { "N" }, "new" }, { { "v" }, "video RAM" }, { { "home" }, "screen" } })
+end
+
 -- the keys of the BG view; false: not a key of the view
 function RX.map_key(k)
   local m = RX.MP
   if RN.state == "off" or not m.L then return false end
   local L = m.L
+  if k == " " then RX.map_cap_toggle(); return true
+  elseif k == "N" then RX.map_cap_new(); return true
+  elseif k == "v" then RX.map_view(); return true
+  elseif k == "[" or k == "]" or k == "{" or k == "}" then RX.map_lines(k); return true end
+  if m.view == "level" and m.cap then
+    if #k == 1 and k >= "1" and k <= "4" then
+      say(string.format("the capture is of BG%d: v goes to the video RAM view, where 1 to 4 choose a layer", m.cap.n), C_DIM, 200)
+      return true
+    end
+    return RX.level_key(k)
+  end
   if #k == 1 and k >= "1" and k <= "4" then
     m.n = tonumber(k)
     RX.map_layer()
@@ -1239,6 +1436,18 @@ function RX.map_mouse()
   if not z or RN.state == "off" or not m.L then return end
   if z.kind == "mlay" then
     if U.pressed(0) then RX.map_key(tostring(z.a)) end
+  elseif z.kind == "mview" then
+    if U.pressed(0) and (m.view or false) ~= z.a then RX.map_view() end
+  elseif z.kind == "lmap" then                     -- the level view: a click chooses a cell, a drag a box
+    local cp = z.a
+    local c, r = (m.lox or 0) + (U.x - z.x) // cp, (m.loy or 0) + (U.y - z.y) // cp
+    if U.pressed(0) then
+      m.lx, m.ly = c, r
+      if not M.mods().shift then m.lax, m.lay = c, r end
+      m.ldrag = true
+      if U.double then RX.level_key("c") end
+    elseif U.down(0) and m.ldrag then m.lx, m.ly = c, r
+    else m.ldrag = false end
   elseif z.kind == "mmap" then
     local ts = m.L.t16 and 16 or 8
     local cp = max(1, ts // m.z)
@@ -1281,8 +1490,19 @@ function RX.draw_map()
     print(label, x, y0, n == m.n and 0xFFFFFF or (bpp > 0 and C_TEXT or C_DIM))
     x = x + w + 8
   end
-  print(string.format("mode %d%s", m.r.mode, m.r.has_nba and "" or "  (old kernel: no tile address)"), x + 8, y0, C_DIM)
+  print(string.format("mode %d%s", m.r.mode, m.r.has_nba and "" or " (old kernel)"), x + 8, y0, C_DIM)
+  -- the two views: the video RAM now, the level of the capture
+  local vx = W - 8 - (9 * 8 + 8) - 8 - (5 * 8 + 8)
+  for _, v in ipairs({ { "Video RAM", false }, { "Level", "level" } }) do
+    local on = (m.view or false) == v[2]
+    local w = #v[1] * 8 + 8
+    if on then rectfill(vx - 4, y0, w, 16, C_SEL) end
+    U.zone(vx - 4, y0, w, 16, "mview", v[2])
+    print(v[1], vx, y0, on and 0xFFFFFF or ((v[2] == false or m.cap) and C_TEXT or C_DIM))
+    vx = vx + w + 8
+  end
   y0 = 56
+  if m.view == "level" and m.cap then RX.draw_level(x0, y0); return end
   local mw, mh = L.pw // m.z, L.ph // m.z
   if L.bpp == 0 then
     print(string.format("BG%d is not there in mode %d: 1 to 4 choose a layer", L.n, m.r.mode), x0, y0, C_DIM)
@@ -1317,7 +1537,7 @@ function RX.draw_map()
              L.m7 and { string.format("tile $%02X", wd), C_TEXT } or { string.format("tile $%03X pal %d prio %d", f.tile, f.pal, f.prio), C_TEXT },
              { L.m7 and "" or string.format("flip %s%s", f.fx and "X" or "-", f.fy and "Y" or "-"), C_TEXT },
              { string.format("box %dx%d at (%d,%d)", bw, bh, bx, by), C_TEXT },
-             { "read only", C_DIM } }
+             { m.cap and string.format("capture of BG%d %s (v)", m.cap.n, m.cap.on and "on" or "paused") or "Space: capture the level", m.cap and C_ACC or C_DIM } }
   end
   for i, l in ipairs(info) do print(l[1]:sub(1, cols), tx, y0 + (i - 1) * 16, l[2]) end
   if L.bpp > 0 then                                 -- the tile of the cell, large, with the colours of its palette
@@ -1343,7 +1563,8 @@ function RX.draw_map()
     end
   end
   hint({ { { "1", "4" }, "layer" }, { { "left", "right", "up", "down" }, "cell" }, { { "shift" }, "+arrows: box" }, { { "c" }, "copy .dw" },
-         { { "t" }, "copy tile" }, { { "home" }, "screen" }, { { "r" }, "read" } })
+         { { "t" }, "copy tile" }, { { "space" }, m.cap and "capture" or "capture the level" }, { { "v" }, "level" },
+         { { "r" }, "read" } })
 end
 
 ----------------------------------------------------------------- the Code tab
@@ -1862,6 +2083,7 @@ end
 local function rn_update()
   if RN.state ~= "run" or tab ~= 5 then return end      -- the machine runs while the Run tab shows
   local pc = snes_run(rn_pad(), 0, true)
+  if not pc and RX.MP.cap and RX.MP.cap.on then RX.map_cap_tick() end     -- the capture of the Map tab follows the scroll
   if pc then rn_stopped(pc) elseif frame % 4 == 0 then rn_refresh() end
 end
 

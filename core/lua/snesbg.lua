@@ -172,4 +172,150 @@ function B.dw_lines(vram, L, c0, r0, w, h)
   return lines
 end
 
+----------------------------------------------------------------- the capture: a whole level from the scroll
+
+-- A capture follows the scroll of one layer frame after frame and keeps each 8x8 cell that the screen showed, at its
+-- place in the level (the world). The world starts at the map: world pixel (x, y) is map pixel (x mod pw, y mod ph),
+-- so the cells keep the 16-pixel grid of the map. A cell is the tile it showed (its bytes, kept once) and the
+-- attribute bits of its word (palette, priority, flips). A layer of 16x16 tiles gives four 8x8 cells for each tile.
+-- cap = { n, mode, bpp, sig, on, h, v (the scroll at the last sample), wx, wy (the world pixel at the top left of
+-- the screen), cells (key -> id << 16 | attributes), ids (bytes -> id), tiles (id -> bytes; 0 is the clear tile),
+-- nt (the last id), x0, y0, x1, y1 (the cells seen), top, bot (the screen lines read), cgram, ver, samples }
+
+-- what must stay the same in a capture: the mode, the depth and the addresses of the layer
+function B.cap_sig(r, n)
+  local L = B.layer(r, n)
+  return string.format("%d %d %04X %04X %s%s%s", r.mode & 7, L.bpp, L.map or 0, L.char or 0, L.t16 and "t16" or "t8",
+                       L.wide and " w" or "", L.tall and " t" or "")
+end
+
+function B.cap_new(r, n)
+  local L = B.layer(r, n)
+  local blank = string.rep("\0", L.bpp * 8)
+  return { n = n, mode = r.mode & 7, bpp = L.bpp, sig = B.cap_sig(r, n), on = true, h = L.hofs, v = L.vofs,
+           wx = L.hofs, wy = L.vofs, cells = {}, ids = { [blank] = 0 }, tiles = { [0] = blank }, nt = 0,
+           top = 0, bot = 223, ver = 0, samples = 0 }
+end
+
+-- the key of world cell (gx, gy) in cap.cells
+function B.cap_key(gx, gy) return (gy + 32768) * 65536 + (gx + 32768) end
+function B.cap_get(cap, gx, gy) return cap.cells[B.cap_key(gx, gy)] end
+
+-- a scroll change, shortest way round a map of p pixels
+local function wrapd(d, p)
+  d = d % p
+  if d > p // 2 then d = d - p end
+  return d
+end
+
+-- go on after a pause: the screen now is at the same place of the world as at the pause
+function B.cap_resume(cap, r)
+  local L = B.layer(r, cap.n)
+  cap.h, cap.v, cap.sig, cap.on = L.hofs, L.vofs, B.cap_sig(r, cap.n), true
+end
+
+-- one sample: the registers r, the video RAM and the colour RAM of one frame. Returns "ok"; "jump" (the scroll moved
+-- more than jump pixels: a new room or a cut, the capture pauses); "scene" (the layer changed: it pauses); "paused".
+function B.cap_step(cap, r, vram, cgram, jump)
+  if not cap.on then return "paused" end
+  local L = B.layer(r, cap.n)
+  if L.m7 or L.bpp == 0 or B.cap_sig(r, cap.n) ~= cap.sig then cap.on = false; return "scene" end
+  local dx, dy = wrapd(L.hofs - cap.h, L.pw), wrapd(L.vofs - cap.v, L.ph)
+  jump = jump or 64
+  if math.abs(dx) > jump or math.abs(dy) > jump then cap.on = false; return "jump" end
+  cap.h, cap.v = L.hofs, L.vofs
+  cap.wx, cap.wy = cap.wx + dx, cap.wy + dy
+  local size, ts = L.bpp * 8, L.t16 and 16 or 8
+  local seen = {}
+  local gx0, gx1 = cap.wx // 8, (cap.wx + 255) // 8
+  local gy0, gy1 = (cap.wy + cap.top) // 8, (cap.wy + cap.bot) // 8
+  for gy = gy0, gy1 do
+    local my = (gy * 8) % L.ph
+    for gx = gx0, gx1 do
+      local mx = (gx * 8) % L.pw
+      local w = B.word(vram, L, mx // ts, my // ts)
+      local tile = w & 0x3FF
+      if L.t16 then                                  -- the 8x8 part of the 16x16 tile at this cell
+        local sx, sy = (mx // 8) & 1, (my // 8) & 1
+        if (w >> 14) & 1 == 1 then sx = 1 - sx end
+        if (w >> 15) == 1 then sy = 1 - sy end
+        tile = (tile + sy * 16 + sx) & 0x3FF
+      end
+      local a = (L.char + tile * size) & 0xFFFF
+      local raw = seen[a]
+      if not raw then
+        raw = vram:sub(a + 1, a + size)
+        if #raw < size then raw = raw .. vram:sub(1, size - #raw) end
+        if #raw < size then raw = raw .. string.rep("\0", size - #raw) end
+        seen[a] = raw
+      end
+      local id = cap.ids[raw]
+      if not id then cap.nt = cap.nt + 1; id = cap.nt; cap.ids[raw] = id; cap.tiles[id] = raw end
+      cap.cells[B.cap_key(gx, gy)] = (id << 16) | (w & 0xFC00)
+    end
+  end
+  if not cap.x0 then cap.x0, cap.x1, cap.y0, cap.y1 = gx0, gx1, gy0, gy1
+  else
+    cap.x0, cap.x1 = math.min(cap.x0, gx0), math.max(cap.x1, gx1)
+    cap.y0, cap.y1 = math.min(cap.y0, gy0), math.max(cap.y1, gy1)
+  end
+  cap.cgram = cgram
+  cap.ver, cap.samples = cap.ver + 1, cap.samples + 1
+  return "ok"
+end
+
+-- the word of world cell (gx, gy) with the new tile numbers (the ids); 0 for a cell not seen
+function B.cap_word(cap, gx, gy)
+  local v = cap.cells[B.cap_key(gx, gy)]
+  if not v then return 0 end
+  return (v & 0xFC00) | ((v >> 16) & 0x3FF)
+end
+
+-- the words of a box of the level as assembly lines (the new tile numbers)
+function B.cap_dw(cap, x, y, w, h)
+  local lines = {}
+  for gy = y, y + h - 1 do
+    local t = {}
+    for gx = x, x + w - 1 do t[#t + 1] = string.format("$%04X", B.cap_word(cap, gx, gy)) end
+    lines[#lines + 1] = "  .dw " .. table.concat(t, ", ")
+  end
+  return lines
+end
+
+-- the files of the level: map (words, row after row), chr (the tiles in id order, as in the video RAM), pal (the
+-- colour RAM), blk (the 16x16 blocks found: 4 words each, top left, top right, bottom left, bottom right) and bkm
+-- (the block numbers, 16 bits, row after row). The box starts and ends on the 16-pixel grid.
+-- Returns { map, chr, pal, blk, bkm, x0, y0, w, h (cells), nt (tiles), nb (blocks), err }.
+function B.cap_export(cap)
+  if not cap.x0 then return { err = "nothing captured yet" } end
+  local X0, Y0 = cap.x0 - cap.x0 % 2, cap.y0 - cap.y0 % 2
+  local X1, Y1 = cap.x1 + (1 - cap.x1 % 2), cap.y1 + (1 - cap.y1 % 2)
+  local w, h = X1 - X0 + 1, Y1 - Y0 + 1
+  local out = { x0 = X0, y0 = Y0, w = w, h = h, nt = cap.nt + 1, pal = cap.cgram or "" }
+  if cap.nt > 1023 then
+    out.err = string.format("%d tiles: a map word holds tile numbers up to 1023", cap.nt + 1)
+    return out
+  end
+  local map = {}
+  for gy = Y0, Y1 do
+    for gx = X0, X1 do map[#map + 1] = string.pack("<I2", B.cap_word(cap, gx, gy)) end
+  end
+  out.map = table.concat(map)
+  local chr = {}
+  for id = 0, cap.nt do chr[#chr + 1] = cap.tiles[id] end
+  out.chr = table.concat(chr)
+  local bid, blk, bkm = {}, {}, {}
+  for by = Y0, Y1, 2 do
+    for bx = X0, X1, 2 do
+      local b = string.pack("<I2I2I2I2", B.cap_word(cap, bx, by), B.cap_word(cap, bx + 1, by),
+                            B.cap_word(cap, bx, by + 1), B.cap_word(cap, bx + 1, by + 1))
+      local k = bid[b]
+      if not k then k = #blk; bid[b] = k; blk[#blk + 1] = b end
+      bkm[#bkm + 1] = string.pack("<I2", k)
+    end
+  end
+  out.blk, out.bkm, out.nb = table.concat(blk), table.concat(bkm), #blk
+  return out
+end
+
 return B

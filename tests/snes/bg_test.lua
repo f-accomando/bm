@@ -90,5 +90,80 @@ check(c == 0 and rr == 13, "the screen point (60,10) is cell (0,13)")
 local dl = B.dw_lines(v, L, 1, 1, 2, 1)
 check(dl[1] == string.format("  .dw $0000, $%04X", w), "the .dw line: " .. dl[1])
 
+-- the capture: a level of 180x28 cells that a game streams into a map of 64x32 (a ring), while the camera goes right
+-- (past the wrap of the scroll at 1024) and then back left. Tile t of the level has its own bytes; the map words have palette 2 and some flips.
+local WL, HL = 180, 28
+local function lvl(gx, gy) return (gx * 7 + gy * 3) % 40 + 1 end          -- 40 different tiles
+local function lword(gx, gy) return lvl(gx, gy) | (2 << 10) | ((gx % 5 == 0) and (1 << 14) or 0) end
+local cv = {}
+for i = 1, 65536 do cv[i] = 0 end
+local function tbytes(t) return string.pack(">I2", t) .. string.rep("\0", 30) end
+for t = 1, 40 do local b = tbytes(t); for k = 1, 32 do cv[0x2000 + t * 32 + k] = b:byte(k) end end
+local function regs_at(x)
+  return B.regs(string.format("mode 1 tm 01 sc 01 00 00 00 hofs %d 0 0 0 vofs 0 0 0 0 bgm 01 nba 2000 0000 0000 0000", x % 1024))
+end
+local CL = B.layer(regs_at(0), 1)
+local function stream(cam)                                            -- the columns on the screen (and one more)
+  for gx = cam // 8, cam // 8 + 32 do
+    if gx >= 0 and gx < WL then
+      for gy = 0, HL - 1 do
+        local a = B.entry_addr(CL, gx % 64, gy)
+        local w = lword(gx, gy)
+        cv[a + 1], cv[a + 2] = w & 255, w >> 8
+      end
+    end
+  end
+  local s = {}
+  for i = 1, 65536, 4096 do s[#s + 1] = string.char(table.unpack(cv, i, i + 4095)) end
+  return table.concat(s)
+end
+local cam = 0
+local cap = B.cap_new(regs_at(cam), 1)
+check(cap.on and cap.bpp == 4 and cap.wx == 0, "a new capture of BG1")
+check(B.cap_step(cap, regs_at(cam), stream(cam), "cg") == "ok", "the first sample")
+while cam < (WL - 32) * 8 do cam = cam + 4; check(B.cap_step(cap, regs_at(cam), stream(cam), "cg") == "ok", "a sample at " .. cam) end
+while cam > 40 do cam = cam - 4; B.cap_step(cap, regs_at(cam), stream(cam), "cg") end
+check(cap.wx == cam, string.format("the world follows the scroll through the wrap at 1024: %d %d", cap.wx, cam))
+check(cap.x0 == 0 and cap.x1 == WL - 1 and cap.y0 == 0 and cap.y1 == HL - 1,
+      string.format("the cells seen: %d..%d x %d..%d", cap.x0, cap.x1, cap.y0, cap.y1))
+check(cap.nt == 40, "40 tiles kept once each: " .. cap.nt)
+local good = true
+for gy = 0, HL - 1 do
+  for gx = 0, WL - 1 do
+    local v = B.cap_get(cap, gx, gy)
+    if not v or cap.tiles[v >> 16] ~= tbytes(lvl(gx, gy)) or (v & 0xFC00) ~= (lword(gx, gy) & 0xFC00) then good = false end
+  end
+end
+check(good, "each cell of the level has its tile and its attributes")
+local ex = B.cap_export(cap)
+check(not ex.err and ex.w == WL and ex.h == HL and #ex.map == WL * HL * 2 and #ex.chr == 41 * 32 and ex.pal == "cg",
+      "the export: a map of 180x28 words, 41 tiles (the clear one first), the colours")
+local w0 = string.unpack("<I2", ex.map, 1)
+check(cap.tiles[w0 & 0x3FF] == tbytes(lvl(0, 0)) and (w0 >> 10) & 7 == 2 and (w0 >> 14) & 1 == 1, "the first word: new tile number, palette 2, flip X")
+check(ex.nb > 0 and #ex.blk == ex.nb * 8 and #ex.bkm == (WL // 2) * (HL // 2) * 2, "the 16x16 blocks and the block map: " .. tostring(ex.nb))
+local dw = B.cap_dw(cap, 0, 0, 2, 1)
+check(dw[1] == string.format("  .dw $%04X, $%04X", B.cap_word(cap, 0, 0), B.cap_word(cap, 1, 0)), "the .dw lines of the level")
+-- a jump pauses; resume goes on at the same place; a new layer address pauses
+check(B.cap_step(cap, regs_at(cam + 300), stream(cam), "cg") == "jump" and not cap.on, "a jump of 300 pixels pauses")
+B.cap_resume(cap, regs_at(cam + 300))
+check(cap.on and B.cap_step(cap, regs_at(cam + 302), stream(cam), "cg") == "ok" and cap.wx == cam + 2, "resume: the world goes on from the pause")
+check(B.cap_step(cap, B.regs("mode 1 tm 01 sc 05 00 00 00 bgm 01 nba 2000 0000 0000 0000"), stream(cam), "cg") == "scene",
+      "the map moved in the video RAM: a new scene, it pauses")
+-- a layer of 16x16 tiles: four 8x8 cells for each tile, flip X swaps the left and the right part
+local r16 = B.regs("mode 1 tm 01 sc 00 00 00 00 hofs 0 0 0 0 vofs 0 0 0 0 bgm 11 nba 2000 0000 0000 0000")
+local L16b = B.layer(r16, 1)
+local v16 = {}
+for i = 1, 65536 do v16[i] = "\0" end
+local wf = 1 | (1 << 14)
+local a16 = B.entry_addr(L16b, 0, 0)
+v16[a16 + 1], v16[a16 + 2] = string.char(wf & 255), string.char(wf >> 8)
+for _, t in ipairs({ 1, 2, 17, 18 }) do local b = tbytes(t); for k = 1, 32 do v16[0x2000 + t * 32 + k] = b:sub(k, k) end end
+local c16 = B.cap_new(r16, 1)
+B.cap_step(c16, r16, table.concat(v16), "")
+check(c16.tiles[B.cap_get(c16, 0, 0) >> 16] == tbytes(2) and c16.tiles[B.cap_get(c16, 1, 0) >> 16] == tbytes(1)
+      and c16.tiles[B.cap_get(c16, 0, 1) >> 16] == tbytes(18), "16x16 with flip X: the cells are tiles 2, 1 and 18, 17")
+local big = { cells = {}, nt = 1100, x0 = 0, y0 = 0, x1 = 1, y1 = 1, tiles = {} }
+check(B.cap_export(big).err ~= nil, "more than 1024 tiles: the export says why")
+
 io.write(string.format("snesbg: %d/%d checks passed\n", checks - fails, checks))
 if fails > 0 then os.exit(1) end

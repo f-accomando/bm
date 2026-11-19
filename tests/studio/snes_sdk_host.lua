@@ -659,7 +659,7 @@ dofile(ROOT .. "/tests/studio/snes_sdk_learn.lua")({ check = check, key = key, f
 
 -- the pencil held, and a ROM opened read only (the Code and Sprites tabs)
 dofile(ROOT .. "/tests/studio/snes_sdk_rom.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
-                                                 snes = snes, pad = pad, fake = FAKE, type_text = type_text, S = S, mkey = mkey,
+                                                 snes = snes, pad = pad, fake = FAKE, type_text = type_text, S = S, mkey = mkey, docs = docs,
                                                  hold = function(v) space_held = v end, asm = E.require("snes_asm") })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
