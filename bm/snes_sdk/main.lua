@@ -498,7 +498,7 @@ end
 
 -- the tiles of the ROM, at the right of the Sprites tab (Ctrl+T): a page of 128x256 from the byte RX.v.off, at the
 -- depth RX.v.bpp (its own, not the project's), in greys. RX.v.ix holds the indices; a render target holds the picture.
-RX.TW, RX.TH = 128, 256
+RX.TW, RX.TH, RX.TZ = 128, 128, 2                 -- a page of the ROM's tiles; RX.TZ: its zoom on the screen
 function RX.where()
   local r = RX.v.rom
   local a = RX.R.addr(r, RX.v.off)
@@ -546,6 +546,8 @@ end
 function RX.tile_key(k)
   if k == "pgup" then RX.move(-RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp))
   elseif k == "pgdn" then RX.move(RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp))
+  elseif k == "home" then RX.move(-RX.v.off)
+  elseif k == "end" then RX.move(max(0, RX.v.rom.size - RX.R.page_bytes(RX.TW, RX.TH, RX.v.bpp)) - RX.v.off)
   elseif k == "<" then RX.move(-RX.v.bpp * 8)
   elseif k == ">" then RX.move(RX.v.bpp * 8)
   elseif k == "j" then RX.jump_ask()
@@ -579,9 +581,12 @@ function RX.draw_tiles(x0, y0)
     target()
     RX.v.stale = false
   end
-  RX.v.tgt:draw(x0, y0)
-  U.zone(x0, y0, RX.TW, RX.TH, "rtile")
-  rect(x0 + RX.v.qx - 1, y0 + RX.v.qy - 1, rs + 2, rs + 2, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
+  local z = RX.TZ
+  RX.v.qx, RX.v.qy = clamp(RX.v.qx, 0, max(0, RX.TW - rs)), clamp(RX.v.qy, 0, max(0, RX.TH - rs))
+  target_blit(RX.v.tgt, x0, y0, RX.TW * z, RX.TH * z)
+  rect(x0 - 1, y0 - 1, RX.TW * z + 2, RX.TH * z + 2, C_GRID8)
+  U.zone(x0, y0, RX.TW * z, RX.TH * z, "rtile")
+  rect(x0 + RX.v.qx * z - 1, y0 + RX.v.qy * z - 1, rs * z + 2, rs * z + 2, (frame // 10) % 2 == 0 and C_PT or 0xFFFFFF)
 end
 
 -- the OAM view at the right of the Sprites tab (Ctrl+T after the ROM's tiles): the sprite table of the machine of
@@ -631,6 +636,32 @@ function RX.oam_palette()
   P.dirty = true
   paint_sub(M.cur)
   say(string.format("the colours of OAM palette %d are now your sub-palette %d", e.pal, M.cur), C_ACC, 200)
+end
+-- the row of the views at the top of the right column of the Sprites tab: your panel, the ROM's tiles, the OAM.
+-- A view that is not there yet is dim; a click on it says how to get it. Ctrl+T goes to the next view.
+function RX.side_tabs(x0, y, cw)
+  rectfill(x0, y, cw, 16, C_BAR)
+  local x = x0 + 8
+  local function one(label, view, ok)
+    local on = RX.side == view
+    local w = #label * 8 + 8
+    if on then rectfill(x - 4, y, w, 16, C_SEL) end
+    U.zone(x - 4, y, w, 16, "sview", view)
+    print(label, x, y, on and 0xFFFFFF or (ok and C_TEXT or C_DIM))
+    x = x + w + 8
+  end
+  one("Panel", false, true)
+  one(RX.v and ("ROM: " .. RX.v.name:sub(1, max(4, (cw - 200) // 8))) or "ROM", true, RX.v ~= nil)
+  one("OAM", "oam", RN.state ~= "off")
+  print("^T", x0 + cw - 24, y, C_DIM)
+end
+function RX.side_go(view)
+  if view == true and not RX.v then say("no ROM: Esc > Open a ROM (.sfc, .smc of /snes and /docs)", C_DIM, 200); return end
+  if view == "oam" and RN.state == "off" then
+    say("nothing runs: r in the ROM view of the Code tab (Ctrl+T there), or F5 for your project", C_DIM, 240); return
+  end
+  RX.side = view
+  if view == "oam" then RX.oam_read() end
 end
 -- the keys of the OAM view; false: the key is the project's
 function RX.oam_key(k)
@@ -805,6 +836,10 @@ local function sprites_actions()
 end
 
 local function sprites_key(k)
+  if (k == "up" or k == "down") and RX.v and RX.side == true then   -- Alt+Up/Down: a page; Ctrl+Alt+Up/Down: the start / the end (as in Code)
+    local m = M.mods()
+    if m.alt then k = k == "up" and (m.ctrl and "home" or "pgup") or (m.ctrl and "end" or "pgdn") end
+  end
   if RX.side == "oam" and RX.oam_key(k) then return end      -- the OAM view at the right takes its keys first
   if RX.v and RX.side == true and RX.tile_key(k) then return end      -- the ROM's tiles at the right take their keys first
   if k == "left" then if edit then ex = max(0, ex - 1) else rx = max(0, rx - rs) end
@@ -877,8 +912,10 @@ ACTIONS = {
 }
 -- a ROM: the tiles are read only; the palette, the depth and the preview only change the view
 RX.ACTIONS = {
-  { "The next page of the ROM (PgDn)", function() sprites_key("pgdn") end },
-  { "The page before (PgUp)", function() sprites_key("pgup") end },
+  { "The next page of the ROM (Alt+Down)", function() sprites_key("pgdn") end },
+  { "The page before (Alt+Up)", function() sprites_key("pgup") end },
+  { "The start of the ROM (Ctrl+Alt+Up)", function() sprites_key("home") end },
+  { "The end of the ROM (Ctrl+Alt+Down)", function() sprites_key("end") end },
   { "One tile on (>)", function() sprites_key(">") end },
   { "One tile back (<)", function() sprites_key("<") end },
   { "Go to an offset or a CPU address... (j)", function() sprites_key("j") end },
@@ -960,32 +997,31 @@ local function draw_sprites()
   item(M.fy and "[y] flipY" or "[ ] flipY", "y", tx, oy + 48, M.fy and C_ACC or C_DIM)
   item("prio " .. M.prio, "p", tx, oy + 64, C_TEXT)
 
+  RX.side_tabs(PX, 32, W - PX - 8)
   if RX.side == "oam" and RN.state ~= "off" then  -- the right column: the sprite table of the machine, read only
-    RX.draw_oam(PX, 32)
+    RX.draw_oam(PX, 56)
     local e = RX.oam_cur()
     rectfill(0, 16, W, 16, C_BG)
     print(string.format("OAM of the Run tab: sprite %d at (%d,%d)   your sprite at (%d,%d)", e.i, e.x, e.sy, rx, ry):sub(1, (W - 16) // 8),
           8, 16, C_ACC)
     hint({ { { "<", ">" }, "sprite" }, { { "n" }, "all 128" }, { { "c" }, "copy" }, { { "ctrl", "v" }, "paste" },
-           { { "shift", "p" }, "colours" }, { { "ctrl", "t" }, "panel" }, { { "tab" }, "more" } })
+           { { "shift", "p" }, "colours" }, { { "ctrl", "t" }, "view" }, { { "tab" }, "more" } })
     return
   end
   if RX.v and RX.side == true then                  -- the right column: the ROM's tiles, read only, beside your sprite
-    RX.draw_tiles(PX, 32)
-    local lx, ly = PX + RX.TW + 16, 32
-    local lines = { RX.v.name, "read only", RX.v.bpp .. " bpp (shift b)", "",
-                    string.format("box at (%d,%d) %dx%d", RX.v.qx, RX.v.qy, rs, rs), "c: copy it", "ctrl v: into your", "sprite at the left" }
-    for i, l in ipairs(lines) do print(l:sub(1, max(1, (W - lx - 4) // 8)), lx, ly + (i - 1) * 16, i <= 2 and C_ACC or C_TEXT) end
+    RX.TZ = max(1, min((W - 8 - PX) // RX.TW, (HINT_Y - 8 - 56) // RX.TH))
+    RX.draw_tiles(PX, 56)
     rectfill(0, 16, W, 16, C_BG)
-    print((RX.where() .. string.format("   your sprite at (%d,%d)", rx, ry)):sub(1, (W - 16) // 8), 8, 16, C_ACC)
-    hint({ { { "pgup", "pgdn" }, "page" }, { { "<", ">" }, "tile" }, { { "j" }, "go to" }, { { "c" }, "copy" },
-           { { "ctrl", "v" }, "paste" }, { { "ctrl", "t" }, "panel" }, { { "tab" }, "more" } })
+    print((RX.where() .. string.format("  %d bpp  box (%d,%d)  your sprite (%d,%d)", RX.v.bpp, RX.v.qx, RX.v.qy, rx, ry)):sub(1, (W - 16) // 8),
+          8, 16, C_ACC)
+    hint({ { { "alt", "up" }, "page" }, { { "alt", "down" }, "page" }, { { "<", ">" }, "tile" }, { { "j" }, "go to" },
+           { { "shift", "b" }, "bpp" }, { { "c" }, "copy" }, { { "ctrl", "v" }, "paste" }, { { "ctrl", "t" }, "view" }, { { "tab" }, "more" } })
     return
   end
 
   -- the right column: depth, sizes, sub-palette, colour; the sheet under them
   local p = subpal(M.cur)
-  local y = 32
+  local y = 56
   local x = PX
   x = item(M.bpp .. " bpp", "b", x, y)
   x = item("sizes " .. G.SIZE_SETS[M.set][1][1] .. "/" .. G.SIZE_SETS[M.set][2][1], "s", x, y)
@@ -2617,6 +2653,7 @@ end
 local function sprites_mouse()
   local z = U.at()
   if not z then return end
+  if z.kind == "sview" then if U.pressed(0) then RX.side_go(z.a) end; return end
   if z.kind == "oscr" then                        -- the picture of the OAM view: a click chooses the sprite there
     if U.pressed(0) then
       local e = RX.OA.at(RX.oam.list, (U.x - z.x) * 2, (U.y - z.y) * 2)
@@ -2627,8 +2664,8 @@ local function sprites_mouse()
     if U.pressed(0) then RX.oam.sel = z.a; if U.double then RX.oam_copy() end end
   elseif z.kind == "rtile" then                       -- the ROM's tiles: a click puts the box there, a double click copies it
     if U.pressed(0) and RX.v then
-      RX.v.qx = clamp((U.x - z.x) // rs * rs, 0, RX.TW - rs)
-      RX.v.qy = clamp((U.y - z.y) // rs * rs, 0, RX.TH - rs)
+      RX.v.qx = clamp((U.x - z.x) // RX.TZ // rs * rs, 0, RX.TW - rs)
+      RX.v.qy = clamp((U.y - z.y) // RX.TZ // rs * rs, 0, RX.TH - rs)
       if U.double then RX.copy() end
     end
   elseif z.kind == "view" then

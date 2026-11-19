@@ -633,7 +633,7 @@ E.image_file = nil
 
 -- the mouse: a click on a colour, a press in the sprite editor paints
 key("home")
-click(320 + 2 * 16 + 4, 68)
+click(320 + 2 * 16 + 4, 92)                         -- the palette: under the row of the views
 check(sees("colour 2  BGR555"), "a click on a colour of the palette takes it")
 click(8 + 3 * 8 + 2, 32 + 2 * 8 + 2)                -- the editor: top left, 16x16 at zoom 8
 check(E.sget(3, 2) ~= nil, "a click in the sprite editor paints the pixel")
@@ -659,7 +659,7 @@ dofile(ROOT .. "/tests/studio/snes_sdk_learn.lua")({ check = check, key = key, f
 
 -- the pencil held, and a ROM opened read only (the Code and Sprites tabs)
 dofile(ROOT .. "/tests/studio/snes_sdk_rom.lua")({ check = check, key = key, frames = frames, sees = sees, status = status,
-                                                 snes = snes, pad = pad, fake = FAKE, type_text = type_text, S = S,
+                                                 snes = snes, pad = pad, fake = FAKE, type_text = type_text, S = S, mkey = mkey,
                                                  hold = function(v) space_held = v end, asm = E.require("snes_asm") })
 
 dofile(ROOT .. "/tests/studio/hintchip.lua"){
