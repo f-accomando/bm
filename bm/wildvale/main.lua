@@ -64,6 +64,7 @@ local dead_stats = nil
 -- Local camera & UI
 local cam_x, cam_y = 0, 0
 local toast_text, toast_timer = "", 0
+local light_buf = nil
 
 local function pkey(gx, gy) return gy * MAP_W + gx end
 local function clamp(v, lo, hi) return v < lo and lo or (v > hi and hi or v) end
@@ -935,39 +936,55 @@ local function draw_world()
     rect(bx * TILE + 1, by * TILE + 1, lp.build_w * TILE - 2, lp.build_h * TILE - 2, col)
   end
 
-  -- Day/Night Lighting Overlay
+  camera(0, 0)
+
+  -- Day/Night Multiplicative Lightmap (no opaque gradient circles over sprites)
   local day_frac = (world_tick % DAY_LEN) / DAY_LEN
-  local night_alpha = 0
-  local tint_col = 0x0C1228
+  local ar, ag, ab = 255, 255, 255
+  local is_dim = false
   if day_frac >= 0.62 and day_frac < 0.74 then
-    night_alpha = math.floor(((day_frac - 0.62) / 0.12) * 145)
-    tint_col = 0x2A1828
+    local t = (day_frac - 0.62) / 0.12
+    ar = math.floor(255 - t * (255 - 72))
+    ag = math.floor(255 - t * (255 - 84))
+    ab = math.floor(255 - t * (255 - 132))
+    is_dim = true
   elseif day_frac >= 0.74 and day_frac < 0.92 then
-    night_alpha = 145
+    ar, ag, ab = 72, 84, 132
+    is_dim = true
   elseif day_frac >= 0.92 then
-    night_alpha = math.floor((1 - (day_frac - 0.92) / 0.08) * 145)
+    local t = 1 - (day_frac - 0.92) / 0.08
+    ar = math.floor(255 - t * (255 - 72))
+    ag = math.floor(255 - t * (255 - 84))
+    ab = math.floor(255 - t * (255 - 132))
+    is_dim = true
   end
 
-  if night_alpha > 0 then
-    blend("alpha", night_alpha)
-    rectfill(cx, cy, SCREEN_W, SCREEN_H, tint_col)
-    blend("add", math.min(180, night_alpha + 20))
+  if is_dim and target_create then
+    if not light_buf then light_buf = target_create(320, 180) end
+    target(light_buf)
+    target_clear(light_buf, rgb(ar, ag, ab))
+    blend("add", 255)
     for k, p in pairs(props) do
       if p.kind == "campfire" then
-        local px0 = (k % MAP_W) * TILE + 8
-        local py0 = math.floor(k / MAP_W) * TILE + 8
-        radgrad(px0, py0, 72, 0xFF9030, 0x000000)
+        local px0 = ((k % MAP_W) * TILE + 8) - cx
+        local py0 = (math.floor(k / MAP_W) * TILE + 8) - cy
+        if px0 > -96 and px0 < SCREEN_W + 96 and py0 > -96 and py0 < SCREEN_H + 96 then
+          radgrad(math.floor(px0 * 0.5), math.floor(py0 * 0.5), 42, 0xFFE8B0, 0x000000)
+        end
       end
     end
     for _, pl in ipairs(players) do
       if pl.alive then
-        radgrad(math.floor(pl.x), math.floor(pl.y - 6), 44, 0x604828, 0x000000)
+        local lx = math.floor((pl.x - cx) * 0.5)
+        local ly = math.floor((pl.y - 6 - cy) * 0.5)
+        radgrad(lx, ly, 26, 0xA89878, 0x000000)
       end
     end
+    target()
+    blend("mul", 255)
+    target_blit(light_buf, 0, 0, SCREEN_W, SCREEN_H)
     blend("alpha", 255)
   end
-
-  camera(0, 0)
 end
 
 local function draw_hud()
