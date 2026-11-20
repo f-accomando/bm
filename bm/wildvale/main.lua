@@ -75,12 +75,12 @@ end
 
 local function play_sfx(kind)
   if not note then return end
-  if kind == "chop" then note(0, 140, 0.07, 2, 0.35)
-  elseif kind == "hit" then note(0, 220, 0.08, 1, 0.4)
-  elseif kind == "hurt" then note(1, 110, 0.14, 2, 0.5)
-  elseif kind == "build" then note(2, 330, 0.12, 0, 0.4)
-  elseif kind == "eat" then note(2, 520, 0.09, 0, 0.3)
-  elseif kind == "dash" then note(1, 280, 0.06, 3, 0.25)
+  if kind == "chop" then note(0, 140, 60, 2, 95)
+  elseif kind == "hit" then note(0, 220, 75, 1, 105)
+  elseif kind == "hurt" then note(1, 110, 120, 2, 120)
+  elseif kind == "build" then note(2, 330, 95, 0, 100)
+  elseif kind == "eat" then note(2, 520, 80, 0, 90)
+  elseif kind == "dash" then note(1, 280, 55, 3, 85)
   end
 end
 
@@ -974,9 +974,9 @@ local function draw_hud()
   local lp = players[my_seat] or players[1]
   -- Top-left survival bars
   rrectfill(6, 6, 140, 46, 4, 0x1A1614)
-  rectfill(12, 12, math.floor(128 * (lp.hp / lp.max_hp)), 8, 0xD44040)
-  rectfill(12, 24, math.floor(128 * (lp.stam / lp.max_stam)), 6, 0x50B868)
-  rectfill(12, 34, math.floor(128 * (lp.hunger / lp.max_hunger)), 6, 0xE09C38)
+  rectfill(12, 12, math.max(0, math.floor(128 * (lp.hp / lp.max_hp))), 8, 0xD44040)
+  rectfill(12, 24, math.max(0, math.floor(128 * (lp.stam / lp.max_stam))), 6, 0x50B868)
+  rectfill(12, 34, math.max(0, math.floor(128 * (lp.hunger / lp.max_hunger))), 6, 0xE09C38)
   print("HP", 14, 10, 0xFFFFFF)
 
   -- Top-right clock & season
@@ -999,19 +999,25 @@ local function draw_hud()
   local hw = #HOTBAR * 34 + 8
   local hx = math.floor((SCREEN_W - hw) / 2)
   rrectfill(hx, SCREEN_H - 38, hw, 32, 4, 0x1A1614)
+  local is_kb = (lastinput and lastinput() == "keyboard")
   for i, it in ipairs(HOTBAR) do
     local bx = hx + 6 + (i - 1) * 34
     if i == lp.slot then
       rect(bx - 2, SCREEN_H - 35, 24, 24, 0xF2D478)
     end
     sspr(it.icon * 16, 192, 16, 16, bx + 2, SCREEN_H - 31)
+    if is_kb then
+      print(tostring(i), bx, SCREEN_H - 36, 0xA8B0B8)
+    end
   end
 
   if HOTBAR[lp.slot].id == "build" then
     local wc, sc = build_cost(lp.build_w, lp.build_h)
-    print("Edificio " .. lp.build_w .. "x" .. lp.build_h .. " (" .. wc .. "L " .. sc .. "P) | X+Frecce: ridimensiona", 120, SCREEN_H - 54, 0xF2D478)
+    local hint = is_kb and "R/C+Frecce: ridimensiona" or "X+Frecce: ridimensiona"
+    print("Edificio " .. lp.build_w .. "x" .. lp.build_h .. " (" .. wc .. "L " .. sc .. "P) | " .. hint, 110, SCREEN_H - 54, 0xF2D478)
   else
-    print(HOTBAR[lp.slot].name .. " | A:Usa  B:Mangia  Y:Schiva  L1/R1:Slot", 150, SCREEN_H - 54, 0xD0D0D0)
+    local hint = is_kb and "Spazio:Usa  F:Mangia  Shift:Schiva  1-8/Q-E:Slot" or "A:Usa  B:Mangia  Y:Schiva  L1/R1:Slot"
+    print(HOTBAR[lp.slot].name .. " | " .. hint, 110, SCREEN_H - 54, 0xD0D0D0)
   end
 
   if toast_timer > 0 then
@@ -1065,6 +1071,17 @@ function _leave()
   if net_ready then net.close() end
 end
 
+local function read_play_input()
+  local inp = net.pad(1)
+  if keydown then
+    if keydown(0x09) then inp = inp | 32 end                           -- F -> B (Mangia / Chiudi)
+    if keydown(0xE1) or keydown(0xE5) then inp = inp | 512 end         -- Shift -> Y (Schiva)
+    if keydown(0x15) then inp = inp | 256 end                          -- R -> X (Costruisci / Ridimensiona)
+    if keydown(0x28) then inp = inp | 16 end                           -- Enter -> A (Usa / Conferma)
+  end
+  return inp
+end
+
 function _update()
   if toast_timer > 0 then toast_timer = toast_timer - 1 end
 
@@ -1089,7 +1106,7 @@ function _update()
   if mode == "title" then
     if btnp("up") then title_sel = ((title_sel - 2) % 3) + 1 end
     if btnp("down") then title_sel = (title_sel % 3) + 1 end
-    if btnp("ok") or btnp("a") then
+    if btnp("ok") or btnp("a") or btnp("start") then
       if title_sel == 1 then
         is_coop = false
         my_seat = 1
@@ -1123,19 +1140,24 @@ function _update()
     end
   elseif mode == "play" then
     if is_coop then
-      net.input(net.pad(1))
+      net.input(read_play_input())
       for _, inputs in net.frames() do
         step_world(inputs)
       end
     else
-      step_world({ [1] = net.pad(1) })
+      if keydown and players[1] and not players[1].ui then
+        for i = 1, #HOTBAR do
+          if keydown(0x1E + i - 1) then players[1].slot = i end
+        end
+      end
+      step_world({ [1] = read_play_input() })
     end
   elseif mode == "dead" then
     if is_coop then
       net.input(0)
       for _, inputs in net.frames() do step_world(inputs) end
     end
-    if btnp("a") or btnp("ok") then
+    if btnp("a") or btnp("ok") or btnp("start") then
       players[my_seat] = make_player(my_seat)
       mode = "play"
       toast("Nuovo sopravvissuto!")
