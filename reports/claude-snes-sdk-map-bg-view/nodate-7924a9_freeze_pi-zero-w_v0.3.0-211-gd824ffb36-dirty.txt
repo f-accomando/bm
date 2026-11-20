@@ -1,0 +1,55 @@
+bm report
+kind: freeze
+kernel: v0.3.0-211-gd824ffb36-dirty
+branch: claude/snes-sdk-map-bg-view
+board: Pi Zero W
+date: unknown (no network time)
+file: nodate-7924a9_freeze_pi-zero-w_v0.3.0-211-gd824ffb36-dirty.txt
+
+the Pi froze (the watchdog restarted it) while: VideoCore firmware does not answer (mailbox, frame 0, 21048 s after boot, kernel v0.3.0-211-gd824ffb36-dirty, ring 110741, sink on
+--- the last lines printed ---
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71855 us, enlarge 0 us, flip 94 us, free time used 45 us (300 frames)
+menu frame: 1x, a frame averages draw 71853 us, enlarge 0 us, flip 95 us, free time used 46 us (300 frames)
+menu frame: 1x, a frame averages draw 71855 us, enlarge 0 us, flip 96 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71856 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71856 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71856 us, enlarge 0 us, flip 95 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71856 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 94 us, free time used 43 us (300 frames)
+menu frame: 1x, a frame averages draw 71857 us, enlarge 0 us, flip 93 us, free time used 43 us (300 frames)
+market: nearby consoles: listening as bm-108
+menu idle: 300/300 frames, 16 of 899 ms taken, 1.4 ms past a frame; market 4 ms (+3.6, stk 2.0/128K); min slack -68914 us, paced 0
+menu idle: sd first word <1ms 9 (max 1.8 ms)
+menu frame: 1x, a frame averages draw 63999 us, enlarge 0 us, flip 94 us, free time used 56 us (300 frames)
+fiber: market did not yield: 21.1 ms past its slice
+market: https://f-accomando.github.io/bm-market/, catalog saved on the SD card
+tls: 21 root certificates
+fiber: market did not yield: 58.5 ms past its slice
+market: cover of hero-stress
+v3d: ERRSTAT cleared by writing ones: 00007000 -> 00001000
+gpu3d: quiet before the menu closes: ERRSTAT 00007000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 3864023 ms, 1 jobs)
+mbox: no answer on channel 8 to tag 0x00048003 (no reply), status 40000000, the last answer was 2047 ms ago (tag 0x00048009)
+mbox: V3D ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+fb_init_depth: mbox_call failed
+v3d: after the menu's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 3866045 ms, 1 jobs)
+
+playing wildvale.bm
+play: /bm/wildvale.bm (83108 bytes)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+v3d: before the cartridge's video mode: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 3866124 ms, 1 jobs)
+fb_init_depth: mbox_call failed
+v3d: the cartridge's video mode failed: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147 (t 3868134 ms, 1 jobs)
+v3d: ERRSTAT cleared by writing ones: 00001000 -> 00001000
+gpu3d: quiet before the second try: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000006 FDBGB 00000018 FDBGR 00000000 FDBGS 00001147
+the VideoCore firmware does not answer: restarting
+restarting: this run's log in bm/lastrun.txt
