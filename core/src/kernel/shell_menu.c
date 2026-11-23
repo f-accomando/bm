@@ -102,12 +102,48 @@ static void item_row(int r, int c, int w, const smenu_item_t *it, const char *st
     console_write("\x1b[0m");
 }
 
-void shell_menu_draw(const smenu_t *m)
+/* The file list from row r: the folder in grey, then one row per entry; the last row of the screen
+ * stays free (the serial marker). Returns the row after the list. */
+static int file_list(int r, int cols, int rows, const smenu_t *m, const char *dir, const shell_file_t *files)
+{
+    char line[96];
+    at(r, 2);
+    snprintf(line, sizeof line, "SD:%.80s", dir);
+    console_write("\x1b[90m");
+    console_write(line);
+    console_write("\x1b[0m");
+    r++;
+    const int vis = rows - 1 - r;               /* ESC[r;cH row rows - 1 is the last: the marker's; the list stops before it */
+    if (vis < 1 || m->nfiles <= 0)
+        return r;
+    const int top = m->filesel >= vis ? m->filesel - vis + 1 : 0;
+    int width = cols - 6;                       /* the icon, a space, the name, a margin */
+    if (width > (int)sizeof line - 1)
+        width = (int)sizeof line - 1;
+    for (int i = top; i < m->nfiles && i < top + vis; i++, r++) {
+        const shell_file_t *f = &files[i];
+        const int sel = m->in_files && i == m->filesel;
+        at(r, 2);
+        console_write(sel ? "\x1b[7m" : f->is_dir ? "\x1b[93m" : "\x1b[96m");
+        console_putc(f->is_dir ? CONSOLE_ICON_FOLDER : CONSOLE_ICON_FILE);
+        console_write(sel ? " " : "\x1b[0m ");
+        snprintf(line, sizeof line, "%-*.*s", width, width, f->name);
+        if (!sel) {
+            int l = (int)strlen(line);           /* the unselected rows: no trailing spaces */
+            while (l > 0 && line[l - 1] == ' ')
+                line[--l] = 0;
+        }
+        console_write(line);
+        console_write("\x1b[0m");
+    }
+    return r;
+}
+
+void shell_menu_draw(const smenu_t *m, const char *dir, const shell_file_t *files)
 {
     static const char title[] = " bm shell ";
     uint32_t cols, rows;
     console_size(&cols, &rows);
-    (void)cols;
 
     const int c0 = 1, r0 = 2;                   /* at the left, not centred */
     const int w = box_width(m->items, m->n, (int)strlen(title) + 4);
@@ -119,7 +155,7 @@ void shell_menu_draw(const smenu_t *m)
     at(r0, c0 + 2);
     console_write(title);
     for (int i = 0; i < m->n; i++) {
-        const char *style = i != m->sel ? "\x1b[0m" : m->in_sub ? "\x1b[1m" : "\x1b[7m";
+        const char *style = i != m->sel ? "\x1b[0m" : m->in_sub || m->in_files ? "\x1b[1m" : "\x1b[7m";
         item_row(r0 + 1 + i, c0, w, &m->items[i], style);
     }
 
@@ -141,7 +177,9 @@ void shell_menu_draw(const smenu_t *m)
         if (sr + sh - 1 > bottom)
             bottom = sr + sh - 1;
     }
-    at(bottom + 2, 1);                          /* the serial marker is printed here and wiped from the screen */
+    if (dir && files)                           /* the files of the SD card, under the menu */
+        bottom = file_list(bottom + 2, (int)cols, (int)rows, m, dir, files) - 1;
+    at(bottom + 2 < (int)rows - 1 ? bottom + 2 : (int)rows - 1, 1);   /* the serial marker is printed here and wiped from the screen */
 }
 
 /* The system info box: label and value rows in a frame, drawn over a clear screen. */

@@ -151,6 +151,8 @@ typedef struct smenu_item {
 #define SMENU_RUN   2               /* Enter on an item that runs: smenu_current() */
 #define SMENU_LINE  3               /* ':' : one line of commands, as the PC tools send it */
 #define SMENU_LEAVE 4               /* Esc in the main menu: the cartridge menu */
+#define SMENU_FILE  5               /* Enter on a row of the file list: filesel */
+#define SMENU_PARENT 6              /* a, h or Left in the file list: the folder above */
 
 typedef struct {
     const smenu_item_t *items;
@@ -158,6 +160,8 @@ typedef struct {
     int in_sub, subsel;             /* 1: the submenu of items[sel] has the keys; its selection */
     int esc;                        /* 0, 1 after ESC, 2 in ESC [ or ESC O */
     int last_cr;                    /* the previous key was \r: a \n after it is no Enter */
+    int nfiles;                     /* the rows of the file list under the menu (0: none) */
+    int in_files, filesel;          /* 1: the file list has the keys; its selection */
 } smenu_t;
 
 void smenu_init(smenu_t *m, const smenu_item_t *items, int n);
@@ -170,5 +174,9 @@ const smenu_item_t *smenu_current(const smenu_t *m);
 int smenu_feed(smenu_t *m, int key);
 /* 1 after an ESC byte: more may follow (the caller waits a few ms, then feeds MEDIT_K_ESC). */
 int smenu_in_escape(const smenu_t *m);
+/* The number of rows of the file list (a new folder: the selection goes to its first row). Down on the
+ * last item of the main menu goes to the first row; Up on the first row goes back to the menu; Down
+ * stops at the last row; Enter gives SMENU_FILE; a, h, Left give SMENU_PARENT; Esc goes back to the menu. */
+void smenu_set_files(smenu_t *m, int n);
 
 #endif

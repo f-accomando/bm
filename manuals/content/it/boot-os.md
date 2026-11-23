@@ -216,6 +216,22 @@ Il menu è a sinistra dello schermo. Un gruppo (System, Network) ha un sottomenu
 
 Le voci sono: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sulla porta seriale e sulla console di rete il menu non è disegnato: `Invio` esegue *Command line*, il prompt `bm:` (la voce scelta all'avvio), e `:` prende una riga. Sullo schermo il menu non ha la riga dei tasti né il segno `>`. *System > Info* apre un riquadro con i dati principali: dispositivo, CPU, GPU, RAM, kernel, archivio, clock, WiFi e Bluetooth. La riga digitata `sys info` stampa ancora l'elenco completo.
 
+### I file della scheda SD
+
+Sotto il menu c'è l'elenco della scheda SD: prima la cartella (`SD:/` all'avvio), poi una riga per ogni cartella e file. Una cartella ha un'icona gialla a forma di cartella, un file ha un'icona a forma di floppy. Le cartelle vengono prima.
+
+| Tasto | Cosa fa |
+|---|---|
+| `Giù` sull'ultima voce (*Help*) | entra nell'elenco |
+| `Su` sulla prima riga | torna al menu |
+| `Invio` su una cartella | apre la cartella (`..` è la cartella sopra) |
+| `a` o `Sinistra` | la cartella sopra |
+| `Invio` su un `.bm` o `.b16` | avvia la cartuccia |
+| `Invio` su un file di testo | apre il file in Shell Code |
+| `Esc` | torna al menu |
+
+Un file che non è una cartuccia e non è testo dà una riga sullo schermo.
+
 ## Comandi
 
 Ogni comando ha una parola. Al prompt `bm:`, e in una riga con `:`, scrivi la parola. L'aiuto (`help`) è fatto dalla tabella dei comandi nel kernel, quindi elenca sempre tutti i comandi. Questi sono quelli che contano per chi comincia:

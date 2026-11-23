@@ -216,6 +216,22 @@ The menu is at the left of the screen. A group (System, Network) has a submenu: 
 
 The items are: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. On the serial port and on the network console the menu is not drawn: `Enter` runs *Command line*, the `bm:` prompt (the selected item at start), and `:` takes a line. The menu has no key hint line and no `>` marker on the screen. *System > Info* opens a box with the main facts: device, CPU, GPU, RAM, kernel, storage, clocks, WiFi and Bluetooth. The typed line `sys info` still prints the full list.
 
+### The files of the SD card
+
+Under the menu is the list of the SD card: first the folder (`SD:/` at start), then one row for each folder and file. A folder has a yellow folder icon, a file has a floppy icon. The folders come first.
+
+| Key | What it does |
+|---|---|
+| `Down` on the last item (*Help*) | go into the list |
+| `Up` on the first row | go back to the menu |
+| `Enter` on a folder | open the folder (`..` is the folder above) |
+| `a` or `Left` | the folder above |
+| `Enter` on a `.bm` or `.b16` | play the cartridge |
+| `Enter` on a text file | open the file in Shell Code |
+| `Esc` | go back to the menu |
+
+A file that is not a cartridge and not text gets one line on the screen.
+
 ## Commands
 
 Each command has a word. At the `bm:` prompt, and in a `:` line, you type the word. The help (`help`) is made from the table of commands in the kernel, so it always lists every command. These are the ones that matter to a first-time user:

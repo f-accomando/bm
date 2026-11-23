@@ -4321,6 +4321,58 @@ def test_monitor_files(b, opts):
         q.close()
 
 
+def test_monitor_file_list(b, opts):
+    """The file list under the bm shell menu (2026-11-23): the root of the card, folders first; Down
+    from the last item goes into the list; Enter on a folder opens it (".." first); a goes to the
+    folder above; Enter on a text file opens Shell Code on it."""
+    tmp = tempfile.mkdtemp(prefix="bm-flist-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    note = os.path.join(tmp, "note.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    with open(note, "w") as f:
+        f.write("first line\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (note, "bm/note.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def screen():
+        time.sleep(0.5)
+        return [l.strip() for l in screen_text(q.screendump())]
+
+    def key(k):
+        q.send(k)
+        q.expect("> ", timeout=10)
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        rows = screen()
+        assert "SD:/" in rows, rows
+        i = rows.index("SD:/")
+        assert rows[i + 1].endswith(" bm") and rows[i + 2].endswith(" config.txt"), rows
+        for _ in range(5):                          # Command line (the start) down to Help, then the list
+            key("s")
+        key("\r")                                   # the first row: the folder bm
+        rows = screen()
+        assert "SD:/bm" in rows, rows
+        i = rows.index("SD:/bm")
+        assert rows[i + 1].endswith(" .."), rows
+        at = next(j for j in range(i + 1, len(rows)) if rows[j].endswith(" note.txt")) - (i + 1)
+        key("a")                                    # the folder above, its row selected
+        rows = screen()
+        assert "SD:/" in rows, rows
+        key("\r")                                   # bm again
+        for _ in range(at):                         # (the kernel's boot logs are in bm too)
+            key("s")
+        q.send("\r")                                # note.txt: Shell Code opens on it
+        q.expect("code /bm/note.txt", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_monitor_lua_shell(b, opts):
     """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm: prompt; bm.sh returns the
     output of a monitor line; bm.write, bm.read and bm.ls on the card; the drawing calls run; boot=shell

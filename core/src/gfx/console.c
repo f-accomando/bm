@@ -43,12 +43,38 @@ static struct {
     int nparams;
 } con;
 
+/* The icons of CONSOLE_ICON_FOLDER and CONSOLE_ICON_FILE (8x8, bit 7 at the left): a folder with its tab,
+ * a floppy disk with its shutter and its label. */
+static const uint8_t icon_folder[8] = { 0x00, 0xE0, 0xFF, 0x81, 0xFF, 0xFF, 0xFF, 0x00 };
+static const uint8_t icon_file[8]   = { 0xFE, 0xC3, 0xC3, 0xFF, 0xFF, 0x81, 0x81, 0xFF };
+
+/* An icon in a cell: a square of the cell's smaller side, centred, the 8x8 bits scaled to it. */
+static void draw_icon(uint8_t *line, uint32_t w, uint32_t h, const uint8_t *bits, uint32_t fg, uint32_t bg)
+{
+    const uint32_t s = w < h ? w : h;
+    const uint32_t x0 = (w - s) / 2, y0 = (h - s) / 2;
+    for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
+        uint32_t *p = (uint32_t *)line;
+        const int in_y = y >= y0 && y < y0 + s;
+        const uint8_t b = in_y ? bits[(y - y0) * 8 / s] : 0;
+        for (uint32_t x = 0; x < w; x++)
+            p[x] = in_y && x >= x0 && x < x0 + s && (b & (0x80 >> ((x - x0) * 8 / s))) ? fg : bg;
+    }
+}
+
 static void draw_cell(uint32_t col, uint32_t row, int cursor)
 {
     if (con.suspended)
         return;
 
     const cell_t *c = &con.cells[row][col];
+    if (c->ch == (uint8_t)CONSOLE_ICON_FOLDER || c->ch == (uint8_t)CONSOLE_ICON_FILE) {
+        draw_icon(con.fb->base + row * con.font->height * con.fb->pitch + col * con.font->width * 4,
+                  con.font->width, con.font->height,
+                  c->ch == (uint8_t)CONSOLE_ICON_FOLDER ? icon_folder : icon_file,
+                  con.pal[ATTR_FG(c->attr)], con.pal[ATTR_BG(c->attr)]);
+        return;
+    }
     const uint32_t w = con.font->width, h = con.font->height;
     const uint32_t bpr = (w + 7) / 8;                   /* bytes of one glyph row */
     const uint8_t *g = con.font->glyphs + (size_t)c->ch * bpr * h;
@@ -239,7 +265,7 @@ static void put_raw(char ch)
         } while (con.cx % TAB_WIDTH);
         break;
     default:
-        if (c < 0x20)
+        if (c < 0x20 && c != (uint8_t)CONSOLE_ICON_FOLDER && c != (uint8_t)CONSOLE_ICON_FILE)
             break;
         if (con.cx >= con.cols)
             newline();

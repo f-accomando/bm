@@ -452,6 +452,23 @@ int carts_play_title(framebuffer_t *fb, const char *name)
     return -1;
 }
 
+int carts_play_path(framebuffer_t *fb, const char *path)
+{
+    const int i = lib_find_path(&library, path);
+    if (i >= 0) {
+        play(fb, &library.g[i]);
+        return 0;
+    }
+    fat_entry_t e;
+    uint8_t *data;
+    size_t len;
+    if (fat_find(path, &e) != 0 || e.is_dir || fat_load(&e, &data, &len) != 0)
+        return -1;
+    carts_play_buffer(fb, data, len);
+    free(data);
+    return 0;
+}
+
 /* ---------------------------------------------------------------- menu */
 
 static void out(const char *s)

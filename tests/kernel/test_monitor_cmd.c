@@ -621,6 +621,27 @@ static void test_smenu(void)
     check(smenu_feed(&m, 'a') == SMENU_NONE, "smenu: close with no submenu does nothing");
     smenu_init(&m, items, 0);
     check(smenu_feed(&m, 's') == SMENU_NONE && smenu_feed(&m, '\r') == SMENU_NONE, "smenu: an empty list does not move");
+
+    /* the file list under the menu */
+    smenu_init(&m, items, 3);
+    smenu_set_files(&m, 3);
+    m.sel = 2;
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.in_files && m.filesel == 0, "smenu: Down on the last item goes to the files");
+    check(smenu_feed(&m, MEDIT_K_DOWN) == SMENU_MOVE && m.filesel == 1, "smenu: Down moves in the files");
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.filesel == 2 && smenu_feed(&m, 's') == SMENU_NONE && m.filesel == 2,
+          "smenu: the file list stops at its last row");
+    check(smenu_feed(&m, '\r') == SMENU_FILE && m.filesel == 2, "smenu: Enter on a file row gives SMENU_FILE");
+    check(smenu_feed(&m, MEDIT_K_RIGHT) == SMENU_NONE, "smenu: Right in the files does nothing");
+    check(smenu_feed(&m, 'a') == SMENU_PARENT && m.in_files, "smenu: a in the files asks for the folder above");
+    smenu_set_files(&m, 2);
+    check(m.in_files && m.filesel == 0, "smenu: a new folder starts at its first row");
+    check(smenu_feed(&m, 'w') == SMENU_MOVE && !m.in_files && m.sel == 2, "smenu: Up on the first file goes back to the menu");
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.in_files, "smenu: Down again goes to the files");
+    check(smenu_feed(&m, MEDIT_K_ESC) == SMENU_MOVE && !m.in_files && m.sel == 2, "smenu: Esc in the files goes back to the menu");
+    m.sel = 0;
+    check(smenu_feed(&m, 'w') == SMENU_MOVE && m.sel == 2 && !m.in_files, "smenu: Up on the first item still wraps to the last");
+    smenu_set_files(&m, 0);
+    check(smenu_feed(&m, 's') == SMENU_MOVE && m.sel == 0 && !m.in_files, "smenu: with no files Down wraps as before");
 }
 
 int main(void)

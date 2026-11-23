@@ -1065,6 +1065,143 @@ static int shell_run_item(const smenu_item_t *it)
     return 0;
 }
 
+/* ---- the file list under the menu: the folders and files of a folder of the SD card ---- */
+
+#define FL_MAX 96
+static char fl_dir[160] = "/";
+static shell_file_t fl[FL_MAX];
+
+static int fl_lower(int c)
+{
+    return c >= 'A' && c <= 'Z' ? c + 32 : c;
+}
+
+/* ".." first, then the folders, then the files; by name, case ignored */
+static int fl_cmp(const void *a, const void *b)
+{
+    const shell_file_t *x = a, *y = b;
+    const int ux = !strcmp(x->name, ".."), uy = !strcmp(y->name, "..");
+    if (ux != uy)
+        return uy - ux;
+    if (x->is_dir != y->is_dir)
+        return y->is_dir - x->is_dir;
+    const char *p = x->name, *q = y->name;
+    while (*p && fl_lower(*p) == fl_lower(*q))
+        p++, q++;
+    return fl_lower(*p) - fl_lower(*q);
+}
+
+/* Reads fl_dir into fl and gives the rows to the menu. keep: the row to select ("" or NULL: keep m's row). */
+static void fl_load(smenu_t *m, const char *keep)
+{
+    const int was = m->filesel, was_in = m->in_files;
+    int n = 0;
+    if (strcmp(fl_dir, "/")) {
+        snprintf(fl[n].name, sizeof fl[n].name, "..");
+        fl[n++].is_dir = 1;
+    }
+    fat_dir_t d;
+    fat_entry_t e;
+    if (fat_opendir(&d, fl_dir) == 0)
+        while (n < FL_MAX && fat_readdir(&d, &e)) {
+            if (e.name[0] == '.')
+                continue;
+            snprintf(fl[n].name, sizeof fl[n].name, "%s", e.name);
+            fl[n++].is_dir = e.is_dir;
+        }
+    qsort(fl, (size_t)n, sizeof fl[0], fl_cmp);
+    smenu_set_files(m, n);
+    m->in_files = was_in && n > 0;
+    if (keep && *keep) {
+        for (int i = 0; i < n; i++)
+            if (!strcmp(fl[i].name, keep))
+                m->filesel = i;
+    } else if (!keep) {
+        m->filesel = was < n ? was : n - 1;     /* back from a game or the editor: the same row */
+        if (m->filesel < 0)
+            m->filesel = 0;
+    }
+}
+
+static int fl_ends(const char *s, const char *ext)
+{
+    const size_t a = strlen(s), b = strlen(ext);
+    if (a < b)
+        return 0;
+    for (size_t i = 0; i < b; i++)
+        if (fl_lower(s[a - b + i]) != fl_lower(ext[i]))
+            return 0;
+    return 1;
+}
+
+/* 1 if the first 512 bytes of the file have no zero byte (an empty file is text) */
+static int fl_is_text(const char *path)
+{
+    fat_entry_t e;
+    uint8_t head[512];
+    if (fat_find(path, &e) != 0 || fat_read_head(&e, head) != 0)
+        return 0;
+    const uint32_t n = e.size < sizeof head ? e.size : (uint32_t)sizeof head;
+    for (uint32_t i = 0; i < n; i++)
+        if (!head[i])
+            return 0;
+    return 1;
+}
+
+/* The folder above fl_dir; the folder it leaves is the row to select. */
+static void fl_parent(smenu_t *m)
+{
+    if (!strcmp(fl_dir, "/"))
+        return;
+    char *slash = strrchr(fl_dir, '/');
+    char child[SHELL_FILE_NAME];
+    snprintf(child, sizeof child, "%s", slash + 1);
+    if (slash == fl_dir)
+        slash[1] = 0;
+    else
+        *slash = 0;
+    fl_load(m, child);
+}
+
+/* Enter on a row: a folder opens in the list; a cartridge (.bm, .b16) plays; a text file opens in
+ * Shell Code; any other file gets a line on the screen. */
+static void fl_open(smenu_t *m)
+{
+    const shell_file_t *f = &fl[m->filesel];
+    if (!strcmp(f->name, "..")) {
+        fl_parent(m);
+        return;
+    }
+    char path[sizeof fl_dir + SHELL_FILE_NAME + 1];
+    snprintf(path, sizeof path, "%s%s%s", fl_dir, strcmp(fl_dir, "/") ? "/" : "", f->name);
+    if (f->is_dir) {
+        if (strlen(path) >= sizeof fl_dir)
+            return;
+        snprintf(fl_dir, sizeof fl_dir, "%s", path);
+        fl_load(m, "");
+        m->filesel = 0;
+        return;
+    }
+    console_clear();
+    from_key = 1;
+    if (fl_ends(path, ".bm") || fl_ends(path, ".b16")) {
+        kprintf("play %s\n", path);
+        if (carts_play_path(console_framebuffer(), path) != 0) {
+            kprintf("cannot read %s: %s\n-- press a key to go back --\n", path, fat_error());
+            input_getc_home();
+        }
+    } else if (fl_is_text(path)) {
+        kprintf("code %s\n", path);
+        shell_code_open(path);
+    } else {
+        kprintf("%s: no app opens this file (not a cartridge, not text)\n-- press a key to go back --\n", path);
+        input_getc_home();
+    }
+    from_key = 0;
+    want_exit = 0;
+    fl_load(m, NULL);
+}
+
 void monitor_run(void)
 {
     bm_set_sh(monitor_sh);
@@ -1072,6 +1209,7 @@ void monitor_run(void)
     int n;
     const smenu_item_t *items = shell_menu_items(&n);
     smenu_init(&m, items, n);
+    fl_load(&m, "");
     m.sel = 1;                                  /* Command line: Enter on the serial line opens the prompt, as before */
     kprintf("\nbm shell: Enter runs the selected item (Command line opens the bm: prompt), ':' takes a line, "
             "Esc the cartridge menu\n");
@@ -1080,7 +1218,7 @@ void monitor_run(void)
     for (;;) {
         console_suspend(0);                     /* (a stopped test left it hidden: bm_video_leave) */
         if (redraw) {
-            shell_menu_draw(&m);
+            shell_menu_draw(&m, fl_dir, fl);
             redraw = 0;
         }
         netcon_focus(MON_FOCUS, "> ");
@@ -1108,6 +1246,15 @@ void monitor_run(void)
         case SMENU_RUN:
             if (shell_run_item(smenu_current(&m)))
                 carts_menu(console_framebuffer());      /* the PS button */
+            fl_load(&m, NULL);                          /* the item may have changed the card */
+            redraw = 1;
+            break;
+        case SMENU_FILE:
+            fl_open(&m);
+            redraw = 1;
+            break;
+        case SMENU_PARENT:
+            fl_parent(&m);
             redraw = 1;
             break;
         case SMENU_LINE:
@@ -1116,6 +1263,7 @@ void monitor_run(void)
             break;
         case SMENU_LEAVE:
             carts_menu(console_framebuffer());
+            fl_load(&m, NULL);
             redraw = 1;
             break;
         default:

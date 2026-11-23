@@ -24,6 +24,10 @@ int carts_has_path(const char *path);
 /* Plays the cartridge with this title or file name (a start of it); -1 if none. */
 int carts_play_title(framebuffer_t *fb, const char *name);
 
+/* Plays the cartridge at this path of the SD card ("/bm/game.bm"): a cartridge of the list as the menu
+ * plays it, any other .bm read from its folder. 0, or -1 if the file cannot be read. */
+int carts_play_path(framebuffer_t *fb, const char *path);
+
 /* Prints the list on the console. */
 void carts_list(void);
 

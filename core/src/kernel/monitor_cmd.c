@@ -903,6 +903,17 @@ void smenu_init(smenu_t *m, const smenu_item_t *items, int n)
     m->subsel = 0;
     m->esc = 0;
     m->last_cr = 0;
+    m->nfiles = 0;
+    m->in_files = 0;
+    m->filesel = 0;
+}
+
+void smenu_set_files(smenu_t *m, int n)
+{
+    m->nfiles = n > 0 ? n : 0;
+    m->filesel = 0;
+    if (!m->nfiles)
+        m->in_files = 0;
 }
 
 int smenu_in_escape(const smenu_t *m)
@@ -919,6 +930,21 @@ const smenu_item_t *smenu_current(const smenu_t *m)
 static int smenu_step(smenu_t *m, int d)
 {
     const smenu_item_t *it = m->n > 0 ? &m->items[m->sel] : NULL;
+    if (m->in_files) {                  /* the file list: no wrap; Up on its first row goes back to the menu */
+        if (d < 0 && m->filesel == 0) {
+            m->in_files = 0;
+            return SMENU_MOVE;
+        }
+        if (d > 0 && m->filesel >= m->nfiles - 1)
+            return SMENU_NONE;
+        m->filesel += d;
+        return SMENU_MOVE;
+    }
+    if (!m->in_sub && d > 0 && m->nfiles > 0 && m->sel == m->n - 1) {   /* Down on the last item: the files */
+        m->in_files = 1;
+        m->filesel = 0;
+        return SMENU_MOVE;
+    }
     if (m->in_sub && it && it->sub) {
         m->subsel = (m->subsel + d + it->nsub) % it->nsub;
         return SMENU_MOVE;
@@ -933,6 +959,8 @@ static int smenu_step(smenu_t *m, int d)
 /* Enter or Right: a group opens, an item runs (Right on an item does nothing) */
 static int smenu_open(smenu_t *m, int enter)
 {
+    if (m->in_files)
+        return enter ? SMENU_FILE : SMENU_NONE;
     if (m->n <= 0)
         return SMENU_NONE;
     const smenu_item_t *it = &m->items[m->sel];
@@ -946,6 +974,8 @@ static int smenu_open(smenu_t *m, int enter)
 
 static int smenu_close(smenu_t *m)
 {
+    if (m->in_files)
+        return SMENU_PARENT;
     if (!m->in_sub)
         return SMENU_NONE;
     m->in_sub = 0;
@@ -958,6 +988,10 @@ int smenu_feed(smenu_t *m, int key)
     m->last_cr = 0;
     if (key == MEDIT_K_ESC) {
         m->esc = 0;
+        if (m->in_files) {              /* Esc in the file list: back to the menu */
+            m->in_files = 0;
+            return SMENU_MOVE;
+        }
         return m->in_sub ? smenu_close(m) : SMENU_LEAVE;
     }
     if (m->esc == 1) {                  /* ESC [ or ESC O: a terminal's arrow key follows */

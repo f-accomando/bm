@@ -20,7 +20,12 @@ enum {
  *   ESC[...m (SGR: 0, 1, 7, 30-37, 39, 40-47, 49, 90-97, 100-107)
  *   ESC[2J (clear), ESC[H / ESC[r;cH (cursor position), ESC[K (clear to EOL)
  * Bytes >= 0x80 are drawn as code page 437 glyphs.
+ * CONSOLE_ICON_FOLDER and CONSOLE_ICON_FILE are drawn as icons in the colour of the text, a square
+ * that fits the cell (the bm shell's file list). The other bytes below 0x20 are not drawn.
  */
+#define CONSOLE_ICON_FOLDER '\x01'
+#define CONSOLE_ICON_FILE   '\x02'
+
 void console_init(framebuffer_t *fb, const font_t *font);
 void console_set_font(const font_t *font);
 int  console_active(void);
