@@ -9,6 +9,7 @@
 #include "drivers/fb.h"
 #include "gfx/console.h"
 #include "gfx/draw.h"
+#include "gfx/font.h"
 #include "shell_sdk_art.h"
 
 typedef struct {
@@ -99,33 +100,22 @@ static void chip(const geo_t *g, int col, int row, int w, int h, const char *lab
     }
 }
 
-/* A square chip (the ARM): black cells, pins on the four sides. Make w * cell width equal h * cell height. */
-static void chip_square(const geo_t *g, int col, int row, int w, int h, const char *label)
+/* A square chip drawn in pixels (the ARM): pins on the four sides, the label in the middle. (x, y) is the top left
+ * of the body, size its side. Nothing here writes a console cell, so the cursor cannot wipe it. */
+static void chip_px(const geo_t *g, int x, int y, int size, const char *label)
 {
     const uint32_t pin = rgb(g, 190, 190, 200);
-    const int t = g->cw / 4 > 1 ? g->cw / 4 : 2, len = g->cw / 2 > 3 ? g->cw / 2 : 3;
-    for (int x = px(g, col) + g->cw / 2; x + t <= px(g, col + w); x += g->cw) {
-        pin_add(x, py(g, row) - len, t, len, pin);
-        pin_add(x, py(g, row + h), t, len, pin);
+    const int t = 2, len = 4, step = 6;
+    gfx_rect(g->fb, x, y, size, size, rgb(g, 0, 0, 0));
+    for (int i = 3; i + t <= size - 2; i += step) {
+        gfx_rect(g->fb, x + i, y - len, t, len, pin);
+        gfx_rect(g->fb, x + i, y + size, t, len, pin);
+        gfx_rect(g->fb, x - len, y + i, len, t, pin);
+        gfx_rect(g->fb, x + size, y + i, len, t, pin);
     }
-    for (int y = py(g, row) + g->ch / 4; y + t <= py(g, row + h); y += g->ch / 2) {
-        pin_add(px(g, col) - len, y, len, t, pin);
-        pin_add(px(g, col + w), y, len, t, pin);
-    }
-    char line[24];
     const int n = (int)strlen(label);
-    for (int i = 0; i < h; i++) {
-        at(row + i, col);
-        console_write("[97;40m");
-        int len2 = 0;
-        for (int c = 0; c < w && len2 < (int)sizeof line - 1; c++) {
-            const int k = c - (w - n) / 2;
-            line[len2++] = i == h / 2 && k >= 0 && k < n ? label[k] : ' ';
-        }
-        line[len2] = 0;
-        console_write(line);
-        console_write("[0m");
-    }
+    gfx_text(g->fb, &font_console_8x16, x + (size - 8 * n) / 2, y + (size - 16) / 2, label,
+             rgb(g, 255, 255, 255), rgb(g, 0, 0, 0));
 }
 
 #define CHIP_STYLE "\x1b[97;40m"
@@ -178,15 +168,6 @@ void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int
     if (!geo(&g) || w < 30 || h < 8)
         return;
     board(&g, col, row, w, h);
-    if (target == SDK_BM) {
-        chip_square(&g, col + 4, row + 1, 6, 3, "ARM");
-        chip(&g, col + 15, row + 1, 14, 2, "SD CARD", "[97;44m");
-        at(row + 2, col + 15);
-        console_write("[93;44m   bm/NAME.bm   [0m");
-        footprint(&g, col + 15, row + 4, 14, 2);
-        pins_flush(&g);
-        return;
-    }
     const int hw = (w - 4) / 2;
     chip(&g, col + 2, row + 1, hw, 2, pcb->rom, CHIP_STYLE);
     if (target == SDK_NES) {
@@ -267,8 +248,8 @@ void sdk_tile_draw(int target, int selected, int col, int row, int w, int h)
     if (selected)                                       /* a dark yellow ground under the whole tile */
         gfx_rect(g.fb, px(&g, col), py(&g, row), w * g.cw, h * g.ch, rgb(&g, 90, 70, 0));
     cart_art(&g, target, col, row, 6, h - 1);
-    if (target == SDK_BM)
-        chip_square(&g, col + 9, row + 1, 4, 2, sdk_target_cpu(target));
+    if (target == SDK_BM)                               /* a 32 px square, centred on the icon (48 px) and on the 6 cells */
+        chip_px(&g, px(&g, col + 7) + (6 * g.cw - 32) / 2, py(&g, row) + (3 * g.ch - 32) / 2, 32, sdk_target_cpu(target));
     else
         chip(&g, col + 7, row + 1, 6, 1, sdk_target_cpu(target), CHIP_STYLE);
     char name[16];

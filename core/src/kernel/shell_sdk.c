@@ -101,11 +101,12 @@ static void draw_project(int cols, int rows)
             text++;
     }
 
-    if (pcb_col <= cols) {
+    if (pcb_col <= cols && proj.target != SDK_BM) {          /* a bm project has no cartridge: no picture */
         sdk_pcb_t pcb;
         sdk_proj_pcb(&proj, &pcb);
         sdk_pcb_draw(proj.target, &pcb, pcb_col, P_MENU, P_PCB_W - 1, P_PCB_H);
     }
+    at(1, 1);                                   /* the cursor on a blank cell, not at the end of the help */
 }
 
 static void draw(int tab)
