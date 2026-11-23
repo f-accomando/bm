@@ -1,0 +1,35 @@
+bm report
+kind: bench3d
+kernel: dev
+branch: unknown
+board: Pi Zero W
+date: 2026-11-23 12:08:58
+file: 20261123-120858_bench3d_pi-zero-w_dev.txt
+
+bm 3D Bench
+kernel dev
+drivers bm3d 7.37 (vs)
+date 2026-11-23 12:08 UTC
+machine ARM 1000 MHz, core 250 (max 400), V3D 250 (max 300, measured 300), SDRAM 400 MHz, 44.3 C, throttled 00000
+gpu the GPU stopped answering after a probe (registers in the log)
+probes before the vertex shader probe: ERRSTAT 00001000 DBGE 00000000 FDBGO 00000004 FDBGB 00000018 FDBGR 00000000 FDBGS 00003147; vertex shader probe: drawn (VPM in bytes, clipper on, clockwise bit 0)
+size 640x360 (the page and the render; the bench has no other output size: no 720x405 and no 1080p mode)
+vsprobe gpu3d_vshader=2 (0 none, 1 scenery, 2 heroes) queue_ok=1 queue2=0
+options bm3d 7.37 gpu3d=off (at the start; each profile sets its own)
+counters ARM1176 PMU
+previous bm/bench/3d0097.txt
+only tests far_tex,far_mip,quad_tex, profiles all
+columns R,test,profile,version,n60,n30,over,ms,worst,tris_in,tris,verts,pixels,gltris,jobs,gpu_ms,instr,wait_instr,dmiss,cycles,secs,tris60,drawn60,core_mhz,gpu_mhz,clean_kcyc,inval_kcyc,pool_kb,ovf_kb,ovf_jobs,fill_px,ns_px_gpu,ns_px_frame,gpu0_ms,bin_us,rnd_us,draws,mesh_us,flush_us,resolve_us,sort_us,build_us,jobs_us,b1_us,b2_us,b3_us
+R,quad_tex,ARM,0.2,3.3,7.2,0,15.2,15.4,6,6,12,172800,0,0.0,0.0,7461700,0,143551,15208688,1,7,7,400,300,0.0,0.0,0,0,0,172800,-1,75.31,-1,0,0,0,0,0,0,0,0,0,0,0,0
+pixel cost: ns a pixel = ms a Mpixel (slope over the steps; GPU: the job's time, queue off), ms to fill 640x360 / 1280x720 / 1920x1080 at that cost
+columns P,test,profile,ns_px_gpu,ns_px_frame,gpu0_ms,gpu_360,gpu_720,gpu_1080,frame_360,frame_720,frame_1080
+P,quad_tex,ARM,-1,75.31,-1,-1,-1,-1,17.35,69.41,156.17
+pixel check: the first frame of a Mali row drawn by the GPU against the ARM's (RGB565 page; diff: pixels that differ, big: by more than 2 steps of a channel, max: the largest step)
+columns K,test,profile,pixels,diff,big,max
+score 28 (bm3d 7.37 as the games get it, 1 of 24 tests, a part of the bench), GPU bm3d 2.1 0, ARM bm3d 0.2 28; 1000: bm3d 2.1 at its best on the Pi Zero W
+columns S,driver,version,score,tests,full
+S,games,7.37,28,1,0
+S,GPU,2.1,0,0,0
+S,ARM,0.2,28,1,0
+triangles at 60 fps 0 in the mix (0 drawn), the most 7 (quad_tex)
+total 1 s
