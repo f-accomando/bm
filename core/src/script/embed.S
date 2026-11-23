@@ -102,3 +102,14 @@ bm_lib_snes_asm:
     .incbin "core/src/script/snes_asm.lua"
 bm_lib_snes_asm_end:
 
+/* the start files of the Shell SDK: a NES and a SNES program that shows a blue screen (New in the Code tab) */
+    .section .rodata
+    .balign 4
+    .globl bm_sdk_tpl_nes, bm_sdk_tpl_nes_end, bm_sdk_tpl_snes, bm_sdk_tpl_snes_end
+bm_sdk_tpl_nes:
+    .incbin "core/src/script/sdk_tpl_nes.s"
+bm_sdk_tpl_nes_end:
+bm_sdk_tpl_snes:
+    .incbin "core/src/script/sdk_tpl_snes.s"
+bm_sdk_tpl_snes_end:
+

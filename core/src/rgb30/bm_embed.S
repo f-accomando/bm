@@ -66,6 +66,18 @@ bm_lib_snes_asm_end:
     .byte 0
 
     .balign 4
+    .globl bm_sdk_tpl_nes, bm_sdk_tpl_nes_end, bm_sdk_tpl_snes, bm_sdk_tpl_snes_end
+bm_sdk_tpl_nes:
+    .incbin "core/src/script/sdk_tpl_nes.s"
+bm_sdk_tpl_nes_end:
+    .byte 0
+    .balign 4
+bm_sdk_tpl_snes:
+    .incbin "core/src/script/sdk_tpl_snes.s"
+bm_sdk_tpl_snes_end:
+    .byte 0
+
+    .balign 4
     .globl bm_lib_words, bm_lib_words_end
 bm_lib_words:
 bm_lib_words_end:

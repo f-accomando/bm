@@ -21,6 +21,7 @@
 #include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
 #include "shell_sdk_proj.h"
+#include "shell_sdk_tpl.h"
 
 static const char *const tab_names[SDK_TAB_COUNT] = { "Project", "Code", "Sprite", "Map", "Sounds" };
 
@@ -45,6 +46,7 @@ int shell_sdk_tab_for_key(int key)
 #define P_PCB_H   8
 
 static sdk_proj_t proj;
+static int platform_locked(void);        /* defined with the project state, below */
 static int proj_sel;                    /* the highlighted row of the menu */
 
 static void at(int row, int col)
@@ -68,7 +70,8 @@ static void draw_project(int cols, int rows)
     const int room = (pcb_col > cols ? cols : pcb_col) - 2 - 15;              /* the width of a value */
     for (int i = 0; i < n && P_MENU + i < rows; i++) {
         char line[96];
-        snprintf(line, sizeof line, " %-13s %.*s", menu[i].label, room > 0 ? room : 0, menu[i].value);
+        snprintf(line, sizeof line, " %-13s %.*s%s", menu[i].label, room > 0 ? room : 0, menu[i].value,
+                 menu[i].id == SDK_ROW_PLATFORM && platform_locked() ? "  (fixed)" : "");
         at(P_MENU + i, 2);
         console_write(i == proj_sel ? "\x1b[7m" : "\x1b[0m");
         console_write(line);
@@ -120,7 +123,7 @@ static void draw_project(int cols, int rows)
 
 static char pname[SDK_NAME_MAX];        /* the name of the project ("" until it is saved or opened) */
 static int dirty;                       /* a change since the last save */
-static char msg[96];                    /* one message for the status bar, until the next key */
+static char msg[192];                    /* one message for the status bar, until the next key */
 
 static void say(const char *fmt, const char *a)
 {
@@ -311,6 +314,30 @@ static int discard_ok(void)
 
 static unsigned seen_rev;               /* the revision of the text when the project was saved or opened */
 
+/* The start file of the platform in the editor. */
+static void load_template(int target)
+{
+    size_t n;
+    const char *t = sdk_template(target, &n);
+    sdk_edit_set(t, n);
+    seen_rev = sdk_edit_revision();
+}
+
+/* 1 when the text in the editor is the start file of the platform, as it was given (nothing written yet). */
+static int text_is_template(int target)
+{
+    size_t n;
+    const char *t = sdk_template(target, &n);
+    return sdk_edit_length() == n && !memcmp(sdk_edit_text(), t, n);
+}
+
+/* The platform of a project is fixed once it has work: a name (it is saved or opened) or code of its own.
+ * A new project that has none of that may still change platform, and the start file follows it. */
+static int platform_locked(void)
+{
+    return pname[0] || !text_is_template(proj.target);
+}
+
 static void do_save(const char *name)
 {
     char err[64];
@@ -350,7 +377,7 @@ static void do_new(void)
     proj_sel = 0;
     pname[0] = 0;
     sdk_code_reset();
-    seen_rev = sdk_edit_revision();
+    load_template(proj.target);
     dirty = 0;
     say("%s", "a new project: Esc > Save as gives it a name");
 }
@@ -491,6 +518,12 @@ static void project_key(int c)
     sdk_row_t menu[12];
     const int n = sdk_proj_rows(&proj, menu, 12);
     const sdk_proj_t before = proj;
+    const int on_platform = menu[proj_sel].id == SDK_ROW_PLATFORM;
+    const int change = c == 'a' || c == HID_KEY_LEFT || c == 'd' || c == HID_KEY_RIGHT || is_enter(c);
+    if (on_platform && change && platform_locked()) {
+        say("%s", "the platform is fixed: this project has a name or code. Esc > New starts one for another platform");
+        return;
+    }
     if (is_up(c))
         proj_sel = (proj_sel + n - 1) % n;
     else if (is_down(c))
@@ -499,6 +532,8 @@ static void project_key(int c)
         sdk_proj_step(&proj, menu[proj_sel].id, -1);
     else if (c == 'd' || c == HID_KEY_RIGHT || is_enter(c))
         sdk_proj_step(&proj, menu[proj_sel].id, 1);
+    if (on_platform && proj.target != before.target)
+        load_template(proj.target);                 /* the project was untouched: the start file follows */
     if (memcmp(&before, &proj, sizeof proj))
         dirty = 1;
 }
@@ -512,7 +547,7 @@ int shell_sdk_open(void)
     dirty = 0;
     msg[0] = 0;
     sdk_code_reset();
-    seen_rev = sdk_edit_revision();
+    load_template(proj.target);
     hid_text_mode(1);
     console_clear();
     for (;;) {

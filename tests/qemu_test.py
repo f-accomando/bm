@@ -4622,6 +4622,7 @@ def test_shell_sdk_build(b, opts):
         q.send("d")                                 # Shell SDK
         open_sdk()
         q.send(bytes([0xFA]))                       # F2: the Code tab
+        q.send("\x01\x7f")                        # the template goes: Ctrl+A, Backspace
         q.send("reset:\r  sei\r  cld\r  ldx #$ff\r  txs\rloop: jmp loop\rnmi: rti\r")
         q.send("\x02")                              # Ctrl+B: Build ROM; the project has no name yet
         time.sleep(0.5)
@@ -4642,7 +4643,7 @@ def test_shell_sdk_build(b, opts):
         assert any("main.s:8:" in r and "unknown instruction" in r for r in rows), rows
         # leave with a change that is not saved: the SDK asks
         q.send(bytes([0xF9]))
-        q.send("d")                                 # NES -> SNES (not built, not saved)
+        q.send("sd")                                # the board changes (not saved)
         q.send("\x1b")
         q.send("w\r")                              # Exit
         time.sleep(0.5)
@@ -4660,17 +4661,97 @@ def test_shell_sdk_build(b, opts):
         q.send(bytes([0xFA]))
         rows = screen()
         assert any("jmp loop" in r for r in rows) and any("foo bar" in r for r in rows), rows    # the source is back
-        q.send(bytes([0xF1]) * 7)                   # down to line 8
-        q.send("\x18")                               # Ctrl+X without a selection: cut the line
         q.send(bytes([0xF9]))
-        q.send("d")                                 # a SNES project now
-        q.send(bytes([0xFA]))
-        q.send("\x02")
+        q.send("d")                                 # the project has a name: its platform is fixed
+        assert any("platform is fixed" in r for r in screen())
+        q.send("\x1b")
+        q.send("s\r")                              # New: nothing is unsaved
+        time.sleep(0.5)
+        q.send("d")                                 # NES -> SNES: the project is untouched
+        q.send("\x02")                               # Ctrl+B: no name yet
+        time.sleep(0.5)
+        q.send("snes1\r")
         time.sleep(2.0)
         rows = screen()
-        assert any("built /snes/game.sfc" in r for r in rows), rows
-        assert any("ROM: game.sfc" in r for r in rows), rows
+        assert any("built /snes/snes1.sfc" in r for r in rows), rows
+        assert any("ROM: snes1.sfc" in r for r in rows), rows
         assert any("LoROM" in r and "SNES" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_template(b, opts):
+    """Shell SDK (2026-11-23): a new NES or SNES project starts from a program that builds as it is; the start
+    file follows the platform while the project is untouched; once it has code or a name the platform is fixed."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdktpl-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFA]))                       # F2: Code
+        rows = screen()
+        assert any("NES game template" in r for r in rows), rows
+        q.send(bytes([0xF9]))
+        q.send("d")                                 # SNES: the start file follows
+        q.send(bytes([0xFA]))
+        rows = screen()
+        assert any("SNES game template" in r for r in rows), rows
+        q.send(bytes([0xF9]))
+        q.send("d")                                 # bm: no start file
+        q.send(bytes([0xFA]))
+        rows = screen()
+        assert not any("game template" in r for r in rows) and any("Ln 1  Col 1  0 bytes" in r for r in rows), rows
+        q.send(bytes([0xF9]))
+        q.send("d")                                 # NES again
+        q.send(bytes([0xFA]))
+        assert any("NES game template" in r for r in screen())
+        q.send("x")                                 # code of its own: the platform is fixed
+        q.send(bytes([0xF9]))
+        rows = screen()
+        assert any("Platform" in r and "(fixed)" in r for r in rows), rows        # edited text: fixed from now on
+        q.send("d")
+        rows = screen()
+        assert any("platform is fixed" in r for r in rows), rows
+        assert any("Platform" in r and "NES cartridge" in r and "(fixed)" in r for r in rows), rows
+        # New: back to an untouched NES project that builds as it is
+        q.send("\x1b")
+        q.send("s\r")                               # New
+        time.sleep(0.5)
+        assert any("Unsaved changes" in r for r in screen())
+        q.send("s\r")                               # Yes, discard
+        time.sleep(0.5)
+        q.send("\x02")                              # Ctrl+B: no name yet
+        time.sleep(0.5)
+        q.send("tpl\r")
+        time.sleep(2.0)
+        rows = screen()
+        assert any("built /nes/tpl.nes" in r for r in rows), rows
+        assert any("PRG 32 KB" in r for r in rows), rows
+        q.send(bytes([0xF9]))                       # a named project: the platform is fixed
+        q.send("d")
+        rows = screen()
+        assert any("platform is fixed" in r for r in rows), rows
         q.send("\x1b")
         q.send("w\r")
         q.expect("> ", timeout=10)
@@ -4705,6 +4786,7 @@ def test_shell_sdk_editor_keys(b, opts):
         q.send("\r")
         time.sleep(0.5)
         q.send(bytes([0xFA]))                       # F2: the Code tab
+        q.send("\x01\x7f")                        # the template goes: Ctrl+A, Backspace
         q.send("lda #1\rsta $2000")
         assert any("Ln 2  Col 10" in r for r in screen())
         sendkeys(q, "ctrl-left")                    # a word to the left: before "2000"
