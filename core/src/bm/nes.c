@@ -1,7 +1,7 @@
 /*
  * nes.c: the Famicom / NES machine of bm NES. Original code, written from the public hardware documents.
  *
- *   - the cartridge: the iNES header, the mappers 0, 1, 2, 3, 4, 7, 11, 34, 66, 71 and 79, the nametable mirroring
+ *   - the cartridge: the iNES header, the mappers 0, 1, 2, 3, 4, 7, 9, 11, 34, 66, 69, 71 and 79, the nametable mirroring
  *   - the 2C02 picture unit: one scanline at a time, drawn at the start of the line from the registers at that moment
  *     (the loopy registers v, t, x, w), 8 sprites a line, sprite 0 hit with the dot it happens at, the vblank and the NMI
  *   - the 2A03: a 6502 with no decimal mode; all the official opcodes and the usual unofficial ones
@@ -109,9 +109,77 @@ static void mmc3_write(uint16_t a, uint8_t v)
     }
 }
 
+/* MMC2 (mapper 9): two 4 KB picture slots, each with an FD bank and an FE bank. A latch per slot picks the bank.
+ * The picture unit sets a latch when it reads the high plane of the tile $FD or $FE: slot 0 at $0FD8 and $0FE8 only,
+ * slot 1 at $1FD8-$1FDF and $1FE8-$1FEF. The new bank is used from the next fetch. */
+static uint8_t m9_chr[4], m9_latch[2];
+
+static void mmc2_sync(void)
+{
+    chr4(0, m9_chr[m9_latch[0]]);
+    chr4(1, m9_chr[2 + m9_latch[1]]);
+}
+
+static inline void mmc2_fetch(unsigned a)               /* a: the address of a high plane byte */
+{
+    if (mapper != 9) return;
+    a &= 0x1FFF;
+    const unsigned t = a & 0x0FF8;
+    if (t != 0x0FD8 && t != 0x0FE8) return;
+    if (a < 0x1000 && (a & 7)) return;
+    const uint8_t l = t == 0x0FE8;
+    if (m9_latch[a >> 12] == l) return;
+    m9_latch[a >> 12] = l;
+    mmc2_sync();
+}
+
+static void mmc2_write(uint16_t a, uint8_t v)
+{
+    switch (a >> 12) {
+    case 0xA: prg8(0, v & 0x0F); break;
+    case 0xB: m9_chr[0] = v & 0x1F; mmc2_sync(); break;
+    case 0xC: m9_chr[1] = v & 0x1F; mmc2_sync(); break;
+    case 0xD: m9_chr[2] = v & 0x1F; mmc2_sync(); break;
+    case 0xE: m9_chr[3] = v & 0x1F; mmc2_sync(); break;
+    case 0xF: mirror((v & 1) ? 0 : 1); break;
+    default: break;
+    }
+}
+
+/* Sunsoft FME-7 (mapper 69): a command at $8000-$9FFF, its value at $A000-$BFFF. 1 KB picture banks, 8 KB program banks,
+ * ROM or RAM at $6000, and a 16-bit counter that goes down once a CPU cycle (the IRQ when it goes from 0 to $FFFF).
+ * The 5B sound chip (Gimmick!) is not emulated. */
+static uint8_t f7_cmd, f7_low;                           /* f7_low: the command 8 value */
+static uint8_t f7_irq_en, f7_cnt_en;
+static uint16_t f7_cnt;
+
+static void fme7_write(uint16_t a, uint8_t v)
+{
+    if (a < 0xA000) { f7_cmd = v & 0x0F; return; }
+    if (a >= 0xC000) return;                             /* $C000/$E000: the 5B sound registers */
+    switch (f7_cmd) {
+    case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: chr1(f7_cmd, v); break;
+    case 8: f7_low = v; break;
+    case 9: case 10: case 11: prg8(f7_cmd - 9, v & 0x3F); break;
+    case 12: { static const uint8_t mm[4] = { 1, 0, 2, 3 }; mirror(mm[v & 3]); break; }
+    case 13: f7_irq_en = v & 1; f7_cnt_en = (v & 0x80) != 0; map_irq = 0; break;
+    case 14: f7_cnt = (uint16_t)((f7_cnt & 0xFF00) | v); break;
+    default: f7_cnt = (uint16_t)((f7_cnt & 0x00FF) | (v << 8)); break;
+    }
+}
+
+static inline void fme7_clock(int c)
+{
+    if (!f7_cnt_en) return;
+    if ((unsigned)c > f7_cnt) { if (f7_irq_en) map_irq = 1; }
+    f7_cnt = (uint16_t)(f7_cnt - (unsigned)c);
+}
+
 static void map_write(uint16_t a, uint8_t v)
 {
     switch (mapper) {
+    case 9: mmc2_write(a, v); break;
+    case 69: fme7_write(a, v); break;
     case 1: mmc1_write(a, v); break;
     case 2: prg16(0, v); break;
     case 3: chr8(v); break;
@@ -159,8 +227,25 @@ static void map_init(void)
         mmc3_sync();
         break;
     case 7: mirror(2); break;
+    case 9:
+        prg8(0, 0); prg8(1, n_prg8 - 3); prg8(2, n_prg8 - 2); prg8(3, n_prg8 - 1);
+        memset(m9_chr, 0, sizeof m9_chr); m9_latch[0] = m9_latch[1] = 1;
+        mmc2_sync();
+        break;
+    case 69:
+        f7_cmd = 0; f7_low = 0; f7_irq_en = 0; f7_cnt_en = 0; f7_cnt = 0;
+        prg8(3, n_prg8 - 1);
+        break;
     default: break;
     }
+}
+
+/* $6000-$7FFF: the program RAM, or for FME-7 a ROM bank or no RAM (the command 8) */
+static uint8_t *low_page(int wr)
+{
+    if (mapper != 69) return prg_ram;
+    if (!(f7_low & 0x40)) return wr ? NULL : prg + (size_t)((f7_low & 0x3F) % n_prg8) * 8192u;
+    return (f7_low & 0x80) ? prg_ram : NULL;
 }
 
 /* ------------------------------------------------------------------ the picture unit */
@@ -220,6 +305,7 @@ static uint8_t ppu_read(unsigned r)
         } else {
             ret = p_rdbuf;
             p_rdbuf = ppu_rd(p_v);
+            if ((p_v & 0x3FFF) < 0x2000) mmc2_fetch(p_v);
         }
         p_v = (uint16_t)(p_v + ((p_ctrl & 4) ? 32 : 1));
         break;
@@ -283,7 +369,7 @@ static void ppu_line(int ln, int draw)
         if (draw) { uint16_t *d = fb + ln * NES_W; for (int x = 0; x < NES_W; x++) d[x] = pal565[0]; }
         return;
     }
-    if (!draw && !s0) return;
+    if (!draw && !s0 && mapper != 9) return;             /* MMC2 watches the fetches: it needs them on every line */
     /* the background: 33 tiles from the loopy register v, shifted by the fine x */
     memset(bgbuf, 0, sizeof bgbuf);
     if (bgon) {
@@ -297,6 +383,7 @@ static void ppu_line(int ln, int draw)
             const unsigned a = bgtab + tn * 16 + ((vv >> 12) & 7);
             const uint8_t *pg = chr_pg[a >> 10];
             const unsigned lo = pg[a & 0x3FF], hi = pg[(a & 0x3FF) + 8];
+            mmc2_fetch(a + 8);
             uint8_t *o = bgbuf + tile * 8;
             for (int b = 0; b < 8; b++) {
                 const unsigned px = ((lo >> (7 - b)) & 1) | (((hi >> (7 - b)) & 1) << 1);
@@ -306,19 +393,28 @@ static void ppu_line(int ln, int draw)
         }
     }
     const uint8_t *bg = bgbuf + p_x;
-    /* the sprites, the last first so that a lower number wins */
-    memset(spr, 0, sizeof spr);
+    /* the sprite patterns, fetched in the order of the hardware (the first sprite first) */
+    uint8_t slo[8], shi[8];
     const unsigned sptab = (p_ctrl & 8) ? 0x1000u : 0u;
-    for (int k = cnt - 1; k >= 0; k--) {
+    for (int k = 0; k < cnt; k++) {
         const unsigned i = idx[k];
-        const unsigned sy = oam[i * 4], tile = oam[i * 4 + 1], attr = oam[i * 4 + 2], sx = oam[i * 4 + 3];
+        const unsigned sy = oam[i * 4], tile = oam[i * 4 + 1], attr = oam[i * 4 + 2];
         int row = ln - 1 - (int)sy;
         if (attr & 0x80) row = h - 1 - row;
         unsigned a;
         if (h == 8) a = sptab + tile * 16 + (unsigned)row;
         else a = ((tile & 1) << 12) + (tile & 0xFE) * 16 + (row >= 8 ? 16u : 0u) + (unsigned)(row & 7);
         const uint8_t *pg = chr_pg[(a & 0x1FFF) >> 10];
-        const unsigned lo = pg[a & 0x3FF], hi = pg[(a & 0x3FF) + 8];
+        slo[k] = pg[a & 0x3FF]; shi[k] = pg[(a & 0x3FF) + 8];
+        mmc2_fetch(a + 8);
+    }
+    if (!draw && !s0) return;
+    /* the sprites, the last first so that a lower number wins */
+    memset(spr, 0, sizeof spr);
+    for (int k = cnt - 1; k >= 0; k--) {
+        const unsigned i = idx[k];
+        const unsigned attr = oam[i * 4 + 2], sx = oam[i * 4 + 3];
+        const unsigned lo = slo[k], hi = shi[k];
         for (int b = 0; b < 8; b++) {
             const int col = (attr & 0x40) ? b : 7 - b;
             const unsigned px = ((lo >> col) & 1) | (((hi >> col) & 1) << 1);
@@ -644,7 +740,7 @@ static uint8_t rd_slow(uint16_t a)
         else { v = pad_shift[i] & 1; pad_shift[i] = (uint8_t)((pad_shift[i] >> 1) | 0x80); }
         return (uint8_t)(v | 0x40);
     }
-    if (a >= 0x6000 && a < 0x8000) return prg_ram[a & 0x1FFF];
+    if (a >= 0x6000 && a < 0x8000) { const uint8_t *pg = low_page(0); return pg ? pg[a & 0x1FFF] : (uint8_t)(a >> 8); }
     return 0;
 }
 
@@ -672,6 +768,7 @@ static void wr_slow(uint16_t a, uint8_t v)
     if (a == 0x4016) { strobe = v & 1; pad_shift[0] = pads[0]; pad_shift[1] = pads[1]; return; }
     if (a < 0x6000) { map_low_write(a, v); return; }
     if (a < 0x8000) {
+        if (!low_page(1)) return;
         if (battery && prg_ram[a & 0x1FFF] != v) sram_dirty = 1;
         prg_ram[a & 0x1FFF] = v;
         return;
@@ -1012,6 +1109,7 @@ static int step(void)
     stall = 0;
     cpu_cycles += (uint32_t)c;
     dot += 3 * c;
+    if (mapper == 69) fme7_clock(c);
     apu_run(c);
     return c;
 }
@@ -1141,7 +1239,7 @@ int nes_load(const uint8_t *data, size_t len, const char **why)
     if (len < 16 + trainer + psz + csz) { *why = "the file is shorter than its header says"; return -1; }
     if (psz + csz > ROM_MAX) { *why = "the ROM is bigger than 2 MB"; return -1; }
     switch (mapper) {
-    case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79: break;
+    case 0: case 1: case 2: case 3: case 4: case 7: case 9: case 11: case 34: case 66: case 69: case 71: case 79: break;
     default: {
         static const char pre[] = "mapper ";
         static const char post[] = " is not supported";
@@ -1187,7 +1285,7 @@ uint8_t nes_peek(uint16_t a)
 {
     if (a < 0x2000) return ram[a & 0x7FF];
     if (a >= 0x8000) return prg_pg[(a >> 13) & 3][a & 0x1FFF];
-    if (a >= 0x6000) return prg_ram[a & 0x1FFF];
+    if (a >= 0x6000) { const uint8_t *pg = low_page(0); return pg ? pg[a & 0x1FFF] : 0; }
     return 0;
 }
 const uint8_t *nes_ram(void) { return ram; }

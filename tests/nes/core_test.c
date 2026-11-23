@@ -178,6 +178,71 @@ static void test_mmc3_irq(void)
     CHECK(nes_ram()[0x30] == 1, "MMC3 IRQ ran %d times (1 expected)", nes_ram()[0x30]);
 }
 
+static void ppu_addr(int a) { store(0x2006, a >> 8); store(0x2006, a & 0xFF); }
+static void ppu_read_to(int zp) { A(0xAD, 0x07, 0x20, 0xAD, 0x07, 0x20, 0x85, zp); }   /* LDA $2007 (the buffer); LDA $2007; STA zp */
+
+static void test_mmc2(void)
+{
+    cpos = 0;
+    A(0x78, 0xA2, 0xFF, 0x9A);
+    store(0xA000, 5);                                    /* $8000 = 8 KB bank 5 */
+    store(0xB000, 2); store(0xC000, 3);                  /* slot 0: FD bank 2, FE bank 3 */
+    store(0xD000, 4); store(0xE000, 6);                  /* slot 1: FD bank 4, FE bank 6 */
+    ppu_addr(0x0000); ppu_read_to(0x40);                 /* the latches start at FE: bank 3 */
+    ppu_addr(0x0FD8); A(0xAD, 0x07, 0x20);               /* a read of $0FD8 sets latch 0 to FD */
+    ppu_addr(0x0000); ppu_read_to(0x41);                 /* bank 2 */
+    ppu_addr(0x1000); ppu_read_to(0x42);                 /* bank 6 */
+    ppu_addr(0x1FDD); A(0xAD, 0x07, 0x20);               /* any row of tile $FD sets latch 1 to FD */
+    ppu_addr(0x1000); ppu_read_to(0x43);                 /* bank 4 */
+    ppu_addr(0x0FD9); A(0xAD, 0x07, 0x20);               /* latch 0 reacts only to $0FD8: no change */
+    ppu_addr(0x0FE8); A(0xAD, 0x07, 0x20);               /* latch 0 to FE */
+    ppu_addr(0x0000); ppu_read_to(0x44);                 /* bank 3 */
+    const int self = cpos; A(0x4C, (0xC100 + self) & 0xFF, (0xC100 + self) >> 8);
+    const size_t n = make_rom(9, 8, 0, 0x100, 0x3F00 & 0x3FFF, 0x3F80, 0);
+    uint8_t *c = image + n;                              /* 64 KB of CHR after the program: a marker per 4 KB */
+    memset(c, 0, 65536);
+    for (int b = 0; b < 16; b++) c[b * 4096] = (uint8_t)(0x80 + b);
+    image[5] = 8;
+    load(n + 65536);
+    nes_frame(0, 0, 0);
+    const uint8_t *r = nes_ram();
+    CHECK(nes_peek(0x8000) == 5, "MMC2 bank 5 at $8000: %d", nes_peek(0x8000));
+    CHECK(nes_peek(0xA000) == 13 && nes_peek(0xE000) == 15, "MMC2 fixed banks %d %d", nes_peek(0xA000), nes_peek(0xE000));
+    CHECK(r[0x40] == 0x83, "MMC2 start latch FE: %02X", r[0x40]);
+    CHECK(r[0x41] == 0x82, "MMC2 latch 0 to FD: %02X", r[0x41]);
+    CHECK(r[0x42] == 0x86, "MMC2 slot 1 FE: %02X", r[0x42]);
+    CHECK(r[0x43] == 0x84, "MMC2 latch 1 to FD: %02X", r[0x43]);
+    CHECK(r[0x44] == 0x83, "MMC2 latch 0 back to FE: %02X", r[0x44]);
+}
+
+static void test_fme7(void)
+{
+    cpos = 0;
+    A(0x78, 0xA2, 0xFF, 0x9A);
+    store(0x8000, 9); store(0xA000, 6);                  /* $8000 = 8 KB bank 6 */
+    store(0x8000, 8); store(0xA000, 3);                  /* $6000 = ROM bank 3 */
+    A(0xAD, 0x00, 0x60, 0x85, 0x31);                     /* LDA $6000; STA $31 */
+    store(0x8000, 8); store(0xA000, 0xC0);               /* $6000 = RAM, on */
+    store(0x6000, 0x55);
+    A(0xAD, 0x00, 0x60, 0x85, 0x32);
+    store(0x8000, 14); store(0xA000, 0xE8);              /* the counter: 1000 cycles */
+    store(0x8000, 15); store(0xA000, 0x03);
+    store(0x8000, 13); store(0xA000, 0x81);              /* the IRQ and the counter on */
+    A(0x58);
+    const int self = cpos; A(0x4C, (0xE100 + self) & 0xFF, (0xE100 + self) >> 8);
+    const int irq = cpos;
+    A(0xE6, 0x30);                                       /* INC $30 */
+    store(0x8000, 13); store(0xA000, 0x00);              /* off and acknowledged */
+    A(0x40);
+    load(make_rom(69, 8, 1, 0x2100, 0x3F00 & 0x3FFF, 0x2100 + irq, 0));
+    nes_frame(0, 0, 0);
+    CHECK(nes_peek(0x8000) == 6, "FME-7 bank 6 at $8000: %d", nes_peek(0x8000));
+    CHECK(nes_peek(0xE000) == 15, "FME-7 last bank at $E000: %d", nes_peek(0xE000));
+    CHECK(nes_ram()[0x31] == 3, "FME-7 ROM bank 3 at $6000: %d", nes_ram()[0x31]);
+    CHECK(nes_ram()[0x32] == 0x55, "FME-7 RAM at $6000: %02X", nes_ram()[0x32]);
+    CHECK(nes_ram()[0x30] == 1, "FME-7 IRQ ran %d times (1 expected)", nes_ram()[0x30]);
+}
+
 static void test_bad_files(void)
 {
     const char *why = "";
@@ -233,6 +298,8 @@ int main(int argc, char **argv)
     test_apu();
     test_mmc1();
     test_mmc3_irq();
+    test_mmc2();
+    test_fme7();
     if (argc >= 3) test_nestest(argv[1], argv[2]);
     printf("%d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;

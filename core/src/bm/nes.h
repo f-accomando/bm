@@ -1,7 +1,7 @@
 /*
  * nes.h: the Famicom / NES core of bm NES (2026-11-11). Original code. It runs an iNES (.nes) ROM:
  * the 2A03 (a 6502 with no decimal mode, all the official opcodes and the usual unofficial ones),
- * the 2C02 picture unit drawn a line at a time, the five sound channels, and the mappers 0, 1, 2, 3, 4, 7, 11, 34, 66, 71 and 79.
+ * the 2C02 picture unit drawn a line at a time, the five sound channels, and the mappers 0, 1, 2, 3, 4, 7, 9, 11, 34, 66, 69, 71 and 79.
  * It has no dependence on the kernel, so the host tests build it alone. The Lua cartridge bm/nes is the user
  * interface; it calls the functions of api_nes.c, which call this.
  *
