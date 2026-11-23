@@ -62,12 +62,146 @@ static void draw_icon(uint8_t *line, uint32_t w, uint32_t h, const uint8_t *bits
     }
 }
 
+/* The big icons of the bm shell's bar (CONSOLE_ICON_BIG): 16x16, '#' is the colour of the text. */
+static const char big_art[CICON_COUNT][16][17] = {
+    { /* PC */
+      "................",
+      ".##############.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".#............#.",
+      ".##############.",
+      "......####......",
+      "......####......",
+      "...##########...",
+      "...##########...",
+      "................",
+    },
+    { /* TERM */
+      "................",
+      "################",
+      "################",
+      "#..............#",
+      "#.#............#",
+      "#.#............#",
+      "#.###.####..#..#",
+      "#.#.#.#.#.#....#",
+      "#.###.#.#.#.#..#",
+      "#..............#",
+      "#..............#",
+      "#..............#",
+      "#..............#",
+      "#..............#",
+      "################",
+      "................",
+    },
+    { /* CODE */
+      "................",
+      "................",
+      ".........#......",
+      ".........#......",
+      "....##...###....",
+      "...##...#..##...",
+      "..##....#...##..",
+      ".##.....#....##.",
+      ".##....#.....##.",
+      "..##...#....##..",
+      "...##..#...##...",
+      "....###...##....",
+      "......#.........",
+      "......#.........",
+      "................",
+      "................",
+    },
+    { /* GEAR */
+      ".......##.......",
+      ".......##.......",
+      "...#...##...#...",
+      "..############..",
+      "...##########...",
+      "...##########...",
+      "...###....###...",
+      "######....######",
+      "######....######",
+      "...###....###...",
+      "...##########...",
+      "...##########...",
+      "..############..",
+      "...#...##...#...",
+      ".......##.......",
+      ".......##.......",
+    },
+    { /* NET */
+      "................",
+      ".....######.....",
+      "...##..##..##...",
+      "..#...#..#...#..",
+      ".#...#....#...#.",
+      ".#...#....#...#.",
+      "#...#......#...#",
+      "################",
+      "#...#......#...#",
+      ".#...#....#...#.",
+      ".#...#....#...#.",
+      "..#...#..#...#..",
+      "...##..##..##...",
+      ".....######.....",
+      "................",
+      "................",
+    },
+    { /* HELP */
+      "................",
+      "................",
+      ".....######.....",
+      "....########....",
+      "...###....###...",
+      "...##......##...",
+      "...........##...",
+      "..........###...",
+      ".........###....",
+      "........###.....",
+      ".......###......",
+      ".......##.......",
+      "................",
+      ".......##.......",
+      ".......##.......",
+      "................",
+    },
+};
+
+/* One half of a big icon in a cell: the 16x16 art scaled to a square of the two cells' smaller side, centred. */
+static void draw_big(uint8_t *line, uint32_t w, uint32_t h, int icon, int half, uint32_t fg, uint32_t bg)
+{
+    const uint32_t s = 2 * w < h ? 2 * w : h;
+    const uint32_t x0 = (2 * w - s) / 2, y0 = (h - s) / 2;
+    for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
+        uint32_t *p = (uint32_t *)line;
+        const int in_y = y >= y0 && y < y0 + s;
+        const char *row = in_y ? big_art[icon][(y - y0) * 16 / s] : NULL;
+        for (uint32_t x = 0; x < w; x++) {
+            const uint32_t gx = (uint32_t)half * w + x;
+            p[x] = row && gx >= x0 && gx < x0 + s && row[(gx - x0) * 16 / s] == '#' ? fg : bg;
+        }
+    }
+}
+
 static void draw_cell(uint32_t col, uint32_t row, int cursor)
 {
     if (con.suspended)
         return;
 
     const cell_t *c = &con.cells[row][col];
+    if (c->ch >= CONSOLE_ICON_BIG0 && c->ch < CONSOLE_ICON_BIG0 + 2 * CICON_COUNT) {
+        draw_big(con.fb->base + row * con.font->height * con.fb->pitch + col * con.font->width * 4,
+                 con.font->width, con.font->height, (c->ch - CONSOLE_ICON_BIG0) / 2, (c->ch - CONSOLE_ICON_BIG0) & 1,
+                 con.pal[ATTR_FG(c->attr)], con.pal[ATTR_BG(c->attr)]);
+        return;
+    }
     if (c->ch == (uint8_t)CONSOLE_ICON_FOLDER || c->ch == (uint8_t)CONSOLE_ICON_FILE) {
         draw_icon(con.fb->base + row * con.font->height * con.fb->pitch + col * con.font->width * 4,
                   con.font->width, con.font->height,
@@ -265,7 +399,8 @@ static void put_raw(char ch)
         } while (con.cx % TAB_WIDTH);
         break;
     default:
-        if (c < 0x20 && c != (uint8_t)CONSOLE_ICON_FOLDER && c != (uint8_t)CONSOLE_ICON_FILE)
+        if (c < 0x20 && c != (uint8_t)CONSOLE_ICON_FOLDER && c != (uint8_t)CONSOLE_ICON_FILE &&
+            !(c >= CONSOLE_ICON_BIG0 && c < CONSOLE_ICON_BIG0 + 2 * CICON_COUNT))
             break;
         if (con.cx >= con.cols)
             newline();

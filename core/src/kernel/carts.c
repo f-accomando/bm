@@ -469,6 +469,19 @@ int carts_play_path(framebuffer_t *fb, const char *path)
     return 0;
 }
 
+int carts_play_rom(framebuffer_t *fb, const char *path, int snes)
+{
+    const char *emu = snes ? "snes.bm" : "nes.bm";
+    for (int k = 0; k < library.n; k++)
+        if (lib_same_text(library.g[k].name, emu)) {
+            lib_suspend_close();                /* a ROM starts a fresh emulator, as in the menu's tabs */
+            bm_set_arg(path, NULL);
+            play(fb, &library.g[k]);
+            return 0;
+        }
+    return -1;
+}
+
 /* ---------------------------------------------------------------- menu */
 
 static void out(const char *s)

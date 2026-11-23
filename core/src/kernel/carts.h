@@ -28,6 +28,10 @@ int carts_play_title(framebuffer_t *fb, const char *name);
  * plays it, any other .bm read from its folder. 0, or -1 if the file cannot be read. */
 int carts_play_path(framebuffer_t *fb, const char *path);
 
+/* Starts the emulator cartridge (nes.bm, or snes.bm if snes) on the ROM at this path (its cart_arg()),
+ * as the NES and SNES tabs of the menu do. 0, or -1 if the emulator is not on the card. */
+int carts_play_rom(framebuffer_t *fb, const char *path, int snes);
+
 /* Prints the list on the console. */
 void carts_list(void);
 

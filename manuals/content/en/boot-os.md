@@ -202,35 +202,34 @@ The monitor is bm's text console. It opens the bm shell: a menu of items and a c
 - Or choose Settings > System > *Open the monitor*.
 - Or connect from the PC: `python3 core/tools/bm_net.py IP` shows the monitor of a console on the network.
 
-## The bm shell menu
+## The bm shell
 
-The menu is at the left of the screen. A group (System, Network) has a submenu: it opens to the right of the menu, from the same top row, and its name is on its top border.
+The bm shell is a frame that fills the screen. Inside the frame is the list of the SD card: first the folder (`SD:/` at start), then its folders and files as a tree. A folder has a yellow folder icon, a file has a floppy icon. The folders come first.
 
-| Key | What it does |
+The items are icons in the middle of the bottom border of the frame: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Shell Code*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. Under the border, one line tells what the selection does. *Command line* is selected at start.
+
+| Key in the bar | What it does |
 |---|---|
-| `w` / `s` or `Up` / `Down` | move in the menu |
-| `Enter`, `d` or `Right` | run the item, or open the group |
-| `a`, `Left` or `Esc` | close the submenu |
-| `Esc` in the main menu | the cartridge menu |
+| `a` / `d` or `Left` / `Right` | move along the icons |
+| `Enter` | run the item, or open the group (its box opens above its icon) |
+| `w` or `Up` | go to the last row of the file list |
+| `Esc` | the cartridge menu |
 | `:` | one line of commands (see below) |
 
-The items are: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. On the serial port and on the network console the menu is not drawn: `Enter` runs *Command line*, the `bm:` prompt (the selected item at start), and `:` takes a line. The menu has no key hint line and no `>` marker on the screen. *System > Info* opens a box with the main facts: device, CPU, GPU, RAM, kernel, storage, clocks, WiFi and Bluetooth. The typed line `sys info` still prints the full list.
+In the box of a group: `w`, `s` or `Up`, `Down` move; `Enter` runs; `a` or `Esc` close the box.
 
-### The files of the SD card
-
-Under the menu is the list of the SD card: first the folder (`SD:/` at start), then one row for each folder and file. A folder has a yellow folder icon, a file has a floppy icon. The folders come first.
-
-| Key | What it does |
+| Key in the file list | What it does |
 |---|---|
-| `Down` on the last item (*Help*) | go into the list |
-| `Up` on the first row | go back to the menu |
+| `w` / `s` or `Up` / `Down` | move in the list (`Down` on the last row goes back to the bar) |
 | `Enter` on a folder | open the folder (`..` is the folder above) |
 | `a` or `Left` | the folder above |
 | `Enter` on a `.bm` or `.b16` | play the cartridge |
+| `Enter` on a `.nes` | start bm NES on the ROM |
+| `Enter` on a `.sfc` or `.smc` | start bm SNES on the ROM |
 | `Enter` on a text file | open the file in Shell Code |
-| `Esc` | go back to the menu |
+| `Esc` | go back to the bar |
 
-A file that is not a cartridge and not text gets one line on the screen.
+A file that is not a cartridge, a ROM or text gets one line on the screen. On the serial port and on the network console the screen is not drawn: `Enter` runs *Command line*, the `bm:` prompt, and `:` takes a line. *System > Info* opens a box with the main facts: device, CPU, GPU, RAM, kernel, storage, clocks, WiFi and Bluetooth. The typed line `sys info` still prints the full list.
 
 ## Commands
 
@@ -276,7 +275,7 @@ It works with a USB keyboard, on the serial port and on the network console. Quo
 
 ## A line of commands
 
-At the bm shell menu, type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails. The line runs once, as it always did. The PC tools use it (`bm_net.py IP --line "..."`).
+In the bm shell, type `:` and then commands separated by `;`. They run one after the other, and the line stops at the first one that fails. The line runs once, as it always did. The PC tools use it (`bm_net.py IP --line "..."`).
 
 | Command | What it does |
 |---|---|

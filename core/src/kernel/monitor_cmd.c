@@ -927,59 +927,81 @@ const smenu_item_t *smenu_current(const smenu_t *m)
     return m->in_sub && it->sub ? &it->sub[m->subsel] : it;
 }
 
-static int smenu_step(smenu_t *m, int d)
+enum { D_UP, D_DOWN, D_LEFT, D_RIGHT, D_ENTER, D_ESC };
+
+static int smenu_files_key(smenu_t *m, int d)
 {
-    const smenu_item_t *it = m->n > 0 ? &m->items[m->sel] : NULL;
-    if (m->in_files) {                  /* the file list: no wrap; Up on its first row goes back to the menu */
-        if (d < 0 && m->filesel == 0) {
-            m->in_files = 0;
-            return SMENU_MOVE;
-        }
-        if (d > 0 && m->filesel >= m->nfiles - 1)
+    switch (d) {
+    case D_UP:
+        if (m->filesel == 0)
             return SMENU_NONE;
-        m->filesel += d;
+        m->filesel--;
         return SMENU_MOVE;
-    }
-    if (!m->in_sub && d > 0 && m->nfiles > 0 && m->sel == m->n - 1) {   /* Down on the last item: the files */
-        m->in_files = 1;
-        m->filesel = 0;
+    case D_DOWN:
+        if (m->filesel >= m->nfiles - 1)
+            m->in_files = 0;            /* the last row: back to the bar */
+        else
+            m->filesel++;
         return SMENU_MOVE;
-    }
-    if (m->in_sub && it && it->sub) {
-        m->subsel = (m->subsel + d + it->nsub) % it->nsub;
+    case D_LEFT: return SMENU_PARENT;
+    case D_ENTER: return SMENU_FILE;
+    case D_ESC:
+        m->in_files = 0;
         return SMENU_MOVE;
+    default: return SMENU_NONE;
     }
-    if (m->n <= 0)
-        return SMENU_NONE;
-    m->sel = (m->sel + d + m->n) % m->n;
-    m->subsel = 0;
-    return SMENU_MOVE;
 }
 
-/* Enter or Right: a group opens, an item runs (Right on an item does nothing) */
-static int smenu_open(smenu_t *m, int enter)
+static int smenu_sub_key(smenu_t *m, int d)
 {
-    if (m->in_files)
-        return enter ? SMENU_FILE : SMENU_NONE;
+    const smenu_item_t *it = &m->items[m->sel];
+    switch (d) {
+    case D_UP: case D_DOWN:
+        m->subsel = (m->subsel + (d == D_UP ? -1 : 1) + it->nsub) % it->nsub;
+        return SMENU_MOVE;
+    case D_RIGHT: case D_ENTER: return SMENU_RUN;
+    case D_LEFT: case D_ESC:
+        m->in_sub = 0;
+        return SMENU_MOVE;
+    default: return SMENU_NONE;
+    }
+}
+
+static int smenu_bar_key(smenu_t *m, int d)
+{
+    if (d == D_ESC)
+        return SMENU_LEAVE;
     if (m->n <= 0)
         return SMENU_NONE;
-    const smenu_item_t *it = &m->items[m->sel];
-    if (it->sub && !m->in_sub) {
-        m->in_sub = 1;
+    switch (d) {
+    case D_LEFT: case D_RIGHT:
+        m->sel = (m->sel + (d == D_LEFT ? -1 : 1) + m->n) % m->n;
         m->subsel = 0;
         return SMENU_MOVE;
+    case D_UP:
+        if (m->nfiles <= 0)
+            return SMENU_NONE;
+        m->in_files = 1;
+        m->filesel = m->nfiles - 1;     /* the row next to the bar */
+        return SMENU_MOVE;
+    case D_ENTER:
+        if (m->items[m->sel].sub) {
+            m->in_sub = 1;
+            m->subsel = 0;
+            return SMENU_MOVE;
+        }
+        return SMENU_RUN;
+    default: return SMENU_NONE;
     }
-    return enter ? SMENU_RUN : SMENU_NONE;
 }
 
-static int smenu_close(smenu_t *m)
+static int smenu_dir(smenu_t *m, int d)
 {
     if (m->in_files)
-        return SMENU_PARENT;
-    if (!m->in_sub)
-        return SMENU_NONE;
-    m->in_sub = 0;
-    return SMENU_MOVE;
+        return smenu_files_key(m, d);
+    if (m->in_sub && m->n > 0 && m->items[m->sel].sub)
+        return smenu_sub_key(m, d);
+    return smenu_bar_key(m, d);
 }
 
 int smenu_feed(smenu_t *m, int key)
@@ -988,13 +1010,9 @@ int smenu_feed(smenu_t *m, int key)
     m->last_cr = 0;
     if (key == MEDIT_K_ESC) {
         m->esc = 0;
-        if (m->in_files) {              /* Esc in the file list: back to the menu */
-            m->in_files = 0;
-            return SMENU_MOVE;
-        }
-        return m->in_sub ? smenu_close(m) : SMENU_LEAVE;
+        return smenu_dir(m, D_ESC);
     }
-    if (m->esc == 1) {                  /* ESC [ or ESC O: a terminal's arrow key follows */
+    if (m->esc == 1) {                  /* ESC [ or ESC O: an arrow key of a terminal follows */
         if (key == '[' || key == 'O') {
             m->esc = 2;
             return SMENU_NONE;
@@ -1005,10 +1023,10 @@ int smenu_feed(smenu_t *m, int key)
     if (m->esc == 2) {
         m->esc = 0;
         switch (key) {
-        case 'A': return smenu_step(m, -1);
-        case 'B': return smenu_step(m, 1);
-        case 'C': return smenu_open(m, 0);
-        case 'D': return smenu_close(m);
+        case 'A': return smenu_dir(m, D_UP);
+        case 'B': return smenu_dir(m, D_DOWN);
+        case 'C': return smenu_dir(m, D_RIGHT);
+        case 'D': return smenu_dir(m, D_LEFT);
         default: return SMENU_NONE;
         }
     }
@@ -1017,18 +1035,18 @@ int smenu_feed(smenu_t *m, int key)
         m->esc = 1;
         return SMENU_NONE;
     case MEDIT_K_UP: case 'w': case 'k':
-        return smenu_step(m, -1);
+        return smenu_dir(m, D_UP);
     case MEDIT_K_DOWN: case 's': case 'j':
-        return smenu_step(m, 1);
+        return smenu_dir(m, D_DOWN);
     case MEDIT_K_RIGHT: case 'd': case 'l':
-        return smenu_open(m, 0);
+        return smenu_dir(m, D_RIGHT);
     case MEDIT_K_LEFT: case 'a': case 'h':
-        return smenu_close(m);
+        return smenu_dir(m, D_LEFT);
     case '\r':
         m->last_cr = 1;
-        return smenu_open(m, 1);
+        return smenu_dir(m, D_ENTER);
     case '\n':
-        return was_cr ? SMENU_NONE : smenu_open(m, 1);
+        return was_cr ? SMENU_NONE : smenu_dir(m, D_ENTER);
     case ':':
         return SMENU_LINE;
     default:

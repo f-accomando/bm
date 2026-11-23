@@ -21,10 +21,15 @@ enum {
  *   ESC[2J (clear), ESC[H / ESC[r;cH (cursor position), ESC[K (clear to EOL)
  * Bytes >= 0x80 are drawn as code page 437 glyphs.
  * CONSOLE_ICON_FOLDER and CONSOLE_ICON_FILE are drawn as icons in the colour of the text, a square
- * that fits the cell (the bm shell's file list). The other bytes below 0x20 are not drawn.
+ * that fits the cell (the bm shell's file list). A big icon takes two cells: write CONSOLE_ICON_BIG(i)
+ * then CONSOLE_ICON_BIG(i) + 1 (16x16, a square that fits the two cells). The other bytes below 0x20
+ * are not drawn.
  */
 #define CONSOLE_ICON_FOLDER '\x01'
 #define CONSOLE_ICON_FILE   '\x02'
+enum { CICON_PC, CICON_TERM, CICON_CODE, CICON_GEAR, CICON_NET, CICON_HELP, CICON_COUNT };
+#define CONSOLE_ICON_BIG0   0x0E    /* after \b \t \n \r: 0x0E-0x19 */
+#define CONSOLE_ICON_BIG(i) ((char)(CONSOLE_ICON_BIG0 + 2 * (i)))
 
 void console_init(framebuffer_t *fb, const font_t *font);
 void console_set_font(const font_t *font);

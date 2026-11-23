@@ -1107,6 +1107,7 @@ static void fl_load(smenu_t *m, const char *keep)
             if (e.name[0] == '.')
                 continue;
             snprintf(fl[n].name, sizeof fl[n].name, "%s", e.name);
+            fl[n].size = e.size;
             fl[n++].is_dir = e.is_dir;
         }
     qsort(fl, (size_t)n, sizeof fl[0], fl_cmp);
@@ -1121,17 +1122,6 @@ static void fl_load(smenu_t *m, const char *keep)
         if (m->filesel < 0)
             m->filesel = 0;
     }
-}
-
-static int fl_ends(const char *s, const char *ext)
-{
-    const size_t a = strlen(s), b = strlen(ext);
-    if (a < b)
-        return 0;
-    for (size_t i = 0; i < b; i++)
-        if (fl_lower(s[a - b + i]) != fl_lower(ext[i]))
-            return 0;
-    return 1;
 }
 
 /* 1 if the first 512 bytes of the file have no zero byte (an empty file is text) */
@@ -1163,12 +1153,13 @@ static void fl_parent(smenu_t *m)
     fl_load(m, child);
 }
 
-/* Enter on a row: a folder opens in the list; a cartridge (.bm, .b16) plays; a text file opens in
- * Shell Code; any other file gets a line on the screen. */
+/* Enter on a row: a folder opens in the list; a cartridge (.bm, .b16) plays; a NES or SNES ROM starts
+ * its emulator cartridge; a text file opens in Shell Code; any other file gets a line on the screen. */
 static void fl_open(smenu_t *m)
 {
     const shell_file_t *f = &fl[m->filesel];
-    if (!strcmp(f->name, "..")) {
+    const int kind = shell_file_kind(f);
+    if (kind == SHELL_KIND_UP) {
         fl_parent(m);
         return;
     }
@@ -1184,10 +1175,18 @@ static void fl_open(smenu_t *m)
     }
     console_clear();
     from_key = 1;
-    if (fl_ends(path, ".bm") || fl_ends(path, ".b16")) {
+    if (kind == SHELL_KIND_CART) {
         kprintf("play %s\n", path);
         if (carts_play_path(console_framebuffer(), path) != 0) {
             kprintf("cannot read %s: %s\n-- press a key to go back --\n", path, fat_error());
+            input_getc_home();
+        }
+    } else if (kind == SHELL_KIND_NES || kind == SHELL_KIND_SNES) {
+        const int snes = kind == SHELL_KIND_SNES;
+        kprintf("rom %s\n", path);
+        if (carts_play_rom(console_framebuffer(), path, snes) != 0) {
+            kprintf("%s is not installed: get it from Market > Apps\n-- press a key to go back --\n",
+                    snes ? "bm SNES" : "bm NES");
             input_getc_home();
         }
     } else if (fl_is_text(path)) {

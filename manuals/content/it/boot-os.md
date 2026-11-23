@@ -202,35 +202,34 @@ Il monitor è la console di testo di bm. Apre la bm shell: un menu di voci e una
 - Oppure scegli Settings > System > *Open the monitor*.
 - Oppure collegati dal PC: `python3 core/tools/bm_net.py IP` mostra il monitor di una console in rete.
 
-## Il menu della bm shell
+## La bm shell
 
-Il menu è a sinistra dello schermo. Un gruppo (System, Network) ha un sottomenu: si apre a destra del menu, dalla stessa riga in alto, e il suo nome è sul bordo superiore.
+La bm shell è una cornice che riempie lo schermo. Dentro la cornice c'è l'elenco della scheda SD: prima la cartella (`SD:/` all'avvio), poi le sue cartelle e i suoi file ad albero. Una cartella ha un'icona gialla a forma di cartella, un file ha un'icona a forma di floppy. Le cartelle vengono prima.
 
-| Tasto | Cosa fa |
+Le voci sono icone al centro del bordo inferiore della cornice: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Shell Code*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sotto il bordo, una riga dice cosa fa la selezione. All'avvio è scelta *Command line*.
+
+| Tasto nella barra | Cosa fa |
 |---|---|
-| `w` / `s` oppure `Su` / `Giù` | muovono nel menu |
-| `Invio`, `d` o `Destra` | esegue la voce, o apre il gruppo |
-| `a`, `Sinistra` o `Esc` | chiudono il sottomenu |
-| `Esc` nel menu principale | il menu delle cartucce |
+| `a` / `d` oppure `Sinistra` / `Destra` | muovono tra le icone |
+| `Invio` | esegue la voce, o apre il gruppo (il suo riquadro si apre sopra la sua icona) |
+| `w` o `Su` | va all'ultima riga dell'elenco dei file |
+| `Esc` | il menu delle cartucce |
 | `:` | una riga di comandi (vedi sotto) |
 
-Le voci sono: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Lua*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sulla porta seriale e sulla console di rete il menu non è disegnato: `Invio` esegue *Command line*, il prompt `bm:` (la voce scelta all'avvio), e `:` prende una riga. Sullo schermo il menu non ha la riga dei tasti né il segno `>`. *System > Info* apre un riquadro con i dati principali: dispositivo, CPU, GPU, RAM, kernel, archivio, clock, WiFi e Bluetooth. La riga digitata `sys info` stampa ancora l'elenco completo.
+Nel riquadro di un gruppo: `w`, `s` oppure `Su`, `Giù` muovono; `Invio` esegue; `a` o `Esc` chiudono il riquadro.
 
-### I file della scheda SD
-
-Sotto il menu c'è l'elenco della scheda SD: prima la cartella (`SD:/` all'avvio), poi una riga per ogni cartella e file. Una cartella ha un'icona gialla a forma di cartella, un file ha un'icona a forma di floppy. Le cartelle vengono prima.
-
-| Tasto | Cosa fa |
+| Tasto nell'elenco dei file | Cosa fa |
 |---|---|
-| `Giù` sull'ultima voce (*Help*) | entra nell'elenco |
-| `Su` sulla prima riga | torna al menu |
+| `w` / `s` oppure `Su` / `Giù` | muovono nell'elenco (`Giù` sull'ultima riga torna alla barra) |
 | `Invio` su una cartella | apre la cartella (`..` è la cartella sopra) |
 | `a` o `Sinistra` | la cartella sopra |
 | `Invio` su un `.bm` o `.b16` | avvia la cartuccia |
+| `Invio` su un `.nes` | avvia bm NES sulla ROM |
+| `Invio` su un `.sfc` o `.smc` | avvia bm SNES sulla ROM |
 | `Invio` su un file di testo | apre il file in Shell Code |
-| `Esc` | torna al menu |
+| `Esc` | torna alla barra |
 
-Un file che non è una cartuccia e non è testo dà una riga sullo schermo.
+Un file che non è una cartuccia, una ROM o testo dà una riga sullo schermo. Sulla porta seriale e sulla console di rete lo schermo non è disegnato: `Invio` esegue *Command line*, il prompt `bm:`, e `:` prende una riga. *System > Info* apre un riquadro con i dati principali: dispositivo, CPU, GPU, RAM, kernel, archivio, clock, WiFi e Bluetooth. La riga digitata `sys info` stampa ancora l'elenco completo.
 
 ## Comandi
 

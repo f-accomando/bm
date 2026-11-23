@@ -135,14 +135,17 @@ const char *medit_history(const medit_t *e, int i);
 
 /* ---- the menu of the bm shell (no hardware: shell_menu.c draws it) ---- */
 
-/* An item is a command line to run, the bm: prompt (no line, no sub) or a group (sub: its items, drawn
- * to the right of the main menu). */
+/* An item is a command line to run, the bm: prompt (no line, no sub) or a group (sub: its items, in a
+ * box that opens above the icon of the item). The items are icons in the bottom bar of the frame of
+ * the shell; the file list of the SD card is above the bar. */
 typedef struct smenu_item {
-    const char *label;              /* the text of the item */
+    const char *label;              /* the name of the item */
     const char *line;               /* the commands it runs, as a ':' line; NULL: the bm: prompt */
     int wait;                       /* 1: keep what it printed on the screen until a key is pressed */
     const struct smenu_item *sub;   /* a group: the items of its submenu, or NULL */
     int nsub;
+    int icon;                       /* its icon in the bar (CICON_*, gfx/console.h) */
+    const char *help;               /* the line under the bar when it is selected */
 } smenu_item_t;
 
 /* what smenu_feed says */
@@ -150,33 +153,35 @@ typedef struct smenu_item {
 #define SMENU_MOVE  1               /* the selection or the open submenu changed: draw the menu again */
 #define SMENU_RUN   2               /* Enter on an item that runs: smenu_current() */
 #define SMENU_LINE  3               /* ':' : one line of commands, as the PC tools send it */
-#define SMENU_LEAVE 4               /* Esc in the main menu: the cartridge menu */
+#define SMENU_LEAVE 4               /* Esc in the bar: the cartridge menu */
 #define SMENU_FILE  5               /* Enter on a row of the file list: filesel */
 #define SMENU_PARENT 6              /* a, h or Left in the file list: the folder above */
 
 typedef struct {
     const smenu_item_t *items;
-    int n, sel;                     /* the main menu */
+    int n, sel;                     /* the bar */
     int in_sub, subsel;             /* 1: the submenu of items[sel] has the keys; its selection */
     int esc;                        /* 0, 1 after ESC, 2 in ESC [ or ESC O */
     int last_cr;                    /* the previous key was \r: a \n after it is no Enter */
-    int nfiles;                     /* the rows of the file list under the menu (0: none) */
+    int nfiles;                     /* the rows of the file list above the bar (0: none) */
     int in_files, filesel;          /* 1: the file list has the keys; its selection */
 } smenu_t;
 
 void smenu_init(smenu_t *m, const smenu_item_t *items, int n);
-/* The item Enter runs now: in the submenu if it is open, else in the main menu. */
+/* The item Enter runs now: in the submenu if it is open, else in the bar. */
 const smenu_item_t *smenu_current(const smenu_t *m);
-/* One key: w, k, Up and the terminal's ESC [ A go up; s, j, Down and ESC [ B go down (the list
- * wraps); Enter, d, l and Right open a group or run an item; a, h and Left close the submenu; ':'
- * asks for a line; MEDIT_K_ESC (an Esc that nothing followed) closes the submenu, or in the main
- * menu leaves. */
+/* One key. Up is w, k, Up and the ESC [ A of a terminal; Down is s, j, Down, ESC [ B; Left is a, h,
+ * Left, ESC [ D; Right is d, l, Right, ESC [ C; Enter is \r or \n; MEDIT_K_ESC is an Esc that nothing
+ * followed; ':' asks for a line everywhere.
+ * In the bar: Left and Right move (the bar wraps); Enter opens a group or runs an item; Up goes to the
+ * last row of the file list; Esc leaves (SMENU_LEAVE).
+ * In a submenu: Up and Down move (it wraps); Enter and Right run; Left and Esc close it.
+ * In the file list: Up and Down move; Up stops at the first row; Down on the last row goes back to the
+ * bar; Enter gives SMENU_FILE; Left gives SMENU_PARENT; Esc goes back to the bar. */
 int smenu_feed(smenu_t *m, int key);
 /* 1 after an ESC byte: more may follow (the caller waits a few ms, then feeds MEDIT_K_ESC). */
 int smenu_in_escape(const smenu_t *m);
-/* The number of rows of the file list (a new folder: the selection goes to its first row). Down on the
- * last item of the main menu goes to the first row; Up on the first row goes back to the menu; Down
- * stops at the last row; Enter gives SMENU_FILE; a, h, Left give SMENU_PARENT; Esc goes back to the menu. */
+/* The number of rows of the file list (a new folder: the selection goes to its first row). */
 void smenu_set_files(smenu_t *m, int n);
 
 #endif

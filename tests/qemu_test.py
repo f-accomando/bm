@@ -375,7 +375,7 @@ def test_screen_pattern(b, opts):
         q.send(" ")                         # back to the console, text restored
         q.expect("> ")
         text = "\n".join(screen_text(q.screendump()))
-        assert "bm shell" in text and "test pattern shown" in text, text
+        assert "Command line: the bm: prompt" in text and "test pattern shown" in text, text   # the help line of the shell
     finally:
         q.close()
 
@@ -4322,50 +4322,80 @@ def test_monitor_files(b, opts):
 
 
 def test_monitor_file_list(b, opts):
-    """The file list under the bm shell menu (2026-11-23): the root of the card, folders first; Down
-    from the last item goes into the list; Enter on a folder opens it (".." first); a goes to the
-    folder above; Enter on a text file opens Shell Code on it."""
+    """The screen of the bm shell (2026-11-23): a frame with the files of the card as a tree (folders
+    first), the items as icons in its bottom border and a help line under it. Up from the bar goes to
+    the last row of the list; Enter on a folder opens it (".." first); a goes to the folder above;
+    Enter on a text file opens Shell Code on it; Enter on a .nes asks for its emulator (bm NES)."""
     tmp = tempfile.mkdtemp(prefix="bm-flist-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
     note = os.path.join(tmp, "note.txt")
+    rom = os.path.join(tmp, "demo.nes")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
     with open(note, "w") as f:
         f.write("first line\n")
-    mksd.build(img, [(cfg, "bm/config.txt"), (note, "bm/note.txt"), (cfg, "config.txt")])
+    with open(rom, "wb") as f:
+        f.write(b"NES\x1a" + bytes(16 * 1024 + 12))
+    mksd.build(img, [(cfg, "bm/config.txt"), (note, "bm/note.txt"), (cfg, "config.txt"), (rom, "nes/demo.nes")])
     q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
 
     def screen():
         time.sleep(0.5)
-        return [l.strip() for l in screen_text(q.screendump())]
+        return screen_text(q.screendump())
 
-    def key(k):
-        q.send(k)
-        q.expect("> ", timeout=10)
+    def listing(rows):
+        """the folder of the header row and the names of the entries under it"""
+        head = next(i for i, r in enumerate(rows) if "SD:/" in r)
+        folder = re.search(r"SD:(\S+)", rows[head]).group(1)
+        names = []
+        for r in rows[head + 1:]:
+            m = re.search(r"\? (\S+)", r)
+            if not m:
+                break
+            names.append(m.group(1))
+        return folder, names
+
+    def key(k, n=1):
+        for _ in range(n):
+            q.send(k)
+            q.expect("> ", timeout=10)
 
     try:
         q.expect(MENU, timeout=30)
         q.send("q")
         q.expect("> ", timeout=10)
         rows = screen()
-        assert "SD:/" in rows, rows
-        i = rows.index("SD:/")
-        assert rows[i + 1].endswith(" bm") and rows[i + 2].endswith(" config.txt"), rows
-        for _ in range(5):                          # Command line (the start) down to Help, then the list
-            key("s")
-        key("\r")                                   # the first row: the folder bm
+        assert any("Command line: the bm: prompt" in r for r in rows), rows
+        assert any("bm shell" in r for r in rows), rows
+        folder, names = listing(rows)
+        assert folder == "/" and names[:2] == ["bm", "nes"] and "config.txt" in names, rows
+        key("w", len(names) - names.index("bm"))   # Up from the bar: the last row, then up to bm
         rows = screen()
-        assert "SD:/bm" in rows, rows
-        i = rows.index("SD:/bm")
-        assert rows[i + 1].endswith(" .."), rows
-        at = next(j for j in range(i + 1, len(rows)) if rows[j].endswith(" note.txt")) - (i + 1)
-        key("a")                                    # the folder above, its row selected
+        assert any("bm: a folder (Enter opens it)" in r for r in rows), rows
+        key("\r")
         rows = screen()
-        assert "SD:/" in rows, rows
-        key("\r")                                   # bm again
-        for _ in range(at):                         # (the kernel's boot logs are in bm too)
-            key("s")
+        folder, names = listing(rows)
+        assert folder == "/bm" and names[0] == ".." and "note.txt" in names, rows
+        assert any("..: the folder above" in r for r in rows), rows
+        key("a")                                    # the folder above, bm selected
+        folder, names = listing(screen())
+        assert folder == "/", names
+        key("s")                                    # nes
+        key("\r")
+        folder, names = listing(screen())
+        assert folder == "/nes" and names == ["..", "demo.nes"], names
+        key("s")
+        q.send("\r")                                # no nes.bm on this card: it says so
+        q.expect("rom /nes/demo.nes", timeout=10)
+        q.expect("bm NES is not installed", timeout=10)
+        q.send(" ")
+        q.expect("> ", timeout=10)
+        key("a")                                    # back to the root, nes selected
+        key("w")                                    # bm
+        key("\r")
+        _, names = listing(screen())
+        key("s", names.index("note.txt"))
         q.send("\r")                                # note.txt: Shell Code opens on it
         q.expect("code /bm/note.txt", timeout=10)
     finally:
