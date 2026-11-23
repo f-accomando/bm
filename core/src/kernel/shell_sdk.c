@@ -1,9 +1,9 @@
 /*
  * Shell SDK: the IDE of the bm shell. Row 0 shows the tab bar (as Shell Code does), the rest of the
  * screen shows the active tab. F1 to F5 select a tab; Esc opens the menu (New, Open, Save, Save as, Exit);
- * Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+Q do the same at once. A project is a .bme in /bme (shell_sdk_file.c).
+ * Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+Q do the same at once; Open ROM puts a ROM in the Code tab (shell_sdk_code.c). A project is a .bme in /bme (shell_sdk_file.c).
  * The Project tab is done: tiles for the three platforms, the menu of the cartridge, the PCB, the
- * memory facts. The other tabs have no content yet.
+ * memory facts. The Code tab is an editor, with the ROM beside it. The other tabs have no content yet.
  */
 #include "shell_sdk.h"
 
@@ -13,6 +13,8 @@
 #include "gfx/console.h"
 #include "input.h"
 #include "usb/hid.h"
+#include "romtabs.h"
+#include "shell_sdk_code.h"
 #include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
 #include "shell_sdk_proj.h"
@@ -125,15 +127,25 @@ static void say(const char *fmt, const char *a)
 static void draw(int tab)
 {
     char left[96];
-    size_t pos = 0;
-    for (int i = 0; i < SDK_TAB_COUNT; i++)
-        pos += (size_t)snprintf(left + pos, sizeof left - pos, i == tab ? "[%s] " : "%s ", tab_names[i]);
+    size_t pos = 0, mark = 0, mark_len = 0;
+    for (int i = 0; i < SDK_TAB_COUNT; i++) {
+        if (i == tab) {
+            mark = pos + 1;                 /* the status text starts in column 1 */
+            mark_len = strlen(tab_names[i]) + 2;
+        }
+        pos += (size_t)snprintf(left + pos, sizeof left - pos, " %s  ", tab_names[i]);
+    }
     console_set_status(left, NULL);         /* the right half belongs to the input module: it rewrites it */
+    console_status_mark((uint32_t)mark, (uint32_t)mark_len);    /* the open tab in the swapped colours */
 
     uint32_t cols, rows;
     console_size(&cols, &rows);
     console_write("\x1b[0m\x1b[2J");
 
+    if (tab == SDK_TAB_CODE) {
+        sdk_code_draw((int)cols, (int)rows, msg);
+        return;
+    }
     /* the project name at the top right, a message on the free row under the tiles */
     char head[64];
     snprintf(head, sizeof head, "Project: %s%s", pname[0] ? pname : "(new)", dirty ? "*" : "");
@@ -364,22 +376,55 @@ static void do_open(void)
     say("opened %s", names[pick]);
 }
 
+/* Open ROM: a list of the ROMs of /nes and /snes. The Code tab opens with the ROM on its right side. */
+static void do_open_rom(void)
+{
+    static char label[2 * ROMTABS_MAX][64];
+    static const char *list[2 * ROMTABS_MAX];
+    static const rom_entry_t *entry[2 * ROMTABS_MAX];
+    romtabs_scan();
+    int n = 0;
+    for (int plat = 0; plat < ROM_PLATFORMS; plat++)
+        for (int i = 0; i < romtabs_count(plat) && n < 2 * ROMTABS_MAX; i++) {
+            const rom_entry_t *e = romtabs_get(plat, i);
+            snprintf(label[n], sizeof label[n], "%-5s %s", plat == ROM_NES ? "NES" : "SNES", e->title);
+            list[n] = label[n];
+            entry[n] = e;
+            n++;
+        }
+    if (n == 0) {
+        say("%s", "no ROMs: put .nes files in /nes and .sfc or .smc files in /snes");
+        return;
+    }
+    const int pick = popup("Open a ROM", list, n, 0, redraw_screen);
+    if (pick < 0)
+        return;
+    char err[64];
+    if (sdk_code_open_rom(entry[pick]->path, err, sizeof err) != 0) {
+        say("%s", err);
+        return;
+    }
+    cur_tab = SDK_TAB_CODE;
+    say("opened %s", sdk_code_rom_name());
+}
+
 /* Returns 1 to leave the SDK. */
 static int esc_menu(void)
 {
-    static const char *const items[] = { "Resume", "New", "Open", "Save", "Save as...", "Exit" };
-    const int pick = popup("Shell SDK", items, 6, 0, redraw_screen);
+    static const char *const items[] = { "Resume", "New", "Open", "Open ROM...", "Save", "Save as...", "Exit" };
+    const int pick = popup("Shell SDK", items, 7, 0, redraw_screen);
     switch (pick) {
     case 1: do_new(); break;
     case 2: do_open(); break;
-    case 3:
+    case 3: do_open_rom(); break;
+    case 4:
         if (pname[0])
             do_save(pname);
         else
             do_save_as();
         break;
-    case 4: do_save_as(); break;
-    case 5: return discard_ok();
+    case 5: do_save_as(); break;
+    case 6: return discard_ok();
     default: break;
     }
     return 0;
@@ -411,6 +456,7 @@ int shell_sdk_open(void)
     pname[0] = 0;
     dirty = 0;
     msg[0] = 0;
+    sdk_code_reset();
     hid_text_mode(1);
     console_clear();
     for (;;) {
@@ -437,7 +483,10 @@ int shell_sdk_open(void)
             do_new();
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
+        else if (cur_tab == SDK_TAB_CODE)
+            sdk_code_key(c, hid_usage_held(0xE0) || hid_usage_held(0xE4));
     }
+    sdk_code_reset();
     hid_text_mode(0);
     console_clear();
     return 0;

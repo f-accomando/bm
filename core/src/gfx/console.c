@@ -556,6 +556,7 @@ void console_set_status(const char *left, const char *right)
         uint32_t c;
         for (c = 0; c < con.cols / 2; c++) {
             con.cells[STATUS_ROW][c].ch = ' ';
+            con.cells[STATUS_ROW][c].attr = ATTR_STATUS;
             draw_cell(c, STATUS_ROW, 0);
         }
         status_put(1, left);
@@ -570,6 +571,16 @@ void console_set_status(const char *left, const char *right)
         }
         if (n + 1 < con.cols)
             status_put(con.cols - 1 - n, right);
+    }
+}
+
+void console_status_mark(uint32_t col, uint32_t len)
+{
+    if (!con.active)
+        return;
+    for (uint32_t c = col; c < col + len && c < con.cols; c++) {
+        con.cells[STATUS_ROW][c].attr = ATTR(COLOR_CYAN, COLOR_BLACK);      /* the colours of the bar, swapped */
+        draw_cell(c, STATUS_ROW, 0);
     }
 }
 

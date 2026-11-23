@@ -46,6 +46,9 @@ void console_cell_geometry(uint32_t *w, uint32_t *h, uint32_t *top_y);
 
 /* Status bar text, left and right aligned (either may be NULL to keep it). */
 void console_set_status(const char *left, const char *right);
+/* Shows len cells of the status bar from column col in the swapped colours (the tab that is open). The next
+ * console_set_status() with a left text clears the marks. */
+void console_status_mark(uint32_t col, uint32_t len);
 
 /* While suspended the console keeps its text but does not touch the
  * framebuffer; resuming redraws the whole screen. */

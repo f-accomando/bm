@@ -1775,8 +1775,13 @@ $(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c core/src/kernel/sh
 	$(HOSTCC) -O2 -Wall -Wextra -DSHELL_CODE_HOST_TEST -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_code.c core/src/kernel/shell_code.c core/src/bm/bmlc.c core/src/bm/bmnative.c $(LUA_SRCS) -lm
 
 # The Shell SDK Project tab model (core/src/kernel/shell_sdk_proj.c)
-test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj
+test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code
 	$(BUILD)/host/test_shell_sdk_proj
+	$(BUILD)/host/test_shell_sdk_code
+
+$(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

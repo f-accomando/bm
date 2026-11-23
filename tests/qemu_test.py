@@ -4446,7 +4446,7 @@ def test_shell_sdk_skeleton(b, opts):
         q.send("\r")
         time.sleep(0.5)
         rows = screen()
-        assert any("[Project] Code Sprite Map Sounds" in r for r in rows), rows
+        assert any("Project   Code   Sprite   Map   Sounds" in r for r in rows), rows
         assert any("Platform" in r and "NES cartridge (6502)" in r for r in rows), rows
         assert any("Board" in r and "NROM" in r for r in rows), rows
         q.send("d")                                 # Enter or d: the next platform
@@ -4463,14 +4463,21 @@ def test_shell_sdk_skeleton(b, opts):
             q.send(bytes([0xF9 + n]))
             time.sleep(0.5)
             rows = screen()
-            assert any(f"[{name}]" in r for r in rows), (name, rows)
-        # Esc opens the menu: Resume, New, Open, Save, Save as, Exit
+            if name == "Project":
+                assert any("Platform" in r for r in rows), rows
+            elif name == "Code":
+                assert any("Ln 1  Col 1" in r for r in rows), rows        # the editor
+            else:
+                assert any(f"{name}: not built yet" in r for r in rows), (name, rows)
+        q.send(bytes([0xF9]))                       # back to the Project tab
+        time.sleep(0.5)
+        # Esc opens the menu: Resume, New, Open, Open ROM, Save, Save as, Exit
         q.send("\x1b")
         time.sleep(0.5)
         rows = screen()
         assert any("Save as" in r for r in rows), rows
         assert any("Project: (new)*" in r for r in rows), rows        # the platform was changed: unsaved
-        q.send("ssss\r")                            # Save as
+        q.send("sssss\r")                           # Save as
         time.sleep(0.5)
         assert any("Project name" in r for r in screen())
         q.send("My Test\r")                         # 8.3: "mytest"
@@ -4493,6 +4500,88 @@ def test_shell_sdk_skeleton(b, opts):
         rows = screen()
         assert any("bm project, SD card" in r for r in rows), rows
         assert any("mytest" in r and "opened" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_code_split(b, opts):
+    """Shell SDK (2026-11-23): Esc > Open ROM lists /nes and /snes; the Code tab splits (editor left, ROM
+    right) and Ctrl+Tab moves the focus."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdkrom-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    nes = os.path.join(tmp, "test.nes")
+    sfc = os.path.join(tmp, "snesdemo.sfc")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    with open(nes, "wb") as f:                      # 16 KB PRG, 8 KB CHR, mapper 0
+        f.write(b"NES\x1a" + bytes([1, 1, 1, 0]) + bytes(8) + bytes(16384 + 8192))
+    rom = bytearray(0x8000)                         # a LoROM with a header at 0x7FC0
+    rom[0x7FC0:0x7FC0 + 21] = b"SNES DEMO".ljust(21)
+    rom[0x7FC0 + 0x15] = 0x20
+    rom[0x7FC0 + 0x17] = 8
+    rom[0x7FC0 + 0x1C:0x7FC0 + 0x20] = bytes([0x34, 0x12, 0xCB, 0xED])
+    with open(sfc, "wb") as f:
+        f.write(rom)
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt"), (nes, "nes/test.nes"), (sfc, "snes/snesdemo.sfc")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFA]))                       # F2: the Code tab, an editor only
+        rows = screen()
+        assert any("Ln 1  Col 1" in r for r in rows), rows
+        assert not any("ROM:" in r for r in rows), rows
+        q.send("lda #1\r")
+        rows = screen()
+        assert any("lda #1" in r for r in rows) and any("Ln 2  Col 1" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("sss\r")                             # Open ROM
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Open a ROM" in r for r in rows) and any("NES" in r and "test" in r for r in rows), rows
+        assert any("SNES" in r and "snesdemo" in r for r in rows), rows
+        q.send("\r")                                # the NES ROM
+        time.sleep(0.8)
+        rows = screen()
+        assert any("ROM: test.nes" in r for r in rows), rows
+        assert any("PRG 16 KB" in r and "CHR 8 KB" in r for r in rows), rows
+        assert any("Mapper 0 NROM" in r for r in rows), rows
+        assert any("000000 4E 45 53 1A" in r for r in rows), rows           # the hex dump: "NES" and 0x1A
+        assert any("lda #1" in r for r in rows), rows                       # the editor stays on the left
+        sendkeys(q, "ctrl-tab")                     # the focus goes to the ROM
+        q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
+        rows = screen()
+        assert not any("000000 4E 45 53 1A" in r for r in rows), rows
+        assert any("lda #1" in r for r in rows) and any("Offset 0000" in r for r in rows), rows
+        sendkeys(q, "ctrl-tab")                     # back to the editor
+        q.send("x")
+        rows = screen()
+        assert any("Ln 2  Col 2" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("sss\r")                             # Open ROM again: the SNES ROM
+        time.sleep(0.5)
+        q.send("s\r")
+        time.sleep(0.8)
+        rows = screen()
+        assert any("ROM: snesdemo.sfc" in r for r in rows), rows
+        assert any("SNES DEMO" in r for r in rows) and any("LoROM" in r for r in rows), rows
         q.send("\x1b")
         q.send("w\r")
         q.expect("> ", timeout=10)
