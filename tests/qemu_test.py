@@ -4236,6 +4236,22 @@ def _plain(data):
     return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", data.decode(errors="replace")).replace("\r", "")
 
 
+def test_sys_bm3d_list(b, opts):
+    """`sys bm3d` (System > bm3D in the bm shell) shows the list of the bm3D techniques of the
+    V3D driver in the pager: groups, versions, targets and keys (docs/reference/bm3d-techniques.txt)."""
+    q = Qemu(b("kernel.img"))
+    try:
+        q.boot()
+        q.send(":sys bm3d\r")
+        text = _plain(q.expect("-- lines ", timeout=5))
+        for word in ("== Rasterizer ==", "First ARM rasterizer", "Triangles on the V3D"):
+            assert word in text, (word, text[-400:])
+        q.send("q")
+        q.expect("> ", timeout=5)
+    finally:
+        q.close()
+
+
 def test_monitor_help_table(b, opts):
     """The help is made from the table of commands (core/src/kernel/monitor_cmd.c): one
     line for each command, none longer than the console (79 characters: the pager wraps at 80), the old

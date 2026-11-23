@@ -37,6 +37,7 @@
 #include "netfetch.h"
 #include "bm/bm.h"
 #include "pager.h"
+#include "bm3d_tech.h"
 #include "reports.h"
 #include "bmz_install.h"
 #include "bm/bmz.h"
@@ -234,6 +235,12 @@ CMD(c_info)
     shell_info_draw("System info", (const char (*)[14])label, (const char (*)[40])value, n);
     kprintf("\n-- press a key to go back --\n");
     input_getc_home();
+    return 0;
+}
+/* sys bm3d: the techniques of the V3D driver (docs/reference/bm3d-techniques.txt), in the pager */
+CMD(c_bm3d)
+{
+    pager_show(bm3d_tech_text);
     return 0;
 }
 CMD(c_heap) { sysinfo_print_heap(); return 0; }
@@ -749,6 +756,7 @@ static const mcmd_t carts_sub[] = {
 
 static const mcmd_t sys_sub[] = {
     { .name = "info", .help = "system information", .fn = c_info },
+    { .name = "bm3d", .help = "the techniques of the bm3D driver for the V3D (pager)", .fn = c_bm3d },
     { .name = "heap", .help = "heap usage", .fn = c_heap },
     { .name = "clear", .help = "clear the screen", .fn = c_clear },
     { .name = "dmesg", .help = "everything printed since boot (pager)", .fn = c_dmesg },

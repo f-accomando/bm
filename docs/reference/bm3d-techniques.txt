@@ -1,0 +1,73 @@
+# bm3D techniques of the V3D driver: reference list
+#
+# One line a technique: VERSION | TARGET | DATE | NAME | KEY | WHAT IT DOES
+#   VERSION  the bm3D version that added it (docs/DRIVERS.md has the full history).
+#   TARGET   ARM (r3d, the CPU), V3D (the Pi Zero W GPU), ARM+V3D (both).
+#   KEY      the config.txt key that turns it on or off, with its default. "-" : no key.
+# The lines "[Title]" start a group. Lines that start with "#" are notes.
+#
+# The shell screen System > bm3D shows this list. core/src/kernel/bm3d_tech.c is made from
+# it: after a change here, run  python core/scripts/bm3d_tech.py  and commit both files.
+# The Mali (RGB30) techniques are not here: see docs/DRIVERS.md (6.0-6.1, 7.8-7.36) and
+# docs/progress/graphics-mali.md.
+
+[Rasterizer]
+0.1 | ARM | 2026-09 | First ARM rasterizer | gpu3d=0 | r3d draws every triangle on the CPU (31 spheres at 60 fps)
+0.2 | ARM | 2026-10-01 | Fixed-point edges | gpu3d=0 | edge maths in fixed point, texture loops per case, z cleared by DMA (69 spheres)
+1.0 | V3D | 2026-10-01 | Triangles on the V3D | gpu3d=1 (on) | the GPU draws, the ARM places and lights; z kept from one job to the next
+2.0 | V3D | 2026-10-01 | Tiles and 4x MSAA | gpu3d_aa=0 (off) | pages cleared without a load, 4x multisample edges (182 spheres at 60 fps)
+4.2 | V3D | 2026-10-04 | Screens up to 1920x1080 | - | tile state sized for 1080p; cls() is a clear of the job's tiles
+4.4 | V3D | 2026-10-05 | Early z rules | - | no early z after a zclear() in the job nor with MSAA (as Mesa)
+4.9 | ARM | 2026-10-05 | Fast ARM 3D | r3d_fast=0 (off) | one object-to-camera matrix, light in model space
+7.0 | ARM+V3D | 2026-10-12 | Textures as flat colours | textures3d() | draw3d flag 128: each textured face in the mean of its texels
+
+[Vertex shader]
+3.0 | V3D | 2026-10-03 | Vertex shader for scenery | gpu3d_vs=2 (on) | the QPU places the vertices; near-plane and guard-band clipping on the GPU
+3.1 | V3D | 2026-10-03 | Sunlit models with bones | gpu3d_vs=2 (on) | heroes lit by the sun, each vertex by its bone's matrix
+3.2 | V3D | 2026-10-03 | Shadows and foreground | gpu3d_vs=2 (on) | shadow meshes and the first-person layer in the vertex shader
+3.3 | V3D | 2026-10-03 | Textured sunlit models | gpu3d_vs=2 (on) | Gouraud light on each vertex, with textures (vs_lit_tex)
+3.4 | V3D | 2026-10-03 | Skins | gpu3d_vs=2 (on) | faces on two bones, a group for each pair of bones
+4.3 | V3D | 2026-10-05 | VPM offsets in bytes | - | the GL record as the V3D reads it; the boot probe learns the form
+5.0 | V3D | 2026-10-05 | Indexed meshes | - | up to 65535 corners a mesh; a corner shared by faces is shaded once
+5.6 | V3D | 2026-10-05 | Vertex cache order | gpu3d_sort=0 (off) | triangles in the order that reuses the cache of shaded vertices
+6.5 | V3D | 2026-10-06 | Clipper always on | - | as Mesa; the probe logs the V3D error registers
+6.6 | V3D | 2026-10-06 | Vertex shader by default | gpu3d_vs=2 (on) | spheres 4x, heroes 11x, the mix scene 9x faster than without
+6.7 | V3D | 2026-10-06 | One copy a mesh and sheet | - | the same mesh with another texture no longer closes the job
+7.1 | V3D | 2026-10-12 | Compact attributes | gpu3d_attr=0 (off) | colour and light as packed bytes, unpacked by the QPU (5 words a corner, not 9)
+7.33 | V3D | 2026-10-31 | Plain colour skins | gpu3d_vs=2 (on) | vs_lit2: a continuous skin of plain faces stays on the GPU
+
+[Pixel shaders]
+2.1 | V3D | 2026-10-03 | Screen-door faces | - | half the pixels (x + y even): transparency without blending
+4.1 | V3D | 2026-10-03 | zclear() inside the job | - | fs_zclear: a quad writes the far depth and keeps the colour
+4.7 | V3D | 2026-10-05 | Textured screen-door | - | texel and screen-door in one shader
+5.3 | V3D | 2026-10-05 | Two-thread shaders | gpu3d_fs2=1 (on) | the QPU shades another pixel while the TMU reads the texel (+22% quad_tex)
+6.4 | V3D | 2026-10-06 | Scoreboard last | gpu3d_fs2=1 (on) | colour shaders lock the scoreboard just before the write
+7.7 | V3D | 2026-10-23 | Shadows that darken | - | fs_shadow reads the pixel and keeps 5/8 of it, as the ARM
+
+[Textures]
+2.0 | V3D | 2026-10-01 | T-format textures | - | the tiled layout the TMU reads
+4.6 | V3D | 2026-10-05 | 8 textures in a job | - | before, a third texture closed the job
+4.8 | V3D | 2026-10-05 | Bilinear filter | gpu3d_filter=0 (off) | filtered 3D textures; 2D stays at the nearest texel
+5.2 | V3D | 2026-10-05 | RGB565 textures | gpu3d_tex16=0 (off) | opaque sheets at 16 bits: half the memory and TMU reads
+7.2 | V3D | 2026-10-12 | RGBA5551 cut-outs | gpu3d_tex16=0 (off) | sheets with holes at 16 bits; the TMU's order probed at boot
+7.3 | V3D | 2026-10-12 | ETC1 textures | gpu3d_etc1=0 (off) | opaque sheets at 4 bits a texel, encoded on load (37 dB PSNR)
+7.37 | V3D | 2026-11-23 | Mipmaps | gpu3d_mip=1 (on) | far textures 2.9x faster (1 nearest level, 2 two levels mixed, 0 off)
+
+[Light and effects]
+2.1 | V3D | 2026-10-03 | Baked RGB light and fog | - | light and fog precomputed on the vertices (Overbit)
+5.5 | ARM+V3D | 2026-10-05 | Visibility | visible3d(), pvs3d{} | actors behind walls are not drawn
+7.4 | ARM | 2026-10-22 | Cel light | cel3d() | the sun in 2-8 bands by a 64-byte table; dither3d()
+7.5 | V3D | 2026-10-22 | Cel light on the V3D | cel3d() | _cel vertex programs; outline by the inverted hull (draw3d flag 512)
+
+[Jobs and queue]
+4.0 | V3D | 2026-10-03 | Queued frame | gpu3d_queue=1 (on) | the job starts and is not waited for; the next _update runs meanwhile
+4.1 | V3D | 2026-10-03 | One job a frame | gpu3d_queue=1 (on) | the HUD is recorded while the GPU draws
+4.5 | V3D | 2026-10-05 | Uncached job memory | gpu3d_wc=0 (off) | the ARM's writes merged by the write buffer
+5.1 | V3D | 2026-10-05 | Two jobs in flight | gpu3d_queue=2 | the next job is filled while the GPU draws the one before
+5.4 | V3D | 2026-10-05 | Draw order | gpu3d_sort=0 (off) | meshes nearest first: early z skips hidden pixels
+6.9 | V3D | 2026-10-11 | Frame shown a frame later | gpu3d_later=0 (off) | with queue 2: the next _draw runs while the GPU draws
+7.6 | V3D | 2026-10-23 | Merged draws | gpu3d_merge=1 (on) | 32 or more small static meshes become one draw (+24% for 100 pieces)
+
+[2D on the GPU]
+4.8 | V3D | 2026-10-05 | 2D over the 3D | gpu3d_2d=1 (on) | rectangles, sprites, map cells and text as quads in the job
+7.16 | V3D | 2026-10-27 | 2D of a game with no 3D | gpu2d_only=0 (off) | the V3D draws the 2D of a game that has no 3D

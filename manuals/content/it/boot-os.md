@@ -206,7 +206,7 @@ Il monitor è la console di testo di bm. Apre la bm shell: un menu di voci e una
 
 La bm shell è una cornice che riempie lo schermo. Dentro la cornice c'è l'elenco della scheda SD: prima la cartella (`SD:/` all'avvio), poi le sue cartelle e i suoi file ad albero. Una cartella ha un'icona gialla a forma di cartella, un file ha un'icona a forma di floppy. Le cartelle vengono prima.
 
-Le voci sono icone al centro del bordo inferiore della cornice: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Shell Code*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sotto il bordo, una riga dice cosa fa la selezione. All'avvio è scelta *Command line*.
+Le voci sono icone al centro del bordo inferiore della cornice: *bm menu gui* (il menu delle cartucce), *Command line* (il prompt `bm:`), *Shell Code*, *System* (Info, Log, bm3D, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) e *Help*. Sotto il bordo, una riga dice cosa fa la selezione. All'avvio è scelta *Command line*.
 
 | Tasto nella barra | Cosa fa |
 |---|---|
@@ -252,6 +252,7 @@ Ogni comando ha una parola. Al prompt `bm:`, e in una riga con `:`, scrivi la pa
 | `wifi`, `wifi list`, `wifi join NOME [PASSWORD]`, `wifi forget` | WiFi: avvia, elenca le reti, entra in una, dimenticala |
 | `update` | aggiorna da GitHub (chiede prima) |
 | `sys dmesg` | tutto ciò che è stato stampato dall'avvio |
+| `sys bm3d` | le tecniche del driver bm3D per la V3D, con versione e target (pager) |
 | `report log` | il log dall'avvio, come report |
 | `sys reboot` | riavvia |
 | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |

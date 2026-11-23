@@ -206,7 +206,7 @@ The monitor is bm's text console. It opens the bm shell: a menu of items and a c
 
 The bm shell is a frame that fills the screen. Inside the frame is the list of the SD card: first the folder (`SD:/` at start), then its folders and files as a tree. A folder has a yellow folder icon, a file has a floppy icon. The folders come first.
 
-The items are icons in the middle of the bottom border of the frame: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Shell Code*, *System* (Info, Log, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. Under the border, one line tells what the selection does. *Command line* is selected at start.
+The items are icons in the middle of the bottom border of the frame: *bm menu gui* (the cartridge menu), *Command line* (the `bm:` prompt), *Shell Code*, *System* (Info, Log, bm3D, 3D Bench, Reboot), *Network* (WiFi, Pair controller, Send reports) and *Help*. Under the border, one line tells what the selection does. *Command line* is selected at start.
 
 | Key in the bar | What it does |
 |---|---|
@@ -252,6 +252,7 @@ Each command has a word. At the `bm:` prompt, and in a `:` line, you type the wo
 | `wifi`, `wifi list`, `wifi join NAME [PASSWORD]`, `wifi forget` | WiFi: start, list networks, join one, forget it |
 | `update` | update from GitHub (asks first) |
 | `sys dmesg` | everything printed since boot |
+| `sys bm3d` | the techniques of the bm3D driver for the V3D, with version and target (pager) |
 | `report log` | the log since boot, as a report |
 | `sys reboot` | reboot |
 | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |

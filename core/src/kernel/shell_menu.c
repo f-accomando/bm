@@ -15,6 +15,7 @@
 static const smenu_item_t system_sub[] = {
     { "Info",     "sys info",   0, NULL, 0, 0, "Info: the main facts of the console" },
     { "Log",      "sys dmesg",  0, NULL, 0, 0, "Log: everything printed since boot" },
+    { "bm3D",     "sys bm3d",   0, NULL, 0, 0, "bm3D: the techniques of the V3D driver, with version and target" },
     { "3D Bench", "bench 3d",   0, NULL, 0, 0, "3D Bench: the 3D benchmark and its report" },
     { "Reboot",   "sys reboot", 0, NULL, 0, 0, "Reboot: start the console again" },
 };
@@ -31,7 +32,7 @@ static const smenu_item_t items[] = {
     { "bm menu gui",  "menu", 0, NULL, 0, CICON_PC, "bm menu gui: the cartridge menu" },
     { "Command line", NULL,   0, NULL, 0, CICON_TERM, "Command line: the bm: prompt" },
     { "Shell Code",   "code", 0, NULL, 0, CICON_CODE, "Shell Code: edit, compile and run .b, .c and .lua" },
-    { "System",       NULL,   0, system_sub, NSUB(system_sub), CICON_GEAR, "System: Info, Log, 3D Bench, Reboot" },
+    { "System",       NULL,   0, system_sub, NSUB(system_sub), CICON_GEAR, "System: Info, Log, bm3D, 3D Bench, Reboot" },
     { "Network",      NULL,   0, network_sub, NSUB(network_sub), CICON_NET, "Network: WiFi, Pair controller, Send reports" },
     { "Help",         "help", 0, NULL, 0, CICON_HELP, "Help: the list of the commands" },
 };
