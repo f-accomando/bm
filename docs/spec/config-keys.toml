@@ -356,9 +356,9 @@ read_in = "core/src/bm/runtime.c:2038"
 [[key]]
 name = "gpu3d_mip"
 scope = "pi"
-values = "1 = mipmaps, the nearest level; 2 = mipmaps, two levels mixed (trilinear with gpu3d_filter=1); anything else = off"
-default = "off (bm3d 7.37). Pi Zero W, 23 Nov 2026: far_mip 1.9 to 2.9 times far_tex at 60 fps; the near tests (quad_tex, spheres_tex, heroes_tex, match) within 2% with the key on."
-meaning = "Mipmaps of the 3D textures on the V3D. A sheet with sides that are powers of two gets its smaller levels, and the TMU reads the level that fits the face on the screen. It works only where the boot probe saw the TMU read every level (status: mipmaps 32 16). Hidden key, no Settings row (SYS-9)."
+values = "1 = mipmaps, the nearest level; 2 = mipmaps, two levels mixed (trilinear with gpu3d_filter=1); 0 = off"
+default = "1 (on since bm3d 7.37; gpu3d_mip=0 turns it off). Pi Zero W, 23 Nov 2026: far_mip 1.9 to 2.9 times far_tex at 60 fps; the near tests (quad_tex, spheres_tex, heroes_tex, match) within 2% with the key on."
+meaning = "Mipmaps of the 3D textures on the V3D. A sheet with sides that are powers of two gets its smaller levels, and the TMU reads the level that fits the face on the screen. The levels stop at one texel a cell of 8x8 (an atlas does not mix its cells). It works only where the boot probe saw the TMU read every level (status: mipmaps 32 16). Hidden key, no Settings row (SYS-9)."
 settings = ""
 read_in = "core/src/bm/runtime.c:1655"
 

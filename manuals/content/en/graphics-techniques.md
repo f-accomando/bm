@@ -82,6 +82,7 @@ The V3D is the VideoCore IV (a tile renderer). bm drives it without Linux and wi
 | Textures RGB565 and RGBA5551 | Built, off | Half the memory and half the texture reads (`gpu3d_tex16`). No gain on the Pi (21 Oct). | - | Compressed or packed formats |
 | Textures ETC1 | Built, off | `gpu3d_etc1`, encoder in `core/src/gpu/etc1.c`. No gain on the Pi. | - | ETC1 (GL ES 2 extension) |
 | Bilinear filter | Built | `gpu3d_filter=1`. The look differs from the ARM. 2D stays nearest. | Fill: 2.3 ns a pixel against 1.65 nearest | `GL_LINEAR` |
+| Mipmaps | Built, on | `gpu3d_mip=1`: smaller copies of each sheet with sides that are powers of two, down to one texel a cell. A boot probe checks every level. `gpu3d_mip=2` mixes two levels (trilinear with `gpu3d_filter=1`). | `far_tex` 534 -> `far_mip` 1548 far quads at 60 fps (x2.9); near textures within 2% | `glGenerateMipmap`, `GL_LINEAR_MIPMAP_LINEAR` |
 | Compact vertex attributes | Built, off | `gpu3d_attr=1`. `herotris` 54056 plain, 54013 compact: no gain, the frame is ARM-bound. | 72.2 heroes against 66.2 in `heroes` only | Packed vertex formats |
 | Hardware sort (`gpu3d_sort`) | Dropped | Off: the numbers show no gain. | `heroes`: 14.2 ms against 15.9 ms but the pixels field was 0 | Sorting transparent geometry |
 | Cel shading on the QPU | Built | Light cut into 4 bands in the vertex programs. | x0.99 to x1.02 of sun light; 50 heroes at 12.1 ms | Toon shader |
@@ -92,6 +93,18 @@ The V3D is the VideoCore IV (a tile renderer). bm drives it without Linux and wi
 | Chained jobs (CT0/CT1) | Not built | Only if a measurement shows the GPU idle between jobs. It is not: the frame is ARM-bound. | - | - |
 | Geometry and tessellation shaders | Not built | The VideoCore IV has no such stages. | - | GL 4 geometry and tessellation |
 | Ray tracing | Not built | No hardware; never considered. | - | `VK_KHR_ray_tracing` |
+
+## Mipmaps: why far textures cost less
+
+A texture on a far face is smaller on the screen than in the sheet. Without mipmaps, each pixel reads one texel of the full sheet, and the next pixel reads a texel several texels away. The texture cache of the V3D then misses on almost every pixel, and the far texture shimmers when the camera moves.
+
+With mipmaps the console keeps smaller copies of each sheet: half the side, a quarter, an eighth. Each texel of a copy is the mean of four texels of the copy above. The GPU reads the copy whose texels are about as big as the pixels. Neighbouring pixels then read neighbouring texels, the cache hits, and the colour is the mean of the area that the pixel covers.
+
+- **When it helps**: maps and models seen from far away, floors and walls that go into the distance. In the 3D Bench, a 256x256 texture on far quads: 534 quads at 60 fps without mipmaps, 1548 with them (x2.9); the GPU time of a pixel goes from 23.2 ns to 2.6 ns.
+- **When it does not change anything**: a texture as big as or bigger than the face on the screen (a near wall, a HUD). The GPU reads the full sheet as before (`quad_tex`, `heroes_tex`: within 2%).
+- **What it costs**: a third more memory for each texture, and the time to make the copies when a sheet changes. A sheet that the game redraws in each frame pays that time in each frame.
+- **For the artist**: give the sheets sides that are powers of two (128, 256, 512). Other sheets get no mipmaps. The copies stop at one texel for each 8x8 cell, so the cells of an atlas (tiles of a map kit, textures of models) do not mix their colours. Put the texture of a far surface in cells of 16x16 or more.
+- **The 2D** (sprites, text, `map()`) always reads the full sheet.
 
 # 3D on the Mali-G52 (RGB30)
 

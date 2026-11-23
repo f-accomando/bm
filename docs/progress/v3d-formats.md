@@ -48,9 +48,11 @@ Split from [v3d](v3d.md); open work and rules stay there.
   bytes BE, each block's rows reversed: `e1_map`). 3D Bench GPU / GPU+T16 / GPU+ETC1 are equal
   within 1-6% (quad_tex 2.20 / 2.35 / 2.19 ns/px, spheres_tex 157 / 158 / 159 fps, heroes_tex
   6.5 all): small sheets sit in the TMU cache, so fewer bytes buy nothing there.
-- `gpu3d_mip=1` or `2` (bm3d 7.37, off; hidden key; 3D Bench `far_tex` against `far_mip`): mipmaps
-  of the 32-bit and 16-bit textures (not ETC1). A sheet with sides that are powers of two gets its
-  levels down to 1x1 (`mip_fill`: each texel the mean of four; opaque where at least two of the four are).
+- `gpu3d_mip=1` or `2` (bm3d 7.37, on: the runtime sets 1 without the key, `0` turns it off; hidden key;
+  3D Bench `far_tex` against `far_mip`): mipmaps of the 32-bit and 16-bit textures (not ETC1). A sheet
+  with sides that are powers of two gets its levels down to one texel a cell of 8x8 (`MIP_SHEET` = 3: a
+  smaller level would mix the cells of an atlas; `mip_fill`: each texel the mean of four; opaque where at
+  least two of the four are). The probe checks the whole chain of its 64x64 texture.
   Layout as Mesa's vc4 (`mip_layout`, `mip_place`): level 0 at the base address, each smaller level
   just below the one before; a level at most 4 utiles wide or high is LT (utiles in rows), the
   others are T-format. The utile's inner order comes from `t_inner` / `t16_inner` (`mip_learn_utile`).
@@ -70,6 +72,8 @@ Split from [v3d](v3d.md); open work and rules stay there.
   23.2 -> 2.6 ns a pixel on the GPU), GPU+T16 805 -> 1546 (x1.9), GPU+VS+FS2 532 -> 1365 (x2.6). With
   `gpu3d_mip=1` the near tests do not change (within 2%: `quad_tex`, `spheres_tex`, `heroes_tex`;
   `match` GPU+VS+FS2 30.7 -> 32.0).
+  With the levels cut at one texel a cell and the key on by default (report `-123527`): `far_mip` 1600 (GPU),
+  1359 (GPU+VS+FS2); the near tests within 2% of the run with the key off.
 - A failed `probe_cut16` / `probe_etc1` logs to the probes' line (report) `params0`, each
   candidate's right pixels, first 4 texels wanted/got and (5551/4444) an opaque-shader control;
   `etc1_diagnose` adds flat-block, block-map and one-block lines. Tests: `EMU_T16_ALPHA=2`,

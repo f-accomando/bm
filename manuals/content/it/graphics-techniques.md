@@ -82,6 +82,7 @@ Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza
 | Texture RGB565 e RGBA5551 | Fatta, spenta | Metà memoria e metà letture di texture (`gpu3d_tex16`). Nessun guadagno sul Pi (21 ott). | - | Formati compressi o impacchettati |
 | Texture ETC1 | Fatta, spenta | `gpu3d_etc1`, encoder in `core/src/gpu/etc1.c`. Nessun guadagno sul Pi. | - | ETC1 (estensione GL ES 2) |
 | Filtro bilineare | Fatta | `gpu3d_filter=1`. L'aspetto differisce dall'ARM. Il 2D resta al texel più vicino. | Riempimento: 2,3 ns a pixel contro 1,65 del più vicino | `GL_LINEAR` |
+| Mipmap | Fatta, accesa | `gpu3d_mip=1`: copie più piccole di ogni foglio con lati potenza di due, fino a un texel per cella. Una sonda all'avvio controlla ogni livello. `gpu3d_mip=2` mescola due livelli (trilineare con `gpu3d_filter=1`). | `far_tex` 534 -> `far_mip` 1548 quad lontani a 60 fps (x2,9); texture vicine entro il 2% | `glGenerateMipmap`, `GL_LINEAR_MIPMAP_LINEAR` |
 | Attributi compatti dei vertici | Fatta, spenta | `gpu3d_attr=1`. `herotris` 54056 normale, 54013 compatto: nessun guadagno, il frame è limitato dall'ARM. | 72,2 eroi contro 66,2 solo in `heroes` | Formati di vertice impacchettati |
 | Ordinamento hardware (`gpu3d_sort`) | Scartata | Spenta: i numeri non mostrano guadagno. | `heroes`: 14,2 ms contro 15,9 ms ma il campo pixel era 0 | Ordinamento della geometria trasparente |
 | Cel shading sulle QPU | Fatta | Luce in 4 fasce nei programmi dei vertici. | Da x0,99 a x1,02 della luce del sole; 50 eroi a 12,1 ms | Toon shader |
@@ -92,6 +93,18 @@ Il V3D è il VideoCore IV (un renderer a tile). bm lo pilota senza Linux e senza
 | Job concatenati (CT0/CT1) | Non fatta | Solo se una misura mostra la GPU ferma tra i job. Non lo è: il frame è limitato dall'ARM. | - | - |
 | Geometry e tessellation shader | Non fatta | Il VideoCore IV non ha questi stadi. | - | Geometry e tessellation GL 4 |
 | Ray tracing | Non fatta | Nessun hardware; mai considerata. | - | `VK_KHR_ray_tracing` |
+
+## Mipmap: perché le texture lontane costano meno
+
+Una texture su una faccia lontana è più piccola sullo schermo che nel foglio. Senza mipmap ogni pixel legge un texel del foglio intero, e il pixel accanto legge un texel lontano diversi texel. La cache delle texture del V3D allora manca quasi a ogni pixel, e la texture lontana sfarfalla quando la telecamera si muove.
+
+Con le mipmap la console tiene copie più piccole di ogni foglio: metà lato, un quarto, un ottavo. Ogni texel di una copia è la media di quattro texel della copia sopra. La GPU legge la copia i cui texel sono grandi circa come i pixel. I pixel vicini leggono allora texel vicini, la cache trova i dati, e il colore è la media dell'area che il pixel copre.
+
+- **Quando aiuta**: mappe e modelli visti da lontano, pavimenti e muri che vanno in profondità. Nel 3D Bench, una texture 256x256 su quad lontani: 534 quad a 60 fps senza mipmap, 1548 con le mipmap (x2,9); il tempo GPU di un pixel passa da 23,2 ns a 2,6 ns.
+- **Quando non cambia nulla**: una texture grande quanto la faccia sullo schermo o più (un muro vicino, un HUD). La GPU legge il foglio intero come prima (`quad_tex`, `heroes_tex`: entro il 2%).
+- **Cosa costa**: un terzo di memoria in più per ogni texture, e il tempo di fare le copie quando un foglio cambia. Un foglio che il gioco ridisegna a ogni frame paga quel tempo a ogni frame.
+- **Per chi disegna**: date ai fogli lati potenza di due (128, 256, 512). Gli altri fogli non hanno mipmap. Le copie si fermano a un texel per ogni cella 8x8, così le celle di un atlante (tessere di un map kit, texture dei modelli) non mescolano i loro colori. Mettete la texture di una superficie lontana in celle di 16x16 o più.
+- **Il 2D** (sprite, testo, `map()`) legge sempre il foglio intero.
 
 # 3D sul Mali-G52 (RGB30)
 

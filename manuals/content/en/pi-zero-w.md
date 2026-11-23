@@ -248,6 +248,7 @@ Each option is a key in `bm/config.txt`. Only five keys have a row in *Settings 
 | `gpu3d_later` | each frame shown a frame later (needs `gpu3d_queue=2`) | off |
 | `gpu3d_2d` | 2D over the 3D inside the GPU job | on (1) (`0` turns it off) |
 | `gpu3d_filter` | bilinear textures (the look changes) | off |
+| `gpu3d_mip` | mipmaps: far faces read a smaller copy of the texture (1 nearest level, 2 two levels mixed, 0 off) | 1 (on) |
 | `gpu3d_wc` | job memory uncached | off |
 | `gpu3d_tex16` | 16-bit textures (RGB565; cut-out sheets as RGBA5551) | off |
 | `gpu3d_etc1` | opaque sheets as ETC1 (sets `gpu3d_tex16` too) | off |

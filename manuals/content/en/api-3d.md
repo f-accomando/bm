@@ -317,6 +317,7 @@ The table gives, for each key, what it does, what it costs, the default, and the
 | `gpu3d_later` | The console shows each frame a frame later. Needs `gpu3d_queue=2`. | One frame of input delay. | off | No gain: 51 222.8 triangles drawn against 50 755 (+0.9%), the same sets (6.74). |
 | `gpu3d_aa` | 4x MSAA. | More GPU work in each tile (32x32 pixels, 4 samples). It holds only in jobs without a kept z-buffer. | off | Not measured. |
 | `gpu3d_filter` | Bilinear textures. The look changes. | A filtered pixel costs more. | off (nearest) | Full-screen pass: 2.3 ns a pixel against 1.65 nearest. |
+| `gpu3d_mip` | Mipmaps: the GPU reads a smaller copy of a texture for a far face. `1` the nearest level, `2` two levels mixed (trilinear with `gpu3d_filter=1`), `0` off. Only sheets with sides that are powers of two. | A third more texture memory. Far textures look smoother. | `1` | 3D Bench: `far_tex` 534 -> `far_mip` 1548 far quads at 60 fps (x2.9); near textures within 2%. |
 | `gpu3d_fs2` | Textured pixel shaders with two threads. | Nothing. | on (`0` turns it off) | `quad_tex`: 148 quads against 121 (+22%). |
 | `gpu3d_2d` | The GPU draws the 2D over the 3D in its job. | Shapes that the GPU cannot draw end the job. | on (1) | `gpu2d` test: GPU+2D 2013 sprites, GPU 1886 (+6.7%). `sprites` test: 3569 or more, ARM 2574. Enabled by default. |
 | `gpu3d_wc` | The memory of the GPU jobs is not cached. | None seen. | off | No gain: data-cache misses -72%, but the load is 199 against 200. |
@@ -341,7 +342,7 @@ A cartridge chooses what the player sees. It does not need a console key for thi
 - **Lights**: `light3d` (the sun and the ambient light), `lamp3d` (four point lights), the flags of `draw3d` (2 no light, 4 smooth light).
 - **Cel light and outline**: `cel3d` and the `draw3d` flags 256 and 512.
 
-The other keys are only for the console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` and `gpu3d_merge`. A game does not set them for the player. A benchmark can switch each one with `gpu3d_opt(name, on)`, which returns `in_force, available` (it returns `false, false` with no GPU).
+The other keys are only for the console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter`, `gpu3d_mip` and `gpu3d_merge`. A game does not set them for the player. A benchmark can switch each one with `gpu3d_opt(name, on)`, which returns `in_force, available` (it returns `false, false` with no GPU).
 
 ::: note
 Not built yet (SYS-9b): a benchmark at the start of a game that picks the values for the console, and a menu of graphics choices in each game. Today the game chooses, or the player edits `bm/config.txt`.

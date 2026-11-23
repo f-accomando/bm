@@ -317,6 +317,7 @@ La tabella dà, per ogni chiave, cosa fa, quanto costa, il predefinito e il risu
 | `gpu3d_later` | La console mostra ogni frame un frame dopo. Richiede `gpu3d_queue=2`. | Un frame di ritardo dell'input. | spento | Nessun guadagno: 51 222,8 triangoli disegnati contro 50 755 (+0,9%), gli stessi set (6,74). |
 | `gpu3d_aa` | MSAA 4x. | Più lavoro della GPU in ogni tile (32x32 pixel, 4 campioni). Vale solo nei lavori senza z-buffer conservato. | acceso (`r3d_fast=0` lo spegne) | Non misurato. |
 | `gpu3d_filter` | Texture bilineari. L'aspetto cambia. | Un pixel filtrato costa di più. | spento (nearest) | Passata a tutto schermo: 2,3 ns a pixel contro 1,65 nearest. |
+| `gpu3d_mip` | Mipmap: la GPU legge una copia più piccola della texture per una faccia lontana. `1` il livello più vicino, `2` due livelli mescolati (trilineare con `gpu3d_filter=1`), `0` spento. Solo fogli con lati potenza di due. | Un terzo di memoria in più per le texture. Le texture lontane sono più uniformi. | `1` | 3D Bench: `far_tex` 534 -> `far_mip` 1548 quad lontani a 60 fps (x2,9); texture vicine entro il 2%. |
 | `gpu3d_fs2` | Pixel shader con texture a due thread. | Niente. | acceso (`0` lo spegne) | `quad_tex`: 148 quad contro 121 (+22%). |
 | `gpu3d_2d` | La GPU disegna il 2D sopra il 3D nel suo lavoro. | Le forme che la GPU non sa disegnare chiudono il lavoro. | acceso (1) | Test `gpu2d`: GPU+2D 2013 sprite, GPU 1886 (+6,7%). Test `sprites`: 3569 o più, ARM 2574. Attivo per default. |
 | `gpu3d_wc` | La memoria dei lavori della GPU non è in cache. | Nessuno visto. | spento | Nessun guadagno: mancati della cache dati -72%, ma il carico è 199 contro 200. |
@@ -341,7 +342,7 @@ Una cartuccia sceglie ciò che il giocatore vede. Per questo non serve una chiav
 - **Luci**: `light3d` (il sole e la luce ambiente), `lamp3d` (quattro luci puntiformi), i flag di `draw3d` (2 senza luce, 4 luce liscia).
 - **Luce cel e contorno**: `cel3d` e i flag 256 e 512 di `draw3d`.
 
-Le altre chiavi sono solo della console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter` e `gpu3d_merge`. Un gioco non le imposta per il giocatore. Un benchmark può cambiarle una per una con `gpu3d_opt(nome, on)`, che restituisce `in_force, available` (senza GPU restituisce `false, false`).
+Le altre chiavi sono solo della console: `gpu3d_fs2`, `gpu3d_2d`, `gpu3d_wc`, `gpu3d_sort`, `gpu3d_attr`, `gpu3d_tex16`, `gpu3d_etc1`, `gpu3d_filter`, `gpu3d_mip` e `gpu3d_merge`. Un gioco non le imposta per il giocatore. Un benchmark può cambiarle una per una con `gpu3d_opt(nome, on)`, che restituisce `in_force, available` (senza GPU restituisce `false, false`).
 
 ::: note
 Non ancora costruiti (SYS-9b): un benchmark all'avvio di un gioco che sceglie i valori per la console, e un menu di scelte grafiche in ogni gioco. Oggi sceglie il gioco, oppure il giocatore modifica `bm/config.txt`.

@@ -80,8 +80,8 @@ the Pi's numbers with the earlier drivers are the historical bars.
 - `gpu2d`: sprites and text over the 3D (bm3D 4.8; with GPU+2D in the GPU job, otherwise the ARM);
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
 - `far_tex`, `far_mip` (bm3D 7.37): a 256x256 texture on far quads of 40x22 pixels (about 6 texels
-  a pixel in x, 11 in y), 256 quads a screen. `far_tex` reads level 0. `far_mip` turns on the
-  mipmaps (`gpu3d_mip`, an option off by default) and reads the level that fits. Compare the two rows
+  a pixel in x, 11 in y), 256 quads a screen. `far_tex` reads level 0. `far_tex` turns the mipmaps off for its run; `far_mip` turns them on
+  (`gpu3d_mip=1`, the default since bm3D 7.37) and reads the level that fits. Each gives back the key's mode after it. Compare the two rows
   (GPU and GPU+T16) to see what the mipmaps save. They are not in the score;
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;

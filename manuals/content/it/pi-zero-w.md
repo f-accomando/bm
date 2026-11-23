@@ -248,6 +248,7 @@ Ogni opzione è una chiave in `bm/config.txt`. Solo cinque chiavi hanno una riga
 | `gpu3d_later` | ogni frame mostrato un frame dopo (richiede `gpu3d_queue=2`) | spento |
 | `gpu3d_2d` | 2D sopra il 3D dentro il job GPU | attivo (1) (`0` lo spegne) |
 | `gpu3d_filter` | texture bilineari (l'aspetto cambia) | spento |
+| `gpu3d_mip` | mipmap: le facce lontane leggono una copia più piccola della texture (1 livello più vicino, 2 due livelli mescolati, 0 spento) | 1 (acceso) |
 | `gpu3d_wc` | memoria dei job non in cache | spento |
 | `gpu3d_tex16` | texture a 16 bit (RGB565; sheet con ritagli come RGBA5551) | spento |
 | `gpu3d_etc1` | sheet opachi come ETC1 (imposta anche `gpu3d_tex16`) | spento |

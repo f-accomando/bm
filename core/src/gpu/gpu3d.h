@@ -127,9 +127,10 @@ int gpu3d_tex16(void);
 void gpu3d_set_etc1(int on);
 int gpu3d_etc1(void);
 
-/* bm3d 7.37: mipmaps (gpu3d_mip=1 or 2): a texture whose sheet has sides
- * that are powers of two gets its smaller levels (each texel the mean of
- * four), and the TMU reads the level that fits the size on the screen:
+/* bm3d 7.37: mipmaps (gpu3d_mip=1 or 2; the runtime sets 1 without the key):
+ * a texture whose sheet has sides that are powers of two gets its smaller
+ * levels down to one texel a cell (each texel the mean of four), and the
+ * TMU reads the level that fits the size on the screen:
  * fewer texels read for far faces, no shimmer. 1: the nearest level; 2:
  * two levels mixed (with gpu3d_filter=1 that is trilinear). 32-bit and
  * 16-bit textures (not ETC1), where the boot's probe saw the TMU read

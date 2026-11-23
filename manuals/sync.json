@@ -7,8 +7,8 @@
     "title": "How 3D works in bm"
    },
    "10": {
-    "en": "b58227c6f8f7",
-    "it": "bb52c6606388",
+    "en": "e610ba0e22dc",
+    "it": "f0090fb951e2",
     "title": "Collision worlds"
    },
    "11": {
@@ -17,8 +17,8 @@
     "title": "3D map terrain"
    },
    "12": {
-    "en": "b9768ffb4c03",
-    "it": "38acb3ae9d3c",
+    "en": "1209dc2fee21",
+    "it": "62ed4412e6ec",
     "title": "Light for 2D scenes"
    },
    "13": {
@@ -62,14 +62,14 @@
     "title": "Visibility"
    },
    "9": {
-    "en": "342195becf8c",
-    "it": "92667bf18c6c",
+    "en": "64c52fa8a2de",
+    "it": "7e3d8617c14e",
     "title": "The GPU: gpu3d and its options"
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "44ab22d8fc6b",
-   "docs/api/light3d.md": "5e4205a83cbe"
+   "docs/BENCH3D.md": "abf46e79ae6d",
+   "docs/api/light3d.md": "7a4a7b5b1f9c"
   }
  },
  "api-core": {
@@ -1003,23 +1003,23 @@
     "title": "Open points"
    },
    "2": {
-    "en": "694b5ea91239",
-    "it": "778a7237af72",
+    "en": "5dd9a95d9a46",
+    "it": "65f508027b97",
     "title": "3D on the CPU (ARM rasteriser)"
    },
    "3": {
-    "en": "bf8bc5d552ee",
-    "it": "62a60d37b574",
+    "en": "f9760d80f518",
+    "it": "49e7a597d27f",
     "title": "3D on the V3D (Pi Zero W)"
    },
    "4": {
-    "en": "ee428527a763",
-    "it": "5865a4528450",
+    "en": "3d22ffd357a3",
+    "it": "9785969a2ab1",
     "title": "3D on the Mali-G52 (RGB30)"
    },
    "5": {
-    "en": "b05ddb861aa0",
-    "it": "2dad0412576c",
+    "en": "c6d305f860a2",
+    "it": "a36411bcd8bb",
     "title": "2D on the CPU"
    },
    "6": {
@@ -1033,24 +1033,24 @@
     "title": "The OpenVG and VGU list (2D vector)"
    },
    "8": {
-    "en": "1c4a3c9f363f",
-    "it": "d70e2a8741c9",
+    "en": "a4b0a0221021",
+    "it": "35d5244de3ea",
     "title": "What the other APIs have that bm does not"
    },
    "9": {
-    "en": "1a092b09bcd5",
-    "it": "c4336fae8967",
+    "en": "46685fc590c4",
+    "it": "2fc04da805c8",
     "title": "Measured by the hero cart"
    }
   },
   "sources": {
-   "docs/DRIVERS.md": "03d607a2bbd1",
-   "docs/PERF-BUDGET.md": "e8c38e6619d4",
-   "docs/progress/graphics-mali.md": "dc849b34819e",
-   "docs/progress/graphics-vector.md": "548b3e347760",
-   "docs/progress/graphics.md": "c0b67005c4b9",
-   "docs/progress/mali-parity.md": "48374dc29415",
-   "docs/progress/multicore.md": "34ee3426d977"
+   "docs/DRIVERS.md": "fbb37cfde1e6",
+   "docs/PERF-BUDGET.md": "4142150feab5",
+   "docs/progress/graphics-mali.md": "26775176c011",
+   "docs/progress/graphics-vector.md": "490d8456896d",
+   "docs/progress/graphics.md": "116108d439c3",
+   "docs/progress/mali-parity.md": "693092d04ad4",
+   "docs/progress/multicore.md": "2d1f05d5b3df"
   }
  },
  "install-sd": {
@@ -1175,8 +1175,8 @@
  "pi-zero-w": {
   "chapters": {
    "1": {
-    "en": "dab44cec7287",
-    "it": "a2303166a08e",
+    "en": "3e882ca9d087",
+    "it": "5320e5da8238",
     "title": "The board"
    },
    "2": {
@@ -1185,18 +1185,18 @@
     "title": "ARM11 performance, as measured"
    },
    "3": {
-    "en": "f6d63d22a105",
-    "it": "d2d13f1e35e4",
+    "en": "0e88c792f0d1",
+    "it": "18e9e2e0d214",
     "title": "The GPU and the 2D"
    },
    "4": {
-    "en": "3a4b19f5d270",
-    "it": "9ab72bcedbbb",
+    "en": "30b65693eb6a",
+    "it": "9d4d9d3bc383",
     "title": "The GPU and the 3D"
    },
    "5": {
-    "en": "fa9d15a9f392",
-    "it": "3a760c179c98",
+    "en": "94bd979a40a3",
+    "it": "b1edbc8bf3aa",
     "title": "The bm3d drivers"
    },
    "6": {
@@ -1216,12 +1216,12 @@
    }
   },
   "sources": {
-   "docs/BENCH3D.md": "44ab22d8fc6b",
-   "docs/DRIVERS.md": "03d607a2bbd1",
-   "docs/HARDWARE.md": "6bfcdeee8616",
+   "docs/BENCH3D.md": "abf46e79ae6d",
+   "docs/DRIVERS.md": "fbb37cfde1e6",
+   "docs/HARDWARE.md": "53fdd9ba50ae",
    "docs/PERFORMANCE.md": "bf2b92c16e9b",
-   "docs/progress/graphics.md": "91689a83cede",
-   "docs/progress/v3d.md": "20081adc0057"
+   "docs/progress/graphics.md": "116108d439c3",
+   "docs/progress/v3d.md": "58928e12e7a2"
   }
  },
  "riff": {

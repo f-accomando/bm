@@ -448,6 +448,11 @@ static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
  * others are in T-format (its sides rounded up to the 4 KB tile's). A
  * utile is 64 bytes: 4 x 4 texels of 32 bits, 8 x 4 of 16 bits. */
 #define MIP_MAX 12
+/* a sheet's levels stop where a texel is one cell (G16_CELL = 8: level 3).
+ * A sheet is an atlas of cells (tiles of a map kit, the textures of
+ * models): a smaller level would mix the colours of cells side by side,
+ * and far faces would take their neighbours' colours. */
+#define MIP_SHEET 3
 
 typedef struct {
     int n;                          /* levels after level 0 (the MIPLVLS field) */
@@ -470,14 +475,15 @@ static uint32_t mip_bytes(int lw, int lh, int cpp, uint8_t *lt)
     return (uint32_t)((lw + ax - 1) / ax * ax) * (uint32_t)((lh + ay - 1) / ay * ay) * (uint32_t)cpp;
 }
 
-/* the levels of a w x h texture of cpp bytes a texel, down to 1 x 1 */
-static void mip_layout(mips_t *m, int w, int h, int cpp)
+/* the levels of a w x h texture of cpp bytes a texel, down to 1 x 1 or to
+ * level maxn */
+static void mip_layout(mips_t *m, int w, int h, int cpp, int maxn)
 {
     uint32_t sum = 0;
     m->n = 0;
     m->below[0] = 0;
     m->lt[0] = 0;
-    for (int k = 1; k < MIP_MAX && (mip_side(w, k - 1) > 1 || mip_side(h, k - 1) > 1); k++) {
+    for (int k = 1; k < MIP_MAX && k <= maxn && (mip_side(w, k - 1) > 1 || mip_side(h, k - 1) > 1); k++) {
         sum += mip_bytes(mip_side(w, k), mip_side(h, k), cpp, &m->lt[k]);
         m->below[k] = sum;
         m->n = k;
@@ -740,7 +746,7 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     mips_t mips;
     const int mip = mip_wanted(fmt, tiled, s->w, s->h);
     if (mip)
-        mip_layout(&mips, s->w, s->h, fmt == TF_32 ? 4 : 2);
+        mip_layout(&mips, s->w, s->h, fmt == TF_32 ? 4 : 2, MIP_SHEET);
     const size_t prefix = mip ? mips.prefix : 0,
                  size = prefix + (size_t)tn * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
     if (!t->mem || t->size < size) {
@@ -3936,7 +3942,7 @@ static int probe_mip(const g16_t *pg, int cpp)
     }
     const int fmt = cpp == 4 ? TF_32 : TF_565;
     mips_t m;
-    mip_layout(&m, S, S, cpp);
+    mip_layout(&m, S, S, cpp, MIP_MAX);
     uint8_t lt;
     const uint32_t l0 = mip_bytes(S, S, cpp, &lt);
     if (lt || m.prefix + l0 + 16 > PROBE_TEX - 4096)
