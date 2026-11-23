@@ -4464,8 +4464,38 @@ def test_shell_sdk_skeleton(b, opts):
             time.sleep(0.5)
             rows = screen()
             assert any(f"[{name}]" in r for r in rows), (name, rows)
+        # Esc opens the menu: Resume, New, Open, Save, Save as, Exit
         q.send("\x1b")
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Save as" in r for r in rows), rows
+        assert any("Project: (new)*" in r for r in rows), rows        # the platform was changed: unsaved
+        q.send("ssss\r")                            # Save as
+        time.sleep(0.5)
+        assert any("Project name" in r for r in screen())
+        q.send("My Test\r")                         # 8.3: "mytest"
+        time.sleep(1.0)
+        rows = screen()
+        assert any("saved /bme/mytest.bme" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")                               # Exit (nothing unsaved any more)
         q.expect("> ", timeout=10)                  # back in the shell menu
+        q.send("\r")                                # a new session of the SDK: a new NES project
+        time.sleep(0.5)
+        assert any("NES cartridge" in r for r in screen())
+        q.send("\x1b")
+        q.send("ss\r")                              # Open
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Open a project" in r for r in rows) and any("mytest" in r for r in rows), rows
+        q.send("\r")
+        time.sleep(0.8)
+        rows = screen()
+        assert any("bm project, SD card" in r for r in rows), rows
+        assert any("mytest" in r and "opened" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")
+        q.expect("> ", timeout=10)
     finally:
         q.close()
         shutil.rmtree(tmp, ignore_errors=True)

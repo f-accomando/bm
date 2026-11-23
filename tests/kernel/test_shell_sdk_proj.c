@@ -118,6 +118,25 @@ int main(void)
     sdk_proj_pcb(&p, &pcb);
     CHECK(!pcb.has_mapper && !pcb.chr_ram && !strcmp(pcb.rom, "PRG 32 KB") && !strcmp(pcb.rom2, "CHR 8 KB"));
 
+    /* the text of a project and back */
+    char text[400];
+    sdk_proj_t q;
+    sdk_proj_default(&p, SDK_SNES);
+    p.snes_chip = 3;                                        /* SA-1 */
+    sdk_proj_step(&p, SDK_ROW_MAP, 1);
+    sdk_proj_step(&p, SDK_ROW_SPEED, 1);
+    const int tl = sdk_proj_text(&p, text, sizeof text);
+    CHECK(tl > 0 && strstr(text, "--sdk v=1 t=1 "));
+    CHECK(sdk_proj_parse(text, (size_t)tl, &q) == 0 && !memcmp(&p, &q, sizeof p));
+    CHECK(sdk_proj_text(&p, text, 20) == -1);
+    CHECK(sdk_proj_parse("-- nothing", 10, &q) == -1 && q.target == SDK_NES);
+    {
+        const char bad[] = "--sdk t=9 b=99 prg=7 chr=3 rom=5 chip=77 lang=-4 kern=x\n";
+        CHECK(sdk_proj_parse(bad, sizeof bad - 1, &q) == 0);
+        CHECK(q.target == SDK_TARGETS - 1 && q.nes_board < 8 && q.nes_prg_kb == 32 && q.snes_rom_kb == 32);
+        CHECK(q.snes_chip < 9 && q.bm_lang == 0 && q.bm_kernels == 0);
+    }
+
     if (fails) {
         printf("test_shell_sdk_proj: %d FAILED\n", fails);
         return 1;

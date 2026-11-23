@@ -1,6 +1,7 @@
 /*
  * Shell SDK: the IDE of the bm shell. Row 0 shows the tab bar (as Shell Code does), the rest of the
- * screen shows the active tab. F1 to F5 select a tab; Esc or Ctrl+Q leaves.
+ * screen shows the active tab. F1 to F5 select a tab; Esc opens the menu (New, Open, Save, Save as, Exit);
+ * Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+Q do the same at once. A project is a .bme in /bme (shell_sdk_file.c).
  * The Project tab is done: tiles for the three platforms, the menu of the cartridge, the PCB, the
  * memory facts. The other tabs have no content yet.
  */
@@ -12,6 +13,7 @@
 #include "gfx/console.h"
 #include "input.h"
 #include "usb/hid.h"
+#include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
 #include "shell_sdk_proj.h"
 
@@ -42,7 +44,7 @@ static int proj_sel;                    /* the highlighted row of the menu */
 
 static void at(int row, int col)
 {
-    char b[24];
+    char b[40];
     snprintf(b, sizeof b, "\x1b[%d;%dH", row, col);
     console_write(b);
 }
@@ -109,17 +111,45 @@ static void draw_project(int cols, int rows)
     at(1, 1);                                   /* the cursor on a blank cell, not at the end of the help */
 }
 
+/* ---- the project: name, unsaved changes, messages ---- */
+
+static char pname[SDK_NAME_MAX];        /* the name of the project ("" until it is saved or opened) */
+static int dirty;                       /* a change since the last save */
+static char msg[96];                    /* one message for the status bar, until the next key */
+
+static void say(const char *fmt, const char *a)
+{
+    snprintf(msg, sizeof msg, fmt, a);
+}
+
 static void draw(int tab)
 {
     char left[96];
     size_t pos = 0;
     for (int i = 0; i < SDK_TAB_COUNT; i++)
         pos += (size_t)snprintf(left + pos, sizeof left - pos, i == tab ? "[%s] " : "%s ", tab_names[i]);
-    console_set_status(left, "F1-F5 tab  Esc exit");
+    console_set_status(left, NULL);         /* the right half belongs to the input module: it rewrites it */
 
     uint32_t cols, rows;
     console_size(&cols, &rows);
     console_write("\x1b[0m\x1b[2J");
+
+    /* the project name at the top right, a message on the free row under the tiles */
+    char head[64];
+    snprintf(head, sizeof head, "Project: %s%s", pname[0] ? pname : "(new)", dirty ? "*" : "");
+    if ((int)cols > 60) {
+        at(1, (int)cols - 28);
+        console_write("\x1b[96m");
+        console_write(head);
+        at(2, (int)cols - 28);
+        console_write("\x1b[90mEsc menu  F1-F5 tabs\x1b[0m");
+    }
+    if (msg[0]) {
+        at(5, 2);
+        console_write("\x1b[93m");
+        console_write(msg);
+        console_write("\x1b[0m");
+    }
     if (tab == SDK_TAB_PROJECT) {
         draw_project((int)cols, (int)rows);
         return;
@@ -127,6 +157,232 @@ static void draw(int tab)
     at((int)rows / 2, 3);
     console_write(tab_names[tab]);
     console_write(": not built yet");
+    at(1, 1);
+}
+
+/* ---- popups: a list, a question and a line of text ---- */
+
+static void frame(int r, int c, int h, int w)
+{
+    at(r, c);
+    console_putc((char)0xDA);
+    for (int i = 0; i < w - 2; i++)
+        console_putc((char)0xC4);
+    console_putc((char)0xBF);
+    for (int i = 1; i < h - 1; i++) {
+        at(r + i, c);
+        console_putc((char)0xB3);
+        for (int k = 0; k < w - 2; k++)
+            console_putc(' ');
+        console_putc((char)0xB3);
+    }
+    at(r + h - 1, c);
+    console_putc((char)0xC0);
+    for (int i = 0; i < w - 2; i++)
+        console_putc((char)0xC4);
+    console_putc((char)0xD9);
+}
+
+/* The window of a popup: w x h cells, in the middle of the screen. */
+static void window(int h, int w, int *r, int *c)
+{
+    uint32_t cols, rows;
+    console_size(&cols, &rows);
+    *r = ((int)rows - h) / 2 + 1;
+    *c = ((int)cols - w) / 2 + 1;
+    if (*r < 1)
+        *r = 1;
+    if (*c < 1)
+        *c = 1;
+    frame(*r, *c, h, w);
+}
+
+static int is_up(int k) { return k == 'w' || k == HID_KEY_UP; }
+static int is_down(int k) { return k == 's' || k == HID_KEY_DOWN; }
+static int is_enter(int k) { return k == '\r' || k == '\n'; }
+
+/* A list. Returns the number of the item chosen, or -1 on Esc. The screen behind is drawn by redraw(). */
+static int popup(const char *title, const char *const *items, int n, int sel, void (*redraw)(void))
+{
+    uint32_t cols, rows;
+    console_size(&cols, &rows);
+    int w = (int)strlen(title) + 4, vis = n;
+    for (int i = 0; i < n; i++)
+        if ((int)strlen(items[i]) + 4 > w)
+            w = (int)strlen(items[i]) + 4;
+    if (vis > (int)rows - 6)
+        vis = (int)rows - 6;
+    if (vis < 1)
+        vis = 1;
+    int top = 0;
+    for (;;) {
+        if (sel < top)
+            top = sel;
+        if (sel >= top + vis)
+            top = sel - vis + 1;
+        redraw();
+        int r, c;
+        window(vis + 2, w, &r, &c);
+        at(r, c + 2);
+        console_write(title);
+        for (int i = 0; i < vis; i++) {
+            char row[80];
+            snprintf(row, sizeof row, " %-*.*s ", w - 4, w - 4, items[top + i]);
+            at(r + 1 + i, c + 1);
+            console_write(top + i == sel ? "\x1b[7m" : "\x1b[0m");
+            console_write(row);
+            console_write("\x1b[0m");
+        }
+        at(1, 1);
+        const int k = (unsigned char)input_getc();
+        if (is_up(k))
+            sel = (sel + n - 1) % n;
+        else if (is_down(k))
+            sel = (sel + 1) % n;
+        else if (is_enter(k))
+            return sel;
+        else if (k == 0x1B)
+            return -1;
+    }
+}
+
+/* One line of text, at most max characters of an 8.3 name. Returns 1 on Enter, 0 on Esc. */
+static int prompt(const char *title, char *buf, int max, void (*redraw)(void))
+{
+    int len = (int)strlen(buf);
+    for (;;) {
+        redraw();
+        const int w = (int)strlen(title) + 6 > max + 8 ? (int)strlen(title) + 6 : max + 8;
+        int r, c;
+        window(4, w, &r, &c);
+        at(r, c + 2);
+        console_write(title);
+        at(r + 1, c + 2);
+        console_write("\x1b[7m");
+        char line[40];
+        snprintf(line, sizeof line, "%-*s", max + 1, buf);
+        console_write(line);
+        console_write("\x1b[0m");
+        at(r + 2, c + 2);
+        console_write("Enter saves, Esc cancels");
+        at(1, 1);
+        const int k = (unsigned char)input_getc();
+        if (k == 0x1B)
+            return 0;
+        if (is_enter(k))
+            return 1;
+        if ((k == 0x08 || k == 0x7F) && len > 0)
+            buf[--len] = 0;
+        else if (len < max && ((k >= 'a' && k <= 'z') || (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9') ||
+                               k == '_' || k == '-' || k == '.' || k == ' ')) {
+            buf[len++] = (char)k;
+            buf[len] = 0;
+        }
+    }
+}
+
+static int cur_tab;
+
+static void redraw_screen(void) { draw(cur_tab); }
+
+/* Asks before a change loses work. Returns 1 to go on. */
+static int discard_ok(void)
+{
+    static const char *const yn[2] = { "No, keep working", "Yes, discard the changes" };
+    return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
+}
+
+/* ---- Esc menu: New, Open, Save, Save as ---- */
+
+static void do_save(const char *name)
+{
+    char err[64];
+    if (sdk_file_save(&proj, name, err, sizeof err) != 0) {
+        say("save failed: %s", err);
+        return;
+    }
+    sdk_file_stem(name, pname);
+    dirty = 0;
+    char path[32];
+    sdk_file_path(pname, path, sizeof path);
+    say("saved %s", path);
+}
+
+static void do_save_as(void)
+{
+    char name[SDK_NAME_MAX];
+    snprintf(name, sizeof name, "%s", pname);
+    if (!prompt("Project name (8 letters)", name, 8, redraw_screen) || name[0] == 0)
+        return;
+    char stem[SDK_NAME_MAX];
+    sdk_file_stem(name, stem);
+    if (strcmp(stem, pname) && sdk_file_exists(stem)) {
+        static const char *const yn[2] = { "No, choose another name", "Yes, replace it" };
+        if (popup("That project exists", yn, 2, 0, redraw_screen) != 1)
+            return;
+    }
+    do_save(stem);
+}
+
+static void do_new(void)
+{
+    if (!discard_ok())
+        return;
+    sdk_proj_default(&proj, SDK_NES);
+    proj_sel = 0;
+    pname[0] = 0;
+    dirty = 0;
+    say("%s", "a new project: Esc > Save as gives it a name");
+}
+
+static void do_open(void)
+{
+    if (!discard_ok())
+        return;
+    static char names[32][SDK_NAME_MAX];
+    static const char *list[32];
+    const int n = sdk_file_list(names, 32);
+    if (n == 0) {
+        say("%s", "no projects in /bme yet: Save as makes one");
+        return;
+    }
+    for (int i = 0; i < n; i++)
+        list[i] = names[i];
+    const int pick = popup("Open a project", list, n, 0, redraw_screen);
+    if (pick < 0)
+        return;
+    char err[64];
+    sdk_proj_t loaded;
+    if (sdk_file_load(names[pick], &loaded, err, sizeof err) != 0) {
+        say("%s", err);
+        return;
+    }
+    proj = loaded;
+    proj_sel = 0;
+    snprintf(pname, sizeof pname, "%s", names[pick]);
+    dirty = 0;
+    say("opened %s", names[pick]);
+}
+
+/* Returns 1 to leave the SDK. */
+static int esc_menu(void)
+{
+    static const char *const items[] = { "Resume", "New", "Open", "Save", "Save as...", "Exit" };
+    const int pick = popup("Shell SDK", items, 6, 0, redraw_screen);
+    switch (pick) {
+    case 1: do_new(); break;
+    case 2: do_open(); break;
+    case 3:
+        if (pname[0])
+            do_save(pname);
+        else
+            do_save_as();
+        break;
+    case 4: do_save_as(); break;
+    case 5: return discard_ok();
+    default: break;
+    }
+    return 0;
 }
 
 /* A key in the Project tab: w s Up Down move, a d Left Right Enter change the value. */
@@ -134,32 +390,52 @@ static void project_key(int c)
 {
     sdk_row_t menu[12];
     const int n = sdk_proj_rows(&proj, menu, 12);
-    if (c == 'w' || c == HID_KEY_UP)
+    const sdk_proj_t before = proj;
+    if (is_up(c))
         proj_sel = (proj_sel + n - 1) % n;
-    else if (c == 's' || c == HID_KEY_DOWN)
+    else if (is_down(c))
         proj_sel = (proj_sel + 1) % n;
     else if (c == 'a' || c == HID_KEY_LEFT)
         sdk_proj_step(&proj, menu[proj_sel].id, -1);
-    else if (c == 'd' || c == HID_KEY_RIGHT || c == '\r' || c == '\n')
+    else if (c == 'd' || c == HID_KEY_RIGHT || is_enter(c))
         sdk_proj_step(&proj, menu[proj_sel].id, 1);
+    if (memcmp(&before, &proj, sizeof proj))
+        dirty = 1;
 }
 
 int shell_sdk_open(void)
 {
-    int tab = SDK_TAB_PROJECT;
+    cur_tab = SDK_TAB_PROJECT;
     sdk_proj_default(&proj, SDK_NES);
     proj_sel = 0;
+    pname[0] = 0;
+    dirty = 0;
+    msg[0] = 0;
     hid_text_mode(1);
     console_clear();
     for (;;) {
-        draw(tab);
+        draw(cur_tab);
         const int c = (unsigned char)input_getc();
+        msg[0] = 0;
         const int t = shell_sdk_tab_for_key(c);
         if (t >= 0)
-            tab = t;
-        else if (c == 0x1B || c == 0x11)
-            break;
-        else if (tab == SDK_TAB_PROJECT)
+            cur_tab = t;
+        else if (c == 0x1B) {
+            if (esc_menu())
+                break;
+        } else if (c == 0x11) {                 /* Ctrl+Q */
+            if (discard_ok())
+                break;
+        } else if (c == 0x13) {                 /* Ctrl+S */
+            if (pname[0])
+                do_save(pname);
+            else
+                do_save_as();
+        } else if (c == 0x0F)                   /* Ctrl+O */
+            do_open();
+        else if (c == 0x0E)                     /* Ctrl+N */
+            do_new();
+        else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
     }
     hid_text_mode(0);

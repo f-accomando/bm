@@ -7,6 +7,8 @@
 #ifndef SHELL_SDK_PROJ_H
 #define SHELL_SDK_PROJ_H
 
+#include <stddef.h>
+
 enum { SDK_NES, SDK_SNES, SDK_BM, SDK_TARGETS };
 
 /* The rows of the menu. The first row is always SDK_ROW_PLATFORM. */
@@ -70,6 +72,14 @@ const char *sdk_proj_note(const sdk_proj_t *p, int row_id);
 int sdk_proj_info(const sdk_proj_t *p, char lines[][72], int max);
 
 void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb);
+
+/* The project as text, for the LUA section of a .bme (the same idea as the "--cart" line of the SNES SDK):
+ * a comment line and one "--sdk key=value ..." line. Returns the length, or -1 when n is too small. */
+int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n);
+
+/* The settings of such a text (a bad or missing value takes the default, and the settings that depend on
+ * each other are put right). Returns 0, or -1 when the text has no "--sdk" line (p is then the default). */
+int sdk_proj_parse(const char *text, size_t len, sdk_proj_t *p);
 
 /* The name of a target, its cartridge and its CPU ("NES", "Cartridge", "6502"). */
 const char *sdk_target_name(int target);

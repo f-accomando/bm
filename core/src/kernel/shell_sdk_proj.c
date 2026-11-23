@@ -4,6 +4,7 @@
 #include "shell_sdk_proj.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define N(a) ((int)(sizeof (a) / sizeof (a)[0]))
@@ -325,4 +326,95 @@ void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb)
         size_text(sz, sizeof sz, p->snes_rom_kb);
         snprintf(pcb->rom, sizeof pcb->rom, "ROM %s", sz);
     }
+}
+
+/* ---- the project as text ---- */
+
+int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n)
+{
+    const int len = snprintf(out, n,
+        "-- bm shell sdk project\n"
+        "--sdk v=1 t=%d b=%d prg=%d chr=%d wram=%d nbat=%d vert=%d hirom=%d fast=%d rom=%d sram=%d sbat=%d chip=%d lang=%d kern=%d\n",
+        p->target, p->nes_board, p->nes_prg_kb, p->nes_chr_kb, p->nes_wram_kb, p->nes_battery, p->nes_vertical,
+        p->snes_hirom, p->snes_fast, p->snes_rom_kb, p->snes_sram_kb, p->snes_battery, p->snes_chip, p->bm_lang,
+        p->bm_kernels);
+    return len < 0 || (size_t)len >= n ? -1 : len;
+}
+
+static int in_list(const int *list, int n, int v)
+{
+    for (int i = 0; i < n; i++)
+        if (list[i] == v)
+            return 1;
+    return 0;
+}
+
+static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+int sdk_proj_parse(const char *text, size_t len, sdk_proj_t *p)
+{
+    sdk_proj_default(p, SDK_NES);
+    const char *line = NULL;
+    for (size_t i = 0; i + 6 <= len; i++)
+        if ((i == 0 || text[i - 1] == '\n') && !strncmp(text + i, "--sdk ", 6)) {
+            line = text + i + 6;
+            break;
+        }
+    if (!line)
+        return -1;
+    const char *end = line;
+    while ((size_t)(end - text) < len && *end != '\n')
+        end++;
+    static const struct { const char *key; int off; } keys[] = {
+        { "t", 0 }, { "b", 1 }, { "prg", 2 }, { "chr", 3 }, { "wram", 4 }, { "nbat", 5 }, { "vert", 6 },
+        { "hirom", 7 }, { "fast", 8 }, { "rom", 9 }, { "sram", 10 }, { "sbat", 11 }, { "chip", 12 },
+        { "lang", 13 }, { "kern", 14 },
+    };
+    int *field[15] = { &p->target, &p->nes_board, &p->nes_prg_kb, &p->nes_chr_kb, &p->nes_wram_kb, &p->nes_battery,
+                       &p->nes_vertical, &p->snes_hirom, &p->snes_fast, &p->snes_rom_kb, &p->snes_sram_kb,
+                       &p->snes_battery, &p->snes_chip, &p->bm_lang, &p->bm_kernels };
+    while (line < end) {
+        while (line < end && *line == ' ')
+            line++;
+        const char *eq = line;
+        while (eq < end && *eq != '=' && *eq != ' ')
+            eq++;
+        if (eq < end && *eq == '=') {
+            char word[16], num[16];
+            const char *v = eq + 1, *ve = v;
+            while (ve < end && *ve != ' ')
+                ve++;
+            snprintf(word, sizeof word, "%.*s", (int)(eq - line), line);
+            snprintf(num, sizeof num, "%.*s", (int)(ve - v), v);
+            for (int k = 0; k < (int)(sizeof keys / sizeof keys[0]); k++)
+                if (!strcmp(word, keys[k].key))
+                    *field[keys[k].off] = (int)strtol(num, NULL, 10);
+            line = ve;
+        } else {
+            while (line < end && *line != ' ')
+                line++;
+        }
+    }
+    p->target = clampi(p->target, 0, SDK_TARGETS - 1);
+    p->nes_board = clampi(p->nes_board, 0, N(boards) - 1);
+    p->snes_chip = clampi(p->snes_chip, 0, N(chips) - 1);
+    p->bm_lang = clampi(p->bm_lang, 0, N(langs) - 1);
+    p->bm_kernels = clampi(p->bm_kernels, 0, N(kernels) - 1);
+    if (!in_list(nes_prg_list, N(nes_prg_list), p->nes_prg_kb))
+        p->nes_prg_kb = 32;
+    if (!in_list(nes_chr_list, N(nes_chr_list), p->nes_chr_kb))
+        p->nes_chr_kb = 8;
+    p->nes_wram_kb = p->nes_wram_kb ? 8 : 0;
+    p->nes_battery = !!p->nes_battery;
+    p->nes_vertical = !!p->nes_vertical;
+    p->snes_hirom = !!p->snes_hirom;
+    p->snes_fast = !!p->snes_fast;
+    p->snes_battery = !!p->snes_battery;
+    if (!in_list(snes_rom_list, N(snes_rom_list), p->snes_rom_kb))
+        p->snes_rom_kb = 32;
+    if (!in_list(snes_sram_list, N(snes_sram_list), p->snes_sram_kb))
+        p->snes_sram_kb = 0;
+    nes_fix(p);
+    snes_fix(p);
+    return 0;
 }
