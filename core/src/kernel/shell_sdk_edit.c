@@ -12,6 +12,7 @@ static int want;                        /* the column that Up and Down try to ke
 static long anchor = -1;                /* the other end of the selection (-1: none) */
 static char clip[SDK_EDIT_MAX + 1];
 static size_t clip_len;
+static unsigned rev;                    /* grows with each change of the text */
 
 void sdk_edit_reset(void)
 {
@@ -21,6 +22,30 @@ void sdk_edit_reset(void)
 }
 
 size_t sdk_edit_length(void) { return len; }
+unsigned sdk_edit_revision(void) { return rev; }
+
+void sdk_edit_set(const char *text, size_t n)
+{
+    len = 0;
+    for (size_t i = 0; i < n && len < SDK_EDIT_MAX; i++) {
+        const unsigned char c = (unsigned char)text[i];
+        if (c == 13)                                    /* a carriage return */
+            continue;
+        buf[len++] = c == 10 || (c >= 32 && c <= 126) ? (char)c : ' ';
+    }
+    cur = 0;
+    want = 0;
+    anchor = -1;
+    rev++;
+}
+
+void sdk_edit_goto_line(int line)
+{
+    anchor = -1;
+    cur = sdk_edit_line_offset(line > 1 ? line - 1 : 0);
+    want = 0;
+}
+
 const char *sdk_edit_text(void) { return buf; }
 
 static size_t line_start(size_t p)
@@ -44,6 +69,7 @@ static int insert(char c)
     memmove(buf + cur + 1, buf + cur, len - cur);
     buf[cur++] = c;
     len++;
+    rev++;
     return 1;
 }
 
@@ -65,6 +91,7 @@ static void remove_range(size_t from, size_t to)
 {
     memmove(buf + from, buf + to, len - to);
     len -= to - from;
+    rev++;
     cur = from;
     anchor = -1;
     keep_column();
@@ -125,6 +152,7 @@ int sdk_edit_backspace(void)
     memmove(buf + cur - 1, buf + cur, len - cur);
     cur--;
     len--;
+    rev++;
     keep_column();
     return 1;
 }
@@ -137,6 +165,7 @@ int sdk_edit_delete(void)
         return 0;
     memmove(buf + cur, buf + cur + 1, len - cur - 1);
     len--;
+    rev++;
     return 1;
 }
 
@@ -349,6 +378,7 @@ int sdk_edit_duplicate_line(void)
     buf[e] = '\n';
     memmove(buf + e + 1, buf + s, n);
     len += n + 1;
+    rev++;
     cur += n + 1;                                       /* the cursor goes with the copy */
     anchor = -1;
     keep_column();

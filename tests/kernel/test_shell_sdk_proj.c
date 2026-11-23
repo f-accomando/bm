@@ -137,6 +137,42 @@ int main(void)
         CHECK(q.snes_chip < 9 && q.bm_lang == 0 && q.bm_kernels == 0);
     }
 
+    /* the header for the builder */
+    {
+        char h[256];
+        sdk_proj_t q;
+        sdk_proj_default(&q, SDK_NES);
+        CHECK(sdk_proj_header(&q, "x", h, sizeof h) > 0);
+        CHECK(!strcmp(h, "{platform=\"nes\",mapper=0,prg_kb=32,chr_kb=8,wram_kb=0,battery=false,vertical=false}"));
+        q.nes_board = 4;                                    /* MMC3 */
+        q.nes_prg_kb = 128;
+        q.nes_chr_kb = 0;
+        q.nes_battery = 1;
+        q.nes_wram_kb = 8;
+        q.nes_vertical = 1;
+        sdk_proj_parse("--sdk v=1 t=0 b=4 prg=128 chr=0 wram=8 nbat=1 vert=1", strlen("--sdk v=1 t=0 b=4 prg=128 chr=0 wram=8 nbat=1 vert=1"), &q);
+        CHECK(sdk_proj_header(&q, "x", h, sizeof h) > 0 && strstr(h, "mapper=4,prg_kb=128,chr_kb=0,wram_kb=8,battery=true,vertical=true"));
+        sdk_proj_default(&q, SDK_SNES);
+        CHECK(sdk_proj_header(&q, "My game", h, sizeof h) > 0);
+        CHECK(!strcmp(h, "{platform=\"snes\",title=\"MY GAME\",map=\"lorom\",fast=false,min_kb=32,sram_kb=0,battery=true,chipset=0}"));
+        sdk_proj_parse("--sdk v=1 t=1 hirom=1 fast=1 rom=1024 sram=8 sbat=1 chip=2", strlen("--sdk v=1 t=1 hirom=1 fast=1 rom=1024 sram=8 sbat=1 chip=2"), &q);
+        CHECK(sdk_proj_header(&q, "", h, sizeof h) > 0);
+        CHECK(strstr(h, "title=\"BM SNES PROGRAM\"") && strstr(h, "map=\"lorom\"") && strstr(h, "fast=true"));
+        CHECK(strstr(h, "min_kb=1024,sram_kb=8") && strstr(h, "chipset=21,mapmode=32}"));        /* GSU: $15, map $20 */
+        sdk_proj_default(&q, SDK_BM);
+        CHECK(sdk_proj_header(&q, "x", h, sizeof h) > 0 && !strcmp(h, "{platform=\"bm\"}"));
+        CHECK(sdk_proj_header(&q, "x", h, 5) == -1);
+    }
+
+    /* the source code follows the --sdk line */
+    {
+        const char text[] = "-- bm shell sdk project\n--sdk v=1 t=0\nreset: sei\n  rts\n";
+        const size_t off = sdk_proj_source_offset(text, sizeof text - 1);
+        CHECK(off < sizeof text && !strncmp(text + off, "reset: sei", 10));
+        CHECK(sdk_proj_source_offset("no line", 7) == 7);
+        CHECK(sdk_proj_source_offset("--sdk t=1", 9) == 9);
+    }
+
     if (fails) {
         printf("test_shell_sdk_proj: %d FAILED\n", fails);
         return 1;

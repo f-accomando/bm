@@ -206,7 +206,7 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
     char st[96];
     snprintf(st, sizeof st, "Ln %d  Col %d  %u bytes", line + 1, c + 1, (unsigned)sdk_edit_length());
     console_write("\x1b[96m");
-    put_row(rows, col, width, note[0] ? note : msg && msg[0] ? msg : st, 200);
+    put_row(rows, col, width, msg && msg[0] ? msg : note[0] ? note : st, 200);
     console_write("\x1b[0m");
     (void)ctrl_hint;
     if (focus == FOCUS_EDITOR)

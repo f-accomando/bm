@@ -11,6 +11,7 @@ One container serves three kinds of file; the kind is told by the **file extensi
 |---|---|---|
 | `.bm` | game or app, for the Pi, the RGB30, or both | 0 |
 | `.bme` | editable project (only the tools edit it) | 1 |
+| `.bmr` | NES or SNES source project of bm Shell SDK (only the tools edit it): a LUA section with the settings (the `--sdk` line) and the assembly source | 1 |
 | `.bmm .bmi .bms .bmt .bmc .bmk` | resource file, magic `BMRES` | - |
 
 All numbers are little endian.

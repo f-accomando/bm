@@ -74,6 +74,7 @@ Not now (decision of 2026-11-13). The plan is in the open work of [snes-sdk.md](
 Last in the queue (user request, 2026-11-18). Today a ROM opens read only and nothing is saved.
 
 - The format is `.bmr`, "bm ROM" (user decision, 2026-11-18): the project of a ROM that the SDK opened. `.bms` was the first choice, but it is the resource file of sounds (`docs/BM-FORMAT.md`): do not use it here. A `.bmr` is a project, not a cartridge: the only cartridge type stays `.bm`.
+- The Shell SDK (bm shell, `core/src/kernel/shell_sdk.c`) already uses `.bmr` for its NES and SNES source projects (23 Nov 2026): the LUA section holds the settings and the source, not a patch. The patch form below is still to do, in the same folder; give it a version field so that the two do not mix.
 - Put the `.bmr` files in their own folder `/bmr` at the root of the SD card. Do not write them to `/docs`.
 - A `.bmr` keeps the name, the size and the CRC32 of the original ROM, and the changes as a patch (byte ranges, tiles, palettes). Keep the original file as it is.
 - Save as, on a ROM opened read only, makes a `.bmr` in `/bmr`. Ctrl+O lists the `.bmr` files with the projects. Opening one reads the original ROM from `/snes`, checks the CRC32 and applies the patch. If the CRC32 is not the same, say which ROM is needed.

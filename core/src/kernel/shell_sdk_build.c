@@ -1,0 +1,128 @@
+/*
+ * Shell SDK: the builder (see shell_sdk_build.h). Original code.
+ */
+#include "shell_sdk_build.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "fs/fat.h"
+#include "lauxlib.h"
+#include "lua.h"
+#include "script/luavm.h"
+
+extern const uint8_t bm_lib_snes_asm[], bm_lib_snes_asm_end[];
+
+/* The Lua that does the build. It gets the assembler module, the source, the header (a Lua table as text)
+ * and the project name, and returns the ROM, or nil and the message. */
+static const char driver[] =
+    "local M, src, hdr, name = ...\n"
+    "local h = assert(load('return ' .. hdr, '=header', 't', {}))()\n"
+    "local function rd(p)\n"
+    "  return bm.read(p, 8 * 1024 * 1024) or bm.read('/bmr/' .. p, 8 * 1024 * 1024)\n"
+    "end\n"
+    "local opts = { name = 'main.s', read = rd }\n"
+    "if h.platform == 'nes' then opts.cpu = '6502' else opts.map = h.map end\n"
+    "local res = M.assemble(src, opts)\n"
+    "if not res.ok then return nil, M.format_errors(res) end\n"
+    "local rom, info\n"
+    "if h.platform == 'nes' then\n"
+    "  if (h.chr_kb or 0) > 0 then h.chr = bm.read('/bmr/' .. name .. '.chr', 8 * 1024 * 1024) end\n"
+    "  rom, info = M.build_nes(res, h)\n"
+    "else\n"
+    "  rom, info = M.build_rom(res, h)\n"
+    "end\n"
+    "if not rom then return nil, info end\n"
+    "return rom\n";
+
+static void first_line(char *err, size_t en, const char *msg)
+{
+    size_t n = 0;
+    while (msg[n] && msg[n] != '\n' && n + 1 < en) {
+        err[n] = msg[n];
+        n++;
+    }
+    err[n] = 0;
+}
+
+int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom, size_t *rom_len,
+              char *err, size_t en)
+{
+    char header[384];
+    if (p->target == SDK_BM) {
+        snprintf(err, en, "a bm project has no ROM to build");
+        return -1;
+    }
+    if (sdk_proj_header(p, name, header, sizeof header) < 0) {
+        snprintf(err, en, "the header is too long");
+        return -1;
+    }
+    lua_State *L = luavm_state();
+    if (!L)
+        L = luavm_init();
+    if (!L) {
+        snprintf(err, en, "no Lua in this kernel");
+        return -1;
+    }
+    const int top = lua_gettop(L);
+    int rc = -1;
+    if (luaL_loadbufferx(L, (const char *)bm_lib_snes_asm, (size_t)(bm_lib_snes_asm_end - bm_lib_snes_asm),
+                         "=snes_asm", "t") != LUA_OK ||
+        lua_pcall(L, 0, 1, 0) != LUA_OK) {
+        first_line(err, en, lua_tostring(L, -1));
+        goto done;
+    }
+    if (luaL_loadbufferx(L, driver, sizeof driver - 1, "=sdkbuild", "t") != LUA_OK) {
+        first_line(err, en, lua_tostring(L, -1));
+        goto done;
+    }
+    lua_pushvalue(L, -2);
+    lua_pushlstring(L, source, len);
+    lua_pushstring(L, header);
+    lua_pushstring(L, name);
+    if (lua_pcall(L, 4, 2, 0) != LUA_OK) {
+        first_line(err, en, lua_tostring(L, -1));
+        goto done;
+    }
+    if (lua_isstring(L, -2)) {
+        size_t n;
+        const char *data = lua_tolstring(L, -2, &n);
+        *rom = malloc(n);
+        if (!*rom) {
+            snprintf(err, en, "not enough memory for the ROM");
+            goto done;
+        }
+        memcpy(*rom, data, n);
+        *rom_len = n;
+        rc = 0;
+    } else {
+        first_line(err, en, lua_isstring(L, -1) ? lua_tostring(L, -1) : "the build failed");
+    }
+done:
+    lua_settop(L, top);
+    return rc;
+}
+
+int sdk_build_write(const sdk_proj_t *p, const char *name, const uint8_t *rom, size_t rom_len, char *err, size_t en)
+{
+    char path[40];
+    const char *dir = sdk_proj_rom_dir(p);
+    if (!dir || sdk_proj_rom_path(p, name, path, sizeof path) != 0) {
+        snprintf(err, en, "a bm project has no ROM");
+        return -1;
+    }
+    fat_entry_t e;
+    int ok;
+    if (fat_find(path, &e) == 0 && !e.is_dir) {
+        ok = fat_replace(path, rom, rom_len) == 0;
+    } else {
+        const char *file = strrchr(path, '/') + 1;
+        ok = fat_mkdirs(dir) == 0 && fat_write_file(dir, file, rom, rom_len) == 0;
+    }
+    if (!ok) {
+        snprintf(err, en, "%s", fat_error());
+        return -1;
+    }
+    return 0;
+}

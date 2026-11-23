@@ -7,7 +7,7 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, i
 
 | File | Use |
 |---|---|
-| `core/src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player) |
+| `core/src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player). `opts.cpu = "6502"` assembles the official NMOS 6502 instructions for the NES; `build_nes(res, header)` writes an iNES file. The Shell SDK (`core/src/kernel/shell_sdk_build.c`) uses both |
 | `tests/snes/asm_test.lua` | unit tests: all 256 opcodes, the addressing modes, width tracking, expressions, directives, macros, errors, the builder |
 | `tests/snes/testrom.s`, `tests/snes/asm_rom_test.py` | the program of `make_testrom.py` in assembly; the test compares the bytes and runs the ROM in the core |
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |
@@ -20,6 +20,8 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, i
 | `core/lua/snesbg.lua` | the BG layers of the machine for the BG view of the Map tab: the registers of the debug line, the depth of each layer in each mode, the map addresses, the cells (flips, 16x16 tiles, Mode 7), the screen on the map, `.dw` lines, the capture of a level that follows the scroll and its export (no bm API) |
 | `tests/snes/bg_test.lua` | the tests of `snesbg.lua` (`make test-snes-bg`) |
 | `tests/snes/asm_cli.lua` | a command line: `build/host/luahost tests/snes/asm_cli.lua in.s out.sfc [--title T] [--map hirom] [--sym f]` |
+
+| `tests/snes/nes_asm_test.lua` | the 6502 mode and `build_nes`: the instructions, what is refused, the header, the vectors, the mirror of a 16 KB PRG (in `make test-snes-asm`) |
 
 Test: `make test-snes-asm`, `make test-snes-code`, `make test-snes-rom`, `make test-snes-oam`.
 

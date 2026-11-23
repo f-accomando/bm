@@ -85,6 +85,7 @@ Special builds keep their own rules: the Overbit variants (reel, match), the tes
 - A `.bme` project lives in `/bme`. The tools write there: the editable copy of a game, a new project, Save as, Ctrl+S.
   The console makes the folder when it is missing. One helper builds the path: `bm_project_path()` in `core/src/bm/project.h`
   for the kernel, `U.project_path()` in `core/src/script/bmui.lua` for the tools.
+- A NES or SNES project of the Shell SDK is a `.bmr` in `/bmr` (a `.bme` stays the project of a bm game). The container is the same as a `.bme`, with only a LUA section: the `--sdk` settings line, then the source code. The Shell SDK writes the ROM it builds to `/nes/NAME.nes` or `/snes/NAME.sfc`.
 - The menu and every open list of the tools read `/bme` first. They also read a `.bme` found next to its game (`/carts`
   or the root, old SD cards). The console does not move it. The tool saves it where it is and the status line says so
   (`old place`).

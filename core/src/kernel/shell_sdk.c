@@ -8,13 +8,16 @@
 #include "shell_sdk.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "gfx/console.h"
 #include "input.h"
 #include "usb/hid.h"
 #include "romtabs.h"
+#include "shell_sdk_build.h"
 #include "shell_sdk_code.h"
+#include "shell_sdk_edit.h"
 #include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
 #include "shell_sdk_proj.h"
@@ -304,19 +307,22 @@ static int discard_ok(void)
     return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
 }
 
-/* ---- Esc menu: New, Open, Save, Save as ---- */
+/* ---- Esc menu: New, Open, Save, Save as, Build ---- */
+
+static unsigned seen_rev;               /* the revision of the text when the project was saved or opened */
 
 static void do_save(const char *name)
 {
     char err[64];
-    if (sdk_file_save(&proj, name, err, sizeof err) != 0) {
+    if (sdk_file_save(&proj, name, sdk_edit_text(), sdk_edit_length(), err, sizeof err) != 0) {
         say("save failed: %s", err);
         return;
     }
     sdk_file_stem(name, pname);
     dirty = 0;
+    seen_rev = sdk_edit_revision();
     char path[32];
-    sdk_file_path(pname, path, sizeof path);
+    sdk_file_path(pname, proj.target, path, sizeof path);
     say("saved %s", path);
 }
 
@@ -328,7 +334,7 @@ static void do_save_as(void)
         return;
     char stem[SDK_NAME_MAX];
     sdk_file_stem(name, stem);
-    if (strcmp(stem, pname) && sdk_file_exists(stem)) {
+    if (strcmp(stem, pname) && sdk_file_exists(stem, proj.target)) {
         static const char *const yn[2] = { "No, choose another name", "Yes, replace it" };
         if (popup("That project exists", yn, 2, 0, redraw_screen) != 1)
             return;
@@ -343,6 +349,8 @@ static void do_new(void)
     sdk_proj_default(&proj, SDK_NES);
     proj_sel = 0;
     pname[0] = 0;
+    sdk_code_reset();
+    seen_rev = sdk_edit_revision();
     dirty = 0;
     say("%s", "a new project: Esc > Save as gives it a name");
 }
@@ -351,11 +359,11 @@ static void do_open(void)
 {
     if (!discard_ok())
         return;
-    static char names[32][SDK_NAME_MAX];
+    static char names[32][SDK_FILE_MAX];
     static const char *list[32];
     const int n = sdk_file_list(names, 32);
     if (n == 0) {
-        say("%s", "no projects in /bme yet: Save as makes one");
+        say("%s", "no projects yet: Save as makes one (/bmr for NES and SNES, /bme for bm)");
         return;
     }
     for (int i = 0; i < n; i++)
@@ -365,13 +373,18 @@ static void do_open(void)
         return;
     char err[64];
     sdk_proj_t loaded;
-    if (sdk_file_load(names[pick], &loaded, err, sizeof err) != 0) {
+    char *source = NULL;
+    size_t source_len = 0;
+    if (sdk_file_load(names[pick], &loaded, &source, &source_len, err, sizeof err) != 0) {
         say("%s", err);
         return;
     }
     proj = loaded;
     proj_sel = 0;
-    snprintf(pname, sizeof pname, "%s", names[pick]);
+    sdk_file_stem(names[pick], pname);
+    sdk_edit_set(source ? source : "", source_len);
+    free(source);
+    seen_rev = sdk_edit_revision();
     dirty = 0;
     say("opened %s", names[pick]);
 }
@@ -408,11 +421,52 @@ static void do_open_rom(void)
     say("opened %s", sdk_code_rom_name());
 }
 
+/* Build ROM: assembles the source of the Code tab and writes /nes/NAME.nes or /snes/NAME.sfc, then shows the
+ * ROM beside the code. An error goes to the message line and the cursor goes to its line. */
+static void do_build(void)
+{
+    if (proj.target == SDK_BM) {
+        say("%s", "a bm project has no ROM: Build is for NES and SNES");
+        return;
+    }
+    if (!pname[0])
+        do_save_as();                           /* the ROM takes the name of the project */
+    if (!pname[0])
+        return;
+    if (dirty)
+        do_save(pname);
+    char err[96];
+    uint8_t *rom = NULL;
+    size_t rom_len = 0;
+    if (sdk_build(&proj, pname, sdk_edit_text(), sdk_edit_length(), &rom, &rom_len, err, sizeof err) != 0) {
+        const int line = sdk_proj_error_line(err);
+        cur_tab = SDK_TAB_CODE;
+        if (line > 0)
+            sdk_edit_goto_line(line);
+        say("%s", err);
+        return;
+    }
+    if (sdk_build_write(&proj, pname, rom, rom_len, err, sizeof err) != 0) {
+        free(rom);
+        say("write failed: %s", err);
+        return;
+    }
+    free(rom);
+    char path[24];
+    sdk_proj_rom_path(&proj, pname, path, sizeof path);
+    if (sdk_code_open_rom(path, err, sizeof err) != 0) {
+        say("%s", err);
+        return;
+    }
+    cur_tab = SDK_TAB_CODE;
+    snprintf(msg, sizeof msg, "built %s (%u KB)", path, (unsigned)((rom_len + 1023) / 1024));
+}
+
 /* Returns 1 to leave the SDK. */
 static int esc_menu(void)
 {
-    static const char *const items[] = { "Resume", "New", "Open", "Open ROM...", "Save", "Save as...", "Exit" };
-    const int pick = popup("Shell SDK", items, 7, 0, redraw_screen);
+    static const char *const items[] = { "Resume", "New", "Open", "Open ROM...", "Save", "Save as...", "Build ROM", "Exit" };
+    const int pick = popup("Shell SDK", items, 8, 0, redraw_screen);
     switch (pick) {
     case 1: do_new(); break;
     case 2: do_open(); break;
@@ -424,7 +478,8 @@ static int esc_menu(void)
             do_save_as();
         break;
     case 5: do_save_as(); break;
-    case 6: return discard_ok();
+    case 6: do_build(); break;
+    case 7: return discard_ok();
     default: break;
     }
     return 0;
@@ -457,6 +512,7 @@ int shell_sdk_open(void)
     dirty = 0;
     msg[0] = 0;
     sdk_code_reset();
+    seen_rev = sdk_edit_revision();
     hid_text_mode(1);
     console_clear();
     for (;;) {
@@ -481,12 +537,18 @@ int shell_sdk_open(void)
             do_open();
         else if (c == 0x0E)                     /* Ctrl+N */
             do_new();
+        else if (c == 0x02)                     /* Ctrl+B */
+            do_build();
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
             sdk_code_key(c, (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
                             (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
                             (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0));
+        if (sdk_edit_revision() != seen_rev) {  /* the text changed: the project is not saved */
+            seen_rev = sdk_edit_revision();
+            dirty = 1;
+        }
     }
     sdk_code_reset();
     hid_text_mode(0);

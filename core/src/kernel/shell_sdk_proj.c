@@ -41,19 +41,21 @@ typedef struct {
     const char *name, *shortname;
     int lorom;              /* the header of this chip is LoROM */
     int emu;                /* the SNES core of bm runs this chip */
+    int code;               /* the chipset byte of $FFD6 for this chip (no RAM), as SC.CART_CHIPS */
+    int mapmode;            /* the map byte of $FFD5 of this chip's real cartridges (0: the plain one) */
     const char *note;
 } snes_chip_t;
 
 static const snes_chip_t chips[] = {
-    { "None (plain ROM)",                  "",        0, 1, "A plain cartridge: ROM and, if you want, save RAM." },
-    { "DSP-1 (maths: Super Mario Kart)",   "DSP-1",   0, 1, "Needs the DSP firmware file in /snes to run." },
-    { "Super FX / GSU (3D: Star Fox)",     "GSU",     1, 1, "The GSU CPU runs from the ROM. The header says LoROM; the chip adds its own memory map." },
-    { "SA-1 (second CPU: Super Mario RPG)", "SA-1",   1, 1, "A 10 MHz second 65816 with its own RAM. The core runs it." },
-    { "OBC-1 (sprite helper)",             "OBC-1",   0, 0, "Header only: the core has no OBC-1 yet." },
-    { "S-DD1 (graphics decompression)",    "S-DD1",   0, 0, "Header only: the core has no S-DD1 yet." },
-    { "S-RTC (real-time clock)",           "S-RTC",   0, 0, "Header only: the core has no S-RTC yet." },
-    { "Cx4 (wireframe maths)",             "Cx4",     0, 0, "Header only: the core has no Cx4 yet." },
-    { "SPC7110 (decompression, data ROM)", "SPC7110", 0, 0, "Header only: the core has no SPC7110 yet." },
+    { "None (plain ROM)",                  "",        0, 1, 0x00, 0,    "A plain cartridge: ROM and, if you want, save RAM." },
+    { "DSP-1 (maths: Super Mario Kart)",   "DSP-1",   0, 1, 0x03, 0x20, "Needs the DSP firmware file in /snes to run." },
+    { "Super FX / GSU (3D: Star Fox)",     "GSU",     1, 1, 0x13, 0x20, "The GSU CPU runs from the ROM. The header says LoROM; the chip adds its own memory map." },
+    { "SA-1 (second CPU: Super Mario RPG)", "SA-1",   1, 1, 0x32, 0x23, "A 10 MHz second 65816 with its own RAM. The core runs it." },
+    { "OBC-1 (sprite helper)",             "OBC-1",   0, 0, 0x25, 0x20, "Header only: the core has no OBC-1 yet." },
+    { "S-DD1 (graphics decompression)",    "S-DD1",   0, 0, 0x43, 0x22, "Header only: the core has no S-DD1 yet." },
+    { "S-RTC (real-time clock)",           "S-RTC",   0, 0, 0x55, 0x20, "Header only: the core has no S-RTC yet." },
+    { "Cx4 (wireframe maths)",             "Cx4",     0, 0, 0xF3, 0x20, "Header only: the core has no Cx4 yet." },
+    { "SPC7110 (decompression, data ROM)", "SPC7110", 0, 0, 0xF5, 0x3A, "Header only: the core has no SPC7110 yet." },
 };
 enum { CHIP_NONE, CHIP_DSP1, CHIP_GSU, CHIP_SA1 };
 
@@ -328,6 +330,52 @@ void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb)
     }
 }
 
+/* ---- the header for the builder ---- */
+
+/* The chipset byte of the header, with the save RAM and the battery (core/lua/snescode.lua, SC.cart_chipset). */
+static int snes_chipset(const sdk_proj_t *p)
+{
+    const int ram = p->snes_sram_kb > 0, bat = p->snes_battery;
+    switch (p->snes_chip) {
+    case CHIP_NONE: return ram ? (bat ? 0x02 : 0x01) : 0x00;
+    case CHIP_DSP1: return ram ? (bat ? 0x05 : 0x04) : 0x03;
+    case CHIP_GSU:  return ram ? (bat ? 0x15 : 0x14) : 0x13;
+    case CHIP_SA1:  return ram ? (bat ? 0x35 : 0x34) : 0x32;
+    case 5:         return ram ? 0x45 : 0x43;          /* S-DD1 */
+    case 4:         return ram ? 0x25 : 0x23;          /* OBC-1 */
+    default:        return chips[p->snes_chip].code;
+    }
+}
+
+int sdk_proj_header(const sdk_proj_t *p, const char *title, char *out, size_t n)
+{
+    int len;
+    if (p->target == SDK_NES) {
+        const nes_board_t *b = &boards[p->nes_board];
+        len = snprintf(out, n,
+            "{platform=\"nes\",mapper=%d,prg_kb=%d,chr_kb=%d,wram_kb=%d,battery=%s,vertical=%s}",
+            b->mapper, p->nes_prg_kb, p->nes_chr_kb, p->nes_wram_kb, p->nes_battery ? "true" : "false",
+            p->nes_vertical && !b->one_screen ? "true" : "false");
+    } else if (p->target == SDK_SNES) {
+        char t[24];
+        size_t k = 0;
+        for (const char *s = title; s && *s && k < 21; s++) {         /* the title of the header: 21 capitals */
+            const int c = *s >= 'a' && *s <= 'z' ? *s - 32 : *s;
+            t[k++] = (c >= ' ' && c < 127 && c != '"' && c != '\\') ? (char)c : '?';
+        }
+        t[k] = 0;
+        len = snprintf(out, n,
+            "{platform=\"snes\",title=\"%s\",map=\"%s\",fast=%s,min_kb=%d,sram_kb=%d,battery=%s,chipset=%d%s%.0d}",
+            k ? t : "BM SNES PROGRAM", p->snes_hirom ? "hirom" : "lorom", p->snes_fast ? "true" : "false",
+            p->snes_rom_kb, p->snes_sram_kb, p->snes_battery ? "true" : "false", snes_chipset(p),
+            chips[p->snes_chip].mapmode && p->snes_chip != CHIP_NONE ? ",mapmode=" : "",
+            p->snes_chip != CHIP_NONE ? chips[p->snes_chip].mapmode : 0);
+    } else {
+        len = snprintf(out, n, "{platform=\"bm\"}");
+    }
+    return len < 0 || (size_t)len >= n ? -1 : len;
+}
+
 /* ---- the project as text ---- */
 
 int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n)
@@ -339,6 +387,40 @@ int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n)
         p->snes_hirom, p->snes_fast, p->snes_rom_kb, p->snes_sram_kb, p->snes_battery, p->snes_chip, p->bm_lang,
         p->bm_kernels);
     return len < 0 || (size_t)len >= n ? -1 : len;
+}
+
+size_t sdk_proj_source_offset(const char *text, size_t len)
+{
+    size_t i = 0;
+    while (i + 6 <= len && !((i == 0 || text[i - 1] == '\n') && !strncmp(text + i, "--sdk ", 6)))
+        i++;
+    if (i + 6 > len)
+        return len;
+    while (i < len && text[i] != '\n')
+        i++;
+    return i < len ? i + 1 : len;
+}
+
+const char *sdk_proj_rom_dir(const sdk_proj_t *p)
+{
+    return p->target == SDK_NES ? "/nes" : p->target == SDK_SNES ? "/snes" : NULL;
+}
+
+int sdk_proj_rom_path(const sdk_proj_t *p, const char *stem, char *out, size_t n)
+{
+    const char *dir = sdk_proj_rom_dir(p);
+    if (!dir)
+        return -1;
+    snprintf(out, n, "%s/%s.%s", dir, stem, p->target == SDK_NES ? "nes" : "sfc");
+    return 0;
+}
+
+int sdk_proj_error_line(const char *msg)
+{
+    const char *c = strchr(msg, ':');
+    if (!c || c[1] < '0' || c[1] > '9')
+        return 0;
+    return atoi(c + 1);
 }
 
 static int in_list(const int *list, int n, int v)

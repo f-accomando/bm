@@ -283,8 +283,9 @@ test-snes-m7: $(BUILD)/host/bmhost-bin $(BUILD)/host/luahost tests/snes/m7test_c
 # bm SNES SDK: the 65C816 assembler and the ROM builder (core/src/script/snes_asm.lua). The unit tests run in the Lua of the
 # repository; the second test builds tests/snes/testrom.s, compares it with the ROM of make_testrom.py and runs it in the core.
 SNES_CORE_SRCS := core/src/bm/snes_bus.c core/src/bm/snes_sa1.c core/src/bm/snes_sa1_cpu.c core/src/bm/snes_gsu.c core/src/bm/snes_dsp77.c core/src/bm/snes_cpu.c core/src/bm/snes_ppu.c core/src/bm/snes_spc.c core/src/bm/snes_dsp.c
-test-snes-asm: $(BUILD)/host/luahost core/src/script/snes_asm.lua tests/snes/asm_test.lua tests/snes/asm_cli.lua tests/snes/asm_rom_test.py tests/snes/asm_run.c tests/snes/testrom.s tests/snes/make_testrom.py $(wildcard core/src/bm/snes*.h)
+test-snes-asm: $(BUILD)/host/luahost core/src/script/snes_asm.lua tests/snes/asm_test.lua tests/snes/nes_asm_test.lua tests/snes/asm_cli.lua tests/snes/asm_rom_test.py tests/snes/asm_run.c tests/snes/testrom.s tests/snes/make_testrom.py $(wildcard core/src/bm/snes*.h)
 	$(BUILD)/host/luahost tests/snes/asm_test.lua
+	$(BUILD)/host/luahost tests/snes/nes_asm_test.lua
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes_asm_run tests/snes/asm_run.c $(SNES_CORE_SRCS)
 	$(PYTHON) tests/snes/asm_rom_test.py $(BUILD)/host/luahost $(BUILD)/host/snes_asm_run
 

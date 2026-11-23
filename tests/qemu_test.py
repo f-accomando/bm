@@ -4583,6 +4583,95 @@ def test_shell_sdk_code_split(b, opts):
         assert any("ROM: snesdemo.sfc" in r for r in rows), rows
         assert any("SNES DEMO" in r for r in rows) and any("LoROM" in r for r in rows), rows
         q.send("\x1b")
+        q.send("w\r")                               # Exit: the text is not saved, the SDK asks
+        time.sleep(0.5)
+        q.send("s\r")                               # Yes, discard it
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_build(b, opts):
+    """Shell SDK (2026-11-23): a NES or SNES project is a .bmr in /bmr with its source code; Build ROM runs
+    the assembler of the kernel and writes /nes/NAME.nes or /snes/NAME.sfc, and the ROM shows beside the code;
+    an assembler error puts the cursor on its line."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdkbuild-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    def open_sdk():
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        open_sdk()
+        q.send(bytes([0xFA]))                       # F2: the Code tab
+        q.send("reset:\r  sei\r  cld\r  ldx #$ff\r  txs\rloop: jmp loop\rnmi: rti\r")
+        q.send("\x02")                              # Ctrl+B: Build ROM; the project has no name yet
+        time.sleep(0.5)
+        assert any("Project name" in r for r in screen())
+        q.send("game\r")
+        time.sleep(2.0)
+        rows = screen()
+        assert any("built /nes/game.nes" in r for r in rows), rows
+        assert any("ROM: game.nes" in r for r in rows), rows
+        assert any("PRG 32 KB" in r and "CHR 8 KB" in r for r in rows), rows
+        assert any("000000 4E 45 53 1A" in r for r in rows), rows          # the iNES header
+        assert any("sei" in r for r in rows), rows                           # the code stays on the left
+        # an error: the cursor goes to the line of the message
+        q.send("foo bar\r")
+        q.send("\x02")
+        time.sleep(1.0)
+        rows = screen()
+        assert any("main.s:8:" in r and "unknown instruction" in r for r in rows), rows
+        # leave with a change that is not saved: the SDK asks
+        q.send(bytes([0xF9]))
+        q.send("d")                                 # NES -> SNES (not built, not saved)
+        q.send("\x1b")
+        q.send("w\r")                              # Exit
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Unsaved changes" in r for r in rows), rows
+        q.send("s\r")                              # Yes, discard the changes
+        open_sdk()
+        q.send("\x1b")
+        q.send("ss\r")                             # Open
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Open a project" in r for r in rows) and any("game.bmr" in r for r in rows), rows
+        q.send("\r")
+        time.sleep(0.8)
+        q.send(bytes([0xFA]))
+        rows = screen()
+        assert any("jmp loop" in r for r in rows) and any("foo bar" in r for r in rows), rows    # the source is back
+        q.send(bytes([0xF1]) * 7)                   # down to line 8
+        q.send("\x18")                               # Ctrl+X without a selection: cut the line
+        q.send(bytes([0xF9]))
+        q.send("d")                                 # a SNES project now
+        q.send(bytes([0xFA]))
+        q.send("\x02")
+        time.sleep(2.0)
+        rows = screen()
+        assert any("built /snes/game.sfc" in r for r in rows), rows
+        assert any("ROM: game.sfc" in r for r in rows), rows
+        assert any("LoROM" in r and "SNES" in r for r in rows), rows
+        q.send("\x1b")
         q.send("w\r")
         q.expect("> ", timeout=10)
     finally:
@@ -4641,7 +4730,9 @@ def test_shell_sdk_editor_keys(b, opts):
         rows = screen()
         assert any("Ln 1  Col 2" in r for r in rows) and any("1 bytes" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")
+        q.send("w\r")                               # Exit: the text is not saved, the SDK asks
+        time.sleep(0.5)
+        q.send("s\r")                               # Yes, discard it
         q.expect("> ", timeout=10)
     finally:
         q.close()

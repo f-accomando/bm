@@ -11,6 +11,13 @@
 
 void sdk_edit_reset(void);
 size_t sdk_edit_length(void);
+/* Replaces all the text (a project opens): a carriage return is dropped, other control codes become spaces, the text is cut
+ * at SDK_EDIT_MAX. The cursor goes to the start and the revision counts it as a change. */
+void sdk_edit_set(const char *text, size_t len);
+/* A number that grows with each change of the text (not with moves): a caller sees an edit by comparing it. */
+unsigned sdk_edit_revision(void);
+/* The cursor to the start of a line (from 1; past the last line: the last line). */
+void sdk_edit_goto_line(int line);
 const char *sdk_edit_text(void);
 
 /* Typed characters: 32 to 126 are inserted, '\n' and '\r' start a line, '\t' gives spaces up to the next

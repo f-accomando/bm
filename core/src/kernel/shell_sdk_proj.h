@@ -77,6 +77,26 @@ void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb);
  * a comment line and one "--sdk key=value ..." line. Returns the length, or -1 when n is too small. */
 int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n);
 
+/* The header for the builder: a Lua table as text, from the settings of the Project tab. NES: platform, mapper,
+ * prg_kb, chr_kb, wram_kb, battery, vertical (what the iNES header holds). SNES: platform, title (the project
+ * name, capitals), map, fast, min_kb, sram_kb, battery, chipset, mapmode (what the header at $FFC0 or $7FC0
+ * holds). bm: platform only. The builder (core/src/script/snes_asm.lua) takes the table as it is.
+ * Returns the length, or -1 when n is too small. */
+int sdk_proj_header(const sdk_proj_t *p, const char *title, char *out, size_t n);
+
+/* Where the source code starts in the LUA text of a project: after the "--sdk" line (the length when
+ * there is none). */
+size_t sdk_proj_source_offset(const char *text, size_t len);
+
+/* Where the builder puts the ROM of a project: NES "/nes/mygame.nes", SNES "/snes/mygame.sfc" (the HiROM and
+ * the LoROM are both .sfc). The name is the project stem. Returns 0, or -1 for a bm project (no ROM). */
+int sdk_proj_rom_path(const sdk_proj_t *p, const char *stem, char *out, size_t n);
+/* The folder and the file name of that path. */
+const char *sdk_proj_rom_dir(const sdk_proj_t *p);
+
+/* The line number of an assembler message ("main.s:12: unknown instruction"): 12, or 0 when the text has none. */
+int sdk_proj_error_line(const char *msg);
+
 /* The settings of such a text (a bad or missing value takes the default, and the settings that depend on
  * each other are put right). Returns 0, or -1 when the text has no "--sdk" line (p is then the default). */
 int sdk_proj_parse(const char *text, size_t len, sdk_proj_t *p);

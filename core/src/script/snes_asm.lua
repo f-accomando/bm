@@ -415,9 +415,40 @@ local function dirname(p)
     return p:match("^(.*[/\\])[^/\\]*$") or ""
 end
 
--- opts: name (main file name), read(path) -> text or nil (for .include and .incbin), map ("lorom"|"hirom")
+-- The 6502 of the NES (opts.cpu = "6502"): the official instructions of the NMOS chip. NMOS[mnemonic][mode].
+-- The modes are those of the table above; a 6502 has no long, stack-relative, (dp) or block modes.
+local NMOS = {}
+do
+    local function add(names, modes)
+        for n in names:gmatch("%a+") do
+            local s = {}
+            for m in modes:gmatch("%a+") do s[m] = true end
+            NMOS[n] = s
+        end
+    end
+    add("ora and eor adc lda cmp sbc", "imm dp dpx abs absx absy indx indy")
+    add("sta", "dp dpx abs absx absy indx indy")
+    add("asl lsr rol ror", "acc dp dpx abs absx")
+    add("inc dec", "dp dpx abs absx")
+    add("bit", "dp abs")
+    add("cpx cpy", "imm dp abs")
+    add("ldx", "imm dp dpy abs absy")
+    add("ldy", "imm dp dpx abs absx")
+    add("stx", "dp dpy abs")
+    add("sty", "dp dpx abs")
+    add("jmp", "abs absind")
+    add("jsr", "abs")
+    add("bpl bmi bvc bvs bcc bcs bne beq", "rel")
+    add("clc sec cli sei clv cld sed dex dey inx iny nop pha php pla plp rti rts tax tay tsx txa txs tya", "imp")
+    add("brk", "sig")
+end
+M.nmos = NMOS
+
+-- opts: name (main file name), read(path) -> text or nil (for .include and .incbin), map ("lorom"|"hirom"),
+-- cpu ("6502": the NES; the default is the 65C816)
 function M.assemble(source, opts)
     opts = opts or {}
+    local cpu6502 = opts.cpu == "6502"
     local read = opts.read or default_read
     local res = { ok = false, errors = {}, segments = {}, symbols = {}, symlist = {}, lines = {}, map = opts.map }
     local errors = res.errors
@@ -497,6 +528,9 @@ function M.assemble(source, opts)
         if acc_alias then kind = "acc" end
 
         local function finish(mode, ast, len)
+            if cpu6502 and not (NMOS[mn] and NMOS[mn][mode]) then
+                fail(mn0 .. " " .. (NMOS[mn] and "with this operand" or "") .. " is not a 6502 instruction (it is for the 65C816)")
+            end
             it.mode, it.op, it.len, it.ast = mode, tbl[mode], len or LEN[mode], ast
             it.force = force ~= nil
             st.pc = pc + it.len
@@ -617,6 +651,7 @@ function M.assemble(source, opts)
         if d == "org" then
             local v = need_eval(rest, ".org")
             if v < 0 or v > 0xFFFFFF then fail(".org is outside 24 bits") end
+            if cpu6502 and v > 0xFFFF then fail(".org is outside 16 bits (the 6502 has a 64 KB address space)") end
             set_pc(v)
         elseif d == "byte" or d == "db" then data_items(1, rest)
         elseif d == "word" or d == "dw" then data_items(2, rest)
@@ -1105,6 +1140,97 @@ function M.build_rom(res, h)
     sum = sum & 0xFFFF
     put(hdr + 0x1C, schar((sum ~ 0xFFFF) & 0xFF, ((sum ~ 0xFFFF) >> 8) & 0xFF, sum & 0xFF, sum >> 8))
     return rom, { size = size, checksum = sum, map = map, header = hdr }
+end
+
+-- ===================================================================================================
+-- The NES builder (iNES). Assemble with { cpu = "6502" } first.
+-- ===================================================================================================
+-- h: prg_kb (16, 32, 64 ... default 32), chr_kb (0: the board has CHR RAM; else the KB of CHR ROM),
+-- chr (a string with the CHR ROM bytes, optional), mapper (0 to 255), vertical, battery, four_screen,
+-- wram_kb (0 or 8), fill (the padding byte of the PRG, default $FF), vectors { nmi, reset, irq } (a label
+-- name or a number). The PRG window $8000-$FFFF is the last 32 KB of the PRG (a 16 KB PRG shows twice:
+-- $8000 and $C000 are the same byte). Bank switching is the program's own work.
+-- The vectors at $FFFA-$FFFF come from the labels nmi, reset and irq, unless the program writes those bytes.
+-- Returns the file as a string and { prg_kb, chr_kb, mapper }, or nil and the reason.
+function M.build_nes(res, h)
+    h = h or {}
+    if not res.ok then return nil, "the program has errors" end
+    local prg_kb = h.prg_kb or 32
+    if prg_kb < 16 or prg_kb % 16 ~= 0 then return nil, "the PRG size is a multiple of 16 KB" end
+    local prg = prg_kb * 1024
+    local chr_kb = h.chr_kb or 8
+    local mapper = h.mapper or 0
+    if mapper < 0 or mapper > 255 then return nil, "the mapper is 0 to 255" end
+    local function offset(addr)
+        if addr < 0x8000 or addr > 0xFFFF then return nil, "is not PRG ROM (the 6502 reads the PRG at $8000-$FFFF)" end
+        if prg <= 0x8000 then return (addr - 0x8000) % prg end
+        return prg - 0x8000 + (addr - 0x8000)
+    end
+    local ranges = {}
+    for _, s in ipairs(res.segments) do
+        if #s.data > 0 then
+            local off, why = offset(s.addr)
+            if not off then return nil, sfmt("the code at $%04X %s", s.addr, why) end
+            if s.addr + #s.data - 1 > 0xFFFF then
+                return nil, sfmt("the code at $%04X goes past $FFFF", s.addr)
+            end
+            if off + #s.data > prg then
+                return nil, sfmt("the code at $%04X does not fit in %d KB of PRG (it wraps at the end of the mirror)", s.addr, prg_kb)
+            end
+            ranges[#ranges + 1] = { lo = off, hi = off + #s.data - 1, data = s.data, addr = s.addr }
+        end
+    end
+    table.sort(ranges, function(a, b) return a.lo < b.lo end)
+    for i = 2, #ranges do
+        if ranges[i].lo <= ranges[i - 1].hi then
+            return nil, sfmt("the code at $%04X overlaps the code at $%04X", ranges[i].addr, ranges[i - 1].addr)
+        end
+    end
+    local chunks, pos = {}, 0
+    local padc = schar((h.fill or 0xFF) & 0xFF)
+    for _, r in ipairs(ranges) do
+        if r.lo > pos then chunks[#chunks + 1] = string.rep(padc, r.lo - pos) end
+        chunks[#chunks + 1] = r.data
+        pos = r.hi + 1
+    end
+    if pos < prg then chunks[#chunks + 1] = string.rep(padc, prg - pos) end
+    local rom = table.concat(chunks)
+    local function put(off, str) rom = ssub(rom, 1, off) .. str .. ssub(rom, off + #str + 1) end
+    -- the vectors, unless the program has written them
+    local vo = offset(0xFFFA)
+    local own = false
+    for _, r in ipairs(ranges) do if r.lo <= vo + 5 and r.hi >= vo then own = true end end
+    if not own then
+        local function vec(name, fallback)
+            local v = h.vectors and h.vectors[name]
+            if v == nil then v = res.symbols[name] or res.symbols[name:upper()] end
+            if v == nil then return fallback end
+            local n = lookup_sym(res, v)
+            if n == nil then error({ msg = "the vector " .. name .. " names an unknown label " .. tostring(v) }, 0) end
+            return n & 0xFFFF
+        end
+        local ok, e = pcall(function()
+            local reset = vec("reset")
+            if reset == nil then error({ msg = "no reset vector: define a label named reset" }, 0) end
+            local nmi, irq = vec("nmi", reset), vec("irq", reset)
+            put(vo, schar(nmi & 0xFF, nmi >> 8, reset & 0xFF, reset >> 8, irq & 0xFF, irq >> 8))
+        end)
+        if not ok then return nil, (type(e) == "table" and e.msg) or tostring(e) end
+    end
+    -- the CHR
+    local chr = ""
+    if chr_kb > 0 then
+        chr = h.chr or ""
+        if #chr > chr_kb * 1024 then return nil, "the CHR data is larger than the CHR ROM of the board (" .. chr_kb .. " KB)" end
+        chr = chr .. string.rep("\0", chr_kb * 1024 - #chr)
+    elseif h.chr and #h.chr > 0 then
+        return nil, "the board has CHR RAM: it has no CHR ROM to put data in"
+    end
+    local flags6 = ((mapper & 0x0F) << 4) | (h.vertical and 1 or 0) | (h.battery and 2 or 0) | (h.four_screen and 8 or 0)
+    local wram = (h.wram_kb or 0) // 8
+    if h.battery and wram == 0 then wram = 1 end
+    local header = "NES\x1A" .. schar(prg_kb // 16, chr_kb // 8, flags6, mapper & 0xF0, wram, 0, 0, 0, 0, 0, 0, 0)
+    return header .. rom .. chr, { prg_kb = prg_kb, chr_kb = chr_kb, mapper = mapper }
 end
 
 -- Assemble and build in one call: returns the ROM string and the assembler result, or nil and the errors.
