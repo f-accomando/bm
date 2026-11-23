@@ -41,6 +41,8 @@ void console_clear(void);
 void console_set_color(uint8_t fg, uint8_t bg);
 void console_size(uint32_t *cols, uint32_t *rows);
 framebuffer_t *console_framebuffer(void);
+/* The size of a cell in pixels and the y of the first row below the status bar (ANSI row 1). */
+void console_cell_geometry(uint32_t *w, uint32_t *h, uint32_t *top_y);
 
 /* Status bar text, left and right aligned (either may be NULL to keep it). */
 void console_set_status(const char *left, const char *right);

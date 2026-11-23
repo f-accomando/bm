@@ -4447,6 +4447,18 @@ def test_shell_sdk_skeleton(b, opts):
         time.sleep(0.5)
         rows = screen()
         assert any("[Project] Code Sprite Map Sounds" in r for r in rows), rows
+        assert any("Platform" in r and "NES cartridge (6502)" in r for r in rows), rows
+        assert any("Board" in r and "NROM" in r for r in rows), rows
+        q.send("d")                                 # Enter or d: the next platform
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Platform" in r and "SNES cartridge (65C816)" in r for r in rows), rows
+        assert any("Coprocessor" in r and "None (plain ROM)" in r for r in rows), rows
+        q.send("d")
+        time.sleep(0.5)
+        rows = screen()
+        assert any("Platform" in r and "bm project, SD card" in r for r in rows), rows
+        assert any("Language" in r and ".b" in r for r in rows), rows
         for n, name in enumerate(["Project", "Code", "Sprite", "Map", "Sounds"]):
             q.send(bytes([0xF9 + n]))
             time.sleep(0.5)

@@ -528,6 +528,13 @@ void console_size(uint32_t *cols, uint32_t *rows)
     *rows = con.rows - TOP_ROW;
 }
 
+void console_cell_geometry(uint32_t *w, uint32_t *h, uint32_t *top_y)
+{
+    *w = con.font->width;
+    *h = con.font->height;
+    *top_y = TOP_ROW * con.font->height;
+}
+
 framebuffer_t *console_framebuffer(void)
 {
     return con.fb;
