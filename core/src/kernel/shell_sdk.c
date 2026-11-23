@@ -484,7 +484,9 @@ int shell_sdk_open(void)
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
-            sdk_code_key(c, hid_usage_held(0xE0) || hid_usage_held(0xE4));
+            sdk_code_key(c, (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
+                            (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
+                            (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0));
     }
     sdk_code_reset();
     hid_text_mode(0);

@@ -23,7 +23,9 @@ static sdk_rom_t rom_info;
 static char rom_name[48];
 static int focus;
 static int top_line, left_col;          /* the scroll of the editor */
-static int hex_bpr, hex_page;           /* bytes in a row and rows shown, set when the dump is drawn */
+static int page_lines = 1;              /* the lines of a page of the editor, set when it is drawn */
+static char note[48];                   /* "Copied 12 bytes": shown until the next key */
+static int hex_bpr, hex_page;          /* bytes in a row and rows shown, set when the dump is drawn */
 static size_t hex_row;                  /* the first row of the dump shown (a row is bpr bytes) */
 
 static void at(int row, int col)
@@ -99,6 +101,37 @@ static void put_row(int row, int col, int width, const char *s, int n)
     console_write(line);
 }
 
+/* A row of text where the cells sc to ec (not included) are selected: the swapped colours. */
+static void text_row(int row, int col, int width, const char *s, int n, int sc, int ec)
+{
+    char line[256];
+    if (width > (int)sizeof line - 1)
+        width = (int)sizeof line - 1;
+    if (width < 1)
+        return;
+    snprintf(line, sizeof line, "%-*.*s", width, n < width ? n : width, s);
+    at(row, col);
+    if (sc < 0)
+        sc = 0;
+    if (ec > width)
+        ec = width;
+    if (ec <= sc) {
+        console_write(line);
+        return;
+    }
+    char keep = line[sc];
+    line[sc] = 0;
+    console_write(line);
+    line[sc] = keep;
+    console_write("\x1b[7m");
+    keep = line[ec];
+    line[ec] = 0;
+    console_write(line + sc);
+    line[ec] = keep;
+    console_write("\x1b[0m");
+    console_write(line + ec);
+}
+
 static void title_bar(int row, int col, int width, const char *text, int active)
 {
     char line[256];
@@ -132,6 +165,10 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
     if (left_col < 0)
         left_col = 0;
 
+    page_lines = h > 2 ? h - 1 : 1;
+    size_t sel_a = 0, sel_b = 0;
+    const int has_sel = sdk_edit_selection(&sel_a, &sel_b);
+    size_t off = sdk_edit_line_offset(top_line);            /* the offset of the line being drawn */
     const int total = sdk_edit_line_count();
     for (int i = 0; i < h; i++) {
         const int l = top_line + i;
@@ -149,6 +186,13 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
             put_row(2 + i, col + GUTTER, tw, "", 0);
             continue;
         }
+        const size_t next = off + (size_t)n + 1;            /* the next line starts here */
+        int sc = 0, ec = 0;                                 /* the selected cells of the row */
+        if (has_sel && sel_b > off && sel_a < next) {
+            sc = (int)(sel_a > off ? sel_a - off : 0) - left_col;
+            ec = (int)((sel_b < next ? sel_b : next) - off) - left_col;
+        }
+        off = next;
         if (left_col >= n) {
             s = "";
             n = 0;
@@ -156,13 +200,13 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
             s += left_col;
             n -= left_col;
         }
-        put_row(2 + i, col + GUTTER, tw, s, n);
+        text_row(2 + i, col + GUTTER, tw, s, n, sc, ec);
     }
 
     char st[96];
     snprintf(st, sizeof st, "Ln %d  Col %d  %u bytes", line + 1, c + 1, (unsigned)sdk_edit_length());
     console_write("\x1b[96m");
-    put_row(rows, col, width, msg && msg[0] ? msg : st, 200);
+    put_row(rows, col, width, note[0] ? note : msg && msg[0] ? msg : st, 200);
     console_write("\x1b[0m");
     (void)ctrl_hint;
     if (focus == FOCUS_EDITOR)
@@ -254,33 +298,84 @@ static int rom_key(int key)
     return 1;
 }
 
-int sdk_code_key(int key, int ctrl)
+/* A move of the cursor: Shift keeps the selection (and grows it), no Shift ends it. */
+static void move(int mods)
 {
-    if (key == '\t' && ctrl) {
+    sdk_edit_anchor(mods & SDK_MOD_SHIFT ? 1 : 0);
+}
+
+static int editor_key(int key, int mods)
+{
+    const int ctrl = (mods & SDK_MOD_CTRL) != 0, alt = (mods & SDK_MOD_ALT) != 0;
+    note[0] = 0;
+    switch (key) {
+    case 0x01: sdk_edit_select_all(); return 1;                  /* Ctrl+A */
+    case 0x03:                                                    /* Ctrl+C: copy the selection or the line */
+    case 0x18: {                                                  /* Ctrl+X: cut it */
+        const int sel = sdk_edit_copy(key == 0x18) > 0;
+        if (sel)
+            snprintf(note, sizeof note, "%s %u bytes", key == 0x18 ? "Cut" : "Copied", (unsigned)sdk_edit_clip_length());
+        return 1;
+    }
+    case 0x16:                                                    /* Ctrl+V: paste */
+        snprintf(note, sizeof note, "Pasted %d bytes", sdk_edit_paste());
+        return 1;
+    case 0x19: sdk_edit_duplicate_line(); return 1;              /* Ctrl+Y: duplicate the line */
+    case HID_KEY_UP:
+        move(mods);
+        if (ctrl && alt)
+            sdk_edit_doc_start();
+        else if (alt)
+            sdk_edit_page_up(page_lines);
+        else
+            sdk_edit_up();
+        return 1;
+    case HID_KEY_DOWN:
+        move(mods);
+        if (ctrl && alt)
+            sdk_edit_doc_end();
+        else if (alt)
+            sdk_edit_page_down(page_lines);
+        else
+            sdk_edit_down();
+        return 1;
+    case HID_KEY_LEFT:
+        move(mods);
+        if (ctrl && alt)
+            sdk_edit_home();
+        else if (ctrl)
+            sdk_edit_word_left();
+        else
+            sdk_edit_left();
+        return 1;
+    case HID_KEY_RIGHT:
+        move(mods);
+        if (ctrl && alt)
+            sdk_edit_end();
+        else if (ctrl)
+            sdk_edit_word_right();
+        else
+            sdk_edit_right();
+        return 1;
+    case HID_KEY_HOME: move(mods); sdk_edit_home(); return 1;
+    case HID_KEY_END: move(mods); sdk_edit_end(); return 1;
+    case HID_KEY_PGUP: move(mods); sdk_edit_page_up(page_lines); return 1;
+    case HID_KEY_PGDN: move(mods); sdk_edit_page_down(page_lines); return 1;
+    case HID_KEY_DEL: sdk_edit_delete(); return 1;
+    case 0x08:
+    case 0x7F: sdk_edit_backspace(); return 1;
+    default: return sdk_edit_type(key);                          /* typing replaces the selection */
+    }
+}
+
+int sdk_code_key(int key, int mods)
+{
+    if (key == 9 && (mods & SDK_MOD_CTRL)) {                    /* Ctrl+Tab */
         if (rom)
             focus = focus == FOCUS_EDITOR ? FOCUS_ROM : FOCUS_EDITOR;
         return 1;
     }
     if (rom && focus == FOCUS_ROM)
         return rom_key(key);
-    switch (key) {
-    case HID_KEY_UP: sdk_edit_up(); return 1;
-    case HID_KEY_DOWN: sdk_edit_down(); return 1;
-    case HID_KEY_LEFT: sdk_edit_left(); return 1;
-    case HID_KEY_RIGHT: sdk_edit_right(); return 1;
-    case HID_KEY_HOME: sdk_edit_home(); return 1;
-    case HID_KEY_END: sdk_edit_end(); return 1;
-    case HID_KEY_DEL: sdk_edit_delete(); return 1;
-    case HID_KEY_PGUP:
-        for (int i = 0; i < 10; i++)
-            sdk_edit_up();
-        return 1;
-    case HID_KEY_PGDN:
-        for (int i = 0; i < 10; i++)
-            sdk_edit_down();
-        return 1;
-    case 0x08:
-    case 0x7F: sdk_edit_backspace(); return 1;
-    default: return sdk_edit_type(key);
-    }
+    return editor_key(key, mods);
 }

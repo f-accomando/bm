@@ -1,6 +1,6 @@
 /*
  * Shell SDK: the text buffer of the Code tab. Pure model (no screen, no keyboard): the tests run on the PC.
- * One buffer of plain text, one cursor, lines that end with '\n'.
+ * One buffer of plain text, one cursor, one selection, one clipboard, lines that end with '\n'.
  */
 #ifndef SHELL_SDK_EDIT_H
 #define SHELL_SDK_EDIT_H
@@ -14,8 +14,9 @@ size_t sdk_edit_length(void);
 const char *sdk_edit_text(void);
 
 /* Typed characters: 32 to 126 are inserted, '\n' and '\r' start a line, '\t' gives spaces up to the next
- * multiple of 4. Returns 1 when the text changed. */
+ * multiple of 4. The selected text goes first. Returns 1 when the text changed. */
 int sdk_edit_type(int c);
+/* Backspace and Delete remove the selected text, or one character. */
 int sdk_edit_backspace(void);
 int sdk_edit_delete(void);
 
@@ -26,6 +27,33 @@ void sdk_edit_up(void);
 void sdk_edit_down(void);
 void sdk_edit_home(void);
 void sdk_edit_end(void);
+
+/* Word moves, as in bm Code: letters, digits and '_' make a word; at a line end they go to the next line.
+ * The start and the end of the text, and a page of lines. */
+void sdk_edit_word_left(void);
+void sdk_edit_word_right(void);
+void sdk_edit_doc_start(void);
+void sdk_edit_doc_end(void);
+void sdk_edit_page_up(int lines);
+void sdk_edit_page_down(int lines);
+
+/* Selection. sdk_edit_anchor(1) starts a selection at the cursor when there is none: call it before a move
+ * with Shift held. sdk_edit_anchor(0) ends the selection: call it before a move without Shift. */
+void sdk_edit_anchor(int on);
+void sdk_edit_select_all(void);
+/* The selected bytes [*from, *to). Returns 1, or 0 when nothing is selected. */
+int sdk_edit_selection(size_t *from, size_t *to);
+/* The offset of the first byte of a line. */
+size_t sdk_edit_line_offset(int line);
+
+/* The clipboard (the Code tab only: bm Code has its own). Copy and cut take the selection, or the whole
+ * current line with its '\n' when nothing is selected. They return the bytes taken. */
+int sdk_edit_copy(int cut);
+/* Inserts the clipboard in place of the selection. Returns the bytes inserted (0 when empty or full). */
+int sdk_edit_paste(void);
+size_t sdk_edit_clip_length(void);
+/* Copies the current line under itself, and the cursor goes to the copy. Returns 1 when the text changed. */
+int sdk_edit_duplicate_line(void);
 
 /* The cursor: line and column, both from 0. */
 void sdk_edit_pos(int *line, int *col);

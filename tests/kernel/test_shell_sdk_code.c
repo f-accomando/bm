@@ -87,6 +87,117 @@ static void test_edit(void)
     CHECK(sdk_edit_length() == SDK_EDIT_MAX);
 }
 
+static void test_keys(void)
+{
+    int line, col;
+    size_t a, b;
+
+    /* word moves: letters, digits and '_' make a word */
+    sdk_edit_reset();
+    type("lda #$2000 ; set_x\nrts");
+    sdk_edit_doc_start();
+    sdk_edit_word_right();
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 0 && col == 6);                           /* "lda" and the gap " #$" skipped */
+    sdk_edit_word_right();
+    sdk_edit_pos(&line, &col);
+    CHECK(col == 13);                                        /* "2000" and the gap " ; " skipped */
+    sdk_edit_end();
+    sdk_edit_word_left();
+    sdk_edit_pos(&line, &col);
+    CHECK(col == 13);                                       /* the start of "set_x" */
+    sdk_edit_end();
+    sdk_edit_word_right();                                  /* at a line end: the next line */
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 1 && col == 0);
+    sdk_edit_word_left();
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 0 && col == 18);                          /* the end of the line above */
+    sdk_edit_doc_end();
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 1 && col == 3);
+
+    /* selection: grows with the cursor, ends with anchor(0) */
+    sdk_edit_reset();
+    type("one two\nthree");
+    sdk_edit_doc_start();
+    CHECK(!sdk_edit_selection(&a, &b));
+    sdk_edit_anchor(1);
+    sdk_edit_word_right();
+    sdk_edit_anchor(1);                                     /* a second call keeps the first anchor */
+    sdk_edit_word_right();
+    CHECK(sdk_edit_selection(&a, &b) && a == 0 && b == 7);
+    sdk_edit_anchor(1);
+    sdk_edit_left();
+    CHECK(sdk_edit_selection(&a, &b) && a == 0 && b == 6);
+    sdk_edit_anchor(0);
+    CHECK(!sdk_edit_selection(&a, &b));
+    CHECK(sdk_edit_line_offset(0) == 0 && sdk_edit_line_offset(1) == 8 && sdk_edit_line_offset(9) == 13);
+
+    /* copy, paste, cut of a selection */
+    sdk_edit_select_all();
+    CHECK(sdk_edit_selection(&a, &b) && a == 0 && b == 13);
+    CHECK(sdk_edit_copy(0) == 13 && sdk_edit_clip_length() == 13 && same("one two\nthree"));
+    sdk_edit_anchor(0);
+    sdk_edit_doc_end();
+    CHECK(sdk_edit_paste() == 13 && same("one two\nthreeone two\nthree"));
+    sdk_edit_doc_start();
+    sdk_edit_anchor(1);
+    sdk_edit_word_right();
+    CHECK(sdk_edit_copy(1) == 4 && same("two\nthreeone two\nthree"));       /* cut "one " */
+    CHECK(!sdk_edit_selection(&a, &b));
+
+    /* typing, Enter, Backspace and Delete act on the selection */
+    sdk_edit_reset();
+    type("abcdef");
+    sdk_edit_home();
+    sdk_edit_anchor(1);
+    sdk_edit_right();
+    sdk_edit_right();
+    CHECK(sdk_edit_type('X') == 1 && same("Xcdef"));
+    sdk_edit_home();
+    sdk_edit_anchor(1);
+    sdk_edit_end();
+    CHECK(sdk_edit_backspace() == 1 && sdk_edit_length() == 0);
+    type("ab");
+    sdk_edit_home();
+    sdk_edit_anchor(1);
+    sdk_edit_right();
+    CHECK(sdk_edit_delete() == 1 && same("b"));             /* removes the selection, not one more byte */
+    sdk_edit_select_all();
+    CHECK(sdk_edit_type('\n') == 1 && same("\n"));
+
+    /* no selection: copy and cut take the line */
+    sdk_edit_reset();
+    type("aa\nbb\ncc");
+    sdk_edit_up();
+    CHECK(sdk_edit_copy(0) == 3 && sdk_edit_clip_length() == 3 && same("aa\nbb\ncc"));
+    CHECK(sdk_edit_copy(1) == 3 && same("aa\ncc"));
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 1 && col == 0);
+    CHECK(sdk_edit_paste() == 3 && same("aa\nbb\ncc"));
+    sdk_edit_doc_end();
+    CHECK(sdk_edit_copy(1) == 3 && same("aa\nbb"));         /* the last line: no empty line is left */
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 1);
+
+    /* duplicate line, pages */
+    sdk_edit_reset();
+    type("x1\nx2");
+    CHECK(sdk_edit_duplicate_line() == 1 && same("x1\nx2\nx2"));
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 2 && col == 2);
+    sdk_edit_page_up(10);
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 0);
+    sdk_edit_page_down(2);
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 2);
+    sdk_edit_page_down(5);
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 2);
+}
+
 static void test_nes(void)
 {
     uint8_t rom[16 + 32768 + 8192];
@@ -160,6 +271,7 @@ static void test_hex(void)
 int main(void)
 {
     test_edit();
+    test_keys();
     test_nes();
     test_snes();
     test_hex();

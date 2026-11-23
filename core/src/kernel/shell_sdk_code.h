@@ -20,7 +20,16 @@ const char *sdk_code_rom_name(void);
 /* Draws the tab on the rows 1 to rows of the console; msg (or NULL) goes on the last row. */
 void sdk_code_draw(int cols, int rows, const char *msg);
 
-/* Handles a key of the Code tab. Returns 1 when the tab used it. ctrl is 1 while Ctrl is held. */
-int sdk_code_key(int key, int ctrl);
+/* The modifier keys held while a key came (hid_usage_held). */
+#define SDK_MOD_CTRL  1
+#define SDK_MOD_SHIFT 2
+#define SDK_MOD_ALT   4
+
+/* Handles a key of the Code tab. Returns 1 when the tab used it. The editor keys are those of bm Code:
+ * Shift with a move selects; Ctrl+Left and Ctrl+Right skip a word; Ctrl+Alt+Left and Right go to the line
+ * start and end; Ctrl+Alt+Up and Down to the start and the end of the text; PgUp, PgDn and Alt+Up, Alt+Down
+ * move a page; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste (a line when nothing is selected), Ctrl+Y duplicate the
+ * line, Ctrl+A select all. */
+int sdk_code_key(int key, int mods);
 
 #endif /* SHELL_SDK_CODE_H */

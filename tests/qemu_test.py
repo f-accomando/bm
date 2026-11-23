@@ -4590,6 +4590,64 @@ def test_shell_sdk_code_split(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_shell_sdk_editor_keys(b, opts):
+    """Shell SDK Code tab (2026-11-23): the keys of bm Code on a USB keyboard. Shift with a move selects,
+    Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Y, PgUp, Ctrl+A."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdkkeys-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFA]))                       # F2: the Code tab
+        q.send("lda #1\rsta $2000")
+        assert any("Ln 2  Col 10" in r for r in screen())
+        sendkeys(q, "ctrl-left")                    # a word to the left: before "2000"
+        assert any("Ln 2  Col 6" in r for r in screen())
+        sendkeys(q, "shift-end ctrl-c")             # select "2000" and copy it
+        rows = screen()
+        assert any("Copied 4 bytes" in r for r in rows), rows
+        sendkeys(q, "ctrl-v")                       # paste in place of the selection: the same text
+        rows = screen()
+        assert any("Pasted 4 bytes" in r for r in rows) and any("sta $2000" in r for r in rows), rows
+        sendkeys(q, "end ctrl-v")                   # paste at the end
+        assert any("sta $20002000" in r for r in screen())
+        sendkeys(q, "home shift-right shift-right shift-right ctrl-x")     # cut "sta"
+        rows = screen()
+        assert any("Cut 3 bytes" in r for r in rows), rows
+        assert any("$20002000" in r and "sta" not in r for r in rows), rows
+        sendkeys(q, "ctrl-y")                       # duplicate the line: the cursor goes down
+        assert any("Ln 3  Col 1" in r for r in screen())
+        sendkeys(q, "pgup")                         # a page up: the first line
+        assert any("Ln 1  Col 1" in r for r in screen())
+        sendkeys(q, "ctrl-a")
+        q.send("z")                                 # typing replaces all the text
+        rows = screen()
+        assert any("Ln 1  Col 2" in r for r in rows) and any("1 bytes" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_monitor_lua_shell(b, opts):
     """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm: prompt; bm.sh returns the
     output of a monitor line; bm.write, bm.read and bm.ls on the card; the drawing calls run; boot=shell
