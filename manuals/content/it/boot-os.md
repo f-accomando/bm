@@ -252,7 +252,7 @@ Ogni comando ha una parola. Al prompt `bm:`, e in una riga con `:`, scrivi la pa
 | `wifi`, `wifi list`, `wifi join NOME [PASSWORD]`, `wifi forget` | WiFi: avvia, elenca le reti, entra in una, dimenticala |
 | `update` | aggiorna da GitHub (chiede prima) |
 | `sys dmesg` | tutto ciò che è stato stampato dall'avvio |
-| `sys bm3d` | le tecniche del driver bm3D per la V3D, con versione e target (pager) |
+| `sys bm3d` | le tecniche dei driver bm3D (V3D, Mali), con versione e target (pager) |
 | `report log` | il log dall'avvio, come report |
 | `sys reboot` | riavvia |
 | `sys crash [TIPO]` | prove di crash: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |

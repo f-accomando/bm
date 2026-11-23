@@ -252,7 +252,7 @@ Each command has a word. At the `bm:` prompt, and in a `:` line, you type the wo
 | `wifi`, `wifi list`, `wifi join NAME [PASSWORD]`, `wifi forget` | WiFi: start, list networks, join one, forget it |
 | `update` | update from GitHub (asks first) |
 | `sys dmesg` | everything printed since boot |
-| `sys bm3d` | the techniques of the bm3D driver for the V3D, with version and target (pager) |
+| `sys bm3d` | the techniques of the bm3D drivers (V3D, Mali), with version and target (pager) |
 | `report log` | the log since boot, as a report |
 | `sys reboot` | reboot |
 | `sys crash [KIND]` | crash tests: `undef`, `dabt`, `pabt`, `svc`, `freeze`, `freeze-irq` |

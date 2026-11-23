@@ -12,8 +12,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SRC = os.path.join(ROOT, "docs", "reference", "bm3d-techniques.txt")
 OUT = os.path.join(ROOT, "core", "src", "kernel", "bm3d_tech.c")
 WIDTH = 76
-TARGETS = ("ARM", "V3D", "ARM+V3D")
-COLOUR = {"ARM": "93", "V3D": "96", "ARM+V3D": "92"}
+TARGETS = ("ARM", "V3D", "ARM+V3D", "Mali")
+COLOUR = {"ARM": "93", "V3D": "96", "ARM+V3D": "92", "Mali": "95"}
 
 
 def parse():
@@ -33,7 +33,7 @@ def parse():
 
 
 def text(groups):
-    out = ["\033[97mbm3D: the techniques of the V3D driver (ARM = r3d on the CPU)\033[0m",
+    out = ["\033[97mbm3D: the techniques of the V3D and Mali drivers\033[0m",
            "\033[90mversion  target  name; the key and what it does\033[0m", ""]
     for title, rows in groups:
         out.append("\033[93m== %s ==\033[0m" % title)

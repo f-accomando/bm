@@ -1,15 +1,14 @@
-# bm3D techniques of the V3D driver: reference list
+# bm3D techniques of the V3D and Mali drivers: reference list
 #
 # One line a technique: VERSION | TARGET | DATE | NAME | KEY | WHAT IT DOES
 #   VERSION  the bm3D version that added it (docs/DRIVERS.md has the full history).
-#   TARGET   ARM (r3d, the CPU), V3D (the Pi Zero W GPU), ARM+V3D (both).
+#   TARGET   ARM (r3d, the CPU), V3D (the Pi Zero W GPU), ARM+V3D (both), Mali (the RGB30 GPU).
 #   KEY      the config.txt key that turns it on or off, with its default. "-" : no key.
 # The lines "[Title]" start a group. Lines that start with "#" are notes.
 #
 # The shell screen System > bm3D shows this list. core/src/kernel/bm3d_tech.c is made from
 # it: after a change here, run  python core/scripts/bm3d_tech.py  and commit both files.
-# The Mali (RGB30) techniques are not here: see docs/DRIVERS.md (6.0-6.1, 7.8-7.36) and
-# docs/progress/graphics-mali.md.
+# The Mali group (RGB30, Mali-G52) is at the end; details: docs/progress/graphics-mali.md.
 
 [Rasterizer]
 0.1 | ARM | 2026-09 | First ARM rasterizer | gpu3d=0 | r3d draws every triangle on the CPU (31 spheres at 60 fps)
@@ -71,3 +70,34 @@
 [2D on the GPU]
 4.8 | V3D | 2026-10-05 | 2D over the 3D | gpu3d_2d=1 (on) | rectangles, sprites, map cells and text as quads in the job
 7.16 | V3D | 2026-10-27 | 2D of a game with no 3D | gpu2d_only=0 (off) | the V3D draws the 2D of a game that has no 3D
+
+[Mali (RGB30)]
+6.0 | Mali | 2026-10-05 | Mali powered and running jobs | mali3d=1 (on) | power domain, clocks, MMU, job manager; no drawing yet
+6.1 | Mali | 2026-10-05 | Fragment job writes pixels | - | tiles cleared and written through the render target
+7.8 | Mali | 2026-10-25 | First triangle | mali3d=1 (on) | vertex, tiler and fragment job chain, verified on the device
+7.9 | Mali | 2026-10-25 | Flat colours in the 3D Bench | mali3d=1 (on) | flat-colour scenes on the Mali, textured ones on the ARM
+7.10 | Mali | 2026-10-25 | Multi-draw batching | - | 64-byte attribute and tiler alignment; up to 24 draws a frame
+7.11 | Mali | 2026-10-25 | Vertex shader with 4x4 matrix | - | BM_VS3: model-space vertices through a matrix in the UBO
+7.12 | Mali | 2026-10-25 | Asynchronous 2-set queue | gpu3d_queue=1 (on) | two frames in flight over slots 0 and 1
+7.13 | Mali | 2026-10-25 | Mesh path in the backend | gpu3d_vs=2 (on) | per-bone culling, light, cel, fog; draws 7.4x faster
+7.14 | Mali | 2026-10-25 | Cached resolve, merge-sorted batches | - | 2 MB cached surface, 8192 triangles a frame; GPU score x10
+7.15 | Mali | 2026-10-25 | Mali on by default | mali3d=1 (on) | 4 MB single-pass arena, 1024 draws, L1-cached descriptors; GPU score 138 -> 228
+7.17 | Mali | 2026-10-28 | Opaque textures | mali_tex=1 (on) | BM_VS_TEX and BM_FS_TEX, nearest sample of RGB565; 3D Bench pixel check
+7.18 | Mali | 2026-10-28 | Hardware depth test | mali_z=1 (on) | less-or-equal in the tile buffer; no far-to-near sort
+7.19 | Mali | 2026-10-28 | Sun and ambient light in the vertex shader | mali_lit=1 (on) | BM_VS_LIT: one draw a lit mesh
+7.20 | Mali | 2026-10-28 | Rim light, lamps, gloss, fog | mali_lit=1 (on) | BM_VS_LITX: spheres_shine 48.5 -> 125.7
+7.21 | Mali | 2026-10-28 | Skinned meshes lit by the vertex shader | mali_lit=1 (on) | BM_VS_LITB: bone palette up to 32 bones; heroes 3.4 -> 6.8
+7.22 | Mali | 2026-10-28 | Bilinear textures | gpu3d_filter=0 (off) | the Sampler filters four texels a pixel
+7.23 | Mali | 2026-10-28 | 2D rectangles and sprites | mali_2d=0 (off) | quads after the 3D, BM_FS_SPR; slower than the fast ARM
+7.24 | Mali | 2026-10-28 | Cel levels in the vertex shader | mali_lit=1 (on) | bands and a stepped gloss in BM_VS_LITX and BM_VS_LITB
+7.25 | Mali | 2026-10-28 | Sprites of 16 sheets in one draw | mali_2d=0 (off) | BM_FS_SPR picks the texture; sprites test 1702 -> 3569
+7.26 | Mali | 2026-10-28 | Face cache of lit meshes | mali_res=1 (on) | vertices made once, a frame tests faces; spheres 130 -> 257
+7.27 | Mali | 2026-10-28 | Bigger frame for cached meshes | mali_res=1 (on) | 3 MB area: 10922 faces a frame, not 5461
+7.28 | Mali | 2026-10-28 | 4x MSAA | mali_msaa=0 (off) | 4 samples in the tile buffer, ARM resolve blends the edges
+7.29 | Mali | 2026-10-29 | Frame pipeline | gpu3d_queue=2 | the ARM builds the next frame while the GPU draws; 3D Bench only
+7.30 | Mali | 2026-10-29 | cls() before the 3D | - | gpu3d_page marks the page; the resolve fills it first
+7.31 | Mali | 2026-10-29 | Frame shown a frame later | gpu3d_later=0 (off) | real page step of the RGB30; a cls belongs to its frame
+7.32 | Mali | 2026-10-29 | Textured meshes in the vertex shader | mali_tex=1 (on) | BM_VS_TEXM: a map chunk 5.8 -> 0.6 ms on the ARM
+7.34 | Mali | 2026-11-05 | Exact depth | mali_alpha=1 (on) | depth source fixed function; textured meshes first; BM_VS_TEXX with lamps and cel
+7.35 | Mali | 2026-11-05 | Shadows and near-plane faces | - | BM_FS_SCR screen-door, 5/8 blend for style 0; near-plane cut cached
+7.36 | Mali | 2026-11-05 | Faces off screen not sent | - | wholly outside faces skipped; frames within 16.7 ms 2% -> 50%

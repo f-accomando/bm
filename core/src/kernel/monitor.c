@@ -758,7 +758,7 @@ static const mcmd_t carts_sub[] = {
 
 static const mcmd_t sys_sub[] = {
     { .name = "info", .help = "system information", .fn = c_info },
-    { .name = "bm3d", .help = "the techniques of the bm3D driver for the V3D (pager)", .fn = c_bm3d },
+    { .name = "bm3d", .help = "the techniques of the bm3D drivers, V3D and Mali (pager)", .fn = c_bm3d },
     { .name = "heap", .help = "heap usage", .fn = c_heap },
     { .name = "clear", .help = "clear the screen", .fn = c_clear },
     { .name = "dmesg", .help = "everything printed since boot (pager)", .fn = c_dmesg },

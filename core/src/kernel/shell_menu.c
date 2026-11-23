@@ -15,7 +15,7 @@
 static const smenu_item_t system_sub[] = {
     { "Info",     "sys info",   0, NULL, 0, 0, "Info: the main facts of the console" },
     { "Log",      "sys dmesg",  0, NULL, 0, 0, "Log: everything printed since boot" },
-    { "bm3D",     "sys bm3d",   0, NULL, 0, 0, "bm3D: the techniques of the V3D driver, with version and target" },
+    { "bm3D",     "sys bm3d",   0, NULL, 0, 0, "bm3D: the techniques of the V3D and Mali drivers, with version and target" },
     { "3D Bench", "bench 3d",   0, NULL, 0, 0, "3D Bench: the 3D benchmark and its report" },
     { "Reboot",   "sys reboot", 0, NULL, 0, 0, "Reboot: start the console again" },
 };

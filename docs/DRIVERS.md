@@ -12,7 +12,7 @@ Where it shows: the GPU status line (log), *Settings > System > 3D
 driver*, the log when a game starts ("the 3D is drawn by the GPU as bm3d 3.0"), the
 3D Bench, the Overbit benchmark and the fourth value of `gpu3d()`.
 
-The techniques of the V3D driver, one line each with version and target (ARM, V3D), are in
+The techniques of the V3D and Mali drivers, one line each with version and target (ARM, V3D, Mali), are in
 [`docs/reference/bm3d-techniques.txt`](reference/bm3d-techniques.txt); the bm shell shows them in System > bm3D.
 
 ## The versions
