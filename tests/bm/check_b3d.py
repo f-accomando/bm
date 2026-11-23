@@ -7,7 +7,8 @@ import sys
 
 TESTS = ["spheres", "spheres_smooth", "spheres_tex", "spheres_unlit", "spheres_baked", "spheres_shine", "heroes",
          "heroes_tex", "heroes_skin", "heroes_shadow", "clip", "tiny", "draws", "quad_flat", "quad_smooth", "quad_tex", "quad_alpha",
-         "quad_screen", "quad_texscreen", "texswap", "split", "match", "mix", "queue", "bilinear", "gpu2d", "big", "big_logic"]
+         "quad_screen", "quad_texscreen", "texswap", "split", "match", "mix", "queue", "bilinear", "gpu2d", "big", "big_logic",
+         "far_tex", "far_mip"]
 FUTURE = []
 # the 2D scenes: only when `tests=` names them (the default run has no row of them)
 TESTS2D = {"map8": {"ARM"}, "sprites": {"ARM", "GPU+2D"}, "stack": {"ARM"}, "fade": {"ARM", "QPU"}, "light": {"ARM"},
@@ -125,7 +126,7 @@ def main():
     got = {(r[1], r[2]) for r in rows}
     for t in TESTS:
         profs = {p for (tt, p) in got if tt == t}
-        need = {"GPU", "GPU+Q", "GPU+VS", "GPU+VS+Q"} if t == "queue" else {"GPU"} if t == "bilinear" else {"ARM", "GPU"}
+        need = {"GPU", "GPU+Q", "GPU+VS", "GPU+VS+Q"} if t == "queue" else {"GPU"} if t == "bilinear" else             {"GPU", "GPU+T16"} if t in ("far_tex", "far_mip") else {"ARM", "GPU"}    # bm3d 7.37: mipmaps
         if t in ("split", "match"):
             need |= {"GPU+Q", "GPU+2D"}
         if t == "gpu2d":
@@ -152,7 +153,7 @@ def main():
     check(all(len(r) == 46 and int(r[21]) >= int(r[22]) >= 0 for r in rows), "triangles at 60 fps: given, drawn")
     # the cost of a pixel: a P line for every fill test and gpu2d, the GPU's for every GPU profile
     pix = {(r[1], r[2]): r for r in (l.split(",") for l in lines if l.startswith("P,"))}
-    want = [(r[1], r[2]) for r in rows if r[1].startswith("quad_") or r[1] in ("bilinear", "gpu2d")]
+    want = [(r[1], r[2]) for r in rows if r[1].startswith("quad_") or r[1] in ("bilinear", "gpu2d", "far_tex", "far_mip")]
     check(want and all(k in pix and len(pix[k]) == 12 for k in want), f"pixel cost: {len(pix)} P lines")
     # (the PC's ms are noise, a slope may come out -1; the emulated V3D's job time is 0: only the shape)
     check(all(int(r[30]) > 0 for r in rows if (r[1], r[2]) in want), "pixel cost: the pixels filled are counted")

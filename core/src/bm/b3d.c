@@ -485,6 +485,54 @@ static void q_free(void) { r3d_mesh_free(&quad); flags = 0; }
 static void q_bilinear(void) { q_tex(); gpu3d_set_bilinear(1); }
 static void q_bilinear_free(void) { q_free(); gpu3d_set_bilinear(0); }
 
+/* bm3d 7.37: far textured quads. A 256 x 256 sheet on quads of 40 x 22.5
+ * pixels (a texel step of about 6 in x and 11 in y: the textures far
+ * away of a map). 256 quads fill the screen, each layer nearer than the
+ * one before. far_tex reads level 0; far_mip the mip level that fits. */
+static g16_sheet_t far_sheet;
+
+static void far_setup(void)
+{
+    flags = 0;
+    make_sheet_wh(&far_sheet, 256, 256, 2, 0);
+    make_quad(&quad, 0, &far_sheet);
+    for (int i = 0; i < 12; i++)
+        quad.uv[i] *= 2.0f;             /* make_quad maps 128 texels */
+}
+
+static void far_free(void)
+{
+    q_free();
+    g16_sheet_free(&far_sheet);
+    gpu3d_set_mip(0);
+}
+
+static void far_mip_setup(void)
+{
+    far_setup();
+    gpu3d_set_mip(1);
+}
+
+static void far_quads(int n, int f)
+{
+    (void)f;
+    cls3d();
+    r3d_camera(&R, 0, 0, 0, 0, 0, 60);
+    r3d_light(&R, 0.3f, 0.4f, -1, 0.3f);
+    const float k = 160.0f / R.focal;
+    float d = 40;
+    for (int i = 0; i < n; i++) {
+        if (i && i % 256 == 0)
+            d *= 0.995f;                /* the next layer nearer */
+        const int col = i % 16, row = i / 16 % 16;
+        const float sc = k * d / 8.0f;
+        r3d_draw_flags(&R, &quad, (v3_t){ ((float)col - 7.5f) * 2.0f * sc, (7.5f - (float)row) * 1.125f * sc, d }, 0, 0, 0,
+                       sc, flags);
+        fill_px += 40.0f * 22.5f;
+    }
+    scene_light();
+}
+
 /* n grids of 512 small faces (about 4 pixels each) */
 static void tiny(int n, int f)
 {
@@ -1303,6 +1351,11 @@ static const test_t tests[] = {
       2, 0 },
     { "bilinear", "fill: quads, textures filtered (bilinear)", "quads", 1, 4000, M_GPU, q_bilinear, quads,
       q_bilinear_free, NULL, 1, 0 },
+    /* bm3d 7.37: far textures without and with mipmaps (compare the two: an option off by default) */
+    { "far_tex", "fill: far quads 40x22, a 256x256 texture", "quads", 1, 16000, M_GPU | M_T16, far_setup, far_quads,
+      far_free, NULL, 2, 0 },
+    { "far_mip", "fill: far quads 40x22, the same with mipmaps", "quads", 1, 16000, M_GPU | M_T16, far_mip_setup,
+      far_quads, far_free, NULL, 2, 0 },
     /* the 2D scenes: only with `tests=` (docs/BENCH3D.md), outside the score */
     { "map8", "2D: 8 layers of map(), parallax", "layers", 1, MAP8_LAYERS, M_ARM, map8_setup, map8_scene, map8_free, NULL, 2,
       0, 1 },

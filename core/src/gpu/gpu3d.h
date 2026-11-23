@@ -127,6 +127,17 @@ int gpu3d_tex16(void);
 void gpu3d_set_etc1(int on);
 int gpu3d_etc1(void);
 
+/* bm3d 7.37: mipmaps (gpu3d_mip=1 or 2): a texture whose sheet has sides
+ * that are powers of two gets its smaller levels (each texel the mean of
+ * four), and the TMU reads the level that fits the size on the screen:
+ * fewer texels read for far faces, no shimmer. 1: the nearest level; 2:
+ * two levels mixed (with gpu3d_filter=1 that is trilinear). 32-bit and
+ * 16-bit textures (not ETC1), where the boot's probe saw the TMU read
+ * every level ("mipmaps 32 yes / 16 yes" in the status). gpu3d_mip(): the
+ * mode asked for if the probe allowed it (32-bit or 16-bit), else 0. */
+void gpu3d_set_mip(int mode);
+int gpu3d_mip(void);
+
 /* bm3d 5.3: the opaque textured faces shaded with two threads a QPU
  * (gpu3d_fs2=1), where the probe saw them draw the same pixels: one thread
  * runs while the other waits for its texel. gpu3d_fs2(): asked for and
@@ -230,6 +241,7 @@ typedef struct {
     uint32_t untimed, late_us;
     uint32_t cut16;                 /* sheets with transparent texels made as RGBA5551 textures (bm3d 7.2) */
     uint32_t etc1;                  /* opaque sheets made as ETC1 textures (bm3d 7.3) */
+    uint32_t mip;                   /* sheets made with mip levels (bm3d 7.37) */
 } gpu3d_stats_t;
 
 /* the GPU's work in s, microseconds: the jobs timed, and the untimed ones

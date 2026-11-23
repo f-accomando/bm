@@ -1652,6 +1652,9 @@ static void gpu3d_maybe(void)
         gpu3d_set_tex16(t16 && strcmp(t16, "1") == 0);  /* opaque textures in 16 bits (bm3d 5.2): hidden key (SYS-9) */
         const char *e1 = config_get("gpu3d_etc1");
         gpu3d_set_etc1(e1 && strcmp(e1, "1") == 0);     /* opaque textures as ETC1 (bm3d 7.3): hidden key (SYS-9) */
+        const char *mp = config_get("gpu3d_mip");
+        gpu3d_set_mip(mp ? atoi(mp) : 0);               /* mipmaps (bm3d 7.37: 1 the nearest level, 2 two levels
+                                                         * mixed): hidden key (SYS-9) */
         const char *fs2 = config_get("gpu3d_fs2");
         gpu3d_set_fs2(!fs2 || strcmp(fs2, "0") != 0);   /* two-thread pixel shaders (bm3d 5.3; on from 6.4) */
         const char *so = config_get("gpu3d_sort");

@@ -135,6 +135,8 @@ void gpu3d_set_tex16(int on)                            { (void)on; }
 int gpu3d_tex16(void)                                   { return 0; }
 void gpu3d_set_etc1(int on)                             { (void)on; }
 int gpu3d_etc1(void)                                    { return 0; }
+void gpu3d_set_mip(int mode)                           { (void)mode; }
+int gpu3d_mip(void)                                     { return 0; }
 void gpu3d_set_fs2(int on)                              { (void)on; }
 int gpu3d_fs2(void)                                     { return 0; }
 void gpu3d_set_sort(int on)                             { (void)on; }

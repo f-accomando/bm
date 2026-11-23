@@ -888,7 +888,8 @@ int l_zclear(lua_State *L)
 }
 
 /* gpu3d_opt(name [, on]) -> in_force, available: one of the GPU driver's switches, by name (the 3D Bench's
- * profiles use them): "wc", "tex16" (or "t16"), "etc1", "fs2", "sort", "attr", "filter" (or "bilinear"),
+ * profiles use them): "wc", "tex16" (or "t16"), "etc1", "fs2", "sort", "attr", "filter" (or "bilinear"), "mip" (mipmaps,
+ * bm3d 7.37: true asks for the nearest level; the key gpu3d_mip=2 mixes two levels),
  * "2d" (the 2D drawn in the GPU's job), "merge" (draws of static meshes merged) and "light" (the light of
  * dark_begin .. dark_end made by the GPU, as the key gpu3d_light; available on the Pi only; set it between frames). With on (true or false) it
  * asks for the switch; in_force is what holds afterwards (a switch the GPU cannot do stays false). available
@@ -897,8 +898,8 @@ int l_zclear(lua_State *L)
 int l_gpu3d_opt(lua_State *L)
 {
     static const char *const names[] = { "wc", "tex16", "t16", "etc1", "fs2", "sort", "attr", "filter", "bilinear",
-                                         "2d", "merge", "light", NULL };
-    enum { O_WC, O_T16, O_T16B, O_ETC1, O_FS2, O_SORT, O_ATTR, O_FILTER, O_FILTERB, O_2D, O_MERGE, O_LIGHT };
+                                         "2d", "merge", "light", "mip", NULL };
+    enum { O_WC, O_T16, O_T16B, O_ETC1, O_FS2, O_SORT, O_ATTR, O_FILTER, O_FILTERB, O_2D, O_MERGE, O_LIGHT, O_MIP };
     const int o = luaL_checkoption(L, 1, NULL, names);
     if (o == O_LIGHT) {                 /* the GPU's light of dark_end: before r3d() (it would start the 3D while the page is
                                          * not a whole screen yet: the GPU then stays off); it starts at dark_begin */
@@ -947,6 +948,10 @@ int l_gpu3d_opt(lua_State *L)
         if (ask) gpu3d_set_bilinear(on);
         now = gpu3d_bilinear() != 0;
         avail = 1;
+        break;
+    case O_MIP:
+        if (ask) gpu3d_set_mip(on ? (gpu3d_mip() ? gpu3d_mip() : 1) : 0);
+        now = gpu3d_mip() != 0;
         break;
     case O_2D:
         if (ask) rt.gpu2d = on;

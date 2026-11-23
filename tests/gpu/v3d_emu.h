@@ -24,6 +24,7 @@ extern int emu_t16_lossy;
  * candidate the probe must learn); 2 none (texels read as 0: off); 3 as 0
  * with each block's rows reversed (as the Pi: the probe learns the map) */
 extern int emu_etc1;
+extern int emu_mip;                     /* bm3d 7.37: 1 the TMU ignores mip levels (it reads level 0) */
 extern int emu_qpu;                     /* bm3d 7.x QPU programs: 0 run, 1 the QPUs do not answer,
                                          * 2 they run and store wrong data (the probe turns them off) */
 extern int emu_qpu_busy;                /* v3d_qpu_run returns -2 (a 3D job is running) while set */

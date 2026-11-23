@@ -1123,6 +1123,7 @@ int main(int argc, char **argv)
     emu_t16_lossy = getenv("EMU_T16_LOSSY") != NULL;         /* 5551/4444 widened as the Pi: a step off at times */
     emu_etc1 = getenv("EMU_ETC1") ? atoi(getenv("EMU_ETC1")) : 0;  /* ETC1's layout: 1 a later candidate, 2 none,
                                                                        * 3 rows of each block reversed (the Pi) */
+    emu_mip = getenv("EMU_MIP") ? atoi(getenv("EMU_MIP")) : 0;     /* bm3d 7.37: 1 a TMU without mip levels */
     ppm_dir = argc > 7 ? argv[7] : NULL;
     printf("gpu3d on the emulator: byte a = %s, texels %s, T-format %d, MSAA load %s\n",
            emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place", emu_tformat,
@@ -1136,7 +1137,7 @@ int main(int argc, char **argv)
              "two-thread shaders %s, vertex shader %s (clipper always on), "
              "indexed yes, clipping %s, "
              "lit models yes, queue yes, zclear in job %s, compact attributes yes, alpha textures %s, "
-             "ETC1 textures %s, cel light yes)",
+             "ETC1 textures %s, cel light yes, mipmaps %s)",
              emu_red_a ? "red" : "blue", emu_tex_swap ? "swapped" : "in place",
              emu_tformat == 2 ? "rows" : "tiles", emu_ms_load_one ? "on cleared pages" : "on any page",
              emu_tformat == 2 ? "no" : "yes", emu_no_threads ? "no" : "yes",
@@ -1144,7 +1145,8 @@ int main(int argc, char **argv)
                            : emu_cw_flip ? "yes" : "yes (cw)", clips[emu_clip], emu_hang_zclear ? "no" : "yes",
              cut_ok ? "RGBA5551 RGBA4444" : "no",
              !etc1_ok ? "no" : emu_etc1 == 1 ? "yes (utiles 4x2, bytes LE)"
-                             : emu_etc1 == 3 ? "yes (utiles 2x4, bytes BE, rows reversed)" : "yes (utiles 2x4, bytes BE)");
+                             : emu_etc1 == 3 ? "yes (utiles 2x4, bytes BE, rows reversed)" : "yes (utiles 2x4, bytes BE)",
+             emu_tformat == 2 || emu_mip == 1 ? "no" : "32 16");
     CHECK(strstr(gpu3d_status(), want) != NULL, "probe: '%s', expected '%s'", gpu3d_status(), want);
     /* the Pi's case: the right order with pixels a step off (each field cut
      * to the type's bits) is still learned, the wrong ones still are not */
@@ -1520,6 +1522,65 @@ int main(int argc, char **argv)
         printf("  bilinear textures: %.2f%% of the pixels differ from the nearest texel\n", differ * 100.0 / (640 * 360));
         CHECK(differ > 200 && differ < 640 * 360 / 4, "bilinear: %d pixels differ from the nearest texel", differ);
         save(q[1], 640, 360, "textures", "bilinear");
+    }
+    /* bm3d 7.37: mipmaps. A 128 x 128 sheet of red and blue texels in a
+     * checker of one texel, on a square of 16 pixels (8 texels a pixel):
+     * level 0 gives red or blue at each pixel, the mip level the mean of
+     * both (red and blue in every pixel). */
+    {
+        static g16_sheet_t chk;
+        static r3d_mesh_t sq;
+        g16_sheet_alloc(&chk, 128, 128);
+        for (int y = 0; y < 128; y++)
+            for (int x = 0; x < 128; x++)
+                g16_sheet_set(&chk, x, y, (x ^ y) & 1 ? 0xF800 : 0x001F, 1);
+        for (int cy = 0; cy < 16; cy++)
+            for (int cx = 0; cx < 16; cx++)
+                g16_sheet_update_cell(&chk, cx, cy);
+        r3d_mesh_alloc(&sq, 4, 2);
+        sq.verts[0] = (v3_t){ -1, -1, 0 }; sq.verts[1] = (v3_t){ 1, -1, 0 };
+        sq.verts[2] = (v3_t){ 1, 1, 0 };   sq.verts[3] = (v3_t){ -1, 1, 0 };
+        static const uint16_t f[6] = { 0, 2, 1, 0, 3, 2 };
+        memcpy(sq.faces, f, sizeof f);
+        r3d_mesh_alloc_uv(&sq);
+        static const float uv[12] = { 0, 128, 128, 0, 128, 128, 0, 128, 0, 0, 128, 0 };
+        memcpy(sq.uv, uv, sizeof uv);
+        sq.colors[0] = sq.colors[1] = R3D_TEXTURED;
+        sq.tex = &chk;
+        r3d_mesh_normals(&sq);
+        uint16_t *q = test_aligned_alloc(16, 640 * 360 * 2);
+        int mixed[2] = { 0, 0 }, pure[2] = { 0, 0 };
+        const int can = emu_tformat != 2 && emu_mip != 1;  /* the probe allows mipmaps */
+        for (int k = 0; k < 2; k++) {
+            g16_t g;
+            r3d_t r;
+            g16_target(&g, q, 640, 640, 360, &font);
+            g16_cls(&g, 0);
+            r3d_init(&r, &g);
+            r.backend = gpu3d_backend();
+            gpu3d_drop();
+            r3d_zclear(&r);
+            gpu3d_set_mip(k);
+            r3d_camera(&r, 0, 0, 0, 0, 0, 60);
+            r3d_draw_flags(&r, &sq, (v3_t){ 0, 0, 40 }, 0, 0, 0, 8.0f * 40 / r.focal, R3D_UNLIT);
+            flush(&r, &g, 1);
+            CHECK(gpu3d_mip() == (can ? k : 0), "mipmaps: gpu3d_mip() %d, asked %d", gpu3d_mip(), k);
+            gpu3d_set_mip(0);
+            r3d_free(&r);
+            for (int y = 176; y < 184; y++)
+                for (int x = 316; x < 324; x++) {
+                    const uint16_t c = q[y * 640 + x];
+                    mixed[k] += (c >> 11) > 4 && (c & 31) > 4;
+                    pure[k] += (c >> 11) == 0 || (c & 31) == 0;
+                }
+        }
+        printf("  mipmaps: 64 pixels of a far checker, level 0 %d pure, mip levels %d mixed\n", pure[0], mixed[1]);
+        CHECK(pure[0] == 64 && (can ? mixed[1] == 64 : pure[1] == 64), "mipmaps: level 0 %d pure of 64, mip levels %d mixed of 64",
+              pure[0], mixed[1]);
+        save(q, 640, 360, "textures", "mipmaps");
+        test_free(q);
+        r3d_mesh_free(&sq);
+        g16_sheet_free(&chk);
     }
     /* bm3d 4.8: a frame enlarged by the GPU (the menu at 1080p): 3 times, the
      * nearest pixel, as the ARM enlarges it */

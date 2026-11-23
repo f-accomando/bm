@@ -32,6 +32,7 @@ int emu_qpu = 0;                        /* QPU programs: 0 run, 1 the QPUs do no
 int emu_tformat = 0;                    /* the order of the 1 KB subtiles of a T-format tile */
 int emu_t16_alpha = 0;                  /* bm3d 7.2: alpha's bits in RGBA5551 / RGBA4444 (v3d_emu.h) */
 int emu_t16_lossy = 0;                  /* bm3d 7.2: 5551 / 4444 widened otherwise (v3d_emu.h) */
+int emu_mip = 0;                        /* bm3d 7.37: 1 mip levels ignored (v3d_emu.h) */
 int emu_etc1 = 0;                     /* bm3d 7.3: the layout of ETC1 textures (v3d_emu.h) */
 int emu_ms_load_one = 0;                /* MSAA: a colour load fills sample 0 only (else all 4) */
 int emu_skip = 0;                       /* jobs only counted, not run (ARM instruction counts) */
@@ -1161,17 +1162,26 @@ static uint32_t etc1_index(int bx, int by, int wb);
  * as RGB565's and alpha in the low bits (or the top ones: emu_t16_alpha),
  * each widened to 8 bits (emu_t16_lossy: half a step below); bytes a and c
  * swapped with emu_tex_swap */
-static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
+/* bm3d 7.37: the place of texel (x, y) in a mip level in LT format, w
+ * wide: utiles of 64 bytes (4 x 4 texels of 32 bits, 8 x 4 of 16) in rows,
+ * the texels of a utile in rows */
+static uint32_t lt_index(int x, int y, int w, int cpp)
+{
+    const int uw = cpp == 4 ? 4 : 8, upr = (w + uw - 1) / uw;
+    return (uint32_t)((y / 4) * upr + x / uw) * (uint32_t)(uw * 4) + (uint32_t)((y & 3) * uw + x % uw);
+}
+
+static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w, int lt)
 {
     uint32_t t;
     if (type == 4) {
-        const uint16_t v = ((const uint16_t *)tex)[t16_index(x, y, w)];
+        const uint16_t v = ((const uint16_t *)tex)[lt ? lt_index(x, y, w, 2) : t16_index(x, y, w)];
         const uint32_t hi = v >> 11, g = v >> 5 & 63, lo = v & 31;
         t = 0xFF000000u | (hi << 3 | hi >> 2) << 16 | (g << 2 | g >> 4) << 8 | (lo << 3 | lo >> 2);
     } else if (type == 2 || type == 3) {
         if (emu_t16_alpha == 2)
             return 0;
-        const uint32_t v = ((const uint16_t *)tex)[t16_index(x, y, w)];
+        const uint32_t v = ((const uint16_t *)tex)[lt ? lt_index(x, y, w, 2) : t16_index(x, y, w)];
         const int n = type == 2 ? 4 : 5, m = 16 - 3 * n;
         const uint32_t a = emu_t16_alpha ? v >> 3 * n : v & ((1u << m) - 1), rgb = emu_t16_alpha ? v : v >> m;
         const uint32_t mask = (1u << n) - 1, hi = rgb >> 2 * n & mask, g = rgb >> n & mask, lo = rgb & mask;
@@ -1190,7 +1200,7 @@ static uint32_t texel_at(const uint32_t *tex, int type, int x, int y, int w)
         /* 3: as the Pi, each block's rows reversed (the format's row 3 on top) */
         t = 0xFF000000u | etc1_texel(b, x & 3, emu_etc1 == 3 ? 3 - (y & 3) : y & 3);
     } else {
-        t = type == 16 ? tex[y * w + x] : tex[t_index(x, y, w)];
+        t = type == 16 ? tex[y * w + x] : tex[lt ? lt_index(x, y, w, 4) : t_index(x, y, w)];
     }
     if (emu_tex_swap)
         t = (t & 0xFF00FF00u) | (t >> 16 & 0xFF) | (t & 0xFF) << 16;
@@ -1209,6 +1219,59 @@ static uint8_t adds(uint32_t a, uint32_t b)
     return (uint8_t)(a + b > 255 ? 255 : a + b);
 }
 
+/* bm3d 7.37: the LOD of the pixel being shaded (draw_tile sets it) */
+static float emu_lod;
+
+/* the bytes of a mip level lw x lh of cpp bytes a texel (the layout of
+ * Mesa's vc4): LT when at most 4 utiles wide or high, its sides rounded
+ * to the utile's, else T-format, rounded to the 4 KB tile's; *lt */
+static uint32_t level_bytes(int lw, int lh, int cpp, int *lt)
+{
+    const int uw = cpp == 4 ? 4 : 8;
+    *lt = lw <= 4 * uw || lh <= 16;
+    const int ax = *lt ? uw : 8 * uw, ay = *lt ? 4 : 32;
+    return (uint32_t)((lw + ax - 1) / ax * ax) * (uint32_t)((lh + ay - 1) / ay * ay) * (uint32_t)cpp;
+}
+
+/* the texel at s, t (0..1) of level k of the texture of P0 (level 0 at
+ * its base, each smaller level just below the one before), nearest or
+ * linear (the four around the point), clamped at the edges */
+static uint32_t sample_level(uint32_t p0, int type, int w, int h, int k, float s, float t, int linear)
+{
+    const int cpp = type == 0 || type == 16 ? 4 : 2;
+    uint32_t below = 0;
+    int lt = 0;
+    for (int j = 1; j <= k; j++)
+        below += level_bytes(w >> j > 0 ? w >> j : 1, h >> j > 0 ? h >> j : 1, cpp, &lt);
+    const int lw = w >> k > 0 ? w >> k : 1, lh = h >> k > 0 ? h >> k : 1;
+    const uint32_t *tex = ptr((p0 & ~0xFFFu) - below);
+    if (!tex)
+        return 0;
+    if (!linear) {
+        int tx = (int)floorf(s * (float)lw), ty = (int)floorf(t * (float)lh);
+        tx = tx < 0 ? 0 : tx >= lw ? lw - 1 : tx;                 /* clamp */
+        ty = ty < 0 ? 0 : ty >= lh ? lh - 1 : ty;
+        return texel_at(tex, type, tx, ty, lw, k ? lt : 0);
+    }
+    const float fx = s * (float)lw - 0.5f, fy = t * (float)lh - 0.5f;
+    const int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
+    const float ax = fx - (float)x0, ay = fy - (float)y0;
+    float acc[4] = { 0, 0, 0, 0 };
+    for (int q = 0; q < 4; q++) {
+        int x = x0 + (q & 1), y = y0 + (q >> 1);
+        x = x < 0 ? 0 : x >= lw ? lw - 1 : x;
+        y = y < 0 ? 0 : y >= lh ? lh - 1 : y;
+        const uint32_t tx = texel_at(tex, type, x, y, lw, k ? lt : 0);
+        const float wk = ((q & 1) ? ax : 1 - ax) * ((q >> 1) ? ay : 1 - ay);
+        for (int i = 0; i < 4; i++)
+            acc[i] += wk * (float)(tx >> (8 * i) & 255);
+    }
+    uint32_t r = 0;
+    for (int i = 0; i < 4; i++)
+        r |= (uint32_t)(uint8_t)(acc[i] + 0.5f) << (8 * i);
+    return r;
+}
+
 static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard, int px, int py)
 {
     *discard = 0;
@@ -1222,33 +1285,38 @@ static void shade(const eprim_t *pr, const float *va, uint8_t *out, int *discard
     int w = (int)(p1 >> 8 & 2047), h = (int)(p1 >> 20 & 2047);
     if (!w) w = 2048;
     if (!h) h = 2048;
-    const uint32_t *tex = ptr(p0 & ~0xFFFu);
     const int type = (int)(p0 >> 4 & 15) | (int)(p1 >> 31) << 4;
     uint8_t c[4];
-    if (!(p1 >> 7 & 1) && !(p1 >> 4 & 7)) {
-        /* bm3d 4.8: bilinear (MAGFILT and MINFILT linear): the four texels
-         * around the point, clamped at the edges */
-        const float fx = va[0] * (float)w - 0.5f, fy = va[1] * (float)h - 0.5f;
-        const int x0 = (int)floorf(fx), y0 = (int)floorf(fy);
-        const float ax = fx - (float)x0, ay = fy - (float)y0;
-        float acc[4] = { 0, 0, 0, 0 };
-        for (int k = 0; k < 4; k++) {
-            int x = x0 + (k & 1), y = y0 + (k >> 1);
-            x = x < 0 ? 0 : x >= w ? w - 1 : x;
-            y = y < 0 ? 0 : y >= h ? h - 1 : y;
-            const uint32_t t = texel_at(tex, type, x, y, w);
-            const float wk = ((k & 1) ? ax : 1 - ax) * ((k >> 1) ? ay : 1 - ay);
-            for (int i = 0; i < 4; i++)
-                acc[i] += wk * (float)(t >> (8 * i) & 255);
+    /* bm3d 7.37: mip levels (MIPLVLS in P0): the level from the pixel's
+     * LOD (emu_lod, log2 of the texels a pixel steps over); MINFILT 2..5
+     * pick the nearest level or mix two, nearest or linear in each. Without
+     * levels: linear only with MAGFILT and MINFILT both linear (bm3d 4.8). */
+    const int nlev = type == 16 || type == 8 || emu_mip == 1 ? 0 : (int)(p0 & 15), magl = !(p1 >> 7 & 1), minf = (int)(p1 >> 4 & 7);
+    int k0 = 0, k1 = 0, lin = magl && minf == 0;
+    float mix = 0;
+    if (nlev && emu_lod > 0) {
+        lin = minf == 0 || minf == 4 || minf == 5;
+        if (minf >= 2) {
+            const float lod = emu_lod > (float)nlev ? (float)nlev : emu_lod;
+            if (minf == 3 || minf == 5) {
+                k0 = (int)floorf(lod);
+                k1 = k0 < nlev ? k0 + 1 : k0;
+                mix = lod - (float)k0;
+            } else {
+                k0 = k1 = (int)floorf(lod + 0.5f);
+            }
         }
+    } else if (nlev) {
+        lin = magl;
+    }
+    uint32_t cs[2];
+    for (int j = 0; j < (k1 != k0 ? 2 : 1); j++)
+        cs[j] = sample_level(p0, type, w, h, j ? k1 : k0, va[0], va[1], lin);
+    if (k1 != k0) {
         for (int i = 0; i < 4; i++)
-            c[i] = (uint8_t)(acc[i] + 0.5f);
+            c[i] = (uint8_t)((float)(cs[0] >> (8 * i) & 255) * (1 - mix) + (float)(cs[1] >> (8 * i) & 255) * mix + 0.5f);
     } else {
-        int tx = (int)floorf(va[0] * (float)w), ty = (int)floorf(va[1] * (float)h);
-        tx = tx < 0 ? 0 : tx >= w ? w - 1 : tx;                 /* clamp */
-        ty = ty < 0 ? 0 : ty >= h ? h - 1 : ty;
-        const uint32_t t = texel_at(tex, type, tx, ty, w);
-        c[0] = (uint8_t)t; c[1] = (uint8_t)(t >> 8); c[2] = (uint8_t)(t >> 16); c[3] = (uint8_t)(t >> 24);
+        c[0] = (uint8_t)cs[0]; c[1] = (uint8_t)(cs[0] >> 8); c[2] = (uint8_t)(cs[0] >> 16); c[3] = (uint8_t)(cs[0] >> 24);
     }
     if (pr->shader == SH_TEXT) {        /* bm3d 4.8: the colour where the glyph's texel is opaque */
         out[0] = unit8(va[2]); out[1] = unit8(va[3]); out[2] = unit8(va[4]); out[3] = 255;
@@ -1433,6 +1501,26 @@ static void draw_tile(int tx, int ty, int fw, int fh)
                         float va[8];
                         for (int k = 0; k < pr->nvary; k++)
                             va[k] = (c0 * v[0].v[k] * v[0].iw + c1 * v[1].v[k] * v[1].iw + c2 * v[2].v[k] * v[2].iw) / iw;
+                        emu_lod = 0;
+                        if (pr->params && pr->nvary >= 2 && (pr->params[0] & 15)) {
+                            /* bm3d 7.37: the texels a step of one pixel in x and in y moves over */
+                            const uint32_t p1 = pr->params[1];
+                            const float tw = (float)((p1 >> 8 & 2047) ? (p1 >> 8 & 2047) : 2048),
+                                        th = (float)((p1 >> 20 & 2047) ? (p1 >> 20 & 2047) : 2048);
+                            float d[2][2];
+                            for (int a = 0; a < 2; a++) {
+                                const float ex = cx + (float)(a == 0), ey = cy + (float)(a == 1);
+                                const float e0 = edge(&v[1], &v[2], ex, ey) / area, e1 = edge(&v[2], &v[0], ex, ey) / area,
+                                            e2 = edge(&v[0], &v[1], ex, ey) / area;
+                                const float ew = e0 * v[0].iw + e1 * v[1].iw + e2 * v[2].iw;
+                                for (int k = 0; k < 2; k++)
+                                    d[a][k] = (e0 * v[0].v[k] * v[0].iw + e1 * v[1].v[k] * v[1].iw + e2 * v[2].v[k] * v[2].iw) / ew -
+                                              va[k];
+                            }
+                            const float lx = (d[0][0] * tw) * (d[0][0] * tw) + (d[0][1] * th) * (d[0][1] * th),
+                                        ly = (d[1][0] * tw) * (d[1][0] * tw) + (d[1][1] * th) * (d[1][1] * th);
+                            emu_lod = 0.5f * log2f(lx > ly ? lx : ly);
+                        }
                         shade(pr, va, c, &discard, x, y);
                         shaded = 1;
                         emu_stats.pixels++;

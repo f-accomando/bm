@@ -89,10 +89,12 @@ Settings shows five graphics rows; every performance flag is a hidden key. Keys,
    - *Completion criterion*: particles and Yharnam's darkness levels handled entirely by the GPU with measurements in the 3D Bench and an identical software fallback in QEMU (`gpu3d=0`).
 6. **Dynamic impostor adaptation for crowds and heroes**:
    - Skinned models simplified to billboard quads with `r3d_impostor` when far from the camera; Overbit/Yharnam quality governor to enable `gpu3d(nil, nil, nil, nil, 8)` at low levels.
+7. Mipmaps on the V3D (bm3d 7.37, `gpu3d_mip`, off; `docs/progress/v3d-formats.md`): done on the emulator, not verified on hardware. Next: on the Pi Zero W, read the status line (`mipmaps 32 16` or the probe's log line), then run `b3d tests=far_tex,far_mip; send` and compare `n60` and `ns_px_gpu` of the two tests (GPU and GPU+T16). Turn the key on by default only if `far_mip` is faster and the near tests (`quad_tex`, `heroes_tex`) do not lose.
 8. Sprite stacking on the Pi: measured on the Pi Zero W (22 Oct, 128 stacks of 8 slices): 18270 us a frame, about 58k slices/s at most, over the 16600 us of 60 fps. The Stack bench that took it was removed on 24 Oct 2026; run again with the 3D Bench scene `stack` (`b3d tests=stack`).
 
 
 ## Rules (do not break)
 
 - Keep the V3D jobs of a still menu few on the Pi. The firmware can stop at the next video mode change after many V3D jobs (class B, 18 Nov 2026). A still GPU menu draws 1 frame in 4.
+- Give a texture mip levels only where `probe_mip` passed for its texel size (32 or 16 bits). Give the 2D record (words 2 and 3) level 0 only.
 - Try the vertex shader way that draws first in a probe. A way that draws nothing leaves ERRSTAT bits that nothing clears.

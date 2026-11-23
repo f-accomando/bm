@@ -25,7 +25,8 @@
 #define PROBE_W      64
 #define PROBE_H      64
 #define JOB_PROBE    (PROBE_W * PROBE_H * 2)
-#define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4096)    /* (also 128 x 64 texels of 16 bits) */
+#define PROBE_TEX    (PROBE_W * PROBE_H * 4 + 4 * 4096) /* (also 128 x 64 texels of 16 bits; bm3d 7.37: a 64 x 64
+                                                          * texture of 32 bits with its mip levels below it) */
 #define JOB_BLOCK    (JOB_TSDA + JOB_ALLOC + JOB_OVERFLOW + JOB_ZBUF + JOB_BCL + JOB_RCL + JOB_RECS + JOB_UNIF + JOB_CODE + \
                       JOB_VERTS + JOB_PROBE + PROBE_TEX)
 /* the block in whole sections of 1 MB, which the MMU can map uncached
@@ -123,9 +124,10 @@ typedef struct {
     const g16_sheet_t *sheet;
     uint32_t version;
     int w, h;
-    uint32_t *texels;
+    uint32_t *texels;               /* level 0 (bm3d 7.37: the smaller mip levels just below it, in mem) */
     uint32_t *params;
-    size_t size;
+    void *mem;                      /* the memory allocated (texels or below) */
+    size_t size;                    /* its bytes */
     float inv_w, inv_h;             /* texel coordinates to 0..1 */
     int cw, ch;                     /* the sheet's cells */
     uint32_t *holes;                /* (cw+1) x (ch+1): cells not opaque above and left of each corner */
@@ -213,6 +215,13 @@ static struct {
                                      * reversed, red and blue swapped in the texel */
     uint16_t t16_inner[2][2048];    /* texel of each place in its tile (as t_inner) */
     int tex16_on;                   /* RGB565 textures asked for (gpu3d_set_tex16) */
+    /* bm3d 7.37: mipmaps. mip_on: asked for (gpu3d_set_mip: 0 off, 1 the
+     * nearest level, 2 two levels mixed); mip_ok[0] 32-bit, [1] 16-bit
+     * textures: the probe saw the TMU read each level where mip_place puts
+     * it; ut_inner: each texel's place in its utile (from t_inner and
+     * t16_inner), for the levels in LT format */
+    int mip_on, mip_ok[2];
+    uint8_t ut_inner[2][32];
     /* bm3d 7.2: the 16-bit types with alpha, [0] RGBA5551 (type 3),
      * [1] RGBA4444 (type 2), in the RGB565 layout: learned by the probe (ok)
      * and how their fields go in the word (CUT_SWAP: red and blue swapped
@@ -359,8 +368,8 @@ static uint32_t bus_of(const void *p)
  * after that job, at every boot after some kernel sends (14 Nov 2026). */
 static void tex_nearest_2d(tex_t *t)
 {
-    t->params[2] = t->params[0];
-    t->params[3] = t->params[1] | 1u << 7 | 1u << 4;
+    t->params[2] = t->params[0] & ~15u;                                 /* bm3d 7.37: level 0 only */
+    t->params[3] = (t->params[1] & ~(7u << 4)) | 1u << 7 | 1u << 4;
 }
 
 
@@ -427,6 +436,162 @@ static uint16_t cut16_of(int f, uint32_t p, uint32_t g, uint32_t s, uint32_t a)
     a >>= 8 - m;
     const uint32_t rgb = (mode & CUT_SWAP ? s : p) << 2 * n | g << n | (mode & CUT_SWAP ? p : s);
     return (uint16_t)(mode & CUT_AHI ? a << 3 * n | rgb : rgb << m | a);
+}
+
+/* ---------------------------------------------------------------- mipmaps */
+
+/* bm3d 7.37: a texture's mip levels as the VideoCore IV's TMU reads them
+ * (the layout of Mesa's vc4, MIT): level 0 at the base address (4 KB
+ * aligned), each smaller level just below the one before it. A level
+ * whose width is at most 4 utiles or whose height is at most 4 utiles is
+ * in LT format (utiles in rows, its sides rounded up to the utile's); the
+ * others are in T-format (its sides rounded up to the 4 KB tile's). A
+ * utile is 64 bytes: 4 x 4 texels of 32 bits, 8 x 4 of 16 bits. */
+#define MIP_MAX 12
+
+typedef struct {
+    int n;                          /* levels after level 0 (the MIPLVLS field) */
+    uint32_t below[MIP_MAX];        /* [k]: bytes from the start of level k to level 0 */
+    uint32_t prefix;                /* the bytes below level 0, rounded up to 4 KB */
+    uint8_t lt[MIP_MAX];            /* level k in LT format */
+} mips_t;
+
+static int mip_side(int s, int k)
+{
+    return s >> k > 0 ? s >> k : 1;
+}
+
+/* the bytes of a level lw x lh of cpp bytes a texel; *lt: in LT format */
+static uint32_t mip_bytes(int lw, int lh, int cpp, uint8_t *lt)
+{
+    const int uw = cpp == 4 ? 4 : 8, uh = 4;
+    *lt = lw <= 4 * uw || lh <= 4 * uh;
+    const int ax = *lt ? uw : 8 * uw, ay = *lt ? uh : 8 * uh;
+    return (uint32_t)((lw + ax - 1) / ax * ax) * (uint32_t)((lh + ay - 1) / ay * ay) * (uint32_t)cpp;
+}
+
+/* the levels of a w x h texture of cpp bytes a texel, down to 1 x 1 */
+static void mip_layout(mips_t *m, int w, int h, int cpp)
+{
+    uint32_t sum = 0;
+    m->n = 0;
+    m->below[0] = 0;
+    m->lt[0] = 0;
+    for (int k = 1; k < MIP_MAX && (mip_side(w, k - 1) > 1 || mip_side(h, k - 1) > 1); k++) {
+        sum += mip_bytes(mip_side(w, k), mip_side(h, k), cpp, &m->lt[k]);
+        m->below[k] = sum;
+        m->n = k;
+    }
+    m->prefix = (sum + 4095u) & ~4095u;
+}
+
+/* the place (in texels) of texel (x, y) in level k (lw wide) */
+static uint32_t mip_place(const mips_t *m, int k, int x, int y, int lw, int cpp)
+{
+    if (!m->lt[k])
+        return cpp == 4 ? t_word(x, y, lw) : t16_word(x, y, lw);
+    const int uw = cpp == 4 ? 4 : 8, upr = (lw + uw - 1) / uw;
+    return (uint32_t)((y / 4) * upr + x / uw) * (uint32_t)(uw * 4) + G.ut_inner[cpp == 2][(y & 3) * uw + x % uw];
+}
+
+/* a texel of format fmt (TF_32, TF_565, TF_5551) at place i of a level */
+static void mip_put(void *level, int fmt, uint32_t i, uint16_t c, int opaque)
+{
+    if (fmt == TF_32)
+        ((uint32_t *)level)[i] = texel_of(c, opaque);
+    else if (fmt == TF_565)
+        ((uint16_t *)level)[i] = texel16_of(c);
+    else
+        ((uint16_t *)level)[i] = cut16_of(0, c >> 11, c >> 5 & 63, c & 31, opaque ? 255u : 0u);
+}
+
+/* each texel's place in a utile, from the tiles' layout the probe learned
+ * (the utile at the tile's corner): 0 if it is not the utile's 16 or 32
+ * places once each */
+static int mip_learn_utile(int cpp)
+{
+    const int uw = cpp == 4 ? 4 : 8, n = uw * 4;
+    uint32_t seen = 0;
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < uw; x++) {
+            const int a = cpp == 4 ? G.t_inner[0][y * 32 + x] - G.t_inner[0][0]
+                                   : G.t16_inner[0][y * 64 + x] - G.t16_inner[0][0];
+            if (a < 0 || a >= n || (seen >> a & 1))
+                return 0;
+            seen |= 1u << a;
+            G.ut_inner[cpp == 2][y * uw + x] = (uint8_t)a;
+        }
+    return 1;
+}
+
+/* the levels 1.. of a sheet (level 0 is written as before): each texel
+ * the mean of the four below it; opaque where at least two of them are
+ * (the mean of those), else clear. 0 if there is no memory. */
+static int mip_fill(uint8_t *base0, const mips_t *m, int fmt, const g16_sheet_t *s)
+{
+    const int cpp = fmt == TF_32 ? 4 : 2;
+    int pw = s->w, ph = s->h;
+    const uint16_t *ppx = s->px;
+    const uint8_t *pal = s->alpha;
+    uint16_t *px = NULL;
+    uint8_t *al = NULL;
+    for (int k = 1; k <= m->n; k++) {
+        const int lw = mip_side(s->w, k), lh = mip_side(s->h, k);
+        uint16_t *npx = malloc((size_t)lw * (size_t)lh * 2);
+        uint8_t *nal = malloc((size_t)lw * (size_t)lh);
+        if (!npx || !nal) {
+            free(npx);
+            free(nal);
+            free(px);
+            free(al);
+            return 0;
+        }
+        uint8_t *level = base0 - m->below[k];
+        for (int y = 0; y < lh; y++)
+            for (int x = 0; x < lw; x++) {
+                uint32_t r[2] = { 0, 0 }, g[2] = { 0, 0 }, b[2] = { 0, 0 }, cnt[2] = { 0, 0 };
+                for (int j = 0; j < 4; j++) {
+                    int sx = 2 * x + (j & 1), sy = 2 * y + (j >> 1);
+                    if (sx >= pw) sx = pw - 1;
+                    if (sy >= ph) sy = ph - 1;
+                    const uint32_t i = (uint32_t)sy * (uint32_t)pw + (uint32_t)sx, c = ppx[i];
+                    const int o = pal[i] != 0;
+                    r[o] += c >> 11;
+                    g[o] += c >> 5 & 63;
+                    b[o] += c & 31;
+                    cnt[o]++;
+                }
+                const int o = cnt[1] >= 2, q = o ? 1 : cnt[0] ? 0 : 1;
+                const uint32_t d = cnt[q];
+                const uint16_t c = (uint16_t)((r[q] + d / 2) / d << 11 | (g[q] + d / 2) / d << 5 | (b[q] + d / 2) / d);
+                const uint32_t i = (uint32_t)y * (uint32_t)lw + (uint32_t)x;
+                npx[i] = c;
+                nal[i] = (uint8_t)o;
+                mip_put(level, fmt, mip_place(m, k, x, y, lw, cpp), c, o);
+            }
+        free(px);
+        free(al);
+        px = npx;
+        al = nal;
+        ppx = px;
+        pal = al;
+        pw = lw;
+        ph = lh;
+    }
+    free(px);
+    free(al);
+    return 1;
+}
+
+/* the sheet's texture gets mip levels: asked for, learned for its texels'
+ * size, sides powers of two, level 0 in T-format */
+static int mip_wanted(int fmt, int tiled, int w, int h)
+{
+    if (!G.mip_on || fmt == TF_ETC1 || (fmt == TF_32 && !tiled))
+        return 0;
+    const int cpp = fmt == TF_32 ? 4 : 2;
+    uint8_t lt;
+    return G.mip_ok[cpp == 2] && !(w & (w - 1)) && !(h & (h - 1)) && (mip_bytes(w, h, cpp, &lt), !lt);
 }
 
 /* bm3d 7.3: the orders of a block's 8 bytes the probe tries (the
@@ -555,16 +720,6 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     const int tiled = G.tformat;
     const int tw = tiled ? (s->w + 31) & ~31 : s->w, th = tiled ? (s->h + 31) & ~31 : s->h;
     const uint32_t n = (uint32_t)s->w * (uint32_t)s->h, tn = (uint32_t)tw * (uint32_t)th;
-    size_t size = (size_t)tn * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
-    if (!t->texels || t->size < size) {
-        free(t->texels);
-        t->texels = aligned_alloc(4096, (size + 4095) & ~(size_t)4095);
-        t->size = t->texels ? size : 0;
-        if (!t->texels) {
-            t->sheet = NULL;
-            return NULL;
-        }
-    }
     /* bm3d 5.2: an opaque sheet as RGB565 in T-format (half the memory and the
      * TMU's reads; the colours exactly the sheet's) where the probe learned
      * that layout and gpu3d_tex16 asks for it */
@@ -581,6 +736,30 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
     const int e1 = G.etc1_on && G.etc1_ok && opaque_all && s->w % etc1_tile_w() == 0 &&
                    s->h % etc1_tile_h() == 0;
     const int fmt = e1 ? TF_ETC1 : !t16_ok ? TF_32 : opaque_all ? TF_565 : G.cut_ok[0] ? TF_5551 : TF_32;
+    /* bm3d 7.37: the mip levels below level 0 (mip_layout) */
+    mips_t mips;
+    const int mip = mip_wanted(fmt, tiled, s->w, s->h);
+    if (mip)
+        mip_layout(&mips, s->w, s->h, fmt == TF_32 ? 4 : 2);
+    const size_t prefix = mip ? mips.prefix : 0,
+                 size = prefix + (size_t)tn * 4 + 16 + (size_t)(cw + 1) * (size_t)(ch + 1) * 4;
+    if (!t->mem || t->size < size) {
+        free(t->mem);
+        t->mem = aligned_alloc(4096, (size + 4095) & ~(size_t)4095);
+        t->size = t->mem ? size : 0;
+        if (!t->mem) {
+            t->texels = NULL;
+            t->sheet = NULL;
+            return NULL;
+        }
+    }
+    t->texels = (uint32_t *)((uint8_t *)t->mem + prefix);
+    if (mip && !mip_fill((uint8_t *)t->texels, &mips, fmt, s)) {
+        t->sheet = NULL;
+        return NULL;
+    }
+    if (mip)
+        G.st.mip++;
     t->fmt = fmt;
     if (fmt == TF_ETC1) {
         etc1_sheet(t->texels, s);
@@ -629,10 +808,14 @@ static const tex_t *tex_get(const g16_t *g, const g16_sheet_t *s)
         }
     }
     t->params[0] = (v3d_bus(t->texels) & ~0xFFFu) |
-                   (fmt == TF_ETC1 ? 8u << 4 : fmt == TF_565 ? 4u << 4 : fmt == TF_5551 ? 3u << 4 : 0);
-    /* type 8: ETC1, 4: RGB565, 3: RGBA5551 */
+                   (fmt == TF_ETC1 ? 8u << 4 : fmt == TF_565 ? 4u << 4 : fmt == TF_5551 ? 3u << 4 : 0) |
+                   (mip ? (uint32_t)mips.n : 0);                            /* bm3d 7.37: MIPLVLS */
+    /* type 8: ETC1, 4: RGB565, 3: RGBA5551. MINFILT: 0 linear, 1 nearest,
+     * 2 nearest in the nearest level, 3 nearest in two levels mixed, 4
+     * linear in the nearest level, 5 linear in two levels mixed (trilinear) */
+    const uint32_t minf = !mip ? (G.bilinear ? 0u : 1u) : G.bilinear ? (G.mip_on == 2 ? 5u : 4u) : (G.mip_on == 2 ? 3u : 2u);
     t->params[1] = (tiled || fmt != TF_32 ? 0 : 1u << 31) | (uint32_t)(s->h & 2047) << 20 | (uint32_t)(s->w & 2047) << 8 |
-                   (G.bilinear ? 0 : 1u << 7 | 1u << 4) | 1u << 2 | 1u;     /* bm3d 4.8: linear (0) or nearest */
+                   (G.bilinear ? 0 : 1u << 7) | minf << 4 | 1u << 2 | 1u;   /* bm3d 4.8: linear (0) or nearest */
     tex_nearest_2d(t);                  /* the same, always the nearest texel: 2D (bm3d 4.8) */
     t->sheet = s;
     t->version = s->version;
@@ -2910,6 +3093,24 @@ int gpu3d_etc1(void)
     return G.etc1_ok && G.etc1_on;
 }
 
+/* bm3d 7.37: mipmaps (0 off, 1 the nearest level, 2 two levels mixed); the
+ * textures made so far are made again */
+void gpu3d_set_mip(int mode)
+{
+    GPU_PRE();
+    mode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
+    if (G.mip_on == mode)
+        return;
+    G.mip_on = mode;
+    for (int i = 0; i < NTEX; i++)
+        G.tex[i].version = ~G.tex[i].version;
+}
+
+int gpu3d_mip(void)
+{
+    return G.mip_ok[0] || G.mip_ok[1] ? G.mip_on : 0;
+}
+
 /* bm3d 5.3: the opaque textured faces' shaders with two threads (gpu3d_fs2=1) */
 void gpu3d_set_fs2(int on)
 {
@@ -3164,9 +3365,9 @@ int gpu3d_options_line(char *buf, size_t n)
         ksnprintf(buf, n, "bm3d %s gpu3d=off", BM3D_VERSION);
     else
         ksnprintf(buf, n, "bm3d %s gpu3d=on vs=%d aa=%d queue=%d wc=%d filter=%d tex16=%d fs2=%d sort=%d attr=%d "
-                  "etc1=%d",
+                  "etc1=%d mip=%d",
                   BM3D_VERSION, gpu3d_vshader_on(), gpu3d_msaa_on(), gpu3d_queue2() ? 2 : gpu3d_queue(), gpu3d_wc(),
-                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort(), gpu3d_attr(), gpu3d_etc1());
+                  gpu3d_bilinear(), gpu3d_tex16(), gpu3d_fs2(), gpu3d_sort(), gpu3d_attr(), gpu3d_etc1(), gpu3d_mip());
     return (int)strlen(buf);
 }
 
@@ -3715,6 +3916,76 @@ static int tformat_learn(void)
                     return 0;           /* tiles of a row laid out differently */
                 G.t_inner[row][y * 32 + x] = a;
             }
+    return 1;
+}
+
+/* bm3d 7.37: the mip levels' layout (mip_layout, mip_place) for textures
+ * of cpp bytes a texel. A 64 x 64 texture whose level k has, at texel (x,
+ * y), the RGB565 value k << 10 | (y * side + x), is drawn with the filter
+ * "nearest texel in the nearest level" on squares of 32, 16 .. 1 pixels:
+ * the TMU reads level k for a square 64 >> k wide, texel by texel. 1 if
+ * every pixel shows the texel it must (the textures may then have mip
+ * levels), 0 if not (a line in the log). */
+static int probe_mip(const g16_t *pg, int cpp)
+{
+    enum { S = 64 };
+    if (!mip_learn_utile(cpp)) {
+        plog(cpp == 4 ? "mipmaps 32: the utile's layout is not 16 places (mipmaps stay off)"
+                      : "mipmaps 16: the utile's layout is not 32 places (mipmaps stay off)");
+        return 0;
+    }
+    const int fmt = cpp == 4 ? TF_32 : TF_565;
+    mips_t m;
+    mip_layout(&m, S, S, cpp);
+    uint8_t lt;
+    const uint32_t l0 = mip_bytes(S, S, cpp, &lt);
+    if (lt || m.prefix + l0 + 16 > PROBE_TEX - 4096)
+        return 0;
+    uint8_t *base = (uint8_t *)G.probe_tex + m.prefix;
+    memset(G.probe_tex, 0, m.prefix + l0);
+    for (int k = 0; k <= m.n; k++) {
+        const int side = mip_side(S, k);
+        for (int y = 0; y < side; y++)
+            for (int x = 0; x < side; x++)
+                mip_put(base - m.below[k], fmt, mip_place(&m, k, x, y, side, cpp), (uint16_t)(k << 10 | (y * side + x)), 1);
+    }
+    static tex_t pt;
+    pt.texels = (uint32_t *)base;
+    pt.w = S;
+    pt.h = S;
+    pt.params = (uint32_t *)(base + l0);
+    pt.inv_w = 1.0f / S;
+    pt.inv_h = 1.0f / S;
+    pt.params[0] = (v3d_bus(base) & ~0xFFFu) | (cpp == 2 ? 4u << 4 : 0) | (uint32_t)m.n;
+    pt.params[1] = (uint32_t)S << 20 | (uint32_t)S << 8 | 1u << 7 | 2u << 4 | 1u << 2 | 1u;
+    tex_nearest_2d(&pt);                /* the words SH_TEX2D reads: never what an earlier kernel left in RAM */
+    for (int k = 1; k <= m.n; k++) {
+        const float side = (float)mip_side(S, k);
+        static const float q[4][2] = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+        r3d_corner_t v[4];
+        for (int i = 0; i < 4; i++)
+            v[i] = (r3d_corner_t){ q[i][0] * side, q[i][1] * side, 1.0f, q[i][0] * S, q[i][1] * S, 1.0f,
+                                   { 0, 0, 0 }, { 0, 0, 0 } };
+        const r3d_corner_t a[3] = { v[0], v[1], v[2] }, b[3] = { v[0], v[2], v[3] };
+        memset(G.probe, 0, JOB_PROBE);
+        add_tri(pg, a, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+        add_tri(pg, b, R3D_KIND_TEXTURE, &pt, 0, SH_TEX, 0);
+        if (gpu3d_flush(pg, 0) != 0)
+            return 0;
+        const int n = mip_side(S, k);
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++) {
+                const uint16_t want = (uint16_t)(k << 10 | (y * n + x)), got = G.probe[y * PROBE_W + x];
+                if (got != want) {
+                    char line[160];
+                    ksnprintf(line, sizeof line,
+                              "mipmaps %d: level %d of %d, texel (%d, %d) read %04x, expected %04x (mipmaps stay off)",
+                              cpp * 8, k, m.n, x, y, got, want);
+                    plog(line);
+                    return 0;
+                }
+            }
+    }
     return 1;
 }
 
@@ -4358,6 +4629,8 @@ static int probe(void)
     for (int f = 0; f < 2; f++)         /* bm3d 7.2: RGBA5551, RGBA4444 */
         G.cut_ok[f] = G.tf16 && !G.failed ? soft(probe_cut16(&pg, f), "the 16-bit alpha textures' probe") : 0;
     G.etc1_ok = G.tf16 && !G.failed ? soft(probe_etc1(&pg), "the ETC1 textures' probe") : 0;    /* bm3d 7.3 */
+    G.mip_ok[0] = G.tformat && !G.failed ? soft(probe_mip(&pg, 4), "the mipmaps' probe (32 bits)") : 0;  /* bm3d 7.37 */
+    G.mip_ok[1] = G.tf16 && !G.failed ? soft(probe_mip(&pg, 2), "the mipmaps' probe (16 bits)") : 0;
     G.ms_ok = probe_ms();
     G.idx_ok = 0;                       /* the vertex shader's probe draws corners in a row */
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
@@ -4433,7 +4706,7 @@ int gpu3d_init(void)
     ksnprintf(G.why, sizeof G.why, "bm3d " BM3D_VERSION " ready (byte a = %s, texels %s, textures %s, MSAA %s, "
               "16-bit textures %s, two-thread shaders %s, vertex shader %s%s, indexed %s, "
               "clipping %s, lit models %s, queue %s, zclear in job %s, compact attributes %s, alpha textures %s, "
-              "ETC1 textures %s, cel light %s)",
+              "ETC1 textures %s, cel light %s, mipmaps %s)",
               G.red_a ? "red" : "blue",
               G.tex_swap ? "swapped" : "in place", G.tformat ? "in tiles" : "in rows", ms[G.ms_ok],
               G.tf16 ? "yes" : "no", G.fs2_ok ? "yes" : "no",
@@ -4442,7 +4715,8 @@ int gpu3d_init(void)
               G.gl_ok && G.gl_clip_all ? " (clipper always on)" : "", G.idx_ok ? "yes" : "no", clips[G.clip_ok], G.lit_ok ? "yes" : "no",
               G.queue_ok ? "yes" : "no", G.zclear_ok ? "yes" : "no", G.attr_ok ? "yes" : "no",
               G.cut_ok[0] ? (G.cut_ok[1] ? "RGBA5551 RGBA4444" : "RGBA5551") : G.cut_ok[1] ? "RGBA4444" : "no",
-              G.etc1_ok ? e1 : "no", G.cel_ok ? "yes" : "no");
+              G.etc1_ok ? e1 : "no", G.cel_ok ? "yes" : "no",
+              G.mip_ok[0] ? (G.mip_ok[1] ? "32 16" : "32") : G.mip_ok[1] ? "16" : "no");
     G.status = G.why;
     G.ready = 1;
     return 0;

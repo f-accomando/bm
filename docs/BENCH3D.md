@@ -79,6 +79,10 @@ the Pi's numbers with the earlier drivers are the historical bars.
   a game's logic), with GPU+VS and GPU+VS+Q: in the queue the ARM works while the GPU draws;
 - `gpu2d`: sprites and text over the 3D (bm3D 4.8; with GPU+2D in the GPU job, otherwise the ARM);
   `bilinear`: quads with filtered textures (bm3D 4.9, an option off by default);
+- `far_tex`, `far_mip` (bm3D 7.37): a 256x256 texture on far quads of 40x22 pixels (about 6 texels
+  a pixel in x, 11 in y), 256 quads a screen. `far_tex` reads level 0. `far_mip` turns on the
+  mipmaps (`gpu3d_mip`, an option off by default) and reads the level that fits. Compare the two rows
+  (GPU and GPU+T16) to see what the mipmaps save. They are not in the score;
 - `big`, `big_logic`: models of 10 080 triangles on a map of 14 112 (larger indexed meshes, bm3D 5.0), the second with the
   logic of `queue`;
 - the 2D scenes `map8`, `sprites`, `stack`, `fade`, `light` (see *The 2D scenes*), `herotris`, `cel` (see *herotris*), `stress` (see *stress*) and `ht_p100`, `ht_p100m`, `ht_p10`, `ht_p10m`, `ht_p1` (group `htmap`, see *herotris with the map in pieces*): they run only when `tests=` names them.
@@ -181,8 +185,8 @@ the binner's tile-list pool (4096 KB) and of its overflow area (2048 KB) one job
 from `BPCA` after the job; `ovf_jobs` the jobs whose binner went into the overflow. The
 session report prints the binner's figures too.
 
-**The cost of a pixel.** The fill tests (`quad_*`, `bilinear`) and `gpu2d` count the pixels a
-frame asks to fill (`fill_px`: 320x180 a quad; for `gpu2d` the area of its sprites and text) and
+**The cost of a pixel.** The fill tests (`quad_*`, `bilinear`, `far_tex`, `far_mip`) and `gpu2d` count the pixels a
+frame asks to fill (`fill_px`: 320x180 a quad, 40x22.5 a far quad; for `gpu2d` the area of its sprites and text) and
 fit a line through the steps (`b3d_slope`): its slope is the cost of one more pixel in **ns a
 pixel** (= ms a Mpixel), so the frame's fixed part (binning, clear, tile stores, the
 spheres under the 2D) drops out. Three more `R` columns: `fill_px` (at the 60 fps step),

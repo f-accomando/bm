@@ -48,6 +48,20 @@ Split from [v3d](v3d.md); open work and rules stay there.
   bytes BE, each block's rows reversed: `e1_map`). 3D Bench GPU / GPU+T16 / GPU+ETC1 are equal
   within 1-6% (quad_tex 2.20 / 2.35 / 2.19 ns/px, spheres_tex 157 / 158 / 159 fps, heroes_tex
   6.5 all): small sheets sit in the TMU cache, so fewer bytes buy nothing there.
+- `gpu3d_mip=1` or `2` (bm3d 7.37, off; hidden key; 3D Bench `far_tex` against `far_mip`): mipmaps
+  of the 32-bit and 16-bit textures (not ETC1). A sheet with sides that are powers of two gets its
+  levels down to 1x1 (`mip_fill`: each texel the mean of four; opaque where at least two of the four are).
+  Layout as Mesa's vc4 (`mip_layout`, `mip_place`): level 0 at the base address, each smaller level
+  just below the one before; a level at most 4 utiles wide or high is LT (utiles in rows), the
+  others are T-format. The utile's inner order comes from `t_inner` / `t16_inner` (`mip_learn_utile`).
+  P0 bits 0-3 = the number of levels after level 0; P1 MINFILT 2 (nearest level, nearest texel),
+  3 (two levels), 4 / 5 with `gpu3d_filter=1` (5 = trilinear). The 2D record (words 2, 3) keeps level 0.
+  `probe_mip` draws a 64x64 texture whose level k holds `k << 10 | index` on squares of 32 .. 1 pixels
+  and keeps the mipmaps only if each pixel shows its texel (status `mipmaps 32 16`, options line `mip=`,
+  `stats.mip`). Emulator: LOD per pixel from the uv steps, MINFILT 2..5 (`sample_level`);
+  `EMU_MIP=1` = a TMU without levels (the probe refuses, log line `mipmaps 32: level 1 ...`).
+  `make test-gpu3d`: a far 1-texel checker gives red or blue at level 0 and the mean of both
+  with mipmaps. Pi: not measured yet.
 - A failed `probe_cut16` / `probe_etc1` logs to the probes' line (report) `params0`, each
   candidate's right pixels, first 4 texels wanted/got and (5551/4444) an opaque-shader control;
   `etc1_diagnose` adds flat-block, block-map and one-block lines. Tests: `EMU_T16_ALPHA=2`,

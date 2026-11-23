@@ -616,7 +616,7 @@ CMD(c_bmz)
 static const char *const set_keys[] = {
     "assist_lang=", "battery_icon=", "battery_log=","bm_scale=", "bm_smooth=", "confirm=", "controls=", "dev=",
     "dma_zclear=", "draw=", "game_buttons=", "game_intro=", "gpu3d=", "gpu3d_2d=", "gpu3d_aa=",
-    "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=",
+    "gpu3d_attr=", "gpu3d_etc1=", "gpu3d_filter=", "gpu3d_fs2=", "gpu3d_later=", "gpu3d_merge=", "gpu3d_mip=",
     "gpu3d_qpu=", "gpu3d_queue=", "gpu3d_sort=", "gpu3d_tex16=", "gpu3d_vs=", "gpu3d_wc=", "layout=", "lock_screen=",
     "mali3d=", "mali_noshadow=", "market_delay=", "menu_scale=", "mouse=", "name=", "perf=",
     "prompts=", "r3d_fast=", "r3d_impostor=", "report_upload=",
