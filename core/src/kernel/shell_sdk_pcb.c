@@ -9,6 +9,7 @@
 #include "drivers/fb.h"
 #include "gfx/console.h"
 #include "gfx/draw.h"
+#include "shell_sdk_art.h"
 
 typedef struct {
     framebuffer_t *fb;
@@ -176,26 +177,47 @@ void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int
         battery(&g, col + w - 9, low - 1, 6, 4);
 }
 
-/* A cartridge or a card in a box of cells, in pixels. */
+/* The colour of a letter of the pixel art. */
+static uint32_t art_color(const geo_t *g, char c)
+{
+    switch (c) {
+    case 'k': return rgb(g, 10, 10, 14);
+    case 'g': return rgb(g, 150, 150, 162);
+    case 'l': return rgb(g, 214, 214, 226);
+    case 'd': return rgb(g, 98, 98, 112);
+    case 'r': return rgb(g, 190, 40, 52);
+    case 'b': return rgb(g, 40, 80, 170);
+    case 'y': return rgb(g, 214, 168, 64);
+    case 'w': return rgb(g, 255, 250, 240);
+    case 'n': return rgb(g, 26, 34, 84);
+    case 'm': return rgb(g, 14, 18, 52);
+    case 'p': return rgb(g, 250, 200, 200);
+    case 'G': return rgb(g, 60, 150, 70);
+    case 'Y': return rgb(g, 220, 190, 60);
+    default:  return rgb(g, 150, 150, 170);     /* 's' */
+    }
+}
+
+/* An icon of the pixel art, scaled to the biggest square that fits the box of cells and centred in it. */
 static void cart_art(const geo_t *g, int target, int col, int row, int w, int h)
 {
-    const int x = px(g, col), y = py(g, row), pw = w * g->cw, ph = h * g->ch;
-    if (target == SDK_NES) {
-        const uint32_t body = rgb(g, 150, 150, 150), dark = rgb(g, 90, 90, 90), lab = rgb(g, 200, 60, 50);
-        gfx_rect(g->fb, x, y, pw, ph, body);
-        gfx_rect(g->fb, x, y, pw, 2, dark);
-        gfx_rect(g->fb, x + pw / 6, y + ph / 5, pw * 2 / 3, ph / 2, lab);       /* the label */
-        gfx_rect(g->fb, x + pw / 8, y + ph - ph / 5, pw / 4, 2, dark);           /* the ridges at the bottom */
-        gfx_rect(g->fb, x + pw - pw / 8 - pw / 4, y + ph - ph / 5, pw / 4, 2, dark);
-    } else if (target == SDK_SNES) {
-        const uint32_t body = rgb(g, 200, 200, 205), dark = rgb(g, 120, 120, 130), lab = rgb(g, 90, 80, 150);
-        gfx_rect(g->fb, x, y, pw, ph - ph / 6, body);
-        gfx_rect(g->fb, x + pw / 6, y + ph - ph / 6, pw * 2 / 3, ph / 6, body);  /* the lip with the edge connector */
-        gfx_rect(g->fb, x + pw / 8, y + ph / 6, pw * 3 / 4, ph / 2, lab);
-        gfx_rect(g->fb, x + pw / 8, y + 2, pw * 3 / 4, 2, dark);
-        gfx_rect(g->fb, x + pw / 8, y + ph / 6 + ph / 2 + 3, pw * 3 / 4, 2, dark);
-    } else {
-        sd_card(g, col, row, w, h);
+    int s = w * g->cw < h * g->ch ? w * g->cw : h * g->ch;
+    const int x0 = px(g, col) + (w * g->cw - s) / 2, y0 = py(g, row) + (h * g->ch - s) / 2;
+    const char (*art)[SDK_ART_SIZE + 1] = sdk_art[target];
+    for (int y = 0; y < SDK_ART_SIZE; y++) {
+        const int ya = y0 + y * s / SDK_ART_SIZE, yb = y0 + (y + 1) * s / SDK_ART_SIZE;
+        for (int x = 0; x < SDK_ART_SIZE;) {
+            if (art[y][x] == '.') {
+                x++;
+                continue;
+            }
+            int e = x;                                  /* a run of one colour */
+            while (e < SDK_ART_SIZE && art[y][e] == art[y][x])
+                e++;
+            gfx_rect(g->fb, x0 + x * s / SDK_ART_SIZE, ya, x0 + e * s / SDK_ART_SIZE - (x0 + x * s / SDK_ART_SIZE),
+                     yb - ya, art_color(g, art[y][x]));
+            x = e;
+        }
     }
 }
 
@@ -206,8 +228,8 @@ void sdk_tile_draw(int target, int selected, int col, int row, int w, int h)
         return;
     if (selected)                                       /* a dark yellow ground under the whole tile */
         gfx_rect(g.fb, px(&g, col), py(&g, row), w * g.cw, h * g.ch, rgb(&g, 90, 70, 0));
-    cart_art(&g, target, col + 1, row, 4, h - 1);
-    chip(&g, col + 6, row + 1, 6, 1, sdk_target_cpu(target), CHIP_STYLE);
+    cart_art(&g, target, col, row, 6, h - 1);
+    chip(&g, col + 7, row + 1, 6, 1, sdk_target_cpu(target), CHIP_STYLE);
     char name[16];
     snprintf(name, sizeof name, "%s", target == SDK_BM ? "bm project" : target == SDK_NES ? "NES cart" : "SNES cart");
     at(row + h - 1, col + 1);
