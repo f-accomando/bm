@@ -490,10 +490,13 @@ static void q_bilinear_free(void) { q_free(); gpu3d_set_bilinear(0); }
  * away of a map). 256 quads fill the screen, each layer nearer than the
  * one before. far_tex reads level 0; far_mip the mip level that fits. */
 static g16_sheet_t far_sheet;
+static int far_mode;                    /* gpu3d_mip() before the test (the key gpu3d_mip), given back after it */
 
 static void far_setup(void)
 {
     flags = 0;
+    far_mode = gpu3d_mip();
+    gpu3d_set_mip(0);                   /* level 0 even when the key turns mipmaps on */
     make_sheet_wh(&far_sheet, 256, 256, 2, 0);
     make_quad(&quad, 0, &far_sheet);
     for (int i = 0; i < 12; i++)
@@ -504,7 +507,7 @@ static void far_free(void)
 {
     q_free();
     g16_sheet_free(&far_sheet);
-    gpu3d_set_mip(0);
+    gpu3d_set_mip(far_mode);
 }
 
 static void far_mip_setup(void)

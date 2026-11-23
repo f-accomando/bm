@@ -4629,8 +4629,6 @@ static int probe(void)
     for (int f = 0; f < 2; f++)         /* bm3d 7.2: RGBA5551, RGBA4444 */
         G.cut_ok[f] = G.tf16 && !G.failed ? soft(probe_cut16(&pg, f), "the 16-bit alpha textures' probe") : 0;
     G.etc1_ok = G.tf16 && !G.failed ? soft(probe_etc1(&pg), "the ETC1 textures' probe") : 0;    /* bm3d 7.3 */
-    G.mip_ok[0] = G.tformat && !G.failed ? soft(probe_mip(&pg, 4), "the mipmaps' probe (32 bits)") : 0;  /* bm3d 7.37 */
-    G.mip_ok[1] = G.tf16 && !G.failed ? soft(probe_mip(&pg, 2), "the mipmaps' probe (16 bits)") : 0;
     G.ms_ok = probe_ms();
     G.idx_ok = 0;                       /* the vertex shader's probe draws corners in a row */
     G.gl_ok = soft(probe_gl(&pg), "the vertex shader's probe");
@@ -4642,6 +4640,10 @@ static int probe(void)
     G.zclear_ok = !G.failed ? soft(probe_zclear(&pg), "the probe of zclear() in a job") : 0;
     G.fs2_ok = !G.failed ? soft(probe_fs2(&pg, &pt), "the two-thread shaders' probe") : 0;
     G.attr_ok = G.gl_ok && !G.failed ? soft(probe_attr(&pg), "the compact attributes' probe") : 0;
+    /* bm3d 7.37: last, as it writes over all of probe_tex, where probe_fs2 reads the texture of pt
+     * (on the Pi the V3D hung on that record, 23 Nov 2026) */
+    G.mip_ok[0] = G.tformat && !G.failed ? soft(probe_mip(&pg, 4), "the mipmaps' probe (32 bits)") : 0;
+    G.mip_ok[1] = G.tf16 && !G.failed ? soft(probe_mip(&pg, 2), "the mipmaps' probe (16 bits)") : 0;
     if (G.failed)
         return -1;
     memset(&G.st, 0, sizeof G.st);

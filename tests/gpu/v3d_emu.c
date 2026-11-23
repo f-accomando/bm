@@ -1221,6 +1221,10 @@ static uint8_t adds(uint32_t a, uint32_t b)
 
 /* bm3d 7.37: the LOD of the pixel being shaded (draw_tile sets it) */
 static float emu_lod;
+/* a texture record whose level is outside memory (P0, else 0): the job
+ * ends with an error, as the Pi's V3D hangs on it (23 Nov 2026: a probe
+ * left texels where a later probe read its record) */
+static uint32_t tex_fault;
 
 /* the bytes of a mip level lw x lh of cpp bytes a texel (the layout of
  * Mesa's vc4): LT when at most 4 utiles wide or high, its sides rounded
@@ -1245,8 +1249,10 @@ static uint32_t sample_level(uint32_t p0, int type, int w, int h, int k, float s
         below += level_bytes(w >> j > 0 ? w >> j : 1, h >> j > 0 ? h >> j : 1, cpp, &lt);
     const int lw = w >> k > 0 ? w >> k : 1, lh = h >> k > 0 ? h >> k : 1;
     const uint32_t *tex = ptr((p0 & ~0xFFFu) - below);
-    if (!tex)
+    if (!tex || !ptr((p0 & ~0xFFFu) - below + (uint32_t)lw * (uint32_t)lh * (uint32_t)cpp / (type == 8 ? 8u : 1u) - 1u)) {
+        tex_fault = p0 | 1u;
         return 0;
+    }
     if (!linear) {
         int tx = (int)floorf(s * (float)lw), ty = (int)floorf(t * (float)lh);
         tx = tx < 0 ? 0 : tx >= lw ? lw - 1 : tx;                 /* clamp */
@@ -1692,6 +1698,11 @@ static int render(uint32_t start, uint32_t end, int have_bin)
                     emu_stats.ms_early++;
             }
             draw_tile(tx, ty, fw, fh);
+            if (tex_fault) {
+                const uint32_t f = tex_fault;
+                tex_fault = 0;
+                return err("TMU: a texture record (P0 %08x) reads outside memory (the V3D hangs)", f & ~1u, 0);
+            }
             p += 4;
             break;
         }

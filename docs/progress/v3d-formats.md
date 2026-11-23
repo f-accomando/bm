@@ -61,7 +61,15 @@ Split from [v3d](v3d.md); open work and rules stay there.
   `stats.mip`). Emulator: LOD per pixel from the uv steps, MINFILT 2..5 (`sample_level`);
   `EMU_MIP=1` = a TMU without levels (the probe refuses, log line `mipmaps 32: level 1 ...`).
   `make test-gpu3d`: a far 1-texel checker gives red or blue at level 0 and the mean of both
-  with mipmaps. Pi: not measured yet.
+  with mipmaps. The probes' order: `probe_mip` runs last, because it writes over all of `probe_tex`,
+  where `probe_fs2` reads the texture record of `probe()`. With `probe_mip` earlier, the Pi's V3D hung
+  on that record and the GPU was off (23 Nov 2026). The emulator now ends a job whose texture record
+  reads outside memory.
+  Pi Zero W (23 Nov 2026, reports `reports/unknown/20261123-121552`, `-122016`, `-122204`): status
+  `mipmaps 32 16`. 3D Bench at 60 fps, `far_tex` against `far_mip`: GPU 534 -> 1548 quads (x2.9,
+  23.2 -> 2.6 ns a pixel on the GPU), GPU+T16 805 -> 1546 (x1.9), GPU+VS+FS2 532 -> 1365 (x2.6). With
+  `gpu3d_mip=1` the near tests do not change (within 2%: `quad_tex`, `spheres_tex`, `heroes_tex`;
+  `match` GPU+VS+FS2 30.7 -> 32.0).
 - A failed `probe_cut16` / `probe_etc1` logs to the probes' line (report) `params0`, each
   candidate's right pixels, first 4 texels wanted/got and (5551/4444) an opaque-shader control;
   `etc1_diagnose` adds flat-block, block-map and one-block lines. Tests: `EMU_T16_ALPHA=2`,
