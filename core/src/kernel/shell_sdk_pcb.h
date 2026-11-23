@@ -9,7 +9,7 @@
 
 #include "shell_sdk_proj.h"
 
-/* The PCB of the project in a box of w x h cells at ANSI (col, row): h of 9 or more, w of 30 or more. */
+/* The PCB of the project in a box of w x h cells at ANSI (col, row): h of 8 or more, w of 30 or more. */
 void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int h);
 
 /* A platform tile of w x h cells (13 x 4): the cartridge or the card, the CPU chip and the names. */

@@ -89,6 +89,17 @@ int main(void)
     sdk_proj_step(&p, SDK_ROW_MIRROR, 1);
     CHECK(!p.nes_vertical);
 
+    /* the boards: mapper 9 (MMC2) is there, 128 KB at most */
+    sdk_proj_default(&p, SDK_NES);
+    for (int i = 0; i < 6; i++)
+        sdk_proj_step(&p, SDK_ROW_BOARD, 1);
+    CHECK(!strcmp(value(&p, SDK_ROW_BOARD), "MMC2 (mapper 9)"));
+    sdk_proj_step(&p, SDK_ROW_PRG, 1);
+    sdk_proj_step(&p, SDK_ROW_PRG, 1);
+    sdk_proj_step(&p, SDK_ROW_PRG, 1);
+    sdk_proj_step(&p, SDK_ROW_PRG, 1);
+    CHECK(p.nes_prg_kb <= 128);
+
     /* info and the PCB */
     sdk_proj_default(&p, SDK_NES);
     CHECK(sdk_proj_info(&p, info, 8) == 5 && strstr(info[3], "128 px wide") && strstr(info[3], "256 px high"));

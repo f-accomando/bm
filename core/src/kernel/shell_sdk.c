@@ -28,14 +28,14 @@ int shell_sdk_tab_for_key(int key)
 }
 
 /* The Project tab. Rows of the screen (ANSI, 1 is under the status bar): the tiles 1-4, the menu from 6,
- * the PCB from 6 (9 rows), the facts 15-19, one help line on 20. */
+ * the PCB from 6 (8 rows), the facts 14-18, the help on 19-20 (two rows). */
 #define P_TILES   1
 #define P_MENU    6
-#define P_INFO    15
-#define P_NOTE    20
+#define P_INFO    14
+#define P_NOTE    19                    /* two rows */
 #define P_TILE_W  13
 #define P_PCB_W   34
-#define P_PCB_H   9
+#define P_PCB_H   8
 
 static sdk_proj_t proj;
 static int proj_sel;                    /* the highlighted row of the menu */
@@ -77,13 +77,28 @@ static void draw_project(int cols, int rows)
         console_write("\x1b[0m");
     }
 
-    char note[128];
-    snprintf(note, sizeof note, "%.*s", cols - 3, sdk_proj_note(&proj, menu[proj_sel].id));
-    if (P_NOTE < rows) {
-        at(P_NOTE, 2);
-        console_write("\x1b[93m");
+    /* the help text on two rows, cut at a space */
+    const char *text = sdk_proj_note(&proj, menu[proj_sel].id);
+    const int width = cols - 3;
+    for (int r = 0; r < 2 && *text && P_NOTE + r < rows; r++) {
+        int len = (int)strlen(text);
+        if (len > width) {
+            len = width;
+            if (r == 0)
+                while (len > 0 && text[len] != ' ')
+                    len--;
+            if (len == 0)
+                len = width;
+        }
+        char note[128];
+        snprintf(note, sizeof note, "%.*s", len, text);
+        at(P_NOTE + r, 2);
+        console_write("[93m");
         console_write(note);
-        console_write("\x1b[0m");
+        console_write("[0m");
+        text += len;
+        while (*text == ' ')
+            text++;
     }
 
     if (pcb_col <= cols) {

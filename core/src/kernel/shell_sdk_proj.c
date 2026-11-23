@@ -27,6 +27,7 @@ static const nes_board_t boards[] = {
     { "CNROM",   3,  32,  32, 1, 0, 0, 0, "One 74-series chip: switches 8 KB of CHR; PRG is 32 KB at most." },
     { "MMC3",    4, 512, 256, 1, 1, 1, 0, "A mapper chip: 8 KB PRG banks, 1 KB CHR banks and a scanline IRQ." },
     { "AxROM",   7, 256,   0, 0, 1, 0, 1, "One 74-series chip: switches 32 KB of PRG; CHR is RAM; one screen." },
+    { "MMC2",    9, 128, 128, 1, 0, 0, 0, "Nintendo: 8 KB PRG banks and two 4 KB CHR banks that the picture fetches switch (Punch-Out!!)." },
     { "FME-7",  69, 256, 256, 1, 0, 1, 0, "Sunsoft: 1 KB CHR banks, PRG RAM or ROM at $6000 and a CPU-cycle IRQ." },
 };
 

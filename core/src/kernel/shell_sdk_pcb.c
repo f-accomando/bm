@@ -41,6 +41,27 @@ static void at(int row, int col)
     console_write(b);
 }
 
+/* The pins are pixels next to the text cells. The console repaints the cell of its cursor when the cursor moves
+ * on, and that would wipe a pin drawn before. So the pins wait in a list and flush draws them after the text. */
+typedef struct { int x, y, w, h; uint32_t color; } pin_t;
+static pin_t pins[400];
+static int npins;
+
+static void pin_add(int x, int y, int w, int h, uint32_t color)
+{
+    if (npins < (int)(sizeof pins / sizeof pins[0]))
+        pins[npins++] = (pin_t){ x, y, w, h, color };
+}
+
+static void pins_flush(const geo_t *g)
+{
+    at(1, 1);                                   /* park the cursor on a blank cell */
+    console_write("[0m");
+    for (int i = 0; i < npins; i++)
+        gfx_rect(g->fb, pins[i].x, pins[i].y, pins[i].w, pins[i].h, pins[i].color);
+    npins = 0;
+}
+
 /* A filled circle (the coin cell). */
 static void disc(const geo_t *g, int cx, int cy, int r, uint32_t color)
 {
@@ -59,8 +80,8 @@ static void chip(const geo_t *g, int col, int row, int w, int h, const char *lab
     const int pw = g->cw / 3 > 1 ? g->cw / 3 : 1;
     const int ph = g->ch / 3 > 2 ? g->ch / 3 : 2;
     for (int x = px(g, col) + g->cw / 4; x + pw <= px(g, col + w); x += g->cw / 2) {
-        gfx_rect(g->fb, x, py(g, row) - ph, pw, ph, pin);
-        gfx_rect(g->fb, x, py(g, row + h), pw, ph, pin);
+        pin_add(x, py(g, row) - ph, pw, ph, pin);
+        pin_add(x, py(g, row + h), pw, ph, pin);
     }
     char line[40];
     const int n = (int)strlen(label);
@@ -75,6 +96,35 @@ static void chip(const geo_t *g, int col, int row, int w, int h, const char *lab
         line[len] = 0;
         console_write(line);
         console_write("\x1b[0m");
+    }
+}
+
+/* A square chip (the ARM): black cells, pins on the four sides. Make w * cell width equal h * cell height. */
+static void chip_square(const geo_t *g, int col, int row, int w, int h, const char *label)
+{
+    const uint32_t pin = rgb(g, 190, 190, 200);
+    const int t = g->cw / 4 > 1 ? g->cw / 4 : 2, len = g->cw / 2 > 3 ? g->cw / 2 : 3;
+    for (int x = px(g, col) + g->cw / 2; x + t <= px(g, col + w); x += g->cw) {
+        pin_add(x, py(g, row) - len, t, len, pin);
+        pin_add(x, py(g, row + h), t, len, pin);
+    }
+    for (int y = py(g, row) + g->ch / 4; y + t <= py(g, row + h); y += g->ch / 2) {
+        pin_add(px(g, col) - len, y, len, t, pin);
+        pin_add(px(g, col + w), y, len, t, pin);
+    }
+    char line[24];
+    const int n = (int)strlen(label);
+    for (int i = 0; i < h; i++) {
+        at(row + i, col);
+        console_write("[97;40m");
+        int len2 = 0;
+        for (int c = 0; c < w && len2 < (int)sizeof line - 1; c++) {
+            const int k = c - (w - n) / 2;
+            line[len2++] = i == h / 2 && k >= 0 && k < n ? label[k] : ' ';
+        }
+        line[len2] = 0;
+        console_write(line);
+        console_write("[0m");
     }
 }
 
@@ -122,34 +172,21 @@ static void footprint(const geo_t *g, int col, int row, int w, int h)
     gfx_rect(g->fb, x + pw - 1, y, 1, ph, c);
 }
 
-static void sd_card(const geo_t *g, int col, int row, int w, int h)
-{
-    const uint32_t body = rgb(g, 30, 50, 120), light = rgb(g, 60, 90, 170), gold = rgb(g, 230, 190, 60);
-    const int x = px(g, col), y = py(g, row), pw = w * g->cw, ph = h * g->ch, cut = g->cw * 2;
-    gfx_rect(g->fb, x, y, pw, ph, body);
-    gfx_rect(g->fb, x + 2, y + 2, pw - 4, ph - 4, light);
-    for (int k = 0; k < cut; k++)                       /* the cut corner, top right */
-        gfx_rect(g->fb, x + pw - (cut - k), y + k, cut - k, 1, rgb(g, 0, 0, 0));
-    for (int i = 0; i < 8; i++)
-        gfx_rect(g->fb, x + g->cw + i * (pw - 2 * g->cw - cut) / 8, y + 2, g->cw / 2, g->ch, gold);
-}
-
 void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int h)
 {
     geo_t g;
-    if (!geo(&g) || w < 30 || h < 9)
+    if (!geo(&g) || w < 30 || h < 8)
         return;
+    board(&g, col, row, w, h);
     if (target == SDK_BM) {
-        const int cw = 20, ch = h - 1;
-        const int c0 = col + (w - cw) / 2;
-        sd_card(&g, c0, row, cw, ch);
-        at(row + ch / 2 + 1, c0 + 4);
-        console_write("\x1b[30;107m  bm project  \x1b[0m");
-        at(row + ch / 2 + 2, c0 + 4);
-        console_write("\x1b[30;107m   NAME.bm    \x1b[0m");
+        chip_square(&g, col + 4, row + 1, 6, 3, "ARM");
+        chip(&g, col + 15, row + 1, 14, 2, "SD CARD", "[97;44m");
+        at(row + 2, col + 15);
+        console_write("[93;44m   bm/NAME.bm   [0m");
+        footprint(&g, col + 15, row + 4, 14, 2);
+        pins_flush(&g);
         return;
     }
-    board(&g, col, row, w, h);
     const int hw = (w - 4) / 2;
     chip(&g, col + 2, row + 1, hw, 2, pcb->rom, CHIP_STYLE);
     if (target == SDK_NES) {
@@ -160,7 +197,7 @@ void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int
     } else {
         footprint(&g, col + w - 2 - hw, row + 1, hw, 2);
     }
-    const int low = row + 5;
+    const int low = row + 4;
     if (pcb->has_ram)
         chip(&g, col + 2, low, 9, 2, "SRAM", "\x1b[97;100m");
     else
@@ -175,6 +212,7 @@ void sdk_pcb_draw(int target, const sdk_pcb_t *pcb, int col, int row, int w, int
     }
     if (pcb->has_battery)
         battery(&g, col + w - 9, low - 1, 6, 4);
+    pins_flush(&g);
 }
 
 /* The colour of a letter of the pixel art. */
@@ -229,11 +267,15 @@ void sdk_tile_draw(int target, int selected, int col, int row, int w, int h)
     if (selected)                                       /* a dark yellow ground under the whole tile */
         gfx_rect(g.fb, px(&g, col), py(&g, row), w * g.cw, h * g.ch, rgb(&g, 90, 70, 0));
     cart_art(&g, target, col, row, 6, h - 1);
-    chip(&g, col + 7, row + 1, 6, 1, sdk_target_cpu(target), CHIP_STYLE);
+    if (target == SDK_BM)
+        chip_square(&g, col + 9, row + 1, 4, 2, sdk_target_cpu(target));
+    else
+        chip(&g, col + 7, row + 1, 6, 1, sdk_target_cpu(target), CHIP_STYLE);
     char name[16];
-    snprintf(name, sizeof name, "%s", target == SDK_BM ? "bm project" : target == SDK_NES ? "NES cart" : "SNES cart");
+    snprintf(name, sizeof name, "%s", target == SDK_BM ? "bm (SD)" : target == SDK_NES ? "NES cart" : "SNES cart");
     at(row + h - 1, col + 1);
     console_write(selected ? "\x1b[93m" : "\x1b[97m");
     console_write(name);
     console_write("\x1b[0m");
+    pins_flush(&g);
 }
