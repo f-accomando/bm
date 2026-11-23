@@ -172,6 +172,24 @@ static const char big_art[CICON_COUNT][16][17] = {
       ".......##.......",
       "................",
     },
+    { /* CHIP: a 6502 in its DIP package, the notch at the top, pins on both sides */
+      "................",
+      "..#.#.#.#.#.#...",
+      "..############..",
+      ".##############.",
+      "##....####....##",
+      ".##..........##.",
+      "##............##",
+      ".##..........##.",
+      "##............##",
+      ".##..........##.",
+      "##............##",
+      ".##############.",
+      "..############..",
+      "..#.#.#.#.#.#...",
+      "................",
+      "................",
+    },
 };
 
 /* One half of a big icon in a cell: the 16x16 art scaled to a square of the two cells' smaller side, centred. */
@@ -190,15 +208,26 @@ static void draw_big(uint8_t *line, uint32_t w, uint32_t h, int icon, int half, 
     }
 }
 
+/* 2 * icon + half for a code of a big icon, else -1. */
+static int big_code(uint8_t ch)
+{
+    if (ch >= CONSOLE_ICON_BIG0 && ch < CONSOLE_ICON_BIG0 + 12)
+        return ch - CONSOLE_ICON_BIG0;
+    if (ch >= CONSOLE_ICON_BIG1 && ch < CONSOLE_ICON_BIG1 + 2 * (CICON_COUNT - 6))
+        return 12 + ch - CONSOLE_ICON_BIG1;
+    return -1;
+}
+
 static void draw_cell(uint32_t col, uint32_t row, int cursor)
 {
     if (con.suspended)
         return;
 
     const cell_t *c = &con.cells[row][col];
-    if (c->ch >= CONSOLE_ICON_BIG0 && c->ch < CONSOLE_ICON_BIG0 + 2 * CICON_COUNT) {
+    const int big = big_code(c->ch);
+    if (big >= 0) {
         draw_big(con.fb->base + row * con.font->height * con.fb->pitch + col * con.font->width * 4,
-                 con.font->width, con.font->height, (c->ch - CONSOLE_ICON_BIG0) / 2, (c->ch - CONSOLE_ICON_BIG0) & 1,
+                 con.font->width, con.font->height, big / 2, big & 1,
                  con.pal[ATTR_FG(c->attr)], con.pal[ATTR_BG(c->attr)]);
         return;
     }
@@ -400,7 +429,7 @@ static void put_raw(char ch)
         break;
     default:
         if (c < 0x20 && c != (uint8_t)CONSOLE_ICON_FOLDER && c != (uint8_t)CONSOLE_ICON_FILE &&
-            !(c >= CONSOLE_ICON_BIG0 && c < CONSOLE_ICON_BIG0 + 2 * CICON_COUNT))
+            big_code((uint8_t)c) < 0)
             break;
         if (con.cx >= con.cols)
             newline();

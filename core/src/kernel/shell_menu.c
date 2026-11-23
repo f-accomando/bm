@@ -32,6 +32,7 @@ static const smenu_item_t items[] = {
     { "bm menu gui",  "menu", 0, NULL, 0, CICON_PC, "bm menu gui: the cartridge menu" },
     { "Command line", NULL,   0, NULL, 0, CICON_TERM, "Command line: the bm: prompt" },
     { "Shell Code",   "code", 0, NULL, 0, CICON_CODE, "Shell Code: edit, compile and run .b, .c and .lua" },
+    { "Shell SDK",    "sdk",  0, NULL, 0, CICON_CHIP, "Shell SDK: make NES, SNES and bm cartridges (F1-F5: Project, Code, Sprite, Map, Sounds)" },
     { "System",       NULL,   0, system_sub, NSUB(system_sub), CICON_GEAR, "System: Info, Log, bm3D, 3D Bench, Reboot" },
     { "Network",      NULL,   0, network_sub, NSUB(network_sub), CICON_NET, "Network: WiFi, Pair controller, Send reports" },
     { "Help",         "help", 0, NULL, 0, CICON_HELP, "Help: the list of the commands" },

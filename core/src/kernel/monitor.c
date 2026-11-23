@@ -26,6 +26,7 @@
 #include "carts.h"
 #include "shell_menu.h"
 #include "shell_code.h"
+#include "shell_sdk.h"
 #include "config.h"
 #include "bt/bt.h"
 #include "wifi/wifi.h"
@@ -181,6 +182,7 @@ CMD(c_code)
     const char *path = (argc > 1) ? argv[1] : NULL;
     return shell_code_open(path);
 }
+CMD(c_sdk) { (void)argc; (void)argv; return shell_sdk_open(); }
 /* lua: no word, the REPL; lua -e CODE, one chunk; lua FILE, a script of the SD card */
 CMD(c_lua)
 {
@@ -815,6 +817,7 @@ static const mcmd_t commands[] = {
     { .name = "help", .args = "[COMMAND]", .help = "this list, or one command", .fn = c_help, .cand = cand_help },
     { .name = "menu", .help = "cartridge menu, or PS on a pad", .fn = c_menu },
     { .name = "code", .args = "[FILE]", .help = "Shell Code editor/compiler/runner (.b, .c, .lua)", .fn = c_code, .path = 1 },
+    { .name = "sdk", .help = "Shell SDK: make NES, SNES and bm cartridges", .fn = c_sdk },
     { .name = "carts", .help = "the cartridges (SD: / and /bm)", .sub = carts_sub },
     { .name = "lua", .args = "[FILE | -e CODE]", .help = "Lua REPL (Esc, Ctrl-D, exit() return)", .fn = c_lua, .path = 1 },
     { .name = "upload", .help = "receive a cartridge over serial, play it", .fn = c_upload },

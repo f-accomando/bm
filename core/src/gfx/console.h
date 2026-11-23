@@ -27,9 +27,10 @@ enum {
  */
 #define CONSOLE_ICON_FOLDER '\x01'
 #define CONSOLE_ICON_FILE   '\x02'
-enum { CICON_PC, CICON_TERM, CICON_CODE, CICON_GEAR, CICON_NET, CICON_HELP, CICON_COUNT };
-#define CONSOLE_ICON_BIG0   0x0E    /* after \b \t \n \r: 0x0E-0x19 */
-#define CONSOLE_ICON_BIG(i) ((char)(CONSOLE_ICON_BIG0 + 2 * (i)))
+enum { CICON_PC, CICON_TERM, CICON_CODE, CICON_GEAR, CICON_NET, CICON_HELP, CICON_CHIP, CICON_COUNT };
+#define CONSOLE_ICON_BIG0   0x0E    /* 0x0E-0x19 for the icons 0 to 5 (0x1B is ESC) */
+#define CONSOLE_ICON_BIG1   0x1C    /* 0x1C and up for the icons 6 and up */
+#define CONSOLE_ICON_BIG(i) ((char)((i) < 6 ? CONSOLE_ICON_BIG0 + 2 * (i) : CONSOLE_ICON_BIG1 + 2 * ((i) - 6)))
 
 void console_init(framebuffer_t *fb, const font_t *font);
 void console_set_font(const font_t *font);

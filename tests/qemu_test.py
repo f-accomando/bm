@@ -4419,6 +4419,46 @@ def test_monitor_file_list(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_shell_sdk_skeleton(b, opts):
+    """Shell SDK (2026-11-23): the chip icon after Shell Code opens the IDE skeleton. Five tabs
+    (Project, Code, Sprite, Map, Sounds), selected with F1 to F5 (bytes 0xF9 to 0xFD); Esc leaves."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # the bar starts on Command line: Shell Code
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        rows = screen(); assert any("Shell SDK:" in r for r in rows), rows
+        q.send("\r")
+        time.sleep(0.5)
+        rows = screen()
+        assert any("[Project] Code Sprite Map Sounds" in r for r in rows), rows
+        for n, name in enumerate(["Project", "Code", "Sprite", "Map", "Sounds"]):
+            q.send(bytes([0xF9 + n]))
+            time.sleep(0.5)
+            rows = screen()
+            assert any(f"[{name}]" in r for r in rows), (name, rows)
+        q.send("\x1b")
+        q.expect("> ", timeout=10)                  # back in the shell menu
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_monitor_lua_shell(b, opts):
     """The shell's Lua (2026-10-28, SYS-19): lua -e and lua FILE at the bm: prompt; bm.sh returns the
     output of a monitor line; bm.write, bm.read and bm.ls on the card; the drawing calls run; boot=shell
