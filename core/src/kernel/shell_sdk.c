@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "gfx/console.h"
+#include "carts.h"
 #include "input.h"
 #include "usb/hid.h"
 #include "romtabs.h"
@@ -453,16 +454,16 @@ static void do_open_rom(void)
 
 /* Build ROM: assembles the source of the Code tab and writes /nes/NAME.nes or /snes/NAME.sfc, then shows the
  * ROM beside the code. An error goes to the message line and the cursor goes to its line. */
-static void do_build(void)
+static int do_build(void)
 {
     if (proj.target == SDK_BM) {
         say("%s", "a bm project has no ROM: Build is for NES and SNES");
-        return;
+        return -1;
     }
     if (!pname[0])
         do_save_as();                           /* the ROM takes the name of the project */
     if (!pname[0])
-        return;
+        return -1;
     if (dirty)
         do_save(pname);
     char err[96];
@@ -474,29 +475,51 @@ static void do_build(void)
         if (line > 0)
             sdk_edit_goto_line(line);
         say("%s", err);
-        return;
+        return -1;
     }
     if (sdk_build_write(&proj, pname, rom, rom_len, err, sizeof err) != 0) {
         free(rom);
         say("write failed: %s", err);
-        return;
+        return -1;
     }
     free(rom);
     char path[24];
     sdk_proj_rom_path(&proj, pname, path, sizeof path);
     if (sdk_code_open_rom(path, err, sizeof err) != 0) {
         say("%s", err);
-        return;
+        return -1;
     }
     cur_tab = SDK_TAB_CODE;
     snprintf(msg, sizeof msg, "built %s (%u KB)", path, (unsigned)((rom_len + 1023) / 1024));
+    return 0;
+}
+
+/* Build and run (Ctrl+R): the ROM that was just built starts in bm NES or bm SNES, and the SDK comes back when
+ * the emulator ends. */
+static void do_run(void)
+{
+    if (do_build() != 0)
+        return;
+    char path[24];
+    sdk_proj_rom_path(&proj, pname, path, sizeof path);
+    console_cursor_mode(CONSOLE_CURSOR_UNDERLINE);
+    console_clear();
+    hid_text_mode(0);
+    const int rc = carts_play_rom(console_framebuffer(), path, proj.target == SDK_SNES);
+    hid_text_mode(1);
+    console_clear();
+    if (rc != 0)
+        say("%s", proj.target == SDK_SNES ? "bm SNES is not installed: get it from Market > Apps"
+                                          : "bm NES is not installed: get it from Market > Apps");
+    else
+        say("%s", "back from the emulator");
 }
 
 /* Returns 1 to leave the SDK. */
 static int esc_menu(void)
 {
-    static const char *const items[] = { "Resume", "New", "Open", "Open ROM...", "Save", "Save as...", "Build ROM", "Exit" };
-    const int pick = popup("Shell SDK", items, 8, 0, redraw_screen);
+    static const char *const items[] = { "Resume", "New", "Open", "Open ROM...", "Save", "Save as...", "Build ROM", "Build and run", "Exit" };
+    const int pick = popup("Shell SDK", items, 9, 0, redraw_screen);
     switch (pick) {
     case 1: do_new(); break;
     case 2: do_open(); break;
@@ -509,7 +532,8 @@ static int esc_menu(void)
         break;
     case 5: do_save_as(); break;
     case 6: do_build(); break;
-    case 7: return discard_ok();
+    case 7: do_run(); break;
+    case 8: return discard_ok();
     default: break;
     }
     return 0;
@@ -577,6 +601,8 @@ int shell_sdk_open(void)
             do_new();
         else if (c == 0x02)                     /* Ctrl+B */
             do_build();
+        else if (c == 0x12)                     /* Ctrl+R */
+            do_run();
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)

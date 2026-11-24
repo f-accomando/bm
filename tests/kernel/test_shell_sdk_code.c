@@ -198,6 +198,102 @@ static void test_keys(void)
     CHECK(line == 2);
 }
 
+static void test_undo(void)
+{
+    int line, col;
+    size_t a, b;
+
+    /* typing in a row is one step; undo and redo bring the text and the cursor back */
+    sdk_edit_reset();
+    CHECK(sdk_edit_undo() == 0 && sdk_edit_redo() == 0);
+    type("hello");
+    CHECK(sdk_edit_undo() == 1 && sdk_edit_length() == 0);
+    CHECK(sdk_edit_undo() == 0);
+    CHECK(sdk_edit_redo() == 1 && same("hello"));
+    sdk_edit_pos(&line, &col);
+    CHECK(col == 5);
+    CHECK(sdk_edit_redo() == 0);
+
+    /* a move ends the step; Enter is a step of its own */
+    type(" wor");
+    sdk_edit_left();
+    type("X");                                              /* the cursor moved: a new step */
+    CHECK(same("hello woXr"));
+    CHECK(sdk_edit_undo() == 1 && same("hello wor"));
+    sdk_edit_reset();
+    type("ab");
+    type("\n");
+    type("cd");
+    CHECK(sdk_edit_undo() == 1 && same("ab\n"));
+    CHECK(sdk_edit_undo() == 1 && same("ab"));
+    CHECK(sdk_edit_undo() == 1 && same(""));
+
+    /* a new change ends the redo history */
+    sdk_edit_reset();
+    type("one");
+    sdk_edit_undo();
+    type("two");
+    CHECK(sdk_edit_redo() == 0 && same("two"));
+
+    /* Backspaces in a row are one step */
+    sdk_edit_reset();
+    type("abc");
+    sdk_edit_left();
+    sdk_edit_left();                                        /* a|bc: not merged with the typing */
+    sdk_edit_end();
+    sdk_edit_backspace();
+    sdk_edit_backspace();
+    CHECK(same("a"));
+    CHECK(sdk_edit_undo() == 1 && same("abc"));
+    CHECK(sdk_edit_undo() == 1 && same(""));
+
+    /* cut, paste, selection, duplicate: each one a step */
+    sdk_edit_reset();
+    type("aa\nbb\ncc");
+    sdk_edit_up();
+    CHECK(sdk_edit_copy(1) == 3 && same("aa\ncc"));
+    CHECK(sdk_edit_undo() == 1 && same("aa\nbb\ncc"));
+    sdk_edit_pos(&line, &col);
+    CHECK(line == 1 || line == 2);
+    CHECK(sdk_edit_redo() == 1 && same("aa\ncc"));
+    CHECK(sdk_edit_paste() == 3 && same("aa\nbb\ncc"));
+    CHECK(sdk_edit_undo() == 1 && same("aa\ncc"));
+    sdk_edit_select_all();
+    sdk_edit_type('Z');
+    CHECK(same("Z"));
+    CHECK(sdk_edit_undo() == 1 && same("aa\ncc"));
+    CHECK(!sdk_edit_selection(&a, &b));
+    sdk_edit_duplicate_line();
+    CHECK(sdk_edit_length() == 8 && sdk_edit_undo() == 1 && same("aa\ncc"));
+
+    /* a copy changes nothing: no step */
+    sdk_edit_reset();
+    type("xy");
+    sdk_edit_copy(0);
+    CHECK(sdk_edit_undo() == 1 && same(""));
+
+    /* a new text (a project opens) has no history; the revision counts an undo as a change */
+    sdk_edit_reset();
+    type("abc");
+    sdk_edit_set("new", 3);
+    CHECK(sdk_edit_undo() == 0 && same("new"));
+    type("!");
+    {
+        const unsigned r = sdk_edit_revision();
+        sdk_edit_undo();
+        CHECK(sdk_edit_revision() != r);
+    }
+
+    /* the history is 100 steps: older ones go */
+    sdk_edit_reset();
+    for (int i = 0; i < 150; i++)
+        sdk_edit_type('\n');
+    int n = 0;
+    while (sdk_edit_undo())
+        n++;
+    CHECK(n == 100 && sdk_edit_length() == 50);
+}
+
 static void test_nes(void)
 {
     uint8_t rom[16 + 32768 + 8192];
@@ -272,6 +368,7 @@ int main(void)
 {
     test_edit();
     test_keys();
+    test_undo();
     test_nes();
     test_snes();
     test_hex();

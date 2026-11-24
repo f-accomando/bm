@@ -4769,6 +4769,54 @@ def test_shell_sdk_template(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_shell_sdk_run(b, opts):
+    """Shell SDK (2026-11-24): Ctrl+R builds the ROM and runs it in bm NES; the SDK comes back when the game ends."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdkrun-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt"), (b("bm/nes.bm"), "bm/nes.bm")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.5)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send("\x12")                             # Ctrl+R on the NES start file: it asks for a name
+        time.sleep(0.5)
+        assert any("Project name" in r for r in screen())
+        q.send("run1\r")
+        time.sleep(4.0)                             # build, then bm NES starts on /nes/run1.nes and asks once for /docs
+        assert any("bm NES" in r for r in screen())
+        sendkeys(q, "ret")                          # Enter on the keyboard: Allow
+        time.sleep(4.0)
+        w, h, px = q.screendump()
+        i = (180 * w + 320) * 3
+        assert int(px[i + 2]) > 150 and int(px[i]) < 100, (px[i], px[i + 1], px[i + 2])    # the blue screen of the template
+        sendkeys(q, "ctrl-esc")                     # leave the game
+        time.sleep(3.0)
+        rows = screen()
+        assert any("Project   Code   Sprite" in r for r in rows), rows
+        assert any("ROM: run1.nes" in r or "back from the emulator" in r for r in rows), rows
+        q.send("\x1b")
+        q.send("w\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_shell_sdk_editor_keys(b, opts):
     """Shell SDK Code tab (2026-11-23): the keys of bm Code on a USB keyboard. Shift with a move selects,
     Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D, PgUp, Ctrl+A."""
@@ -4820,6 +4868,12 @@ def test_shell_sdk_editor_keys(b, opts):
         q.send("z")                                 # typing replaces all the text
         rows = screen()
         assert any("Ln 1  Col 2" in r for r in rows) and any("1 bytes" in r for r in rows), rows
+        q.send("\x1a")                               # Ctrl+Z: undo, the text before comes back
+        rows = screen()
+        assert any("Undo" in r for r in rows) and any("$20002000" in r for r in rows), rows
+        q.send("\x19")                               # Ctrl+Y: redo
+        rows = screen()
+        assert any("Redo" in r for r in rows) and any(" 1 z" in r for r in rows), rows
         q.send("\x1b")
         q.send("w\r")                               # Exit: the text is not saved, the SDK asks
         time.sleep(0.5)

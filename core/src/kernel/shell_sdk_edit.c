@@ -3,6 +3,7 @@
  */
 #include "shell_sdk_edit.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static char buf[SDK_EDIT_MAX];
@@ -12,6 +13,7 @@ static int want;                        /* the column that Up and Down try to ke
 static long anchor = -1;                /* the other end of the selection (-1: none) */
 static char clip[SDK_EDIT_MAX + 1];
 static size_t clip_len;
+static void hist_clear(void);
 static unsigned rev;                    /* grows with each change of the text */
 
 void sdk_edit_reset(void)
@@ -19,6 +21,7 @@ void sdk_edit_reset(void)
     len = cur = 0;
     want = 0;
     anchor = -1;
+    hist_clear();
 }
 
 size_t sdk_edit_length(void) { return len; }
@@ -37,6 +40,7 @@ void sdk_edit_set(const char *text, size_t n)
     want = 0;
     anchor = -1;
     rev++;
+    hist_clear();
 }
 
 void sdk_edit_goto_line(int line)
@@ -124,7 +128,7 @@ void sdk_edit_select_all(void)
 
 /* ---- typing ---- */
 
-int sdk_edit_type(int c)
+static int type_do(int c)
 {
     int changed = 0;
     if (c == '\r' || c == '\n' || c == '\t' || (c >= 32 && c <= 126))
@@ -143,7 +147,7 @@ int sdk_edit_type(int c)
     return changed;
 }
 
-int sdk_edit_backspace(void)
+static int backspace_do(void)
 {
     if (remove_selection())
         return 1;
@@ -157,7 +161,7 @@ int sdk_edit_backspace(void)
     return 1;
 }
 
-int sdk_edit_delete(void)
+static int delete_do(void)
 {
     if (remove_selection())
         return 1;
@@ -325,7 +329,7 @@ int sdk_edit_line(int line, const char **s)
 
 size_t sdk_edit_clip_length(void) { return clip_len; }
 
-int sdk_edit_copy(int cut)
+static int copy_do(int cut)
 {
     size_t a, b;
     if (sdk_edit_selection(&a, &b)) {
@@ -352,7 +356,7 @@ int sdk_edit_copy(int cut)
     return (int)clip_len;
 }
 
-int sdk_edit_paste(void)
+static int paste_do(void)
 {
     if (clip_len == 0)
         return 0;
@@ -369,7 +373,7 @@ int sdk_edit_paste(void)
     return n;
 }
 
-int sdk_edit_duplicate_line(void)
+static int duplicate_do(void)
 {
     const size_t s = line_start(cur), e = line_end(cur), n = e - s;
     if (len + n + 1 > SDK_EDIT_MAX)
@@ -383,4 +387,156 @@ int sdk_edit_duplicate_line(void)
     anchor = -1;
     keep_column();
     return 1;
+}
+
+/* ---- undo and redo: a snapshot of the text before each step ---- */
+
+typedef struct { char *data; size_t len, cur; } snap_t;
+#define UNDO_DEPTH 100
+static snap_t undo_st[UNDO_DEPTH], redo_st[UNDO_DEPTH];
+static int undo_n, redo_n;
+static int last_kind;                   /* the kind of the last step (0: it does not merge with the next) */
+static size_t last_cur;                 /* where the cursor was when that step ended */
+
+static void stack_clear(snap_t *st, int *n)
+{
+    while (*n > 0)
+        free(st[--*n].data);
+}
+
+static void hist_clear(void)
+{
+    stack_clear(undo_st, &undo_n);
+    stack_clear(redo_st, &redo_n);
+    last_kind = 0;
+}
+
+static int snap_take(snap_t *s)
+{
+    s->data = malloc(len ? len : 1);
+    if (!s->data)
+        return 0;
+    memcpy(s->data, buf, len);
+    s->len = len;
+    s->cur = cur;
+    return 1;
+}
+
+static void snap_put(const snap_t *s)
+{
+    memcpy(buf, s->data, s->len);
+    len = s->len;
+    cur = s->cur;
+    anchor = -1;
+    rev++;
+    keep_column();
+}
+
+/* Before a change of the text. A kind (1 typing, 2 Backspace, 3 Delete) merges with the step before it when the
+ * cursor has not moved since: a word typed in a row is one step. Kind 0 is always a step of its own. */
+static void edit_begin(int kind)
+{
+    stack_clear(redo_st, &redo_n);
+    if (kind && kind == last_kind && cur == last_cur && undo_n > 0)
+        return;
+    if (undo_n == UNDO_DEPTH) {                         /* the oldest step goes */
+        free(undo_st[0].data);
+        memmove(undo_st, undo_st + 1, (UNDO_DEPTH - 1) * sizeof undo_st[0]);
+        undo_n--;
+    }
+    if (snap_take(&undo_st[undo_n]))
+        undo_n++;
+    last_kind = kind;
+}
+
+static void edit_end(void) { last_cur = cur; }
+
+int sdk_edit_undo(void)
+{
+    if (undo_n == 0)
+        return 0;
+    if (redo_n < UNDO_DEPTH && snap_take(&redo_st[redo_n]))
+        redo_n++;
+    snap_t s = undo_st[--undo_n];
+    snap_put(&s);
+    free(s.data);
+    last_kind = 0;
+    return 1;
+}
+
+int sdk_edit_redo(void)
+{
+    if (redo_n == 0)
+        return 0;
+    if (undo_n < UNDO_DEPTH && snap_take(&undo_st[undo_n]))
+        undo_n++;
+    snap_t s = redo_st[--redo_n];
+    snap_put(&s);
+    free(s.data);
+    last_kind = 0;
+    return 1;
+}
+
+/* ---- the changes of the text, each one a step of the history ---- */
+
+int sdk_edit_type(int c)
+{
+    if (!(c == 13 || c == 10 || c == 9 || (c >= 32 && c <= 126)))
+        return 0;
+    size_t a, b;
+    edit_begin(c >= 32 && !sdk_edit_selection(&a, &b) ? 1 : 0);
+    const int changed = type_do(c);
+    edit_end();
+    return changed;
+}
+
+int sdk_edit_backspace(void)
+{
+    size_t a, b;
+    const int sel = sdk_edit_selection(&a, &b);
+    if (!sel && cur == 0)
+        return 0;
+    edit_begin(sel ? 0 : 2);
+    const int changed = backspace_do();
+    edit_end();
+    return changed;
+}
+
+int sdk_edit_delete(void)
+{
+    size_t a, b;
+    const int sel = sdk_edit_selection(&a, &b);
+    if (!sel && cur >= len)
+        return 0;
+    edit_begin(sel ? 0 : 3);
+    const int changed = delete_do();
+    edit_end();
+    return changed;
+}
+
+int sdk_edit_copy(int cut)
+{
+    if (cut)
+        edit_begin(0);
+    const int n = copy_do(cut);
+    edit_end();
+    return n;
+}
+
+int sdk_edit_paste(void)
+{
+    if (clip_len == 0)
+        return 0;
+    edit_begin(0);
+    const int n = paste_do();
+    edit_end();
+    return n;
+}
+
+int sdk_edit_duplicate_line(void)
+{
+    edit_begin(0);
+    const int changed = duplicate_do();
+    edit_end();
+    return changed;
 }

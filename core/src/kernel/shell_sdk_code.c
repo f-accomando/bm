@@ -330,6 +330,13 @@ static int editor_key(int key, int mods)
         snprintf(note, sizeof note, "Pasted %d bytes", sdk_edit_paste());
         return 1;
     case 0x04: sdk_edit_duplicate_line(); return 1;              /* Ctrl+D: duplicate the line */
+    case 0x1A:                                                    /* Ctrl+Z: undo; with Shift: redo */
+    case 0x19:                                                    /* Ctrl+Y: redo */
+        if (key == 0x1A && !(mods & SDK_MOD_SHIFT))
+            snprintf(note, sizeof note, "%s", sdk_edit_undo() ? "Undo" : "Nothing to undo");
+        else
+            snprintf(note, sizeof note, "%s", sdk_edit_redo() ? "Redo" : "Nothing to redo");
+        return 1;
     case HID_KEY_UP:
         move(mods);
         if (ctrl && alt)

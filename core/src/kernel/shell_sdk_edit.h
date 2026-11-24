@@ -62,6 +62,12 @@ size_t sdk_edit_clip_length(void);
 /* Copies the current line under itself, and the cursor goes to the copy. Returns 1 when the text changed. */
 int sdk_edit_duplicate_line(void);
 
+/* Undo and redo. Each change of the text is a step of the history (100 steps); typed characters, or Backspaces,
+ * in a row with no move between them are one step. A new change ends the redo history. A step brings back the
+ * text and the cursor. They return 1 when there was a step. */
+int sdk_edit_undo(void);
+int sdk_edit_redo(void);
+
 /* The cursor: line and column, both from 0. */
 void sdk_edit_pos(int *line, int *col);
 int sdk_edit_line_count(void);
