@@ -28,7 +28,7 @@ void sdk_code_draw(int cols, int rows, const char *msg);
 /* Handles a key of the Code tab. Returns 1 when the tab used it. The editor keys are those of bm Code:
  * Shift with a move selects; Ctrl+Left and Ctrl+Right skip a word; Ctrl+Alt+Left and Right go to the line
  * start and end; Ctrl+Alt+Up and Down to the start and the end of the text; PgUp, PgDn and Alt+Up, Alt+Down
- * move a page; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste (a line when nothing is selected), Ctrl+Y duplicate the
+ * move a page; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste (a line when nothing is selected), Ctrl+D duplicate the
  * line, Ctrl+A select all. */
 int sdk_code_key(int key, int mods);
 

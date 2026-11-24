@@ -329,7 +329,7 @@ static int editor_key(int key, int mods)
     case 0x16:                                                    /* Ctrl+V: paste */
         snprintf(note, sizeof note, "Pasted %d bytes", sdk_edit_paste());
         return 1;
-    case 0x19: sdk_edit_duplicate_line(); return 1;              /* Ctrl+Y: duplicate the line */
+    case 0x04: sdk_edit_duplicate_line(); return 1;              /* Ctrl+D: duplicate the line */
     case HID_KEY_UP:
         move(mods);
         if (ctrl && alt)

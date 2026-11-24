@@ -4771,7 +4771,7 @@ def test_shell_sdk_template(b, opts):
 
 def test_shell_sdk_editor_keys(b, opts):
     """Shell SDK Code tab (2026-11-23): the keys of bm Code on a USB keyboard. Shift with a move selects,
-    Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Y, PgUp, Ctrl+A."""
+    Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D, PgUp, Ctrl+A."""
     tmp = tempfile.mkdtemp(prefix="bm-sdkkeys-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -4812,7 +4812,7 @@ def test_shell_sdk_editor_keys(b, opts):
         rows = screen()
         assert any("Cut 3 bytes" in r for r in rows), rows
         assert any("$20002000" in r and "sta" not in r for r in rows), rows
-        sendkeys(q, "ctrl-y")                       # duplicate the line: the cursor goes down
+        sendkeys(q, "ctrl-d")                       # duplicate the line: the cursor goes down
         assert any("Ln 3  Col 1" in r for r in screen())
         sendkeys(q, "pgup")                         # a page up: the first line
         assert any("Ln 1  Col 1" in r for r in screen())
