@@ -35,6 +35,7 @@ static struct {
     int active;
     int suspended;
     int cursor_drawn;
+    int cursor_mode;        /* CONSOLE_CURSOR_UNDERLINE, _BLOCK or _HIDDEN */
     uint32_t pal[16];
     cell_t cells[MAX_ROWS][MAX_COLS];
 
@@ -243,6 +244,12 @@ static void draw_cell(uint32_t col, uint32_t row, int cursor)
     const uint8_t *g = con.font->glyphs + (size_t)c->ch * bpr * h;
     uint32_t fg = con.pal[ATTR_FG(c->attr)];
     uint32_t bg = con.pal[ATTR_BG(c->attr)];
+    if (cursor && con.cursor_mode == CONSOLE_CURSOR_BLOCK) {    /* a solid square: the colours of the cell swap */
+        const uint32_t t = fg;
+        fg = bg;
+        bg = t;
+        cursor = 0;
+    }
     uint8_t *line = con.fb->base + row * h * con.fb->pitch + col * w * 4;
 
     if (bpr == 1 && w == 8) {                           /* the usual 8-pixel glyph: unrolled */
@@ -299,7 +306,7 @@ static void cursor_hide(void)
 
 static void cursor_show(void)
 {
-    if (!con.suspended && con.cx < con.cols) {
+    if (!con.suspended && con.cx < con.cols && con.cursor_mode != CONSOLE_CURSOR_HIDDEN) {
         draw_cell(con.cx, con.cy, 1);
         con.cursor_drawn = 1;
     }
@@ -572,6 +579,15 @@ void console_set_status(const char *left, const char *right)
         if (n + 1 < con.cols)
             status_put(con.cols - 1 - n, right);
     }
+}
+
+void console_cursor_mode(int mode)
+{
+    if (!con.active || con.cursor_mode == mode)
+        return;
+    cursor_hide();
+    con.cursor_mode = mode;
+    cursor_show();
 }
 
 void console_status_mark(uint32_t col, uint32_t len)

@@ -152,6 +152,7 @@ static void draw(int tab)
         sdk_code_draw((int)cols, (int)rows, msg);
         return;
     }
+    console_cursor_mode(CONSOLE_CURSOR_HIDDEN);             /* only the Code tab has a text cursor */
     /* the project name at the top right, a message on the free row under the tiles */
     char head[64];
     snprintf(head, sizeof head, "Project: %s%s", pname[0] ? pname : "(new)", dirty ? "*" : "");
@@ -251,6 +252,7 @@ static int popup(const char *title, const char *const *items, int n, int sel, vo
             console_write(row);
             console_write("\x1b[0m");
         }
+        console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
         at(1, 1);
         const int k = (unsigned char)input_getc();
         if (is_up(k))
@@ -283,6 +285,7 @@ static int prompt(const char *title, char *buf, int max, void (*redraw)(void))
         console_write("\x1b[0m");
         at(r + 2, c + 2);
         console_write("Enter saves, Esc cancels");
+        console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
         at(1, 1);
         const int k = (unsigned char)input_getc();
         if (k == 0x1B)
@@ -586,6 +589,7 @@ int shell_sdk_open(void)
         }
     }
     sdk_code_reset();
+    console_cursor_mode(CONSOLE_CURSOR_UNDERLINE);
     hid_text_mode(0);
     console_clear();
     return 0;

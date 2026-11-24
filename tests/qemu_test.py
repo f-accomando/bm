@@ -4712,6 +4712,15 @@ def test_shell_sdk_template(b, opts):
         q.send(bytes([0xFA]))                       # F2: Code
         rows = screen()
         assert any("NES game template" in r for r in rows), rows
+        # the cursor is a solid square on the first character, with the colours of the letter swapped
+        w, h, px = q.screendump()
+
+        def lum(x, y):
+            i = (y * w + x) * 3
+            return int(px[i]) + int(px[i + 1]) + int(px[i + 2])
+        x0, y0 = 4 * 8, 2 * 16                      # the first cell of the text: ANSI column 5, row 2
+        assert lum(x0 + 1, y0 + 1) > 300, lum(x0 + 1, y0 + 1)            # the square (the cell was dark)
+        assert lum(x0 + 1 + 8, y0 + 1) < 100, lum(x0 + 9, y0 + 1)         # the next cell is dark
         q.send(bytes([0xF9]))
         q.send("d")                                 # SNES: the start file follows
         q.send(bytes([0xFA]))

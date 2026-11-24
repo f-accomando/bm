@@ -23,6 +23,7 @@ static sdk_rom_t rom_info;
 static char rom_name[48];
 static int focus;
 static int top_line, left_col;          /* the scroll of the editor */
+static int cur_row = 1, cur_col = 1;    /* the text cursor on the screen (ANSI row and column), set when it is drawn */
 static int page_lines = 1;              /* the lines of a page of the editor, set when it is drawn */
 static char note[48];                   /* "Copied 12 bytes": shown until the next key */
 static int hex_bpr, hex_page;          /* bytes in a row and rows shown, set when the dump is drawn */
@@ -209,8 +210,8 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
     put_row(rows, col, width, msg && msg[0] ? msg : note[0] ? note : st, 200);
     console_write("\x1b[0m");
     (void)ctrl_hint;
-    if (focus == FOCUS_EDITOR)
-        at(1 + 1 + (line - top_line), col + GUTTER + (c - left_col));      /* the cursor shows where the text goes */
+    cur_row = 1 + 1 + (line - top_line);                    /* where the text cursor is on the screen */
+    cur_col = col + GUTTER + (c - left_col);
 }
 
 static void draw_rom(int col, int width, int rows)
@@ -260,8 +261,11 @@ void sdk_code_draw(int cols, int rows, const char *msg)
     const int split = rom != NULL && cols >= 40;
     const int lw = split ? cols / 2 : cols;         /* the left side: up to and with the divider */
     draw_editor(1, lw - 1, rows, split, msg);
-    if (!split)
+    if (!split) {
+        at(cur_row, cur_col);
+        console_cursor_mode(CONSOLE_CURSOR_BLOCK);
         return;
+    }
     console_write("\x1b[90m");
     for (int r = 1; r <= rows; r++) {
         at(r, lw);
@@ -269,8 +273,13 @@ void sdk_code_draw(int cols, int rows, const char *msg)
     }
     console_write("\x1b[0m");
     draw_rom(lw + 1, cols - lw - 1, rows);
-    if (focus == FOCUS_ROM)
+    if (focus == FOCUS_EDITOR) {
+        at(cur_row, cur_col);                               /* a solid square, the letter under it swapped */
+        console_cursor_mode(CONSOLE_CURSOR_BLOCK);
+    } else {
         at(1, 1);
+        console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
+    }
 }
 
 /* ---- keys ---- */

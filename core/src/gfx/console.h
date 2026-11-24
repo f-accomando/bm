@@ -46,6 +46,11 @@ void console_cell_geometry(uint32_t *w, uint32_t *h, uint32_t *top_y);
 
 /* Status bar text, left and right aligned (either may be NULL to keep it). */
 void console_set_status(const char *left, const char *right);
+/* The look of the text cursor: the underline (the default), a solid square that swaps the colours of the
+ * character under it, or none. The mode stays until it is changed: set it back to CONSOLE_CURSOR_UNDERLINE
+ * when the program that changed it ends. */
+enum { CONSOLE_CURSOR_UNDERLINE, CONSOLE_CURSOR_BLOCK, CONSOLE_CURSOR_HIDDEN };
+void console_cursor_mode(int mode);
 /* Shows len cells of the status bar from column col in the swapped colours (the tab that is open). The next
  * console_set_status() with a left text clears the marks. */
 void console_status_mark(uint32_t col, uint32_t len);
