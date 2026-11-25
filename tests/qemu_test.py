@@ -4518,8 +4518,13 @@ def test_shell_sdk_code_split(b, opts):
     sfc = os.path.join(tmp, "snesdemo.sfc")
     with open(cfg, "w") as f:
         f.write("layout=us\nwifi_boot=0\n")
+    chr_rom = bytearray(8192)
+    chr_rom[0:16] = b"\xff" * 16                    # tile 0: colour 3; tile 1: colour 0
+    chr_rom[17 * 16:17 * 16 + 8] = b"\xff" * 8      # tile 17 (second row, second column): colour 1
+    face = bytes([0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C])
+    chr_rom[2 * 16:2 * 16 + 16] = face + face       # tile 2: a face, for the eye
     with open(nes, "wb") as f:                      # 16 KB PRG, 8 KB CHR, mapper 0
-        f.write(b"NES\x1a" + bytes([1, 1, 1, 0]) + bytes(8) + bytes(16384 + 8192))
+        f.write(b"NES\x1a" + bytes([1, 1, 1, 0]) + bytes(8) + bytes(16384) + chr_rom)
     rom = bytearray(0x8000)                         # a LoROM with a header at 0x7FC0
     rom[0x7FC0:0x7FC0 + 21] = b"SNES DEMO".ljust(21)
     rom[0x7FC0 + 0x15] = 0x20
@@ -4569,6 +4574,26 @@ def test_shell_sdk_code_split(b, opts):
         q.send("a")                                 # ASM: this ROM is empty, it has no reset vector
         rows = screen()
         assert any("reset vector" in r for r in rows) and any("000000 4E 45 53 1A" in r for r in rows), rows
+        q.send("t")                                 # the tiles: the view starts at the CHR ROM
+        rows = screen()
+        assert any("CHR ROM  NES 2bpp" in r for r in rows) and any("004010" in r for r in rows), rows
+        img = q.screendump()
+        x0 = (img[0] // 8 // 2 + 7) * 8             # the first tile: right of the offsets, on the third row
+
+        def near(x, y, rgb):
+            return all(abs(a - b) <= 12 for a, b in zip(pixel(img, x0 + x, 48 + y), rgb))
+
+        assert near(8, 8, (255, 255, 255)), pixel(img, x0 + 8, 56)
+        assert near(24, 8, (0, 0, 56)), pixel(img, x0 + 24, 56)
+        assert near(24, 24, (111, 111, 111)), pixel(img, x0 + 24, 72)
+        q.send(bytes([0xF3]))                       # Right: one byte further
+        assert any("004011" in r for r in screen())
+        q.send(bytes([0xF4]))                       # Home: the start of the CHR ROM again
+        assert any("004010" in r for r in screen())
+        q.send("b")                                 # a NES ROM has one format
+        assert any("NES tiles are 2bpp" in r for r in screen())
+        q.send("t")                                 # back to the dump
+        assert any("000000 4E 45 53 1A" in r for r in screen())
         q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
         rows = screen()
         assert not any("000000 4E 45 53 1A" in r for r in rows), rows
@@ -4604,6 +4629,14 @@ def test_shell_sdk_code_split(b, opts):
         rows = screen()
         assert any("ROM: snesdemo.sfc" in r for r in rows), rows
         assert any("SNES DEMO" in r for r in rows) and any("LoROM" in r for r in rows), rows
+        sendkeys(q, "ctrl-t")
+        q.send("t")                                 # the tiles of a SNES ROM: from the start, 4 bpp
+        rows = screen()
+        assert any("ROM  4bpp" in r for r in rows) and any("000000" in r for r in rows), rows
+        q.send("b")
+        assert any("ROM  2bpp" in r for r in screen())
+        q.send("b")
+        assert any("ROM  8bpp" in r for r in screen())
         q.send("\x1b")
         q.send("w\r")                               # Exit: the text is not saved, the SDK asks
         time.sleep(0.5)

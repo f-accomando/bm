@@ -7,11 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "drivers/fb.h"
 #include "fs/fat.h"
 #include "gfx/console.h"
+#include "gfx/draw.h"
 #include "shell_sdk_dis.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_rom.h"
+#include "shell_sdk_tiles.h"
 #include "usb/hid.h"
 
 #define ROM_MAX_BYTES (8u * 1024 * 1024)
@@ -33,6 +36,13 @@ static int asm_on;                      /* the ROM side shows the ASM listing, n
 static char *asm_text;                  /* the listing of the open ROM, made the first time it is asked */
 static char **asm_line;                 /* where each line of the listing starts (the lines end with 0) */
 static int asm_lines, asm_top, asm_page;
+static int tiles_on;                    /* the ROM side shows the bytes as 8x8 tiles */
+static size_t tiles_off;                /* the offset of the first tile shown */
+static int tiles_fmt, tiles_chr;        /* how the tiles are read; the view started at the CHR ROM */
+static int tiles_col, tiles_rows = 1;   /* where the tiles are on the screen, set when the view is drawn */
+
+#define TILES_GUTTER 7                  /* "004010 ": the offset of a row, as in the dump */
+#define TILES_FIRST  3                  /* the ANSI row of the first row of tiles */
 
 static void at(int row, int col)
 {
@@ -83,6 +93,7 @@ static int make_listing(char *err, size_t en)
 static void close_rom(void)
 {
     free_listing();
+    tiles_on = 0;
     free(rom);
     rom = NULL;
     rom_size = 0;
@@ -134,6 +145,8 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
     snprintf(rom_name, sizeof rom_name, "%s", base ? base + 1 : path);
     focus = FOCUS_EDITOR;
     hex_row = 0;
+    tiles_on = 0;
+    tiles_off = sdk_tiles_start(rom, rom_size, &rom_info, &tiles_fmt, &tiles_chr);
     return 0;
 }
 
@@ -285,6 +298,74 @@ static void draw_listing(int col, int width, int rows)
     console_write("\x1b[0m");
 }
 
+/* The tile side: its text (the offsets); paint_tiles draws the pixels after all the text. */
+static void draw_tiles(int col, int width, int rows)
+{
+    tiles_col = col;
+    tiles_rows = rows - TILES_FIRST > 0 ? rows - TILES_FIRST : 1;
+    char b[64];
+    snprintf(b, sizeof b, "%s  %s", rom_info.kind != SDK_ROM_NES ? "ROM" : tiles_chr ? "CHR ROM" : "PRG (CHR RAM)",
+             sdk_tile_name(tiles_fmt));
+    console_write("\x1b[93m");
+    put_row(2, col, width, b, (int)strlen(b));
+    console_write("\x1b[90m");
+    const size_t step = (size_t)sdk_tile_bytes(tiles_fmt) * SDK_TILES_ROW;
+    for (int i = 0; i < tiles_rows; i++) {
+        const size_t off = tiles_off + (size_t)i * step;
+        if (off < rom_size) {
+            snprintf(b, sizeof b, "%06X", (unsigned)off);
+            put_row(TILES_FIRST + i, col, TILES_GUTTER, b, (int)strlen(b));
+        }
+    }
+    snprintf(b, sizeof b, "t: hex  %s  Left/Right: 1 byte", rom_info.kind == SDK_ROM_NES ? "a: ASM" : "b: bpp");
+    console_write("\x1b[96m");
+    put_row(rows, col, width, b, (int)strlen(b));
+    console_write("\x1b[0m");
+}
+
+/* Pixels on the framebuffer: a row of tiles is as high as a row of text (when the pane is wide enough). The
+ * colours of a game are not in its tiles: the colour numbers show as greys on dark blue. */
+static void paint_tiles(int width)
+{
+    framebuffer_t *fb = console_framebuffer();
+    if (!fb)
+        return;
+    uint32_t cw, ch, top;
+    console_cell_geometry(&cw, &ch, &top);
+    int scale = (int)ch / 8;
+    const int widest = (width - TILES_GUTTER) * (int)cw / (SDK_TILES_ROW * 8);
+    if (scale > widest)
+        scale = widest;
+    if (scale < 1)
+        return;
+    static uint32_t color[256];
+    const int n = sdk_tile_colors(tiles_fmt);
+    color[0] = fb_color(fb, 0, 0, 56);
+    for (int v = 1; v < n; v++) {
+        const uint8_t g = (uint8_t)(40 + 215 * v / (n - 1));
+        color[v] = fb_color(fb, g, g, g);
+    }
+    const int x0 = (tiles_col - 1 + TILES_GUTTER) * (int)cw;
+    const size_t step = (size_t)sdk_tile_bytes(tiles_fmt);
+    for (int r = 0; r < tiles_rows; r++) {
+        const int y0 = (int)top + (TILES_FIRST - 1 + r) * (int)ch;
+        for (int t = 0; t < SDK_TILES_ROW; t++) {
+            const size_t off = tiles_off + (size_t)(r * SDK_TILES_ROW + t) * step;
+            if (off >= rom_size)
+                return;
+            uint8_t pix[64];
+            sdk_tile_decode(rom, rom_size, off, tiles_fmt, pix);
+            for (int y = 0; y < 8; y++)
+                for (int x = 0, e; x < 8; x = e) {          /* a run of one colour is one rectangle */
+                    for (e = x + 1; e < 8 && pix[y * 8 + e] == pix[y * 8 + x]; e++)
+                        ;
+                    gfx_rect(fb, x0 + (t * 8 + x) * scale, y0 + y * scale, (e - x) * scale, scale,
+                             color[pix[y * 8 + x]]);
+                }
+        }
+    }
+}
+
 static void draw_rom(int col, int width, int rows)
 {
     char head[80];
@@ -292,6 +373,10 @@ static void draw_rom(int col, int width, int rows)
     title_bar(1, col, width, head, focus == FOCUS_ROM);
     if (asm_on) {
         draw_listing(col, width, rows);
+        return;
+    }
+    if (tiles_on) {
+        draw_tiles(col, width, rows);
         return;
     }
 
@@ -325,7 +410,7 @@ static void draw_rom(int col, int width, int rows)
         put_row(row + i, col, width, line, (int)strlen(line));
     }
     char st[48];
-    snprintf(st, sizeof st, "Offset %06X of %06X  a: ASM", (unsigned)(hex_row * (size_t)bpr), (unsigned)rom_size);
+    snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)(hex_row * (size_t)bpr));
     console_write("\x1b[96m");
     put_row(rows, col, width, st, (int)strlen(st));
     console_write("\x1b[0m");
@@ -355,6 +440,8 @@ void sdk_code_draw(int cols, int rows, const char *msg)
         at(1, 1);
         console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
     }
+    if (tiles_on)
+        paint_tiles(cols - lw - 1);                         /* last: the console repaints the cells it writes */
 }
 
 /* ---- keys ---- */
@@ -381,18 +468,62 @@ static int listing_key(int key)
     return 1;
 }
 
+static int tiles_key(int key)
+{
+    int move = -1;
+    if (key == HID_KEY_UP || key == 'w')
+        move = SDK_TILES_UP;
+    else if (key == HID_KEY_DOWN || key == 's')
+        move = SDK_TILES_DOWN;
+    else if (key == HID_KEY_PGUP)
+        move = SDK_TILES_PGUP;
+    else if (key == HID_KEY_PGDN)
+        move = SDK_TILES_PGDN;
+    else if (key == HID_KEY_LEFT)
+        move = SDK_TILES_LEFT;
+    else if (key == HID_KEY_RIGHT)
+        move = SDK_TILES_RIGHT;
+    else if (key == HID_KEY_END)
+        move = SDK_TILES_END;
+    if (move >= 0) {
+        tiles_off = sdk_tiles_move(tiles_off, rom_size, tiles_fmt, tiles_rows, move);
+        return 1;
+    }
+    if (key == HID_KEY_HOME) {                  /* back where the view started */
+        int fmt;
+        tiles_off = sdk_tiles_start(rom, rom_size, &rom_info, &fmt, &tiles_chr);
+        return 1;
+    }
+    if (key == 'b') {
+        if (sdk_tile_next(tiles_fmt) == tiles_fmt)
+            snprintf(note, sizeof note, "NES tiles are 2bpp");
+        tiles_fmt = sdk_tile_next(tiles_fmt);
+        return 1;
+    }
+    return 0;
+}
+
 static int rom_key(int key)
 {
+    if (key == 't') {                           /* hex or tiles */
+        tiles_on = !tiles_on;
+        asm_on = 0;
+        return 1;
+    }
     if (key == 'a') {                           /* hex or ASM */
         char err[sizeof note];
         if (!asm_on && !asm_text && make_listing(err, sizeof err) != 0)
             snprintf(note, sizeof note, "%s", err);
-        else
+        else {
             asm_on = !asm_on;
+            tiles_on = 0;
+        }
         return 1;
     }
     if (asm_on)
         return listing_key(key);
+    if (tiles_on)
+        return tiles_key(key);
     const size_t bpr = (size_t)(hex_bpr > 0 ? hex_bpr : 16);
     const size_t total = (rom_size + bpr - 1) / bpr;
     const size_t page = (size_t)(hex_page > 0 ? hex_page : 1);

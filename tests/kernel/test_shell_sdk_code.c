@@ -7,6 +7,7 @@
 
 #include "kernel/shell_sdk_edit.h"
 #include "kernel/shell_sdk_rom.h"
+#include "kernel/shell_sdk_tiles.h"
 
 static int fails;
 
@@ -364,6 +365,88 @@ static void test_hex(void)
     CHECK(!strncmp(row, "000010 51 52 53 54 ", 19) && strlen(row) == 6 + 1 + 8 * 3 + 8);
 }
 
+static void test_tiles(void)
+{
+    uint8_t d[128], pix[64];
+    int ok;
+
+    /* NES: bit 0 of the 8 lines, then bit 1 */
+    memset(d, 0, sizeof d);
+    d[0] = 0x80;                    /* line 0, bit 0: the left pixel */
+    d[8] = 0x81;                    /* line 0, bit 1: the left and the right pixel */
+    d[7] = 0x01;                    /* line 7, bit 0: the right pixel */
+    sdk_tile_decode(d, sizeof d, 0, SDK_TILE_NES, pix);
+    CHECK(pix[0] == 3 && pix[7] == 2 && pix[1] == 0 && pix[63] == 1 && pix[56] == 0);
+
+    /* SNES 2 bpp: two bytes per line */
+    memset(d, 0, sizeof d);
+    d[0] = 0x80;
+    d[1] = 0xC0;
+    d[15] = 0x01;
+    sdk_tile_decode(d, sizeof d, 0, SDK_TILE_SNES2, pix);
+    CHECK(pix[0] == 3 && pix[1] == 2 && pix[2] == 0 && pix[63] == 2);
+
+    /* SNES 4 bpp: bits 2 and 3 from byte 16; 8 bpp: bits 6 and 7 from byte 48 */
+    d[16] = 0x80;
+    d[17] = 0x80;
+    sdk_tile_decode(d, sizeof d, 0, SDK_TILE_SNES4, pix);
+    CHECK(pix[0] == 15 && pix[1] == 2 && pix[63] == 2);
+    d[49] = 0x80;
+    sdk_tile_decode(d, sizeof d, 0, SDK_TILE_SNES8, pix);
+    CHECK(pix[0] == 15 + 128);
+
+    /* past the end of the file: colour 0 */
+    memset(d, 0xFF, sizeof d);
+    sdk_tile_decode(d, 4, 0, SDK_TILE_NES, pix);
+    ok = pix[0] == 1 && pix[24] == 1 && pix[32] == 0;
+    CHECK(ok);
+    CHECK(sdk_tile_bytes(SDK_TILE_NES) == 16 && sdk_tile_bytes(SDK_TILE_SNES4) == 32 &&
+          sdk_tile_bytes(SDK_TILE_SNES8) == 64 && sdk_tile_colors(SDK_TILE_SNES4) == 16);
+    CHECK(sdk_tile_next(SDK_TILE_SNES4) == SDK_TILE_SNES2 && sdk_tile_next(SDK_TILE_SNES2) == SDK_TILE_SNES8 &&
+          sdk_tile_next(SDK_TILE_SNES8) == SDK_TILE_SNES4 && sdk_tile_next(SDK_TILE_NES) == SDK_TILE_NES);
+}
+
+static void test_tiles_start(void)
+{
+    static uint8_t rom[16 + 512 + 16384 + 8192];
+    sdk_rom_t r;
+    int fmt, chr;
+
+    memcpy(rom, "NES", 4);
+    rom[4] = 1;
+    rom[5] = 1;
+    CHECK(sdk_rom_probe(rom, sizeof rom - 512, &r) == 0);
+    CHECK(sdk_tiles_start(rom, sizeof rom - 512, &r, &fmt, &chr) == 0x4010 && chr == 1 && fmt == SDK_TILE_NES);
+    rom[6] = 4;                     /* a trainer */
+    CHECK(sdk_tiles_start(rom, sizeof rom, &r, &fmt, &chr) == 0x4210 && chr == 1);
+    rom[5] = 0;                     /* CHR RAM: the tiles are somewhere in the program */
+    CHECK(sdk_tiles_start(rom, sizeof rom, &r, &fmt, &chr) == 0x210 && chr == 0);
+
+    r.kind = SDK_ROM_SNES;
+    CHECK(sdk_tiles_start(rom, 0x8000, &r, &fmt, &chr) == 0 && fmt == SDK_TILE_SNES4 && chr == 0);
+    CHECK(sdk_tiles_start(rom, 0x4000 + 512, &r, &fmt, &chr) == 512);
+}
+
+static void test_tiles_move(void)
+{
+    const size_t size = 0x6010;     /* a NES file: 16 KB of program, 8 KB of CHR */
+    const int f = SDK_TILE_NES;     /* a row is 0x100 bytes; a page of 10 rows is 0xA00 */
+
+    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_DOWN) == 0x4110);
+    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_PGDN) == 0x4A10);
+    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_END) == 0x5610);
+    CHECK(sdk_tiles_move(0x5610, size, f, 10, SDK_TILES_DOWN) == 0x5610);       /* the last page stays */
+    CHECK(sdk_tiles_move(0x5510, size, f, 10, SDK_TILES_PGDN) == 0x5610);
+    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_UP) == 0x3F10);
+    CHECK(sdk_tiles_move(0x0110, size, f, 10, SDK_TILES_PGUP) == 0);            /* a whole tile */
+    CHECK(sdk_tiles_move(0x0115, size, f, 10, SDK_TILES_PGUP) == 5);
+    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_RIGHT) == 0x4011);
+    CHECK(sdk_tiles_move(0, size, f, 10, SDK_TILES_LEFT) == 0);
+    CHECK(sdk_tiles_move(size - 1, size, f, 10, SDK_TILES_RIGHT) == size - 1);
+    CHECK(sdk_tiles_move(size - 1, size, f, 10, SDK_TILES_DOWN) == size - 1);   /* past the last page: stays */
+    CHECK(sdk_tiles_move(0, 64, f, 10, SDK_TILES_PGDN) == 0);                   /* a file shorter than a page */
+}
+
 int main(void)
 {
     test_edit();
@@ -372,6 +455,9 @@ int main(void)
     test_nes();
     test_snes();
     test_hex();
+    test_tiles();
+    test_tiles_start();
+    test_tiles_move();
     if (fails) {
         printf("test_shell_sdk_code: %d FAILED\n", fails);
         return 1;
