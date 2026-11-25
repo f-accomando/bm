@@ -17,10 +17,10 @@ extern const uint8_t bm_lib_sdk_dis[], bm_lib_sdk_dis_end[];
 
 /* The Lua that joins the three modules. snesrom finds the assembler as SNES_ASM in an environment of its own. */
 static const char driver[] =
-    "local A, rom_src, D, bytes = ...\n"
+    "local A, rom_src, D, bytes, bank = ...\n"
     "local env = setmetatable({ SNES_ASM = A }, { __index = _G })\n"
     "local R = assert(load(rom_src, '=snesrom', 't', env))()\n"
-    "return D.listing(A, R, bytes)\n";
+    "return D.listing(A, R, bytes, bank)\n";
 
 static int load_chunk(lua_State *L, const uint8_t *from, const uint8_t *to, const char *name)
 {
@@ -37,7 +37,16 @@ static void first_line(char *err, size_t en, const char *msg)
     err[n] = 0;
 }
 
-int sdk_dis(const uint8_t *rom, size_t len, char **text, size_t *text_len, char *err, size_t en)
+static int field(lua_State *L, int t, const char *name)
+{
+    lua_getfield(L, t, name);
+    const int v = lua_isboolean(L, -1) ? lua_toboolean(L, -1) : (int)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    return v;
+}
+
+int sdk_dis(const uint8_t *rom, size_t len, int bank, char **text, size_t *text_len, sdk_dis_info_t *info,
+            char *err, size_t en)
 {
     lua_State *L = luavm_state();
     if (!L)
@@ -59,13 +68,17 @@ int sdk_dis(const uint8_t *rom, size_t len, char **text, size_t *text_len, char 
         goto done;
     }
     lua_pushlstring(L, (const char *)rom, len);
-    if (lua_pcall(L, 4, 2, 0) != LUA_OK) {
+    if (bank < 0)
+        lua_pushnil(L);
+    else
+        lua_pushinteger(L, bank);
+    if (lua_pcall(L, 5, 3, 0) != LUA_OK) {
         first_line(err, en, lua_tostring(L, -1));
         goto done;
     }
-    if (lua_isstring(L, -2)) {
+    if (lua_isstring(L, -3)) {
         size_t n;
-        const char *s = lua_tolstring(L, -2, &n);
+        const char *s = lua_tolstring(L, -3, &n);
         *text = malloc(n + 1);
         if (!*text) {
             snprintf(err, en, "not enough memory for the listing");
@@ -73,9 +86,18 @@ int sdk_dis(const uint8_t *rom, size_t len, char **text, size_t *text_len, char 
         }
         memcpy(*text, s, n + 1);
         *text_len = n;
+        memset(info, 0, sizeof *info);
+        if (lua_istable(L, -1)) {                 /* one bank of the ROM */
+            const int t = lua_gettop(L);
+            info->bank = field(L, t, "bank");
+            info->banks = field(L, t, "banks");
+            info->addr = field(L, t, "addr");
+            info->kb = field(L, t, "kb");
+            info->guess = field(L, t, "guess");
+        }
         rc = 0;
     } else {
-        first_line(err, en, lua_isstring(L, -1) ? lua_tostring(L, -1) : "the listing failed");
+        first_line(err, en, lua_isstring(L, -2) ? lua_tostring(L, -2) : "the listing failed");
     }
 done:
     lua_settop(L, top);

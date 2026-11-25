@@ -116,8 +116,65 @@ for k = 1, 4 do
     check("random snes listing " .. k, text ~= nil and text:find("\n8000  ") ~= nil, why)
 end
 
-text, why = D.listing(A, R, (made(code, 0xC00C, 0xC000, 1)))
-check("mapper 1 is refused", text == nil and tostring(why):find("mapper 0") ~= nil, why)
+-- a ROM with banks (mapper 4, 64 KB of PRG, eight banks of 8 KB): one bank at a time
+local function banked(mapper, list)
+    local n = #list * #list[1]
+    return "NES\x1A" .. string.char(n // 16384, 0, (mapper & 15) << 4, mapper & 0xF0) .. string.rep("\0", 8)
+        .. table.concat(list)
+end
+local function pad(s, n) return s .. string.rep("\xFF", n - #s) end
+local banks = {}
+for i = 1, 8 do banks[i] = pad(string.char(0xA9, i - 1, 0x60), 8192) end        -- lda #bank, rts
+-- bank 5 runs at $A000: it calls two of its own routines, and one of the fixed bank
+banks[6] = pad("\x20\x07\xA0" .. "\x20\x00\xE0" .. "\x60" .. "\xE8\x60", 8192)
+-- the last bank: reset at $E010, code before it, the vectors at its end
+local fixed = "\xEA\x60" .. string.rep("\0", 14) .. "\x78\xD8\x4C\x10\xE0" .. "\x40"
+banks[8] = pad(fixed, 8186) .. "\x15\xE0\x10\xE0\x15\xE0"
+rom = banked(4, banks)
+local info
+text, why, info = D.listing(A, R, rom)
+check("banks: the last one first", info and info.bank == 7 and info.banks == 8 and info.addr == 0xE000
+      and info.kb == 8 and not info.guess, why)
+if text then
+    check("banks: the code before reset shows", text:find("^E000  nop") ~= nil, text:sub(1, 200))
+    check("banks: reset and nmi", has(text, "reset:") and has(text, "nmi:"), text)
+    check("banks: jmp reset", has(text, "E012  jmp reset         4C 10 E0"), text)
+    check("banks: the vectors", has(text, "FFFC  .dw $E010         reset"), text)
+    round_trip("fixed bank", text, banks[8], 0xE000)
+end
+text, why, info = D.listing(A, R, rom, 5)
+check("banks: the address from the calls", info and info.bank == 5 and info.addr == 0xA000 and info.guess,
+      info and string.format("%04X", info.addr) or why)
+if text then
+    check("banks: a label in the bank", has(text, "A000  jsr LA007         20 07 A0") and has(text, "LA007:"), text)
+    check("banks: a call out of the bank", has(text, "A003  jsr $E000         20 00 E0"), text)
+    check("banks: no vectors here", text:find("vectors") == nil, text)
+    round_trip("bank 5", text, banks[6], 0xA000)
+end
+text, why, info = D.listing(A, R, rom, 0)
+check("banks: no calls, $8000", info and info.addr == 0x8000 and has(text, "8000  lda #$00          A9 00"), why)
+text, why, info = D.listing(A, R, rom, 99)
+check("banks: a number past the end is the last", info and info.bank == 7, why)
+-- 16 KB banks (mapper 2) and 32 KB banks (mapper 7)
+text, why, info = D.listing(A, R, banked(2, { pad("\x60", 16384), pad("\x60", 16384) }), 0)
+check("banks: 16 KB at $8000", info and info.banks == 2 and info.addr == 0x8000 and info.kb == 16 and not info.guess,
+      why)
+local whole32 = pad("\x78\x40", 32762) .. "\x01\x80\x00\x80\x01\x80"
+text, why, info = D.listing(A, R, banked(7, { whole32, whole32 }), 0)
+check("banks: 32 KB with its vectors", info and info.addr == 0x8000 and info.kb == 32 and has(text, "reset:")
+      and has(text, "FFFC  .dw $8000         reset"), why)
+for k = 1, 3 do
+    local list = {}
+    for i = 1, 2 do
+        local b = {}
+        for j = 1, 8192 do b[j] = string.char(math.random(0, 255)) end
+        list[i] = table.concat(b)
+    end
+    list[3], list[4] = list[1], list[2]
+    text, why, info = D.listing(A, R, banked(4, list), 0)
+    check("random bank " .. k, text ~= nil and info ~= nil, why)
+    if text then round_trip("random bank " .. k, text, list[1], info.addr) end
+end
 text, why = D.listing(A, R, "NES\x1A")
 check("a cut file is refused", text == nil, why)
 text, why = D.listing(A, R, "hello")

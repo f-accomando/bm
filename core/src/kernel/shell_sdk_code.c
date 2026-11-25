@@ -36,6 +36,7 @@ static int asm_on;                      /* the ROM side shows the ASM listing, n
 static char *asm_text;                  /* the listing of the open ROM, made the first time it is asked */
 static char **asm_line;                 /* where each line of the listing starts (the lines end with 0) */
 static int asm_lines, asm_top, asm_page;
+static sdk_dis_info_t asm_info;         /* the bank it shows, for a ROM with banks */
 static int tiles_on;                    /* the ROM side shows the bytes as 8x8 tiles */
 static size_t tiles_off;                /* the offset of the first tile shown */
 static int tiles_fmt, tiles_chr;        /* how the tiles are read; the view started at the CHR ROM */
@@ -61,12 +62,14 @@ static void free_listing(void)
     asm_on = 0;
 }
 
-/* Makes the listing of the open ROM and cuts it in lines. Returns 0, or -1 with the reason in err. */
-static int make_listing(char *err, size_t en)
+/* Makes the listing of the open ROM (bank -1: the first one to show) and cuts it in lines. Returns 0, or -1
+ * with the reason in err; the listing before stays then. */
+static int make_listing(int bank, char *err, size_t en)
 {
     char *text = NULL;
     size_t len = 0;
-    if (sdk_dis(rom, rom_size, &text, &len, err, en) != 0)
+    sdk_dis_info_t info;
+    if (sdk_dis(rom, rom_size, bank, &text, &len, &info, err, en) != 0)
         return -1;
     int n = 1;
     for (size_t i = 0; i < len; i++)
@@ -83,9 +86,13 @@ static int make_listing(char *err, size_t en)
             text[i] = 0;
             line[k++] = text + i + 1;
         }
+    free(asm_line);
+    free(asm_text);
     asm_text = text;
     asm_line = line;
     asm_lines = n;
+    asm_top = 0;
+    asm_info = info;
     return 0;
 }
 
@@ -288,20 +295,32 @@ static void rom_status(int col, int width, int rows, const char *hint)
     console_write("\x1b[0m");
 }
 
-/* The ASM side: the rows 2 to rows-1 are the listing, from asm_top. */
+/* The ASM side: the rows 2 to rows-1 are the listing, from asm_top; for a ROM with banks row 2 names the
+ * bank. */
 static void draw_listing(int col, int width, int rows)
 {
-    const int h = rows - 2;
+    const int first = asm_info.banks ? 3 : 2;
+    const int h = rows - first;
     asm_page = h > 1 ? h - 1 : 1;
+    if (asm_info.banks) {
+        char b[64];
+        snprintf(b, sizeof b, "PRG bank %d/%d (%d KB) at $%04X%s", asm_info.bank, asm_info.banks - 1, asm_info.kb,
+                 (unsigned)asm_info.addr, asm_info.guess ? " guess" : "");
+        console_write("\x1b[96m");
+        put_row(2, col, width, b, (int)strlen(b));
+    }
     for (int i = 0; i < h; i++) {
         const int l = asm_top + i;
         const char *s = l < asm_lines ? asm_line[l] : "";
         const int n = (int)strlen(s);
         console_write(n && (s[n - 1] == ':' || s[0] == ';') ? "\x1b[93m" : "\x1b[0m");     /* a label stands out */
-        put_row(2 + i, col, width, s, n);
+        put_row(first + i, col, width, s, n);
     }
     char st[64];
-    snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_top + 1, asm_lines);
+    if (asm_info.banks)
+        snprintf(st, sizeof st, "ASM %d/%d  Left/Right: bank  a: hex", asm_top + 1, asm_lines);
+    else
+        snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_top + 1, asm_lines);
     rom_status(col, width, rows, st);
 }
 
@@ -451,6 +470,13 @@ void sdk_code_draw(int cols, int rows, const char *msg)
 
 static int listing_key(int key)
 {
+    if (asm_info.banks > 1 && (key == HID_KEY_LEFT || key == HID_KEY_RIGHT)) {     /* the bank before, after */
+        const int step = key == HID_KEY_LEFT ? asm_info.banks - 1 : 1;
+        char err[sizeof note];
+        if (make_listing((asm_info.bank + step) % asm_info.banks, err, sizeof err) != 0)
+            snprintf(note, sizeof note, "%s", err);
+        return 1;
+    }
     const int last = asm_lines > asm_page ? asm_lines - asm_page : 0;
     if (key == HID_KEY_UP)
         asm_top--;
@@ -515,7 +541,7 @@ static int rom_key(int key)
     }
     if (key == 'a') {                           /* hex or ASM */
         char err[sizeof note];
-        if (!asm_on && !asm_text && make_listing(err, sizeof err) != 0)
+        if (!asm_on && !asm_text && make_listing(-1, err, sizeof err) != 0)
             snprintf(note, sizeof note, "%s", err);
         else {
             asm_on = !asm_on;

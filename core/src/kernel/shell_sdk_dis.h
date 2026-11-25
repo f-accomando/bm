@@ -8,8 +8,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* The listing of a .nes (mapper 0) or .sfc, .smc file: lines separated by '\n', in a block from malloc (the
- * caller frees it) that ends with a 0. Returns 0, or -1 with the reason in err. */
-int sdk_dis(const uint8_t *rom, size_t len, char **text, size_t *text_len, char *err, size_t en);
+/* What a listing shows. A NES ROM with a mapper that switches its PRG is read one bank at a time. */
+typedef struct {
+    int bank, banks;                    /* 0 up; banks is 0 when the listing is not one bank */
+    int addr;                           /* where the bank is seen */
+    int kb;                             /* its size */
+    int guess;                          /* addr was worked out from the calls of the bank */
+} sdk_dis_info_t;
+
+/* The listing of a .nes or .sfc, .smc file: lines separated by '\n', in a block from malloc (the caller frees
+ * it) that ends with a 0. bank: the PRG bank of a NES ROM that has banks, -1 for the last one. Returns 0, or
+ * -1 with the reason in err. */
+int sdk_dis(const uint8_t *rom, size_t len, int bank, char **text, size_t *text_len, sdk_dis_info_t *info,
+            char *err, size_t en);
 
 #endif /* SHELL_SDK_DIS_H */

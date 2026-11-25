@@ -4899,6 +4899,84 @@ def test_shell_sdk_run(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_shell_sdk_banks(b, opts):
+    """Shell SDK (2026-11-25): the ASM view of a NES ROM with banks (mapper 4, as Super Mario Bros 3): `a` shows
+    the last 8 KB bank at $E000, Left and Right change the bank, the address of the others comes from their
+    calls."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    nes = os.path.join(tmp, "banked.nes")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+
+    def pad(code):
+        return code + b"\xff" * (8192 - len(code))
+
+    banks = [pad(bytes([0xA9, n, 0x60])) for n in range(32)]       # lda #bank, rts
+    banks[2] = pad(bytes([0x20, 0x07, 0xA0, 0x20, 0x00, 0xE0, 0x60, 0xE8, 0x60]))     # it calls $A007
+    banks[31] = pad(bytes([0x78, 0xD8, 0x4C, 0x00, 0xE0]))[:8186] + bytes([0x00, 0xE0] * 3)
+    with open(nes, "wb") as f:                      # 256 KB PRG, 128 KB CHR, mapper 4
+        f.write(b"NES\x1a" + bytes([16, 16, 0x40, 0]) + bytes(8) + b"".join(banks) + bytes(131072))
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt"), (nes, "nes/banked.nes")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+
+    def screen():
+        time.sleep(0.8)
+        return screen_text(q.screendump())
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFA]))                       # F2: the Code tab
+        q.send("\x1b")
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(1.0)
+        assert any("ROM: banked.nes" in r for r in screen())
+        q.send(b"\x14a")                            # Ctrl+T, a: the ROM as ASM
+        time.sleep(1.5)
+        rows = screen()
+        assert any("PRG bank 31/31 (8 KB) at $E000" in r for r in rows), rows
+        assert any("reset:" in r for r in rows) and any("E002  jmp reset" in r for r in rows), rows
+        assert any("Left/Right: bank" in r for r in rows), rows
+        q.send(SDK_RIGHT)                           # past the last bank: the first one
+        time.sleep(1.5)
+        rows = screen()
+        assert any("PRG bank 0/31 (8 KB) at $8000 guess" in r for r in rows), rows
+        assert any("8000  lda #$00" in r for r in rows), rows
+        q.send(SDK_RIGHT)
+        q.send(SDK_RIGHT)                           # bank 2 calls into $A000
+        time.sleep(2.0)
+        rows = screen()
+        assert any("PRG bank 2/31 (8 KB) at $A000 guess" in r for r in rows), rows
+        assert any("A000  jsr LA007" in r for r in rows), rows
+        q.send("a")                                 # the dump, then the same bank again
+        assert any("000000 4E 45 53 1A" in r for r in screen())
+        q.send("a")
+        assert any("PRG bank 2/31" in r for r in screen())
+        q.send(SDK_LEFT)
+        time.sleep(1.5)
+        assert any("PRG bank 1/31" in r for r in screen())
+        q.send("\x1b")
+        q.send(SDK_UP + b"\r")                      # Exit
+        time.sleep(0.5)
+        if any("Unsaved changes" in r for r in screen()):
+            q.send(SDK_DOWN + b"\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_shell_sdk_editor_keys(b, opts):
     """Shell SDK Code tab (2026-11-23): the keys of bm Code on a USB keyboard. Shift with a move selects,
     Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D, PgUp, Ctrl+A."""
