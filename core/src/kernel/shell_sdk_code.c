@@ -36,15 +36,22 @@ static void at(int row, int col)
     console_write(b);
 }
 
-void sdk_code_reset(void)
+/* The ROM goes away: the editor takes the whole tab. The text stays. */
+static void close_rom(void)
 {
     free(rom);
     rom = NULL;
     rom_size = 0;
     rom_name[0] = 0;
     focus = FOCUS_EDITOR;
-    top_line = left_col = 0;
+    left_col = 0;
     hex_row = 0;
+}
+
+void sdk_code_reset(void)
+{
+    close_rom();
+    top_line = 0;
     sdk_edit_reset();
 }
 
@@ -148,7 +155,7 @@ static void title_bar(int row, int col, int width, const char *text, int active)
 static void draw_editor(int col, int width, int rows, int ctrl_hint, const char *msg)
 {
     char head[64];
-    snprintf(head, sizeof head, "Code%s", rom ? "   (Ctrl+Tab: ROM)" : "");
+    snprintf(head, sizeof head, "Code%s", rom ? "  (Ctrl+T: ROM, Ctrl+W: close)" : "");
     title_bar(1, col, width, head, focus == FOCUS_EDITOR);
 
     const int h = rows - 2;                         /* rows 2 to rows-1 */
@@ -386,9 +393,17 @@ static int editor_key(int key, int mods)
 
 int sdk_code_key(int key, int mods)
 {
-    if (key == 9 && (mods & SDK_MOD_CTRL)) {                    /* Ctrl+Tab */
-        if (rom)
+    note[0] = 0;
+    const int swap = key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL));    /* Ctrl+T, Ctrl+Tab */
+    if (swap || key == 0x17) {                                              /* Ctrl+W: close the ROM */
+        if (!rom)
+            snprintf(note, sizeof note, "No ROM open (Esc > Open ROM)");
+        else if (swap)
             focus = focus == FOCUS_EDITOR ? FOCUS_ROM : FOCUS_EDITOR;
+        else {
+            close_rom();
+            snprintf(note, sizeof note, "ROM closed");
+        }
         return 1;
     }
     if (rom && focus == FOCUS_ROM)

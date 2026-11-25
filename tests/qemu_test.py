@@ -4510,7 +4510,7 @@ def test_shell_sdk_skeleton(b, opts):
 
 def test_shell_sdk_code_split(b, opts):
     """Shell SDK (2026-11-23): Esc > Open ROM lists /nes and /snes; the Code tab splits (editor left, ROM
-    right) and Ctrl+Tab moves the focus."""
+    right), Ctrl+T and Ctrl+Tab move the focus and Ctrl+W closes the ROM."""
     tmp = tempfile.mkdtemp(prefix="bm-sdkrom-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -4574,6 +4574,25 @@ def test_shell_sdk_code_split(b, opts):
         q.send("x")
         rows = screen()
         assert any("Ln 2  Col 2" in r for r in rows), rows
+        sendkeys(q, "ctrl-t")                       # Ctrl+T moves the focus too
+        q.send(bytes([0xF6]))                       # Page Up scrolls the dump back to its start
+        rows = screen()
+        assert any("000000 4E 45 53 1A" in r for r in rows), rows
+        sendkeys(q, "ctrl-t")
+        q.send("y")
+        rows = screen()
+        assert any("Ln 2  Col 3" in r for r in rows), rows
+        sendkeys(q, "ctrl-t")                       # on the ROM side again
+        sendkeys(q, "ctrl-w")                       # Ctrl+W closes the ROM: the editor only, the text stays
+        rows = screen()
+        assert not any("ROM:" in r for r in rows) and any("ROM closed" in r for r in rows), rows
+        assert any("lda #1" in r for r in rows), rows
+        q.send("z")
+        rows = screen()
+        assert any("Ln 2  Col 4" in r for r in rows), rows
+        sendkeys(q, "ctrl-t")                       # no ROM: a message, nothing is typed
+        rows = screen()
+        assert any("No ROM open" in r for r in rows), rows
         q.send("\x1b")
         q.send("sss\r")                             # Open ROM again: the SNES ROM
         time.sleep(0.5)

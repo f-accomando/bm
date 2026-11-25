@@ -579,7 +579,12 @@ int shell_sdk_open(void)
     console_clear();
     for (;;) {
         draw(cur_tab);
-        const int c = (unsigned char)input_getc();
+        int c = (unsigned char)input_getc();
+        int prefix = 0;                         /* the keyboard says Ctrl (and Shift) before some keys */
+        while (c == HID_KEY_CTRL || c == HID_KEY_CTRL_SHIFT) {
+            prefix |= c == HID_KEY_CTRL ? SDK_MOD_CTRL : SDK_MOD_CTRL | SDK_MOD_SHIFT;
+            c = (unsigned char)input_getc();    /* the keys may be up again when this one is read */
+        }
         msg[0] = 0;
         const int t = shell_sdk_tab_for_key(c);
         if (t >= 0)
@@ -606,7 +611,7 @@ int shell_sdk_open(void)
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
-            sdk_code_key(c, (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
+            sdk_code_key(c, prefix | (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
                             (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
                             (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0));
         if (sdk_edit_revision() != seen_rev) {  /* the text changed: the project is not saved */

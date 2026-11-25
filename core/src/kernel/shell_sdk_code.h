@@ -1,7 +1,7 @@
 /*
  * Shell SDK: the Code tab. A text editor on the left. When a ROM (.nes, .sfc, .smc) is open, the tab splits:
- * the editor stays on the left and the ROM (its header and a hex dump) is on the right. Ctrl+Tab moves the
- * focus from one side to the other. The text is not in the project file yet.
+ * the editor stays on the left and the ROM (its header and a hex dump) is on the right. Ctrl+T or Ctrl+Tab
+ * moves the focus from one side to the other; Ctrl+W closes the ROM.
  */
 #ifndef SHELL_SDK_CODE_H
 #define SHELL_SDK_CODE_H
