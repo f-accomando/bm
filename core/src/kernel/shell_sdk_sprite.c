@@ -46,6 +46,7 @@ static int canvas_top, canvas_rows = 1, canvas_scale = 1;
 static int code_kind;                   /* SDK_SPRITE_*: the code the canvas is written in */
 static unsigned code_rev;               /* the revision of the code the canvas was read from */
 static char code_err[48];               /* why its tiles block cannot be read ("": it can) */
+static int import_armed;                /* i was pressed on a canvas with tiles: again replaces them */
 
 void sdk_sprite_reset(void)
 {
@@ -56,6 +57,7 @@ void sdk_sprite_reset(void)
     hidden = 0;
     code_kind = SDK_SPRITE_NONE;
     code_err[0] = 0;
+    import_armed = 0;
 }
 
 /* The canvas as the code has it. */
@@ -453,6 +455,7 @@ static void canvas_draw(int col, int width, int rows, int full, const char *msg)
             "Ctrl+V       paste at the cursor",
             "Del          empty the cells",
             "Ctrl+A       select all",
+            "i            import the ROM sheet",
             "Ctrl+E       hide or show the ROM",
             "Ctrl+T       canvas or ROM",
         };
@@ -460,7 +463,7 @@ static void canvas_draw(int col, int width, int rows, int full, const char *msg)
         for (int i = 0; i < (int)(sizeof help / sizeof help[0]) && FIRST + i < rows; i++)
             sdk_put_row(FIRST + i, col + sheet + 2, width - sheet - 2, help[i], (int)strlen(help[i]));
     }
-    const char *hint = "Ctrl+V: paste  Del: empty  Ctrl+E";
+    const char *hint = "Ctrl+V paste  i import  Ctrl+E";
     if (msg && msg[0]) {
         console_write("\x1b[93m");
         sdk_put_row(rows, col, width, msg, (int)strlen(msg));
@@ -565,6 +568,41 @@ static int canvas_key(int key, int mods)
     }
 }
 
+/* i: the sprite sheet of the ROM into the canvas, in the place of what it has. */
+static void import_sheet(int armed)
+{
+    if (!can_change())
+        return;
+    if (!armed && !sdk_canvas_empty()) {
+        snprintf(sdk_note, sizeof sdk_note, "i again replaces the canvas");
+        import_armed = 1;
+        return;
+    }
+    int fmt, chr, count;
+    const size_t start = sdk_tiles_start(rom, rom_size, &rom_info, &fmt, &chr);
+    size_t chr_len = chr ? (size_t)rom[5] * 8192 : 0;
+    if (chr && chr_len > rom_size - start)
+        chr_len = rom_size - start;
+    const int tile = sdk_tile_bytes(view_fmt);
+    const size_t from = sdk_canvas_sheet(rom_size, start, chr_len, view_off, tile, &count);
+    if (count == 0) {
+        snprintf(sdk_note, sizeof sdk_note, "No tiles to import here");
+        return;
+    }
+    sdk_canvas_import(rom, rom_size, from, view_fmt, count);
+    memset(&pen, 0, sizeof pen);
+    canvas_top = 0;
+    const int whole = (int)(chr_len / (size_t)tile);
+    if (code_kind != SDK_SPRITE_NONE &&
+        sdk_tile_colors(view_fmt) > sdk_tile_colors(sdk_chr_format(code_kind == SDK_SPRITE_NES)))
+        snprintf(sdk_note, sizeof sdk_note, "Imported %d tiles, colours cut", count);
+    else if (whole > count)
+        snprintf(sdk_note, sizeof sdk_note, "Imported %d of %d tiles from %06X", count, whole, (unsigned)from);
+    else
+        snprintf(sdk_note, sizeof sdk_note, "Imported %d tiles from %06X", count, (unsigned)from);
+    changed_canvas();
+}
+
 /* ---- the Sprite tab ---- */
 
 void sdk_sprite_draw(int cols, int rows, const char *msg)
@@ -596,6 +634,8 @@ void sdk_sprite_draw(int cols, int rows, const char *msg)
 int sdk_sprite_key(int key, int mods)
 {
     sdk_note[0] = 0;
+    const int armed = import_armed;
+    import_armed = 0;                           /* only the key after the question answers it */
     const int swap = key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL));    /* Ctrl+T, Ctrl+Tab */
     if (swap || key == 0x05) {                                              /* Ctrl+E: hide, show the ROM */
         if (!rom)
@@ -607,6 +647,13 @@ int sdk_sprite_key(int key, int mods)
             hidden = !hidden;
             focus = ON_CANVAS;
         }
+        return 1;
+    }
+    if (key == 'i') {
+        if (rom)
+            import_sheet(armed);
+        else
+            snprintf(sdk_note, sizeof sdk_note, "No ROM open (Esc > Open ROM)");
         return 1;
     }
     if (rom && !hidden && focus == ON_ROM)

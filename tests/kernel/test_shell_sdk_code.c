@@ -515,6 +515,32 @@ static void test_chr(void)
     sdk_canvas_reset();
 }
 
+/* the import of the sprite sheet of a ROM */
+static void test_import(void)
+{
+    int n;
+    /* a CHR ROM that fits is taken whole, wherever the view is */
+    CHECK(sdk_canvas_sheet(0x6010, 0x4010, 0x2000, 0x4810, 16, &n) == 0x4010 && n == 512);
+    CHECK(sdk_canvas_sheet(0x6010, 0x4010, 0x2000, 0, 16, &n) == 0x4010 && n == 512);
+    /* a larger one: from the view, to its end */
+    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x41010, 16, &n) == 0x41010 && n == 512);
+    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x5F010, 16, &n) == 0x5F010 && n == 256);
+    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x10, 16, &n) == 0x10 && n == 512);
+    /* no CHR ROM (a SNES file): from the view to the end of the file */
+    CHECK(sdk_canvas_sheet(0x8000, 0, 0, 0x7F00, 32, &n) == 0x7F00 && n == 8);
+    CHECK(sdk_canvas_sheet(100, 0, 0, 100, 32, &n) == 100 && n == 0);
+
+    static uint8_t data[64];
+    memset(data + 16, 0xFF, 8);             /* tile 1: colour 1; tile 0 and 2: colour 0 */
+    sdk_tile_t t = { .used = 1 };
+    sdk_canvas_reset();
+    sdk_canvas_set(5, 5, &t);
+    sdk_canvas_import(data, sizeof data, 0, SDK_TILE_NES, 3);
+    CHECK(!sdk_canvas_tile(0, 0)->used && sdk_canvas_tile(0, 1)->used && !sdk_canvas_tile(0, 2)->used);
+    CHECK(sdk_canvas_tile(0, 1)->pix[63] == 1 && !sdk_canvas_tile(5, 5)->used);
+    sdk_canvas_reset();
+}
+
 static void test_view(void)
 {
     sdk_view_t v;
@@ -683,6 +709,7 @@ int main(void)
     test_view();
     test_grid();
     test_chr();
+    test_import();
     test_tiles();
     test_tiles_start();
     test_tiles_move();

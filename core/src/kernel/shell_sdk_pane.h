@@ -6,7 +6,7 @@
 #define SHELL_SDK_PANE_H
 
 /* The answer to a key ("Copied 12 bytes"), shown by the pane that has the keys until the next key. */
-extern char sdk_note[48];
+extern char sdk_note[64];
 
 /* The console cursor to a cell (ANSI row and column, from 1). */
 void sdk_at(int row, int col);

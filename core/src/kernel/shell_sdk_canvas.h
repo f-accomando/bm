@@ -6,6 +6,7 @@
 #ifndef SHELL_SDK_CANVAS_H
 #define SHELL_SDK_CANVAS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define SDK_CANVAS_W 16                 /* tiles in a row: 128 pixels, as the tables of the NES */
@@ -39,5 +40,14 @@ int sdk_canvas_paste(int r, int c);
 /* The rectangle from (r1, c1) to (r2, c2), both included: copies it to the clipboard, or empties it. */
 void sdk_canvas_copy(int r1, int c1, int r2, int c2);
 void sdk_canvas_clear(int r1, int c1, int r2, int c2);
+
+/* The part of a ROM of size bytes that an import takes, with tiles of tile bytes. chr_from, chr_len: its CHR ROM
+ * (chr_len 0: it has none); view: the first tile that the view shows. A CHR ROM that the canvas holds is taken
+ * whole; else the tiles from view, to the end of the CHR ROM or of the file, at most SDK_CLIP_TILES. Returns
+ * where it starts; *count gets the tiles. */
+size_t sdk_canvas_sheet(size_t size, size_t chr_from, size_t chr_len, size_t view, int tile, int *count);
+/* The canvas becomes count tiles of data from the offset from, in their order (16 a row); a tile of colour 0
+ * only is an empty cell, the cells after the last tile are empty. */
+void sdk_canvas_import(const uint8_t *data, size_t size, size_t from, int fmt, int count);
 
 #endif /* SHELL_SDK_CANVAS_H */

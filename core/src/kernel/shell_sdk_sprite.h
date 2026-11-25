@@ -35,7 +35,8 @@ int sdk_tiles_key(int key, int mods);
 /* The Sprite tab; msg (or NULL) goes on the last row. */
 void sdk_sprite_draw(int cols, int rows, const char *msg);
 /* A key of the Sprite tab: Ctrl+T or Ctrl+Tab move between the canvas and the ROM, Ctrl+E hides or shows the
- * ROM; on the canvas the arrows move (Shift selects), Ctrl+C copy, Ctrl+X cut, Ctrl+V paste, Del empties. */
+ * ROM, i imports the sprite sheet of the ROM into the canvas (sdk_canvas_sheet; twice when the canvas has
+ * tiles); on the canvas the arrows move (Shift selects), Ctrl+C copy, Ctrl+X cut, Ctrl+V paste, Del empties. */
 int sdk_sprite_key(int key, int mods);
 
 #endif /* SHELL_SDK_SPRITE_H */

@@ -5167,6 +5167,32 @@ def test_shell_sdk_canvas_code(b, opts):
         sendkeys(q, "delete")                       # empties the cell: the block leaves the code
         time.sleep(0.5)
         assert not white(40, 56)
+        q.send("\x1b")
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM: canv.nes, the first one
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(1.0)
+        assert any("ROM: canv.nes" in r for r in screen())
+        q.send("i")                                 # the whole sprite sheet of the ROM into the canvas
+        rows = screen()
+        assert any("Imported 512 tiles from 008010" in r for r in rows), rows
+        assert white(40, 56), "the sheet starts with the tile of the build"
+        q.send("i")                                 # the canvas has tiles: it asks
+        assert any("i again replaces the canvas" in r for r in screen())
+        q.send(SDK_DOWN)                            # another key: the question is gone
+        q.send("i")
+        assert any("i again replaces the canvas" in r for r in screen())
+        q.send("i")
+        assert any("Imported 512 tiles" in r for r in screen())
+        q.send(bytes([0xFA]))                       # F2: the sheet is in the code, to its last tile with colour
+        sendkeys(q, "ctrl-alt-down")
+        for _ in range(5):
+            rows = screen()
+            if any(";@tiles  from the Sprite tab" in r for r in rows):
+                break
+            sendkeys(q, "pgup")
+        assert any(".chr" in r for r in rows) and any(".db $FF,$FF" in r for r in rows), rows
+        q.send(bytes([0xFB]))
         # a bm project has no assembly: its canvas is in no file
         q.send("\x1b")
         q.send(SDK_DOWN + b"\r")                    # New: the change is not saved

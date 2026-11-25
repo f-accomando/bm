@@ -8,7 +8,7 @@
 
 #include "gfx/console.h"
 
-char sdk_note[48];
+char sdk_note[64];
 
 void sdk_at(int row, int col)
 {

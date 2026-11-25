@@ -5,6 +5,8 @@
 
 #include <string.h>
 
+#include "shell_sdk_tiles.h"
+
 static sdk_tile_t canvas[SDK_CANVAS_H][SDK_CANVAS_W];
 static sdk_tile_t clip[SDK_CLIP_TILES];
 static int clip_w, clip_h;
@@ -78,4 +80,32 @@ void sdk_canvas_clear(int r1, int c1, int r2, int c2)
         for (int c = c1; c <= c2; c++)
             if (r >= 0 && r < SDK_CANVAS_H && c >= 0 && c < SDK_CANVAS_W)
                 memset(&canvas[r][c], 0, sizeof canvas[r][c]);
+}
+
+size_t sdk_canvas_sheet(size_t size, size_t chr_from, size_t chr_len, size_t view, int tile, int *count)
+{
+    size_t from = view, end = size;
+    if (chr_len && chr_len / (size_t)tile <= SDK_CLIP_TILES) {
+        from = chr_from;
+        end = chr_from + chr_len;
+    } else if (chr_len && view >= chr_from && view < chr_from + chr_len)
+        end = chr_from + chr_len;
+    if (end > size)
+        end = size;
+    const size_t n = from < end ? (end - from) / (size_t)tile : 0;
+    *count = n > SDK_CLIP_TILES ? SDK_CLIP_TILES : (int)n;
+    return from;
+}
+
+void sdk_canvas_import(const uint8_t *data, size_t size, size_t from, int fmt, int count)
+{
+    memset(canvas, 0, sizeof canvas);
+    const size_t tile = (size_t)sdk_tile_bytes(fmt);
+    for (int i = 0; i < count && i < SDK_CANVAS_W * SDK_CANVAS_H; i++) {
+        sdk_tile_t *t = &canvas[i / SDK_CANVAS_W][i % SDK_CANVAS_W];
+        sdk_tile_decode(data, size, from + (size_t)i * tile, fmt, t->pix);
+        for (int k = 0; k < 64; k++)
+            t->used |= t->pix[k] != 0;
+        t->fmt = (uint8_t)fmt;
+    }
 }
