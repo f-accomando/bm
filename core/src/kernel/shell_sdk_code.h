@@ -1,7 +1,9 @@
 /*
  * Shell SDK: the Code tab. A text editor on the left. When a ROM (.nes, .sfc, .smc) is open, the tab splits:
  * the editor stays on the left and the ROM (its header and a hex dump) is on the right. Ctrl+T or Ctrl+Tab
- * moves the focus from one side to the other; Ctrl+W closes the ROM. On the ROM side the key a
+ * moves the focus from one side to the other; Ctrl+W closes the ROM. The dump and the listing have the cursor
+ * and the moves of the editor, Shift selects and Ctrl+C copies into its clipboard; they cannot be changed.
+ * On the ROM side the key a
  * changes between the dump and the ASM listing (read only), and
  * the key t between the dump and the bytes drawn as 8x8 tiles. The Sprite tab shows the tiles of the same
  * ROM: the open ROM and the view of its tiles are one for the two tabs.

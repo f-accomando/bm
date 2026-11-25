@@ -329,6 +329,12 @@ int sdk_edit_line(int line, const char **s)
 
 size_t sdk_edit_clip_length(void) { return clip_len; }
 
+void sdk_edit_clip_set(const char *text, size_t len)
+{
+    clip_len = len < SDK_EDIT_MAX ? len : SDK_EDIT_MAX;
+    memcpy(clip, text, clip_len);
+}
+
 static int copy_do(int cut)
 {
     size_t a, b;

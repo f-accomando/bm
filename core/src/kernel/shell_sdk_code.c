@@ -15,6 +15,7 @@
 #include "shell_sdk_edit.h"
 #include "shell_sdk_rom.h"
 #include "shell_sdk_tiles.h"
+#include "shell_sdk_view.h"
 #include "usb/hid.h"
 
 #define ROM_MAX_BYTES (8u * 1024 * 1024)
@@ -30,12 +31,13 @@ static int top_line, left_col;          /* the scroll of the editor */
 static int cur_row = 1, cur_col = 1;    /* the text cursor on the screen (ANSI row and column), set when it is drawn */
 static int page_lines = 1;              /* the lines of a page of the editor, set when it is drawn */
 static char note[48];                   /* "Copied 12 bytes": shown until the next key */
-static int hex_bpr, hex_page;          /* bytes in a row and rows shown, set when the dump is drawn */
-static size_t hex_row;                  /* the first row of the dump shown (a row is bpr bytes) */
+static int hex_bpr = 8, hex_width = 39, hex_page = 1;  /* bytes in a row, cells and rows, set when drawn */
+static sdk_view_t hex_view, asm_view;   /* the cursor in the dump and in the listing: read and copy only */
+static int rom_cur_row, rom_cur_col;    /* where that cursor is on the screen */
 static int asm_on;                      /* the ROM side shows the ASM listing, not the dump */
 static char *asm_text;                  /* the listing of the open ROM, made the first time it is asked */
 static char **asm_line;                 /* where each line of the listing starts (the lines end with 0) */
-static int asm_lines, asm_top, asm_page;
+static int asm_lines, asm_page = 1;
 static sdk_dis_info_t asm_info;         /* the bank it shows, for a ROM with banks */
 static int tiles_on;                    /* the ROM side shows the bytes as 8x8 tiles */
 static size_t tiles_off;                /* the offset of the first tile shown */
@@ -63,7 +65,7 @@ static void free_listing(void)
     free(asm_text);
     asm_line = NULL;
     asm_text = NULL;
-    asm_lines = asm_top = 0;
+    asm_lines = 0;
     asm_on = 0;
 }
 
@@ -96,7 +98,7 @@ static int make_listing(int bank, char *err, size_t en)
     asm_text = text;
     asm_line = line;
     asm_lines = n;
-    asm_top = 0;
+    sdk_view_reset(&asm_view, n);
     asm_info = info;
     return 0;
 }
@@ -112,7 +114,7 @@ static void close_rom(void)
     rom_name[0] = 0;
     focus = FOCUS_EDITOR;
     left_col = 0;
-    hex_row = 0;
+    sdk_view_reset(&hex_view, 0);
 }
 
 void sdk_code_reset(void)
@@ -156,7 +158,7 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
     const char *base = strrchr(path, '/');
     snprintf(rom_name, sizeof rom_name, "%s", base ? base + 1 : path);
     focus = FOCUS_EDITOR;
-    hex_row = 0;
+    sdk_view_reset(&hex_view, 0);
     tiles_on = 0;
     tiles_per = SDK_TILES_ROW;
     tiles_tall = 0;
@@ -292,7 +294,53 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
     cur_col = col + GUTTER + (c - left_col);
 }
 
-/* The last row of the ROM pane: the answer to the last key (a, b), or else the hint. */
+/* The lines of the two read-only views. */
+static int asm_text_line(void *ctx, int line, char *out, size_t n)
+{
+    (void)ctx;
+    return snprintf(out, n, "%s", line >= 0 && line < asm_lines ? asm_line[line] : "");
+}
+
+static int hex_text_line(void *ctx, int line, char *out, size_t n)
+{
+    (void)ctx;
+    sdk_rom_hex_row(rom, rom_size, (size_t)line * (size_t)hex_bpr, hex_width, out, n);
+    return (int)strlen(out);
+}
+
+/* Rows of a read-only view from the ANSI row first: the text, the selection, and where its cursor is. A label
+ * or a comment line of the listing stands out. */
+static void view_rows(sdk_view_t *v, sdk_view_line_t fn, int first, int col, int width, int h, int listing)
+{
+    sdk_view_scroll(v, h, width);
+    int l1 = 0, c1 = 0, l2 = 0, c2 = 0;
+    const int selected = sdk_view_selection(v, &l1, &c1, &l2, &c2);
+    for (int i = 0; i < h; i++) {
+        const int l = v->top + i;
+        char s[SDK_VIEW_LINE];
+        int n = l < v->lines ? fn(NULL, l, s, sizeof s) : 0;
+        const int mark = listing && n && (s[n - 1] == ':' || s[0] == ';');
+        int sc = 0, ec = 0;
+        if (selected && l >= l1 && l <= l2) {
+            sc = (l == l1 ? c1 : 0) - v->left;
+            ec = (l == l2 ? c2 : n + 1) - v->left;
+        }
+        const char *from = s;
+        if (v->left >= n) {
+            from = "";
+            n = 0;
+        } else {
+            from += v->left;
+            n -= v->left;
+        }
+        console_write(mark ? "\x1b[93m" : "\x1b[0m");
+        text_row(first + i, col, width, from, n, sc, ec);
+    }
+    rom_cur_row = first + (v->line - v->top);
+    rom_cur_col = col + (v->col - v->left);
+}
+
+/* The last row of the ROM pane: the answer to the last key (a, b, a copy), or else the hint. */
 static void rom_status(int col, int width, int rows, const char *hint)
 {
     const int answer = pane_active && note[0];
@@ -302,8 +350,7 @@ static void rom_status(int col, int width, int rows, const char *hint)
     console_write("\x1b[0m");
 }
 
-/* The ASM side: the rows 2 to rows-1 are the listing, from asm_top; for a ROM with banks row 2 names the
- * bank. */
+/* The ASM side: the rows 2 to rows-1 are the listing; for a ROM with banks row 2 names the bank. */
 static void draw_listing(int col, int width, int rows)
 {
     const int first = asm_info.banks ? 3 : 2;
@@ -316,18 +363,12 @@ static void draw_listing(int col, int width, int rows)
         console_write("\x1b[96m");
         put_row(2, col, width, b, (int)strlen(b));
     }
-    for (int i = 0; i < h; i++) {
-        const int l = asm_top + i;
-        const char *s = l < asm_lines ? asm_line[l] : "";
-        const int n = (int)strlen(s);
-        console_write(n && (s[n - 1] == ':' || s[0] == ';') ? "\x1b[93m" : "\x1b[0m");     /* a label stands out */
-        put_row(first + i, col, width, s, n);
-    }
+    view_rows(&asm_view, asm_text_line, first, col, width, h, 1);
     char st[64];
     if (asm_info.banks)
-        snprintf(st, sizeof st, "ASM %d/%d  Left/Right: bank  a: hex", asm_top + 1, asm_lines);
+        snprintf(st, sizeof st, "ASM %d/%d  +/-: bank  a: hex", asm_view.line + 1, asm_lines);
     else
-        snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_top + 1, asm_lines);
+        snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_view.line + 1, asm_lines);
     rom_status(col, width, rows, st);
 }
 
@@ -461,23 +502,25 @@ static void draw_rom(int col, int width, int rows)
     console_write("\x1b[0m");
     row++;
 
-    const int bpr = sdk_rom_hex_bytes(width);
-    const size_t total_rows = (rom_size + (size_t)bpr - 1) / (size_t)bpr;
     const int h = rows - row;                       /* up to the row before the last */
-    hex_bpr = bpr;
+    hex_bpr = sdk_rom_hex_bytes(width);
+    hex_width = width;
     hex_page = h > 0 ? h : 1;
-    for (int i = 0; i < h; i++) {
-        char line[96];
-        const size_t r = hex_row + (size_t)i;
-        if (r < total_rows) {
-            sdk_rom_hex_row(rom, rom_size, r * (size_t)bpr, width, line, sizeof line);
-            console_write("\x1b[0m");
-        } else
-            line[0] = 0;
-        put_row(row + i, col, width, line, (int)strlen(line));
-    }
+    hex_view.lines = (int)((rom_size + (size_t)hex_bpr - 1) / (size_t)hex_bpr);
+    view_rows(&hex_view, hex_text_line, row, col, width, h, 0);
+
+    /* the offset of the byte under the cursor: in the numbers or in the letters, else the start of the row */
+    const int numbers = 7, letters = numbers + 3 * hex_bpr;
+    int byte = 0;
+    if (hex_view.col >= letters && hex_view.col < letters + hex_bpr)
+        byte = hex_view.col - letters;
+    else if (hex_view.col >= numbers && hex_view.col < letters)
+        byte = (hex_view.col - numbers) / 3;
+    size_t at_byte = (size_t)hex_view.line * (size_t)hex_bpr + (size_t)byte;
+    if (at_byte >= rom_size && rom_size)
+        at_byte = rom_size - 1;
     char st[48];
-    snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)(hex_row * (size_t)bpr));
+    snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)at_byte);
     rom_status(col, width, rows, st);
 }
 
@@ -501,6 +544,9 @@ void sdk_code_draw(int cols, int rows, const char *msg)
     draw_rom(lw + 1, cols - lw - 1, rows);
     if (focus == FOCUS_EDITOR) {
         at(cur_row, cur_col);                               /* a solid square, the letter under it swapped */
+        console_cursor_mode(CONSOLE_CURSOR_BLOCK);
+    } else if (!tiles_on) {                                 /* the same square in the dump and the listing */
+        at(rom_cur_row, rom_cur_col);
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
     } else {
         at(1, 1);
@@ -554,33 +600,55 @@ void sdk_sprite_draw(int cols, int rows, const char *msg)
 
 /* ---- keys ---- */
 
-static int listing_key(int key)
+/* The keys of the dump and of the listing: the moves of the editor, with Shift to select; Ctrl+C copies into
+ * the clipboard of the editor. Nothing changes the ROM. */
+static int view_key(sdk_view_t *v, sdk_view_line_t fn, int page, int key, int mods)
 {
-    if (asm_info.banks > 1 && (key == HID_KEY_LEFT || key == HID_KEY_RIGHT)) {     /* the bank before, after */
-        const int step = key == HID_KEY_LEFT ? asm_info.banks - 1 : 1;
+    const int ctrl = (mods & SDK_MOD_CTRL) != 0, alt = (mods & SDK_MOD_ALT) != 0;
+    int m = -1;
+    switch (key) {
+    case HID_KEY_UP: m = ctrl && alt ? SDK_VIEW_DOC_START : alt ? SDK_VIEW_PGUP : SDK_VIEW_UP; break;
+    case HID_KEY_DOWN: m = ctrl && alt ? SDK_VIEW_DOC_END : alt ? SDK_VIEW_PGDN : SDK_VIEW_DOWN; break;
+    case HID_KEY_LEFT: m = ctrl && alt ? SDK_VIEW_HOME : ctrl ? SDK_VIEW_WORD_LEFT : SDK_VIEW_LEFT; break;
+    case HID_KEY_RIGHT: m = ctrl && alt ? SDK_VIEW_END : ctrl ? SDK_VIEW_WORD_RIGHT : SDK_VIEW_RIGHT; break;
+    case HID_KEY_HOME: m = SDK_VIEW_HOME; break;
+    case HID_KEY_END: m = SDK_VIEW_END; break;
+    case HID_KEY_PGUP: m = SDK_VIEW_PGUP; break;
+    case HID_KEY_PGDN: m = SDK_VIEW_PGDN; break;
+    case 0x01: sdk_view_select_all(v, fn, NULL); return 1;          /* Ctrl+A */
+    case 0x03: {                                                    /* Ctrl+C */
+        char *text = malloc(SDK_EDIT_MAX);
+        if (!text) {
+            snprintf(note, sizeof note, "Not enough memory to copy");
+            return 1;
+        }
+        int cut = 0;
+        const size_t n = sdk_view_copy(v, fn, NULL, text, SDK_EDIT_MAX, &cut);
+        sdk_edit_clip_set(text, n);
+        free(text);
+        snprintf(note, sizeof note, cut ? "Copied %u bytes, the most it holds" : "Copied %u bytes", (unsigned)n);
+        return 1;
+    }
+    case 0x18:                                                      /* Ctrl+X */
+    case 0x16:                                                      /* Ctrl+V */
+        snprintf(note, sizeof note, "The ROM is read only: Ctrl+C copies");
+        return 1;
+    default: return 0;
+    }
+    sdk_view_move(v, m, mods & SDK_MOD_SHIFT, page, fn, NULL);
+    return 1;
+}
+
+static int listing_key(int key, int mods)
+{
+    if (asm_info.banks > 1 && (key == '+' || key == '=' || key == '-')) {          /* the bank after, before */
+        const int step = key == '-' ? asm_info.banks - 1 : 1;
         char err[sizeof note];
         if (make_listing((asm_info.bank + step) % asm_info.banks, err, sizeof err) != 0)
             snprintf(note, sizeof note, "%s", err);
         return 1;
     }
-    const int last = asm_lines > asm_page ? asm_lines - asm_page : 0;
-    if (key == HID_KEY_UP)
-        asm_top--;
-    else if (key == HID_KEY_DOWN)
-        asm_top++;
-    else if (key == HID_KEY_PGUP)
-        asm_top -= asm_page;
-    else if (key == HID_KEY_PGDN)
-        asm_top += asm_page;
-    else if (key == HID_KEY_HOME)
-        asm_top = 0;
-    else if (key == HID_KEY_END)
-        asm_top = last;
-    else
-        return 0;
-    asm_top = asm_top > last ? last : asm_top;
-    asm_top = asm_top < 0 ? 0 : asm_top;
-    return 1;
+    return view_key(&asm_view, asm_text_line, asm_page, key, mods);
 }
 
 static int tiles_key(int key, int mods)
@@ -649,28 +717,10 @@ static int rom_key(int key, int mods)
         return 1;
     }
     if (asm_on)
-        return listing_key(key);
+        return listing_key(key, mods);
     if (tiles_on)
         return tiles_key(key, mods);
-    const size_t bpr = (size_t)(hex_bpr > 0 ? hex_bpr : 16);
-    const size_t total = (rom_size + bpr - 1) / bpr;
-    const size_t page = (size_t)(hex_page > 0 ? hex_page : 1);
-    const size_t last = total > page ? total - page : 0;
-    if (key == HID_KEY_UP)
-        hex_row = hex_row ? hex_row - 1 : 0;
-    else if (key == HID_KEY_DOWN)
-        hex_row = hex_row < last ? hex_row + 1 : last;
-    else if (key == HID_KEY_PGUP)
-        hex_row = hex_row > page ? hex_row - page : 0;
-    else if (key == HID_KEY_PGDN)
-        hex_row = hex_row + page < last ? hex_row + page : last;
-    else if (key == HID_KEY_HOME)
-        hex_row = 0;
-    else if (key == HID_KEY_END)
-        hex_row = last;
-    else
-        return 0;
-    return 1;
+    return view_key(&hex_view, hex_text_line, hex_page, key, mods);
 }
 
 /* A move of the cursor: Shift keeps the selection (and grows it), no Shift ends it. */

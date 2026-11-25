@@ -59,6 +59,8 @@ int sdk_edit_copy(int cut);
 /* Inserts the clipboard in place of the selection. Returns the bytes inserted (0 when empty or full). */
 int sdk_edit_paste(void);
 size_t sdk_edit_clip_length(void);
+/* Puts text in the clipboard (a copy from the ROM side), cut at SDK_EDIT_MAX. */
+void sdk_edit_clip_set(const char *text, size_t len);
 /* Copies the current line under itself, and the cursor goes to the copy. Returns 1 when the text changed. */
 int sdk_edit_duplicate_line(void);
 

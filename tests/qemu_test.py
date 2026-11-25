@@ -4948,8 +4948,8 @@ def test_shell_sdk_run(b, opts):
 
 def test_shell_sdk_banks(b, opts):
     """Shell SDK (2026-11-25): the ASM view of a NES ROM with banks (mapper 4, as Super Mario Bros 3): `a` shows
-    the last 8 KB bank at $E000, Left and Right change the bank, the address of the others comes from their
-    calls."""
+    the last 8 KB bank at $E000, + and - change the bank, the address of the others comes from their calls.
+    The listing has the cursor of the editor: Shift selects, Ctrl+C copies, the editor pastes."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -4966,7 +4966,7 @@ def test_shell_sdk_banks(b, opts):
     with open(nes, "wb") as f:                      # 256 KB PRG, 128 KB CHR, mapper 4
         f.write(b"NES\x1a" + bytes([16, 16, 0x40, 0]) + bytes(8) + b"".join(banks) + bytes(131072))
     mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt"), (nes, "nes/banked.nes")])
-    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
 
     def screen():
         time.sleep(0.8)
@@ -4994,14 +4994,14 @@ def test_shell_sdk_banks(b, opts):
         rows = screen()
         assert any("PRG bank 31/31 (8 KB) at $E000" in r for r in rows), rows
         assert any("reset:" in r for r in rows) and any("E002  jmp reset" in r for r in rows), rows
-        assert any("Left/Right: bank" in r for r in rows), rows
-        q.send(SDK_RIGHT)                           # past the last bank: the first one
+        assert any("+/-: bank" in r for r in rows), rows
+        q.send("+")                                 # past the last bank: the first one
         time.sleep(1.5)
         rows = screen()
         assert any("PRG bank 0/31 (8 KB) at $8000 guess" in r for r in rows), rows
         assert any("8000  lda #$00" in r for r in rows), rows
-        q.send(SDK_RIGHT)
-        q.send(SDK_RIGHT)                           # bank 2 calls into $A000
+        q.send("+")
+        q.send("+")                                 # bank 2 calls into $A000
         time.sleep(2.0)
         rows = screen()
         assert any("PRG bank 2/31 (8 KB) at $A000 guess" in r for r in rows), rows
@@ -5010,9 +5010,24 @@ def test_shell_sdk_banks(b, opts):
         assert any("000000 4E 45 53 1A" in r for r in screen())
         q.send("a")
         assert any("PRG bank 2/31" in r for r in screen())
-        q.send(SDK_LEFT)
+        q.send("-")
         time.sleep(1.5)
         assert any("PRG bank 1/31" in r for r in screen())
+        img = q.screendump()                        # the cursor: a solid square on the first cell of the listing
+        x0 = img[0] // 8 // 2 * 8
+        lum = lambda x, y: sum(pixel(img, x, y))
+        assert lum(x0 + 1, 49) > 300 and lum(x0 + 9, 49) < 100, (lum(x0 + 1, 49), lum(x0 + 9, 49))
+        sendkeys(q, "shift-end ctrl-c")             # select the first line and copy it
+        rows = screen()
+        assert any("Copied " in r for r in rows), rows
+        sendkeys(q, "down")
+        assert any("ASM 2/" in r for r in screen())
+        sendkeys(q, "ctrl-x")                       # the ROM cannot be changed
+        assert any("read only" in r for r in screen())
+        sendkeys(q, "ctrl-t")                       # the editor: all its text replaced by the copy
+        sendkeys(q, "ctrl-a ctrl-v")
+        rows = screen()
+        assert any(" 1 8000  lda #$01" in r for r in rows) and any("Pasted " in r for r in rows), rows
         q.send("\x1b")
         q.send(SDK_UP + b"\r")                      # Exit
         time.sleep(0.5)

@@ -8,6 +8,7 @@
 #include "kernel/shell_sdk_edit.h"
 #include "kernel/shell_sdk_rom.h"
 #include "kernel/shell_sdk_tiles.h"
+#include "kernel/shell_sdk_view.h"
 
 static int fails;
 
@@ -365,6 +366,77 @@ static void test_hex(void)
     CHECK(!strncmp(row, "000010 51 52 53 54 ", 19) && strlen(row) == 6 + 1 + 8 * 3 + 8);
 }
 
+/* the read-only view of the dump and the listing */
+static const char *const view_text[] = { "8000  lda #$00", "", "8002  rts" };
+
+static int view_line(void *ctx, int line, char *out, size_t n)
+{
+    (void)ctx;
+    return snprintf(out, n, "%s", view_text[line]);
+}
+
+static void test_view(void)
+{
+    sdk_view_t v;
+    char out[64];
+    int cut, l1, c1, l2, c2;
+    sdk_view_reset(&v, 3);
+
+    /* nothing selected: the line with its end */
+    size_t n = sdk_view_copy(&v, view_line, NULL, out, sizeof out, &cut);
+    CHECK(n == 15 && !cut && !memcmp(out, "8000  lda #$00\n", n));
+
+    /* words and a selection with Shift */
+    sdk_view_move(&v, SDK_VIEW_WORD_RIGHT, 0, 10, view_line, NULL);
+    CHECK(v.line == 0 && v.col == 6);
+    sdk_view_move(&v, SDK_VIEW_WORD_RIGHT, 1, 10, view_line, NULL);
+    CHECK(sdk_view_selection(&v, &l1, &c1, &l2, &c2) && l1 == 0 && c1 == 6 && l2 == 0 && c2 == 12);
+    n = sdk_view_copy(&v, view_line, NULL, out, sizeof out, &cut);
+    CHECK(n == 6 && !memcmp(out, "lda #$", n));
+    sdk_view_move(&v, SDK_VIEW_DOWN, 1, 10, view_line, NULL);       /* an empty line: the column is kept */
+    CHECK(v.line == 1 && v.col == 0 && v.want == 12);
+    sdk_view_move(&v, SDK_VIEW_DOWN, 1, 10, view_line, NULL);
+    CHECK(v.line == 2 && v.col == 9);                               /* "8002  rts" is shorter */
+    n = sdk_view_copy(&v, view_line, NULL, out, sizeof out, &cut);
+    CHECK(n == 19 && !memcmp(out, "lda #$00\n\n8002  rts", n));
+
+    /* backwards, and a move with no Shift ends the selection */
+    sdk_view_move(&v, SDK_VIEW_HOME, 0, 10, view_line, NULL);
+    CHECK(!sdk_view_selection(&v, &l1, &c1, &l2, &c2) && v.col == 0);
+    sdk_view_move(&v, SDK_VIEW_LEFT, 1, 10, view_line, NULL);       /* to the end of the line above */
+    CHECK(v.line == 1 && v.col == 0);
+    CHECK(sdk_view_selection(&v, &l1, &c1, &l2, &c2) && l1 == 1 && l2 == 2 && c2 == 0);
+    n = sdk_view_copy(&v, view_line, NULL, out, sizeof out, &cut);
+    CHECK(n == 1 && out[0] == '\n');
+
+    /* all, and a buffer too small */
+    sdk_view_select_all(&v, view_line, NULL);
+    n = sdk_view_copy(&v, view_line, NULL, out, sizeof out, &cut);
+    CHECK(n == 25 && !cut && !memcmp(out, "8000  lda #$00\n\n8002  rts", n));
+    n = sdk_view_copy(&v, view_line, NULL, out, 10, &cut);
+    CHECK(n == 10 && cut);
+
+    /* pages, the ends and the scroll */
+    sdk_view_move(&v, SDK_VIEW_DOC_START, 0, 10, view_line, NULL);
+    CHECK(v.line == 0 && v.col == 0);
+    sdk_view_move(&v, SDK_VIEW_PGDN, 0, 2, view_line, NULL);
+    sdk_view_scroll(&v, 2, 80);
+    CHECK(v.line == 2 && v.top == 1);
+    sdk_view_move(&v, SDK_VIEW_PGUP, 0, 2, view_line, NULL);
+    sdk_view_scroll(&v, 2, 80);
+    CHECK(v.line == 0 && v.top == 0);
+    sdk_view_move(&v, SDK_VIEW_END, 0, 2, view_line, NULL);
+    sdk_view_scroll(&v, 2, 8);
+    CHECK(v.col == 14 && v.left == 7);
+    sdk_view_move(&v, SDK_VIEW_DOC_END, 0, 2, view_line, NULL);
+    CHECK(v.line == 2 && v.col == 9);
+
+    /* the copy goes to the clipboard of the editor */
+    sdk_edit_reset();
+    sdk_edit_clip_set("sei", 3);
+    CHECK(sdk_edit_paste() == 3 && !memcmp(sdk_edit_text(), "sei", 3));
+}
+
 static void test_tiles(void)
 {
     uint8_t d[128], pix[64];
@@ -468,6 +540,7 @@ int main(void)
     test_nes();
     test_snes();
     test_hex();
+    test_view();
     test_tiles();
     test_tiles_start();
     test_tiles_move();
