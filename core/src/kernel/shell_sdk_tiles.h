@@ -10,7 +10,8 @@
 
 #include "shell_sdk_rom.h"
 
-#define SDK_TILES_ROW 16            /* tiles in a row of the view */
+#define SDK_TILES_ROW     16        /* tiles in a row of the view when a ROM opens */
+#define SDK_TILES_ROW_MAX 32
 
 /* NES: 8 bytes of bit 0, then 8 bytes of bit 1. SNES: the bits in pairs, two bytes per line (4 bpp: the
  * lines of bits 0 and 1, then those of bits 2 and 3). */
@@ -29,11 +30,16 @@ void sdk_tile_decode(const uint8_t *data, size_t size, size_t off, int fmt, uint
  * after its copier header. fmt gets the format to read it with. */
 size_t sdk_tiles_start(const uint8_t *data, size_t size, const sdk_rom_t *info, int *fmt, int *chr);
 
+/* The tile of the cell at row r, column c of a view with per tiles a row, counted from the first tile shown.
+ * tall: the order of 8x16 sprites, where a tile and the one after it are above each other. */
+int sdk_tiles_cell(int r, int c, int per, int tall);
+
 enum { SDK_TILES_UP, SDK_TILES_DOWN, SDK_TILES_PGUP, SDK_TILES_PGDN, SDK_TILES_LEFT, SDK_TILES_RIGHT,
-       SDK_TILES_END };
+       SDK_TILES_END, SDK_TILES_BACK, SDK_TILES_NEXT };
 
 /* The new offset of the view after a move: a row, a page of rows rows, a byte (to find where the tiles
- * start), or the last page. */
-size_t sdk_tiles_move(size_t off, size_t size, int fmt, int rows, int move);
+ * start), a tile (to put the first one of a picture at the left) or the last page. group: the tiles of a row
+ * (twice the tiles a row in the 8x16 order, where a row is two tiles high). */
+size_t sdk_tiles_move(size_t off, size_t size, int fmt, int group, int rows, int move);
 
 #endif /* SHELL_SDK_TILES_H */

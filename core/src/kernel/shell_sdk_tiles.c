@@ -59,10 +59,15 @@ size_t sdk_tiles_start(const uint8_t *data, size_t size, const sdk_rom_t *info, 
     return size % 1024 == 512 ? 512 : 0;
 }
 
-size_t sdk_tiles_move(size_t off, size_t size, int fmt, int rows, int move)
+int sdk_tiles_cell(int r, int c, int per, int tall)
+{
+    return tall ? ((r / 2) * per + c) * 2 + (r & 1) : r * per + c;
+}
+
+size_t sdk_tiles_move(size_t off, size_t size, int fmt, int group, int rows, int move)
 {
     const size_t tile = (size_t)sdk_tile_bytes(fmt);
-    const size_t row = tile * SDK_TILES_ROW;
+    const size_t row = tile * (size_t)(group > 0 ? group : 1);
     const size_t page = row * (size_t)(rows > 0 ? rows : 1);
     const size_t last = size > page ? size - page : 0;      /* the last page ends with the file */
     switch (move) {
@@ -74,7 +79,7 @@ size_t sdk_tiles_move(size_t off, size_t size, int fmt, int rows, int move)
     case SDK_TILES_DOWN:
     case SDK_TILES_PGDN: {
         const size_t d = move == SDK_TILES_DOWN ? row : page;
-        const size_t end = sdk_tiles_move(off, size, fmt, rows, SDK_TILES_END);
+        const size_t end = sdk_tiles_move(off, size, fmt, group, rows, SDK_TILES_END);
         const size_t limit = end > off ? end : off;
         return off + d < limit ? off + d : limit;
     }
@@ -82,6 +87,10 @@ size_t sdk_tiles_move(size_t off, size_t size, int fmt, int rows, int move)
         return off ? off - 1 : 0;
     case SDK_TILES_RIGHT:
         return off + 1 < size ? off + 1 : off;
+    case SDK_TILES_BACK:
+        return off >= tile ? off - tile : off;
+    case SDK_TILES_NEXT:
+        return off + tile < size ? off + tile : off;
     default: {                                              /* SDK_TILES_END, in step with the tiles of off */
         const size_t phase = off % tile;
         return last + (phase + tile - last % tile) % tile;

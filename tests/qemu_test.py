@@ -4603,6 +4603,35 @@ def test_shell_sdk_code_split(b, opts):
         assert any(r.find("NES tiles are 2bpp") >= pane for r in rows), rows
         q.send("ss")                                # the letters do not scroll: only the arrows
         assert any("004010" in r for r in screen())
+        q.send("-" * 14)                            # two tiles a row: the others go below
+        rows = screen()
+        assert any("2/row 8x8" in r for r in rows), rows
+        assert any("004030" in r for r in rows) and any("004050" in r for r in rows), rows
+        img = q.screendump()
+        assert near(8, 8, (255, 255, 255)), pixel(img, x0 + 8, 56)      # tile 0
+        assert near(24, 8 + 8 * 16, (111, 111, 111)), pixel(img, x0 + 24, 56 + 128)     # tile 17, ninth row
+        q.send("o")                                 # 8x16: tile 1 under tile 0
+        rows = screen()
+        assert any("2/row 8x16" in r for r in rows) and any("004020" in r for r in rows), rows
+        assert any("004050" in r for r in rows), rows
+        img = q.screendump()
+        assert near(8, 8, (255, 255, 255)) and near(8, 24, (0, 0, 56)), pixel(img, x0 + 8, 72)
+        sendkeys(q, "ctrl-right")                   # one tile further
+        rows = screen()
+        assert any("004020" in r for r in rows) and not any("004010" in r for r in rows), rows
+        sendkeys(q, "ctrl-left")
+        assert any("004010" in r for r in screen())
+        q.send("+")
+        assert any("3/row 8x16" in r for r in screen())
+        q.send(bytes([0xFB]))                       # F3: the Sprite tab shows the same ROM, the same view
+        rows = screen()
+        assert any("ROM: test.nes" in r for r in rows) and any("3/row 8x16" in r for r in rows), rows
+        assert any("tiles in a row" in r for r in rows), rows
+        q.send("-")
+        assert any("2/row 8x16" in r for r in screen())
+        q.send(bytes([0xFA]))                       # F2: the Code tab again
+        rows = screen()
+        assert any("2/row 8x16" in r for r in rows) and any("Ctrl+T: ROM" in r for r in rows), rows
         q.send("t")                                 # back to the dump
         assert any("000000 4E 45 53 1A" in r for r in screen())
         q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
@@ -4648,6 +4677,24 @@ def test_shell_sdk_code_split(b, opts):
         assert any("ROM  2bpp" in r for r in screen())
         q.send("b")
         assert any("ROM  8bpp" in r for r in screen())
+        q.send(bytes([0xFB]))                       # F3: the Sprite tab, the SNES ROM
+        rows = screen()
+        assert any("ROM: snesdemo.sfc" in r for r in rows) and any("ROM  8bpp" in r for r in rows), rows
+        sendkeys(q, "ctrl-w")                       # closes the ROM for both tabs
+        rows = screen()
+        assert any("Sprite: not built yet" in r for r in rows) and any("ROM closed" in r for r in rows), rows
+        q.send("\x1b")
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM from the Sprite tab: it stays there
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(0.8)
+        rows = screen()
+        assert any("ROM: test.nes" in r for r in rows) and any("tiles in a row" in r for r in rows), rows
+        assert any("16/row 8x8" in r for r in rows), rows
+        img = q.screendump()
+        assert near(8, 8, (255, 255, 255)) and near(24, 24, (111, 111, 111)), pixel(img, x0 + 24, 72)
+        q.send(bytes([0xFA]))                       # F2: the Code tab has the ROM too
+        assert any("ROM: test.nes" in r for r in screen())
         q.send("\x1b")
         q.send(SDK_UP + b"\r")                      # Exit: the text is not saved, the SDK asks
         time.sleep(0.5)

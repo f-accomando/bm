@@ -432,19 +432,32 @@ static void test_tiles_move(void)
     const size_t size = 0x6010;     /* a NES file: 16 KB of program, 8 KB of CHR */
     const int f = SDK_TILE_NES;     /* a row is 0x100 bytes; a page of 10 rows is 0xA00 */
 
-    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_DOWN) == 0x4110);
-    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_PGDN) == 0x4A10);
-    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_END) == 0x5610);
-    CHECK(sdk_tiles_move(0x5610, size, f, 10, SDK_TILES_DOWN) == 0x5610);       /* the last page stays */
-    CHECK(sdk_tiles_move(0x5510, size, f, 10, SDK_TILES_PGDN) == 0x5610);
-    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_UP) == 0x3F10);
-    CHECK(sdk_tiles_move(0x0110, size, f, 10, SDK_TILES_PGUP) == 0);            /* a whole tile */
-    CHECK(sdk_tiles_move(0x0115, size, f, 10, SDK_TILES_PGUP) == 5);
-    CHECK(sdk_tiles_move(0x4010, size, f, 10, SDK_TILES_RIGHT) == 0x4011);
-    CHECK(sdk_tiles_move(0, size, f, 10, SDK_TILES_LEFT) == 0);
-    CHECK(sdk_tiles_move(size - 1, size, f, 10, SDK_TILES_RIGHT) == size - 1);
-    CHECK(sdk_tiles_move(size - 1, size, f, 10, SDK_TILES_DOWN) == size - 1);   /* past the last page: stays */
-    CHECK(sdk_tiles_move(0, 64, f, 10, SDK_TILES_PGDN) == 0);                   /* a file shorter than a page */
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_DOWN) == 0x4110);
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_PGDN) == 0x4A10);
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_END) == 0x5610);
+    CHECK(sdk_tiles_move(0x5610, size, f, 16, 10, SDK_TILES_DOWN) == 0x5610);       /* the last page stays */
+    CHECK(sdk_tiles_move(0x5510, size, f, 16, 10, SDK_TILES_PGDN) == 0x5610);
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_UP) == 0x3F10);
+    CHECK(sdk_tiles_move(0x0110, size, f, 16, 10, SDK_TILES_PGUP) == 0);            /* a whole tile */
+    CHECK(sdk_tiles_move(0x0115, size, f, 16, 10, SDK_TILES_PGUP) == 5);
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_RIGHT) == 0x4011);
+    CHECK(sdk_tiles_move(0, size, f, 16, 10, SDK_TILES_LEFT) == 0);
+    CHECK(sdk_tiles_move(size - 1, size, f, 16, 10, SDK_TILES_RIGHT) == size - 1);
+    CHECK(sdk_tiles_move(size - 1, size, f, 16, 10, SDK_TILES_DOWN) == size - 1);   /* past the last page: stays */
+    CHECK(sdk_tiles_move(0, 64, f, 16, 10, SDK_TILES_PGDN) == 0);                   /* a file shorter than a page */
+    /* a tile at a time, and other widths of a row */
+    CHECK(sdk_tiles_move(0x4010, size, f, 16, 10, SDK_TILES_NEXT) == 0x4020);
+    CHECK(sdk_tiles_move(0x4020, size, f, 16, 10, SDK_TILES_BACK) == 0x4010);
+    CHECK(sdk_tiles_move(5, size, f, 16, 10, SDK_TILES_BACK) == 5);
+    CHECK(sdk_tiles_move(size - 1, size, f, 16, 10, SDK_TILES_NEXT) == size - 1);
+    CHECK(sdk_tiles_move(0x4010, size, f, 2, 10, SDK_TILES_DOWN) == 0x4030);
+    CHECK(sdk_tiles_move(0x4010, size, f, 3, 10, SDK_TILES_PGDN) == 0x41F0);
+    /* the cells: in rows, or as 8x16 sprites (0 above 1, 2 above 3) */
+    CHECK(sdk_tiles_cell(0, 0, 16, 0) == 0 && sdk_tiles_cell(1, 2, 16, 0) == 18);
+    CHECK(sdk_tiles_cell(1, 0, 2, 0) == 2 && sdk_tiles_cell(2, 1, 3, 0) == 7);
+    CHECK(sdk_tiles_cell(0, 0, 4, 1) == 0 && sdk_tiles_cell(1, 0, 4, 1) == 1);
+    CHECK(sdk_tiles_cell(0, 1, 4, 1) == 2 && sdk_tiles_cell(1, 1, 4, 1) == 3);
+    CHECK(sdk_tiles_cell(2, 0, 4, 1) == 8 && sdk_tiles_cell(3, 3, 4, 1) == 15);
 }
 
 int main(void)

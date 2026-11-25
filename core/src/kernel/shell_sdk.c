@@ -153,6 +153,10 @@ static void draw(int tab)
         sdk_code_draw((int)cols, (int)rows, msg);
         return;
     }
+    if (tab == SDK_TAB_SPRITE && sdk_code_has_rom()) {
+        sdk_sprite_draw((int)cols, (int)rows, msg);
+        return;
+    }
     console_cursor_mode(CONSOLE_CURSOR_HIDDEN);             /* only the Code tab has a text cursor */
     /* the project name at the top right, a message on the free row under the tiles */
     char head[64];
@@ -177,6 +181,10 @@ static void draw(int tab)
     at((int)rows / 2, 3);
     console_write(tab_names[tab]);
     console_write(": not built yet");
+    if (tab == SDK_TAB_SPRITE) {
+        at((int)rows / 2 + 2, 3);
+        console_write("Esc > Open ROM shows the tiles of a ROM here.");
+    }
     at(1, 1);
 }
 
@@ -448,7 +456,8 @@ static void do_open_rom(void)
         say("%s", err);
         return;
     }
-    cur_tab = SDK_TAB_CODE;
+    if (cur_tab != SDK_TAB_SPRITE)                          /* the two tabs that show a ROM */
+        cur_tab = SDK_TAB_CODE;
     say("opened %s", sdk_code_rom_name());
 }
 
@@ -565,6 +574,13 @@ static void project_key(int c)
         dirty = 1;
 }
 
+static int held_mods(void)
+{
+    return (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
+           (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
+           (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0);
+}
+
 int shell_sdk_open(void)
 {
     cur_tab = SDK_TAB_PROJECT;
@@ -611,9 +627,13 @@ int shell_sdk_open(void)
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
-            sdk_code_key(c, prefix | (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
-                            (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
-                            (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0));
+            sdk_code_key(c, prefix | held_mods());
+        else if (cur_tab == SDK_TAB_SPRITE) {
+            const int had = sdk_code_has_rom();
+            sdk_sprite_key(c, prefix | held_mods());
+            if (had && !sdk_code_has_rom())
+                say("%s", "ROM closed");
+        }
         if (sdk_edit_revision() != seen_rev) {  /* the text changed: the project is not saved */
             seen_rev = sdk_edit_revision();
             dirty = 1;
