@@ -61,7 +61,10 @@ size_t sdk_tiles_start(const uint8_t *data, size_t size, const sdk_rom_t *info, 
 
 int sdk_tiles_cell(int r, int c, int per, int tall)
 {
-    return tall ? ((r / 2) * per + c) * 2 + (r & 1) : r * per + c;
+    if (!tall)
+        return r * per + c;
+    const int pair = r >= 0 ? r / 2 : -((1 - r) / 2);     /* rounded down */
+    return (pair * per + c) * 2 + (r - pair * 2);
 }
 
 size_t sdk_tiles_move(size_t off, size_t size, int fmt, int group, int rows, int move)
@@ -95,5 +98,68 @@ size_t sdk_tiles_move(size_t off, size_t size, int fmt, int group, int rows, int
         const size_t phase = off % tile;
         return last + (phase + tile - last % tile) % tile;
     }
+    }
+}
+
+static int clamp(int v, int n) { return v < 0 ? 0 : v >= n ? n - 1 : v; }
+
+static void grid_select(sdk_grid_t *g, int select)
+{
+    if (select && !g->sel) {
+        g->arow = g->row;
+        g->acol = g->col;
+    }
+    g->sel = select != 0;
+}
+
+void sdk_grid_move(sdk_grid_t *g, int dr, int dc, int select, int h, int w)
+{
+    grid_select(g, select);
+    g->row = clamp(g->row + dr, h);
+    g->col = clamp(g->col + dc, w);
+}
+
+int sdk_grid_rect(const sdk_grid_t *g, int *r1, int *c1, int *r2, int *c2)
+{
+    const int ar = g->sel ? g->arow : g->row, ac = g->sel ? g->acol : g->col;
+    *r1 = ar < g->row ? ar : g->row;
+    *r2 = ar < g->row ? g->row : ar;
+    *c1 = ac < g->col ? ac : g->col;
+    *c2 = ac < g->col ? g->col : ac;
+    return g->sel;
+}
+
+void sdk_tiles_cursor(sdk_grid_t *g, size_t *off, size_t size, int fmt, int per, int tall, int rows, int dr,
+                      int dc, int select)
+{
+    const int high = tall ? 2 : 1;
+    const size_t tile = (size_t)sdk_tile_bytes(fmt);
+    const size_t row = tile * (size_t)(per * high);
+    grid_select(g, select);
+    g->col = clamp(g->col + dc, per);
+    for (; dr < 0; dr++) {
+        if (g->row > 0)
+            g->row--;
+        else if (*off >= row) {                             /* the row of the view above */
+            *off -= row;
+            g->row = high - 1;
+            g->arow += high;
+        } else if (*off >= tile) {                          /* the start of the file: the tiles move */
+            *off %= tile;
+            g->sel = 0;
+        }
+    }
+    for (; dr > 0; dr--) {
+        if (g->row < rows - 1) {
+            if (*off + (size_t)sdk_tiles_cell(g->row + 1, 0, per, tall) * tile < size)
+                g->row++;
+        } else {
+            const size_t end = sdk_tiles_move(*off, size, fmt, per * high, rows / high, SDK_TILES_END);
+            if (*off + row <= end) {
+                *off += row;
+                g->row = rows - high > 0 ? rows - high : 0;
+                g->arow -= high;
+            }
+        }
     }
 }

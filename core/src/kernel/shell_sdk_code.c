@@ -7,14 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "drivers/fb.h"
 #include "fs/fat.h"
 #include "gfx/console.h"
-#include "gfx/draw.h"
 #include "shell_sdk_dis.h"
 #include "shell_sdk_edit.h"
+#include "shell_sdk_pane.h"
 #include "shell_sdk_rom.h"
-#include "shell_sdk_tiles.h"
+#include "shell_sdk_sprite.h"
 #include "shell_sdk_view.h"
 #include "usb/hid.h"
 
@@ -27,10 +26,10 @@ static size_t rom_size;
 static sdk_rom_t rom_info;
 static char rom_name[48];
 static int focus;
+static int rom_hidden;                  /* Ctrl+E: the editor takes the whole tab */
 static int top_line, left_col;          /* the scroll of the editor */
 static int cur_row = 1, cur_col = 1;    /* the text cursor on the screen (ANSI row and column), set when it is drawn */
 static int page_lines = 1;              /* the lines of a page of the editor, set when it is drawn */
-static char note[48];                   /* "Copied 12 bytes": shown until the next key */
 static int hex_bpr = 8, hex_width = 39, hex_page = 1;  /* bytes in a row, cells and rows, set when drawn */
 static sdk_view_t hex_view, asm_view;   /* the cursor in the dump and in the listing: read and copy only */
 static int rom_cur_row, rom_cur_col;    /* where that cursor is on the screen */
@@ -40,24 +39,6 @@ static char **asm_line;                 /* where each line of the listing starts
 static int asm_lines, asm_page = 1;
 static sdk_dis_info_t asm_info;         /* the bank it shows, for a ROM with banks */
 static int tiles_on;                    /* the ROM side shows the bytes as 8x8 tiles */
-static size_t tiles_off;                /* the offset of the first tile shown */
-static int tiles_fmt, tiles_chr;        /* how the tiles are read; the view started at the CHR ROM */
-static int tiles_per = SDK_TILES_ROW;   /* tiles in a row, chosen with + and - */
-static int tiles_tall;                  /* the 8x16 order: a tile and the next above each other */
-static int tiles_col, tiles_rows = 1;   /* where the tiles are on the screen, set when the view is drawn */
-static int tiles_shown = SDK_TILES_ROW, tiles_fit = SDK_TILES_ROW_MAX;     /* in a row: drawn, and at most */
-static int tiles_scale = 1;             /* pixels of the screen for one of a tile */
-static int pane_active;                 /* the ROM pane takes the keys, set when it is drawn */
-
-#define TILES_GUTTER 7                  /* "004010 ": the offset of a row, as in the dump */
-#define TILES_FIRST  3                  /* the ANSI row of the first row of tiles */
-
-static void at(int row, int col)
-{
-    char b[40];
-    snprintf(b, sizeof b, "\x1b[%d;%dH", row, col);
-    console_write(b);
-}
 
 static void free_listing(void)
 {
@@ -113,9 +94,13 @@ static void close_rom(void)
     rom_size = 0;
     rom_name[0] = 0;
     focus = FOCUS_EDITOR;
+    rom_hidden = 0;
     left_col = 0;
     sdk_view_reset(&hex_view, 0);
+    sdk_sprite_rom(NULL, 0, NULL, NULL);
 }
+
+void sdk_code_close_rom(void) { close_rom(); }
 
 void sdk_code_reset(void)
 {
@@ -158,30 +143,16 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
     const char *base = strrchr(path, '/');
     snprintf(rom_name, sizeof rom_name, "%s", base ? base + 1 : path);
     focus = FOCUS_EDITOR;
+    rom_hidden = 0;
     sdk_view_reset(&hex_view, 0);
     tiles_on = 0;
-    tiles_per = SDK_TILES_ROW;
-    tiles_tall = 0;
-    tiles_off = sdk_tiles_start(rom, rom_size, &rom_info, &tiles_fmt, &tiles_chr);
+    sdk_sprite_rom(rom, rom_size, &rom_info, rom_name);
     return 0;
 }
 
 /* ---- drawing ---- */
 
 #define GUTTER 4
-
-/* One row of a pane: text cut to width cells and padded with spaces. */
-static void put_row(int row, int col, int width, const char *s, int n)
-{
-    char line[256];
-    if (width > (int)sizeof line - 1)
-        width = (int)sizeof line - 1;
-    if (width < 1)
-        return;
-    snprintf(line, sizeof line, "%-*.*s", width, n < width ? n : width, s);
-    at(row, col);
-    console_write(line);
-}
 
 /* A row of text where the cells sc to ec (not included) are selected: the swapped colours. */
 static void text_row(int row, int col, int width, const char *s, int n, int sc, int ec)
@@ -192,7 +163,7 @@ static void text_row(int row, int col, int width, const char *s, int n, int sc, 
     if (width < 1)
         return;
     snprintf(line, sizeof line, "%-*.*s", width, n < width ? n : width, s);
-    at(row, col);
+    sdk_at(row, col);
     if (sc < 0)
         sc = 0;
     if (ec > width)
@@ -214,23 +185,12 @@ static void text_row(int row, int col, int width, const char *s, int n, int sc, 
     console_write(line + ec);
 }
 
-static void title_bar(int row, int col, int width, const char *text, int active)
-{
-    char line[256];
-    if (width > (int)sizeof line - 1)
-        width = (int)sizeof line - 1;
-    snprintf(line, sizeof line, " %-*.*s", width - 1, width - 1, text);
-    at(row, col);
-    console_write(active ? "\x1b[7m" : "\x1b[0m\x1b[96m");
-    console_write(line);
-    console_write("\x1b[0m");
-}
-
 static void draw_editor(int col, int width, int rows, int split, const char *msg)
 {
     char head[64];
-    snprintf(head, sizeof head, "Code%s", rom ? "  (Ctrl+T: ROM, Ctrl+W: close)" : "");
-    title_bar(1, col, width, head, focus == FOCUS_EDITOR);
+    snprintf(head, sizeof head, "Code%s", !rom ? "" : split ? "  (Ctrl+T: ROM, Ctrl+E: hide)" :
+                                                       "  (Ctrl+E: show the ROM)");
+    sdk_title_bar(1, col, width, head, focus == FOCUS_EDITOR);
 
     const int h = rows - 2;                         /* rows 2 to rows-1 */
     const int tw = width - GUTTER;
@@ -260,12 +220,12 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
             snprintf(num, sizeof num, "%*d ", GUTTER - 1, l + 1);
         else
             snprintf(num, sizeof num, "%*s ", GUTTER - 1, "~");
-        put_row(2 + i, col, GUTTER, num, GUTTER);
+        sdk_put_row(2 + i, col, GUTTER, num, GUTTER);
         console_write("\x1b[0m");
         const char *s;
         int n = sdk_edit_line(l, &s);
         if (!s) {
-            put_row(2 + i, col + GUTTER, tw, "", 0);
+            sdk_put_row(2 + i, col + GUTTER, tw, "", 0);
             continue;
         }
         const size_t next = off + (size_t)n + 1;            /* the next line starts here */
@@ -288,7 +248,8 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
     char st[96];
     snprintf(st, sizeof st, "Ln %d  Col %d  %u bytes", line + 1, c + 1, (unsigned)sdk_edit_length());
     console_write("\x1b[96m");
-    put_row(rows, col, width, msg && msg[0] ? msg : note[0] && !(split && focus == FOCUS_ROM) ? note : st, 200);
+    const char *last = msg && msg[0] ? msg : sdk_note[0] && !(split && focus == FOCUS_ROM) ? sdk_note : st;
+    sdk_put_row(rows, col, width, last, 200);
     console_write("\x1b[0m");
     cur_row = 1 + 1 + (line - top_line);                    /* where the text cursor is on the screen */
     cur_col = col + GUTTER + (c - left_col);
@@ -340,16 +301,6 @@ static void view_rows(sdk_view_t *v, sdk_view_line_t fn, int first, int col, int
     rom_cur_col = col + (v->col - v->left);
 }
 
-/* The last row of the ROM pane: the answer to the last key (a, b, a copy), or else the hint. */
-static void rom_status(int col, int width, int rows, const char *hint)
-{
-    const int answer = pane_active && note[0];
-    const char *s = answer ? note : hint;
-    console_write(answer ? "\x1b[93m" : "\x1b[96m");
-    put_row(rows, col, width, s, (int)strlen(s));
-    console_write("\x1b[0m");
-}
-
 /* The ASM side: the rows 2 to rows-1 are the listing; for a ROM with banks row 2 names the bank. */
 static void draw_listing(int col, int width, int rows)
 {
@@ -361,7 +312,7 @@ static void draw_listing(int col, int width, int rows)
         snprintf(b, sizeof b, "PRG bank %d/%d (%d KB) at $%04X%s", asm_info.bank, asm_info.banks - 1, asm_info.kb,
                  (unsigned)asm_info.addr, asm_info.guess ? " guess" : "");
         console_write("\x1b[96m");
-        put_row(2, col, width, b, (int)strlen(b));
+        sdk_put_row(2, col, width, b, (int)strlen(b));
     }
     view_rows(&asm_view, asm_text_line, first, col, width, h, 1);
     char st[64];
@@ -369,136 +320,34 @@ static void draw_listing(int col, int width, int rows)
         snprintf(st, sizeof st, "ASM %d/%d  +/-: bank  a: hex", asm_view.line + 1, asm_lines);
     else
         snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_view.line + 1, asm_lines);
-    rom_status(col, width, rows, st);
-}
-
-/* The size of the grid for a pane: the tiles are as high as a row of text, smaller when more of them are asked
- * in a row than the pane holds at that size. */
-static void tiles_layout(int width, int rows)
-{
-    uint32_t cw = 8, ch = 16, top = 0;
-    console_cell_geometry(&cw, &ch, &top);
-    const int pixels = (width - TILES_GUTTER) * (int)cw;
-    tiles_fit = pixels / 8;
-    if (tiles_fit > SDK_TILES_ROW_MAX)
-        tiles_fit = SDK_TILES_ROW_MAX;
-    if (tiles_fit < 1)
-        tiles_fit = 1;
-    tiles_shown = tiles_per < tiles_fit ? tiles_per : tiles_fit;
-    tiles_scale = (int)ch / 8;
-    const int widest = pixels / (tiles_shown * 8);
-    if (tiles_scale > widest)
-        tiles_scale = widest;
-    if (tiles_scale < 1)
-        tiles_scale = 1;
-    const int text = rows - TILES_FIRST > 0 ? rows - TILES_FIRST : 1;      /* the rows above the last one */
-    tiles_rows = text * (int)ch / (8 * tiles_scale);
-    if (tiles_tall)
-        tiles_rows &= ~1;                               /* whole sprites of two tiles */
-    if (tiles_rows < (tiles_tall ? 2 : 1))
-        tiles_rows = tiles_tall ? 2 : 1;
-}
-
-/* The tile side: its text (the offsets); paint_tiles draws the pixels after all the text. code: in the Code
- * tab, where t and a change the view. */
-static void draw_tiles(int col, int width, int rows, int code)
-{
-    tiles_col = col;
-    tiles_layout(width, rows);
-    char b[64];
-    snprintf(b, sizeof b, "%s  %s  %d/row %s",
-             rom_info.kind != SDK_ROM_NES ? "ROM" : tiles_chr ? "CHR ROM" : "PRG (CHR RAM)",
-             sdk_tile_name(tiles_fmt), tiles_shown, tiles_tall ? "8x16" : "8x8");
-    console_write("\x1b[93m");
-    put_row(2, col, width, b, (int)strlen(b));
-    console_write("\x1b[90m");
-    uint32_t cw = 8, ch = 16, top = 0;
-    console_cell_geometry(&cw, &ch, &top);
-    const int pitch = 8 * tiles_scale;
-    for (int i = 0; i < rows - TILES_FIRST; i++) {      /* the offset of the first row of tiles of a text row */
-        const int r = (i * (int)ch + pitch - 1) / pitch;
-        if (r >= tiles_rows || r * pitch >= (i + 1) * (int)ch)
-            continue;
-        const size_t off = tiles_off + (size_t)sdk_tiles_cell(r, 0, tiles_shown, tiles_tall) *
-                           (size_t)sdk_tile_bytes(tiles_fmt);
-        if (off < rom_size) {
-            snprintf(b, sizeof b, "%06X", (unsigned)off);
-            put_row(TILES_FIRST + i, col, TILES_GUTTER, b, (int)strlen(b));
-        }
-    }
-    const char *order = tiles_tall ? "8x8" : "8x16";
-    if (code)
-        snprintf(b, sizeof b, "t: hex  %s  +/-: row  o: %s", rom_info.kind == SDK_ROM_NES ? "a: ASM" : "b: bpp",
-                 order);
-    else
-        snprintf(b, sizeof b, "+/-: tiles a row  o: %s%s", order, rom_info.kind == SDK_ROM_NES ? "" : "  b: bpp");
-    rom_status(col, width, rows, b);
-}
-
-/* Pixels on the framebuffer. The colours of a game are not in its tiles: the colour numbers show as greys on
- * dark blue. */
-static void paint_tiles(void)
-{
-    framebuffer_t *fb = console_framebuffer();
-    if (!fb)
-        return;
-    uint32_t cw, ch, top;
-    console_cell_geometry(&cw, &ch, &top);
-    const int scale = tiles_scale;
-    static uint32_t color[256];
-    const int n = sdk_tile_colors(tiles_fmt);
-    color[0] = fb_color(fb, 0, 0, 56);
-    for (int v = 1; v < n; v++) {
-        const uint8_t g = (uint8_t)(40 + 215 * v / (n - 1));
-        color[v] = fb_color(fb, g, g, g);
-    }
-    const int x0 = (tiles_col - 1 + TILES_GUTTER) * (int)cw;
-    const int y_first = (int)top + (TILES_FIRST - 1) * (int)ch;
-    const size_t step = (size_t)sdk_tile_bytes(tiles_fmt);
-    for (int r = 0; r < tiles_rows; r++) {
-        const int y0 = y_first + r * 8 * scale;
-        for (int t = 0; t < tiles_shown; t++) {
-            const size_t off = tiles_off + (size_t)sdk_tiles_cell(r, t, tiles_shown, tiles_tall) * step;
-            if (off >= rom_size)
-                continue;
-            uint8_t pix[64];
-            sdk_tile_decode(rom, rom_size, off, tiles_fmt, pix);
-            for (int y = 0; y < 8; y++)
-                for (int x = 0, e; x < 8; x = e) {          /* a run of one colour is one rectangle */
-                    for (e = x + 1; e < 8 && pix[y * 8 + e] == pix[y * 8 + x]; e++)
-                        ;
-                    gfx_rect(fb, x0 + (t * 8 + x) * scale, y0 + y * scale, (e - x) * scale, scale,
-                             color[pix[y * 8 + x]]);
-                }
-        }
-    }
+    sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 
 static void draw_rom(int col, int width, int rows)
 {
     char head[80];
     snprintf(head, sizeof head, "ROM: %s", rom_name);
-    title_bar(1, col, width, head, focus == FOCUS_ROM);
+    sdk_title_bar(1, col, width, head, focus == FOCUS_ROM);
     if (asm_on) {
         draw_listing(col, width, rows);
         return;
     }
     if (tiles_on) {
-        draw_tiles(col, width, rows, 1);
+        sdk_tiles_draw(col, width, rows, 1, focus == FOCUS_ROM);
         return;
     }
 
     int row = 2;
     console_write("\x1b[93m");
     if (rom_info.title[0]) {
-        put_row(row++, col, width, rom_info.title, (int)strlen(rom_info.title));
+        sdk_put_row(row++, col, width, rom_info.title, (int)strlen(rom_info.title));
     }
     for (int i = 0; i < rom_info.lines && row < rows; i++)
-        put_row(row++, col, width, rom_info.line[i], (int)strlen(rom_info.line[i]));
+        sdk_put_row(row++, col, width, rom_info.line[i], (int)strlen(rom_info.line[i]));
     char sz[40];
     snprintf(sz, sizeof sz, "File %u KB", (unsigned)((rom_size + 1023) / 1024));
     if (row < rows)
-        put_row(row++, col, width, sz, (int)strlen(sz));
+        sdk_put_row(row++, col, width, sz, (int)strlen(sz));
     console_write("\x1b[0m");
     row++;
 
@@ -521,81 +370,40 @@ static void draw_rom(int col, int width, int rows)
         at_byte = rom_size - 1;
     char st[48];
     snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)at_byte);
-    rom_status(col, width, rows, st);
+    sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 
 void sdk_code_draw(int cols, int rows, const char *msg)
 {
-    const int split = rom != NULL && cols >= 40;
+    const int split = rom != NULL && !rom_hidden && cols >= 40;
+    if (!split)
+        focus = FOCUS_EDITOR;
     const int lw = split ? cols / 2 : cols;         /* the left side: up to and with the divider */
     draw_editor(1, lw - 1, rows, split, msg);
     if (!split) {
-        at(cur_row, cur_col);
+        sdk_at(cur_row, cur_col);
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
         return;
     }
     console_write("\x1b[90m");
     for (int r = 1; r <= rows; r++) {
-        at(r, lw);
+        sdk_at(r, lw);
         console_putc((char)0xB3);
     }
     console_write("\x1b[0m");
-    pane_active = focus == FOCUS_ROM;
     draw_rom(lw + 1, cols - lw - 1, rows);
     if (focus == FOCUS_EDITOR) {
-        at(cur_row, cur_col);                               /* a solid square, the letter under it swapped */
+        sdk_at(cur_row, cur_col);                               /* a solid square, the letter under it swapped */
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
     } else if (!tiles_on) {                                 /* the same square in the dump and the listing */
-        at(rom_cur_row, rom_cur_col);
+        sdk_at(rom_cur_row, rom_cur_col);
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
     } else {
-        at(1, 1);
+        sdk_at(1, 1);
         console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
     }
     if (tiles_on)
-        paint_tiles();                                      /* last: the console repaints the cells it writes */
-}
-
-void sdk_sprite_draw(int cols, int rows, const char *msg)
-{
-    static const char *const help[] = {
-        "The tiles of the ROM are on the right.",
-        "The sprite editor is not built yet.",
-        "",
-        "Up, Down         a row",
-        "PgUp, PgDn       a page",
-        "Left, Right      one byte",
-        "Ctrl+Left, Right one tile",
-        "+  -             tiles in a row",
-        "o                8x8 or 8x16 order",
-        "b                bits a pixel (SNES)",
-        "Home, End        start, last page",
-        "Ctrl+W           close the ROM",
-    };
-    const int split = cols >= 40;
-    const int lw = split ? cols / 2 : 0;
-    if (split) {
-        title_bar(1, 1, lw - 1, "Sprite", 0);
-        for (int i = 0; i < (int)(sizeof help / sizeof help[0]) && 2 + i < rows; i++)
-            put_row(2 + i, 2, lw - 2, help[i], (int)strlen(help[i]));
-        console_write("\x1b[96m");
-        put_row(rows, 1, lw - 1, msg ? msg : "", 200);
-        console_write("\x1b[90m");
-        for (int r = 1; r <= rows; r++) {
-            at(r, lw);
-            console_putc((char)0xB3);
-        }
-        console_write("\x1b[0m");
-    }
-    const int col = split ? lw + 1 : 1, width = split ? cols - lw - 1 : cols - 1;
-    char head[80];
-    snprintf(head, sizeof head, "ROM: %s", rom_name);
-    title_bar(1, col, width, head, 1);
-    pane_active = 1;
-    draw_tiles(col, width, rows, 0);
-    at(1, 1);
-    console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
-    paint_tiles();
+        sdk_tiles_paint();                                  /* last: the console repaints the cells it writes */
 }
 
 /* ---- keys ---- */
@@ -619,19 +427,19 @@ static int view_key(sdk_view_t *v, sdk_view_line_t fn, int page, int key, int mo
     case 0x03: {                                                    /* Ctrl+C */
         char *text = malloc(SDK_EDIT_MAX);
         if (!text) {
-            snprintf(note, sizeof note, "Not enough memory to copy");
+            snprintf(sdk_note, sizeof sdk_note, "Not enough memory to copy");
             return 1;
         }
         int cut = 0;
         const size_t n = sdk_view_copy(v, fn, NULL, text, SDK_EDIT_MAX, &cut);
         sdk_edit_clip_set(text, n);
         free(text);
-        snprintf(note, sizeof note, cut ? "Copied %u bytes, the most it holds" : "Copied %u bytes", (unsigned)n);
+        snprintf(sdk_note, sizeof sdk_note, cut ? "Copied %u bytes, the most it holds" : "Copied %u bytes", (unsigned)n);
         return 1;
     }
     case 0x18:                                                      /* Ctrl+X */
     case 0x16:                                                      /* Ctrl+V */
-        snprintf(note, sizeof note, "The ROM is read only: Ctrl+C copies");
+        snprintf(sdk_note, sizeof sdk_note, "The ROM is read only: Ctrl+C copies");
         return 1;
     default: return 0;
     }
@@ -643,60 +451,12 @@ static int listing_key(int key, int mods)
 {
     if (asm_info.banks > 1 && (key == '+' || key == '=' || key == '-')) {          /* the bank after, before */
         const int step = key == '-' ? asm_info.banks - 1 : 1;
-        char err[sizeof note];
+        char err[sizeof sdk_note];
         if (make_listing((asm_info.bank + step) % asm_info.banks, err, sizeof err) != 0)
-            snprintf(note, sizeof note, "%s", err);
+            snprintf(sdk_note, sizeof sdk_note, "%s", err);
         return 1;
     }
     return view_key(&asm_view, asm_text_line, asm_page, key, mods);
-}
-
-static int tiles_key(int key, int mods)
-{
-    int move = -1;
-    if (key == HID_KEY_UP)
-        move = SDK_TILES_UP;
-    else if (key == HID_KEY_DOWN)
-        move = SDK_TILES_DOWN;
-    else if (key == HID_KEY_PGUP)
-        move = SDK_TILES_PGUP;
-    else if (key == HID_KEY_PGDN)
-        move = SDK_TILES_PGDN;
-    else if (key == HID_KEY_LEFT)
-        move = mods & SDK_MOD_CTRL ? SDK_TILES_BACK : SDK_TILES_LEFT;
-    else if (key == HID_KEY_RIGHT)
-        move = mods & SDK_MOD_CTRL ? SDK_TILES_NEXT : SDK_TILES_RIGHT;
-    else if (key == HID_KEY_END)
-        move = SDK_TILES_END;
-    if (move >= 0) {
-        const int high = tiles_tall ? 2 : 1;
-        tiles_off = sdk_tiles_move(tiles_off, rom_size, tiles_fmt, tiles_shown * high, tiles_rows / high, move);
-        return 1;
-    }
-    if (key == HID_KEY_HOME) {                  /* back where the view started */
-        int fmt;
-        tiles_off = sdk_tiles_start(rom, rom_size, &rom_info, &fmt, &tiles_chr);
-        return 1;
-    }
-    if (key == '+' || key == '=' || key == '-') {          /* tiles in a row: one more, one less */
-        const int per = tiles_shown + (key == '-' ? -1 : 1);
-        if (per < 1 || per > tiles_fit)
-            snprintf(note, sizeof note, per < 1 ? "One tile a row at least" : "No room for more tiles in a row");
-        else
-            tiles_per = tiles_shown = per;
-        return 1;
-    }
-    if (key == 'o') {                           /* the order: 8x8, or 8x16 sprites */
-        tiles_tall = !tiles_tall;
-        return 1;
-    }
-    if (key == 'b') {
-        if (sdk_tile_next(tiles_fmt) == tiles_fmt)
-            snprintf(note, sizeof note, "NES tiles are 2bpp");
-        tiles_fmt = sdk_tile_next(tiles_fmt);
-        return 1;
-    }
-    return 0;
 }
 
 static int rom_key(int key, int mods)
@@ -707,9 +467,9 @@ static int rom_key(int key, int mods)
         return 1;
     }
     if (key == 'a') {                           /* hex or ASM */
-        char err[sizeof note];
+        char err[sizeof sdk_note];
         if (!asm_on && !asm_text && make_listing(-1, err, sizeof err) != 0)
-            snprintf(note, sizeof note, "%s", err);
+            snprintf(sdk_note, sizeof sdk_note, "%s", err);
         else {
             asm_on = !asm_on;
             tiles_on = 0;
@@ -719,7 +479,7 @@ static int rom_key(int key, int mods)
     if (asm_on)
         return listing_key(key, mods);
     if (tiles_on)
-        return tiles_key(key, mods);
+        return sdk_tiles_key(key, mods);
     return view_key(&hex_view, hex_text_line, hex_page, key, mods);
 }
 
@@ -732,26 +492,26 @@ static void move(int mods)
 static int editor_key(int key, int mods)
 {
     const int ctrl = (mods & SDK_MOD_CTRL) != 0, alt = (mods & SDK_MOD_ALT) != 0;
-    note[0] = 0;
+    sdk_note[0] = 0;
     switch (key) {
     case 0x01: sdk_edit_select_all(); return 1;                  /* Ctrl+A */
     case 0x03:                                                    /* Ctrl+C: copy the selection or the line */
     case 0x18: {                                                  /* Ctrl+X: cut it */
         const int sel = sdk_edit_copy(key == 0x18) > 0;
         if (sel)
-            snprintf(note, sizeof note, "%s %u bytes", key == 0x18 ? "Cut" : "Copied", (unsigned)sdk_edit_clip_length());
+            snprintf(sdk_note, sizeof sdk_note, "%s %u bytes", key == 0x18 ? "Cut" : "Copied", (unsigned)sdk_edit_clip_length());
         return 1;
     }
     case 0x16:                                                    /* Ctrl+V: paste */
-        snprintf(note, sizeof note, "Pasted %d bytes", sdk_edit_paste());
+        snprintf(sdk_note, sizeof sdk_note, "Pasted %d bytes", sdk_edit_paste());
         return 1;
     case 0x04: sdk_edit_duplicate_line(); return 1;              /* Ctrl+D: duplicate the line */
     case 0x1A:                                                    /* Ctrl+Z: undo; with Shift: redo */
     case 0x19:                                                    /* Ctrl+Y: redo */
         if (key == 0x1A && !(mods & SDK_MOD_SHIFT))
-            snprintf(note, sizeof note, "%s", sdk_edit_undo() ? "Undo" : "Nothing to undo");
+            snprintf(sdk_note, sizeof sdk_note, "%s", sdk_edit_undo() ? "Undo" : "Nothing to undo");
         else
-            snprintf(note, sizeof note, "%s", sdk_edit_redo() ? "Redo" : "Nothing to redo");
+            snprintf(sdk_note, sizeof sdk_note, "%s", sdk_edit_redo() ? "Redo" : "Nothing to redo");
         return 1;
     case HID_KEY_UP:
         move(mods);
@@ -802,32 +562,24 @@ static int editor_key(int key, int mods)
 
 int sdk_code_key(int key, int mods)
 {
-    note[0] = 0;
+    sdk_note[0] = 0;
     const int swap = key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL));    /* Ctrl+T, Ctrl+Tab */
-    if (swap || key == 0x17) {                                              /* Ctrl+W: close the ROM */
+    if (swap || key == 0x17 || key == 0x05) {                  /* Ctrl+W: close the ROM; Ctrl+E: hide it */
         if (!rom)
-            snprintf(note, sizeof note, "No ROM open (Esc > Open ROM)");
-        else if (swap)
-            focus = focus == FOCUS_EDITOR ? FOCUS_ROM : FOCUS_EDITOR;
-        else {
+            snprintf(sdk_note, sizeof sdk_note, "No ROM open (Esc > Open ROM)");
+        else if (swap) {
+            focus = rom_hidden || focus == FOCUS_EDITOR ? FOCUS_ROM : FOCUS_EDITOR;
+            rom_hidden = 0;
+        } else if (key == 0x05) {
+            rom_hidden = !rom_hidden;
+            focus = FOCUS_EDITOR;
+        } else {
             close_rom();
-            snprintf(note, sizeof note, "ROM closed");
+            snprintf(sdk_note, sizeof sdk_note, "ROM closed");
         }
         return 1;
     }
     if (rom && focus == FOCUS_ROM)
         return rom_key(key, mods);
     return editor_key(key, mods);
-}
-
-int sdk_sprite_key(int key, int mods)
-{
-    note[0] = 0;
-    if (!rom)
-        return 0;
-    if (key == 0x17) {                                                      /* Ctrl+W: close the ROM */
-        close_rom();
-        return 1;
-    }
-    return tiles_key(key, mods);
 }

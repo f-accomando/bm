@@ -4474,6 +4474,8 @@ def test_shell_sdk_skeleton(b, opts):
                 assert any("Platform" in r for r in rows), rows
             elif name == "Code":
                 assert any("Ln 1  Col 1" in r for r in rows), rows        # the editor
+            elif name == "Sprite":
+                assert any("Canvas 16x32" in r for r in rows), rows
             else:
                 assert any(f"{name}: not built yet" in r for r in rows), (name, rows)
         q.send(bytes([0xF9]))                       # back to the Project tab
@@ -4593,7 +4595,13 @@ def test_shell_sdk_code_split(b, opts):
         assert near(8, 8, (255, 255, 255)), pixel(img, x0 + 8, 56)
         assert near(24, 8, (0, 0, 56)), pixel(img, x0 + 24, 56)
         assert near(24, 24, (111, 111, 111)), pixel(img, x0 + 24, 72)
-        q.send(bytes([0xF3]))                       # Right: one byte further
+        yellow = lambda x, y: all(abs(a - b) <= 24 for a, b in zip(pixel(img, x, y), (255, 220, 0)))
+        assert yellow(x0, 48), pixel(img, x0, 48)    # the cursor: a frame around the first tile
+        q.send(SDK_RIGHT)                           # it moves a tile
+        time.sleep(0.5)
+        img = q.screendump()
+        assert yellow(x0 + 16, 48) and not yellow(x0, 48), pixel(img, x0 + 16, 48)
+        q.send(".")                                 # '.': the view one byte further
         assert any("004011" in r for r in screen())
         q.send(bytes([0xF4]))                       # Home: the start of the CHR ROM again
         assert any("004010" in r for r in screen())
@@ -4626,7 +4634,7 @@ def test_shell_sdk_code_split(b, opts):
         q.send(bytes([0xFB]))                       # F3: the Sprite tab shows the same ROM, the same view
         rows = screen()
         assert any("ROM: test.nes" in r for r in rows) and any("3/row 8x16" in r for r in rows), rows
-        assert any("tiles in a row" in r for r in rows), rows
+        assert any("Canvas 16x32" in r for r in rows), rows
         q.send("-")
         assert any("2/row 8x16" in r for r in screen())
         q.send(bytes([0xFA]))                       # F2: the Code tab again
@@ -4682,23 +4690,60 @@ def test_shell_sdk_code_split(b, opts):
         assert any("ROM: snesdemo.sfc" in r for r in rows) and any("ROM  8bpp" in r for r in rows), rows
         sendkeys(q, "ctrl-w")                       # closes the ROM for both tabs
         rows = screen()
-        assert any("Sprite: not built yet" in r for r in rows) and any("ROM closed" in r for r in rows), rows
+        assert any("Canvas 16x32  (Esc > Open ROM)" in r for r in rows), rows
+        assert any("ROM closed" in r for r in rows) and not any("ROM: " in r for r in rows), rows
         q.send("\x1b")
         q.send(SDK_DOWN * 3 + b"\r")                # Open ROM from the Sprite tab: it stays there
         time.sleep(0.5)
         q.send("\r")
         time.sleep(0.8)
         rows = screen()
-        assert any("ROM: test.nes" in r for r in rows) and any("tiles in a row" in r for r in rows), rows
+        assert any("ROM: test.nes" in r for r in rows) and any("Canvas 16x32  (Ctrl+T: ROM)" in r for r in rows), rows
         assert any("16/row 8x8" in r for r in rows), rows
         img = q.screendump()
         assert near(8, 8, (255, 255, 255)) and near(24, 24, (111, 111, 111)), pixel(img, x0 + 24, 72)
+        sendkeys(q, "shift-right ctrl-c")           # the cursor selects two tiles and copies them
+        assert any("Copied 2x1 tiles" in r for r in screen())
+        sendkeys(q, "ctrl-t ctrl-v")                # to the canvas, paste
+        rows = screen()
+        assert any("Pasted 2 tiles" in r for r in rows) and any("copied 2x1 tiles" in r for r in rows), rows
+        img = q.screendump()                        # the canvas starts at the fifth column, the third row
+        assert tuple(pixel(img, 40, 56)) >= (240, 240, 240), pixel(img, 40, 56)        # tile 0, white
+        assert all(abs(a - b) <= 12 for a, b in zip(pixel(img, 56, 56), (0, 0, 56))), pixel(img, 56, 56)
+        assert yellow(32, 48), pixel(img, 32, 48)
+        q.send(SDK_DOWN)
+        sendkeys(q, "ctrl-v")                       # again, a row below
+        time.sleep(0.5)
+        img = q.screendump()
+        assert sum(pixel(img, 40, 72)) > 700, pixel(img, 40, 72)
+        q.send(bytes([0xF8]))                       # Del empties the cell
+        time.sleep(0.5)
+        img = q.screendump()
+        assert sum(pixel(img, 40, 72)) < 80, pixel(img, 40, 72)
+        sendkeys(q, "ctrl-e")                       # the ROM hides: the canvas takes the whole tab
+        rows = screen()
+        assert not any("ROM: test.nes" in r for r in rows), rows
+        assert any("(Ctrl+E: show the ROM)" in r for r in rows) and any("paste at the cursor" in r for r in rows), rows
+        img = q.screendump()
+        assert sum(pixel(img, 40, 56)) > 700, pixel(img, 40, 56)      # the pasted tile is there
+        sendkeys(q, "ctrl-e")                       # the split screen again, the same ROM
+        rows = screen()
+        assert any("ROM: test.nes" in r for r in rows) and any("16/row 8x8" in r for r in rows), rows
         q.send(bytes([0xFA]))                       # F2: the Code tab has the ROM too
         assert any("ROM: test.nes" in r for r in screen())
-        q.send("\x1b")
-        q.send(SDK_UP + b"\r")                      # Exit: the text is not saved, the SDK asks
+        sendkeys(q, "ctrl-e")                       # and hides it: the editor on the whole screen
+        rows = screen()
+        assert not any("ROM: test.nes" in r for r in rows), rows
+        assert any("Code  (Ctrl+E: show the ROM)" in r for r in rows), rows
+        sendkeys(q, "ctrl-e")
+        assert any("ROM: test.nes" in r for r in screen())
+        q.send("\x13")                              # Ctrl+S: the project is saved, the canvas is not
         time.sleep(0.5)
-        q.send(SDK_DOWN + b"\r")                    # Yes, discard it
+        q.send("split\r")
+        time.sleep(1.0)
+        q.send("\x11")                              # Ctrl+Q: the SDK asks for the canvas
+        assert any("sprite canvas is not saved" in r for r in screen())
+        q.send(SDK_DOWN + b"\r")                    # Yes, leave
         q.expect("> ", timeout=10)
     finally:
         q.close()

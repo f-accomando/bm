@@ -17,7 +17,9 @@
 #include "usb/hid.h"
 #include "romtabs.h"
 #include "shell_sdk_build.h"
+#include "shell_sdk_canvas.h"
 #include "shell_sdk_code.h"
+#include "shell_sdk_sprite.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
@@ -153,7 +155,7 @@ static void draw(int tab)
         sdk_code_draw((int)cols, (int)rows, msg);
         return;
     }
-    if (tab == SDK_TAB_SPRITE && sdk_code_has_rom()) {
+    if (tab == SDK_TAB_SPRITE) {
         sdk_sprite_draw((int)cols, (int)rows, msg);
         return;
     }
@@ -181,10 +183,6 @@ static void draw(int tab)
     at((int)rows / 2, 3);
     console_write(tab_names[tab]);
     console_write(": not built yet");
-    if (tab == SDK_TAB_SPRITE) {
-        at((int)rows / 2 + 2, 3);
-        console_write("Esc > Open ROM shows the tiles of a ROM here.");
-    }
     at(1, 1);
 }
 
@@ -320,6 +318,15 @@ static int discard_ok(void)
 {
     static const char *const yn[2] = { "No, keep working", "Yes, discard the changes" };
     return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
+}
+
+/* Asks before the SDK closes: the canvas of the Sprite tab is in no file. */
+static int leave_ok(void)
+{
+    static const char *const yn[2] = { "No, keep working", "Yes, leave" };
+    if (dirty)
+        return discard_ok();
+    return sdk_canvas_empty() || popup("The sprite canvas is not saved", yn, 2, 0, redraw_screen) == 1;
 }
 
 /* ---- Esc menu: New, Open, Save, Save as, Build ---- */
@@ -542,7 +549,7 @@ static int esc_menu(void)
     case 5: do_save_as(); break;
     case 6: do_build(); break;
     case 7: do_run(); break;
-    case 8: return discard_ok();
+    case 8: return leave_ok();
     default: break;
     }
     return 0;
@@ -590,6 +597,7 @@ int shell_sdk_open(void)
     dirty = 0;
     msg[0] = 0;
     sdk_code_reset();
+    sdk_sprite_reset();
     load_template(proj.target);
     hid_text_mode(1);
     console_clear();
@@ -609,7 +617,7 @@ int shell_sdk_open(void)
             if (esc_menu())
                 break;
         } else if (c == 0x11) {                 /* Ctrl+Q */
-            if (discard_ok())
+            if (leave_ok())
                 break;
         } else if (c == 0x13) {                 /* Ctrl+S */
             if (pname[0])
@@ -629,10 +637,11 @@ int shell_sdk_open(void)
         else if (cur_tab == SDK_TAB_CODE)
             sdk_code_key(c, prefix | held_mods());
         else if (cur_tab == SDK_TAB_SPRITE) {
-            const int had = sdk_code_has_rom();
-            sdk_sprite_key(c, prefix | held_mods());
-            if (had && !sdk_code_has_rom())
+            if (c == 0x17 && sdk_code_has_rom()) {              /* Ctrl+W */
+                sdk_code_close_rom();
                 say("%s", "ROM closed");
+            } else
+                sdk_sprite_key(c, prefix | held_mods());
         }
         if (sdk_edit_revision() != seen_rev) {  /* the text changed: the project is not saved */
             seen_rev = sdk_edit_revision();

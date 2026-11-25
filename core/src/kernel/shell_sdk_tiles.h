@@ -31,7 +31,8 @@ void sdk_tile_decode(const uint8_t *data, size_t size, size_t off, int fmt, uint
 size_t sdk_tiles_start(const uint8_t *data, size_t size, const sdk_rom_t *info, int *fmt, int *chr);
 
 /* The tile of the cell at row r, column c of a view with per tiles a row, counted from the first tile shown.
- * tall: the order of 8x16 sprites, where a tile and the one after it are above each other. */
+ * tall: the order of 8x16 sprites, where a tile and the one after it are above each other. A row above the
+ * view is negative, and so is its tile. */
 int sdk_tiles_cell(int r, int c, int per, int tall);
 
 enum { SDK_TILES_UP, SDK_TILES_DOWN, SDK_TILES_PGUP, SDK_TILES_PGDN, SDK_TILES_LEFT, SDK_TILES_RIGHT,
@@ -41,5 +42,22 @@ enum { SDK_TILES_UP, SDK_TILES_DOWN, SDK_TILES_PGUP, SDK_TILES_PGDN, SDK_TILES_L
  * start), a tile (to put the first one of a picture at the left) or the last page. group: the tiles of a row
  * (twice the tiles a row in the 8x16 order, where a row is two tiles high). */
 size_t sdk_tiles_move(size_t off, size_t size, int fmt, int group, int rows, int move);
+
+/* A cursor on a grid of cells, with a selection from its anchor. */
+typedef struct {
+    int row, col;
+    int sel;                            /* a selection runs from the anchor to the cursor */
+    int arow, acol;
+} sdk_grid_t;
+
+/* Moves by dr rows and dc columns inside h x w cells; select keeps the selection and grows it. */
+void sdk_grid_move(sdk_grid_t *g, int dr, int dc, int select, int h, int w);
+/* The selected rectangle, both corners included; with no selection the cell of the cursor. Returns 1 when
+ * there is a selection. */
+int sdk_grid_rect(const sdk_grid_t *g, int *r1, int *c1, int *r2, int *c2);
+/* A move of the cursor of the tile view, rows rows high: a step past the top or the bottom scrolls the view by a
+ * row (two in the 8x16 order) and the anchor stays on its tile, also above the view. */
+void sdk_tiles_cursor(sdk_grid_t *g, size_t *off, size_t size, int fmt, int per, int tall, int rows, int dr,
+                      int dc, int select);
 
 #endif /* SHELL_SDK_TILES_H */

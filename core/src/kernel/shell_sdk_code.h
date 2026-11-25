@@ -5,8 +5,9 @@
  * and the moves of the editor, Shift selects and Ctrl+C copies into its clipboard; they cannot be changed.
  * On the ROM side the key a
  * changes between the dump and the ASM listing (read only), and
- * the key t between the dump and the bytes drawn as 8x8 tiles. The Sprite tab shows the tiles of the same
- * ROM: the open ROM and the view of its tiles are one for the two tabs.
+ * the key t between the dump and the bytes drawn as 8x8 tiles. Ctrl+E hides the ROM side, and shows it
+ * again. The Sprite tab (shell_sdk_sprite.h) shows the tiles of the same ROM: the open ROM and the view of its
+ * tiles are one for the two tabs.
  */
 #ifndef SHELL_SDK_CODE_H
 #define SHELL_SDK_CODE_H
@@ -19,6 +20,8 @@ void sdk_code_reset(void);
 /* Opens a ROM from the SD card. Returns 0, or -1 with the reason in err. The focus goes to the editor. */
 int sdk_code_open_rom(const char *path, char *err, size_t en);
 int sdk_code_has_rom(void);
+/* Closes the ROM (Ctrl+W in the Sprite tab). */
+void sdk_code_close_rom(void);
 /* "Super Mario World.sfc": the file name of the open ROM ("" when there is none). */
 const char *sdk_code_rom_name(void);
 
@@ -36,11 +39,5 @@ void sdk_code_draw(int cols, int rows, const char *msg);
  * move a page; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste (a line when nothing is selected), Ctrl+D duplicate the
  * line, Ctrl+A select all. */
 int sdk_code_key(int key, int mods);
-
-/* The Sprite tab with a ROM open: the keys on the left, the tiles of the ROM on the right; msg (or NULL) goes
- * on the last row. In the tiles + and - change the tiles in a row, o the order (8x8 or 8x16), Ctrl+Left and
- * Ctrl+Right move one tile. sdk_sprite_key returns 1 when it used the key; Ctrl+W closes the ROM. */
-void sdk_sprite_draw(int cols, int rows, const char *msg);
-int sdk_sprite_key(int key, int mods);
 
 #endif /* SHELL_SDK_CODE_H */

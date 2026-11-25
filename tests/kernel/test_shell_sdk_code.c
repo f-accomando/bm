@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "kernel/shell_sdk_canvas.h"
 #include "kernel/shell_sdk_edit.h"
 #include "kernel/shell_sdk_rom.h"
 #include "kernel/shell_sdk_tiles.h"
@@ -375,6 +376,55 @@ static int view_line(void *ctx, int line, char *out, size_t n)
     return snprintf(out, n, "%s", view_text[line]);
 }
 
+/* the cursor of a grid of tiles, and the canvas */
+static void test_grid(void)
+{
+    sdk_grid_t g = { 0 };
+    int r1, c1, r2, c2;
+    sdk_grid_move(&g, -1, 20, 0, 8, 16);
+    CHECK(g.row == 0 && g.col == 15 && !sdk_grid_rect(&g, &r1, &c1, &r2, &c2) && r1 == 0 && c1 == 15 && c2 == 15);
+    sdk_grid_move(&g, 2, -3, 1, 8, 16);
+    CHECK(sdk_grid_rect(&g, &r1, &c1, &r2, &c2) && r1 == 0 && r2 == 2 && c1 == 12 && c2 == 15);
+
+    /* a view of 4 x 3 tiles on a file of 1024 bytes: the bottom scrolls, the anchor stays on its tile */
+    size_t off = 64;
+    sdk_grid_t t = { 0 };
+    sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 0, 3, 2, 1, 0);
+    CHECK(off == 64 && t.row == 2 && t.col == 1);
+    sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 0, 3, 1, 0, 1);
+    CHECK(off == 128 && t.row == 2 && t.arow == 1);
+    sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 0, 3, -3, 0, 1);
+    CHECK(off == 64 && t.row == 0 && t.arow == 2 && sdk_grid_rect(&t, &r1, &c1, &r2, &c2) && r1 == 0 && r2 == 2);
+    sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 0, 3, -2, 0, 0);
+    CHECK(off == 0 && t.row == 0 && !t.sel);
+    for (int i = 0; i < 40; i++)
+        sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 0, 3, 1, 0, 0);
+    CHECK(off == 1024 - 192 && t.row == 2);                     /* the last page */
+    /* 8x16: a row of the view is two tiles high */
+    off = 128;
+    memset(&t, 0, sizeof t);
+    sdk_tiles_cursor(&t, &off, 1024, SDK_TILE_NES, 4, 1, 4, -1, 0, 1);
+    CHECK(off == 0 && t.row == 1 && t.arow == 2);
+    CHECK(sdk_tiles_cell(-1, 0, 4, 1) == -7 && sdk_tiles_cell(-2, 1, 4, 1) == -6);
+
+    /* the canvas: paste, copy, cut, the edges */
+    sdk_canvas_reset();
+    int w, h;
+    CHECK(sdk_canvas_empty() && !sdk_clip_size(&w, &h) && sdk_canvas_paste(0, 0) == 0);
+    sdk_clip_start(2, 2);
+    sdk_clip_cell(0, 1)->used = 1;
+    sdk_clip_cell(0, 1)->pix[0] = 3;
+    CHECK(sdk_clip_cell(2, 0) == NULL && sdk_canvas_paste(1, 2) == 4);
+    CHECK(!sdk_canvas_empty() && sdk_canvas_tile(1, 3)->used && sdk_canvas_tile(1, 3)->pix[0] == 3);
+    CHECK(sdk_canvas_paste(SDK_CANVAS_H - 1, SDK_CANVAS_W - 1) == 1);
+    sdk_canvas_copy(1, 3, 1, 3);
+    CHECK(sdk_clip_size(&w, &h) && w == 1 && h == 1 && sdk_clip_cell(0, 0)->pix[0] == 3);
+    sdk_canvas_clear(0, 0, SDK_CANVAS_H - 1, SDK_CANVAS_W - 1);
+    CHECK(sdk_canvas_empty() && sdk_canvas_paste(0, 0) == 1 && sdk_canvas_tile(0, 0)->pix[0] == 3);
+    sdk_clip_start(32, 100);
+    CHECK(sdk_clip_size(&w, &h) && w == 32 && h == 16);
+}
+
 static void test_view(void)
 {
     sdk_view_t v;
@@ -541,6 +591,7 @@ int main(void)
     test_snes();
     test_hex();
     test_view();
+    test_grid();
     test_tiles();
     test_tiles_start();
     test_tiles_move();
