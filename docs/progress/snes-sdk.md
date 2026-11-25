@@ -13,7 +13,7 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, i
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |
 | `core/lua/snescode.lua`, `core/lua/asmbuf.lua` | the helpers of the Code tab: colours, F1 texts, errors in plain words, snippets, the text buffer (no bm API) |
 | `tests/snes/code_test.lua` | the tests of the two modules above (`make test-snes-code`) |
-| `core/lua/snesrom.lua` | a ROM opened read only: header, map (LoROM, HiROM, ExHiROM), vectors, offsets, a 65C816 disassembly that follows `rep` and `sep`, the tiles of a part of the ROM (no bm API) |
+| `core/lua/snesrom.lua` | a ROM opened read only: header, map (LoROM, HiROM, ExHiROM), vectors, offsets, a 65C816 disassembly that follows `rep` and `sep`, the tiles of a part of the ROM (no bm API; the kernels embed it too, for the ASM view of Shell SDK) |
 | `tests/snes/rom_test.lua` | the tests of `snesrom.lua`: the disassembly assembles again to the same bytes (`make test-snes-rom`) |
 | `core/lua/snesoam.lua` | the sprite table of the machine for the OAM view: OBSEL, the 128 entries, the place on the screen, the tiles of a sprite in the video RAM, its colours (no bm API) |
 | `tests/snes/oam_test.lua` | the tests of `snesoam.lua` (`make test-snes-oam`) |

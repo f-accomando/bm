@@ -66,6 +66,19 @@ bm_lib_snes_asm_end:
     .byte 0
 
     .balign 4
+    .globl bm_lib_snesrom, bm_lib_snesrom_end
+bm_lib_snesrom:
+    .incbin "core/lua/snesrom.lua"
+bm_lib_snesrom_end:
+    .byte 0
+    .balign 4
+    .globl bm_lib_sdk_dis, bm_lib_sdk_dis_end
+bm_lib_sdk_dis:
+    .incbin "core/src/script/sdk_dis.lua"
+bm_lib_sdk_dis_end:
+    .byte 0
+
+    .balign 4
     .globl bm_sdk_tpl_nes, bm_sdk_tpl_nes_end, bm_sdk_tpl_snes, bm_sdk_tpl_snes_end
 bm_sdk_tpl_nes:
     .incbin "core/src/script/sdk_tpl_nes.s"

@@ -102,6 +102,19 @@ bm_lib_snes_asm:
     .incbin "core/src/script/snes_asm.lua"
 bm_lib_snes_asm_end:
 
+/* the ASM listing of a ROM in the Shell SDK: the 65C816 disassembler and the driver */
+    .section .rodata
+    .balign 4
+    .globl bm_lib_snesrom, bm_lib_snesrom_end
+bm_lib_snesrom:
+    .incbin "core/lua/snesrom.lua"
+bm_lib_snesrom_end:
+    .globl bm_lib_sdk_dis, bm_lib_sdk_dis_end
+    .balign 4
+bm_lib_sdk_dis:
+    .incbin "core/src/script/sdk_dis.lua"
+bm_lib_sdk_dis_end:
+
 /* the start files of the Shell SDK: a NES and a SNES program that shows a blue screen (New in the Code tab) */
     .section .rodata
     .balign 4

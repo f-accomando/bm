@@ -4566,6 +4566,9 @@ def test_shell_sdk_code_split(b, opts):
         assert any("000000 4E 45 53 1A" in r for r in rows), rows           # the hex dump: "NES" and 0x1A
         assert any("lda #1" in r for r in rows), rows                       # the editor stays on the left
         sendkeys(q, "ctrl-tab")                     # the focus goes to the ROM
+        q.send("a")                                 # ASM: this ROM is empty, it has no reset vector
+        rows = screen()
+        assert any("reset vector" in r for r in rows) and any("000000 4E 45 53 1A" in r for r in rows), rows
         q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
         rows = screen()
         assert not any("000000 4E 45 53 1A" in r for r in rows), rows
@@ -4654,6 +4657,15 @@ def test_shell_sdk_build(b, opts):
         assert any("PRG 32 KB" in r and "CHR 8 KB" in r for r in rows), rows
         assert any("000000 4E 45 53 1A" in r for r in rows), rows          # the iNES header
         assert any("sei" in r for r in rows), rows                           # the code stays on the left
+        q.send(b"\x14a")                            # Ctrl+T, a: the ROM as ASM
+        time.sleep(1.0)
+        rows = screen()
+        assert any("8000  sei" in r for r in rows) and any("ASM  line 1 of" in r for r in rows), rows
+        assert any("jmp L8005" in r for r in rows) and any("nmi:" in r for r in rows), rows
+        assert any("FFFC  .dw $8000" in r for r in rows), rows
+        q.send("a")                                 # back to the dump
+        assert any("000000 4E 45 53 1A" in r for r in screen())
+        q.send(b"\x14")                             # back to the editor
         # an error: the cursor goes to the line of the message
         q.send("foo bar\r")
         q.send("\x02")
@@ -4695,6 +4707,13 @@ def test_shell_sdk_build(b, opts):
         assert any("built /snes/snes1.sfc" in r for r in rows), rows
         assert any("ROM: snes1.sfc" in r for r in rows), rows
         assert any("LoROM" in r and "SNES" in r for r in rows), rows
+        q.send(b"\x14a")                            # the SNES ROM as ASM
+        time.sleep(1.5)
+        rows = screen()
+        assert any("8000  sei" in r for r in rows) and any("ASM  line 1 of" in r for r in rows), rows
+        q.send(bytes([0xF7]))                       # Page Down
+        rows = screen()
+        assert not any("ASM  line 1 of" in r for r in rows) and any("ASM  line " in r for r in rows), rows
         q.send("\x1b")
         q.send("w\r")
         q.expect("> ", timeout=10)

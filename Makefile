@@ -97,7 +97,7 @@ FORCE:
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua) core/keys/release-pub.pem core/keys/market-pub.pem \
+$(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua core/src/script/*.s) core/lua/snesrom.lua core/keys/release-pub.pem core/keys/market-pub.pem \
                                  core/src/ai/assist.lua core/src/ai/predict.lua core/src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
@@ -1778,8 +1778,9 @@ $(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c core/src/kernel/sh
 # The Shell SDK Project tab model (core/src/kernel/shell_sdk_proj.c)
 # The start files of the Shell SDK (core/src/script/sdk_tpl_nes.s, sdk_tpl_snes.s): they assemble and build with the default
 # settings, and the NES core and the SNES core run them (blue screen, frame counter, pad bits).
-test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_snes.s tests/snes/sdk_tpl_build.lua tests/snes/sdk_tpl_run.c tests/nes/sdk_tpl_run.c core/src/bm/nes.c $(wildcard core/src/bm/snes*.h)
+test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/script/sdk_dis.lua core/lua/snesrom.lua tests/snes/sdk_dis_test.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_snes.s tests/snes/sdk_tpl_build.lua tests/snes/sdk_tpl_run.c tests/nes/sdk_tpl_run.c core/src/bm/nes.c $(wildcard core/src/bm/snes*.h)
 	$(BUILD)/host/luahost tests/snes/sdk_tpl_build.lua $(BUILD)/host
+	$(BUILD)/host/luahost tests/snes/sdk_dis_test.lua
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes_sdk_tpl_run tests/snes/sdk_tpl_run.c $(SNES_CORE_SRCS)
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/nes_sdk_tpl_run tests/nes/sdk_tpl_run.c core/src/bm/nes.c
 	$(BUILD)/host/snes_sdk_tpl_run $(BUILD)/host/sdk_tpl.sfc

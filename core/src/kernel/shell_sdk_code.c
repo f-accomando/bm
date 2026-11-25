@@ -9,6 +9,7 @@
 
 #include "fs/fat.h"
 #include "gfx/console.h"
+#include "shell_sdk_dis.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_rom.h"
 #include "usb/hid.h"
@@ -28,6 +29,10 @@ static int page_lines = 1;              /* the lines of a page of the editor, se
 static char note[48];                   /* "Copied 12 bytes": shown until the next key */
 static int hex_bpr, hex_page;          /* bytes in a row and rows shown, set when the dump is drawn */
 static size_t hex_row;                  /* the first row of the dump shown (a row is bpr bytes) */
+static int asm_on;                      /* the ROM side shows the ASM listing, not the dump */
+static char *asm_text;                  /* the listing of the open ROM, made the first time it is asked */
+static char **asm_line;                 /* where each line of the listing starts (the lines end with 0) */
+static int asm_lines, asm_top, asm_page;
 
 static void at(int row, int col)
 {
@@ -36,9 +41,48 @@ static void at(int row, int col)
     console_write(b);
 }
 
+static void free_listing(void)
+{
+    free(asm_line);
+    free(asm_text);
+    asm_line = NULL;
+    asm_text = NULL;
+    asm_lines = asm_top = 0;
+    asm_on = 0;
+}
+
+/* Makes the listing of the open ROM and cuts it in lines. Returns 0, or -1 with the reason in err. */
+static int make_listing(char *err, size_t en)
+{
+    char *text = NULL;
+    size_t len = 0;
+    if (sdk_dis(rom, rom_size, &text, &len, err, en) != 0)
+        return -1;
+    int n = 1;
+    for (size_t i = 0; i < len; i++)
+        n += text[i] == '\n';
+    char **line = malloc((size_t)n * sizeof *line);
+    if (!line) {
+        free(text);
+        snprintf(err, en, "not enough memory for the listing");
+        return -1;
+    }
+    line[0] = text;
+    for (size_t i = 0, k = 1; i < len; i++)
+        if (text[i] == '\n') {
+            text[i] = 0;
+            line[k++] = text + i + 1;
+        }
+    asm_text = text;
+    asm_line = line;
+    asm_lines = n;
+    return 0;
+}
+
 /* The ROM goes away: the editor takes the whole tab. The text stays. */
 static void close_rom(void)
 {
+    free_listing();
     free(rom);
     rom = NULL;
     rom_size = 0;
@@ -81,6 +125,7 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
         free(data);
         return -1;
     }
+    free_listing();
     free(rom);
     rom = data;
     rom_size = len;
@@ -221,11 +266,34 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
     cur_col = col + GUTTER + (c - left_col);
 }
 
+/* The ASM side: the rows 2 to rows-1 are the listing, from asm_top. */
+static void draw_listing(int col, int width, int rows)
+{
+    const int h = rows - 2;
+    asm_page = h > 1 ? h - 1 : 1;
+    for (int i = 0; i < h; i++) {
+        const int l = asm_top + i;
+        const char *s = l < asm_lines ? asm_line[l] : "";
+        const int n = (int)strlen(s);
+        console_write(n && (s[n - 1] == ':' || s[0] == ';') ? "\x1b[93m" : "\x1b[0m");     /* a label stands out */
+        put_row(2 + i, col, width, s, n);
+    }
+    char st[64];
+    snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_top + 1, asm_lines);
+    console_write("\x1b[96m");
+    put_row(rows, col, width, st, (int)strlen(st));
+    console_write("\x1b[0m");
+}
+
 static void draw_rom(int col, int width, int rows)
 {
     char head[80];
     snprintf(head, sizeof head, "ROM: %s", rom_name);
     title_bar(1, col, width, head, focus == FOCUS_ROM);
+    if (asm_on) {
+        draw_listing(col, width, rows);
+        return;
+    }
 
     int row = 2;
     console_write("\x1b[93m");
@@ -257,7 +325,7 @@ static void draw_rom(int col, int width, int rows)
         put_row(row + i, col, width, line, (int)strlen(line));
     }
     char st[48];
-    snprintf(st, sizeof st, "Offset %06X of %06X", (unsigned)(hex_row * (size_t)bpr), (unsigned)rom_size);
+    snprintf(st, sizeof st, "Offset %06X of %06X  a: ASM", (unsigned)(hex_row * (size_t)bpr), (unsigned)rom_size);
     console_write("\x1b[96m");
     put_row(rows, col, width, st, (int)strlen(st));
     console_write("\x1b[0m");
@@ -291,8 +359,40 @@ void sdk_code_draw(int cols, int rows, const char *msg)
 
 /* ---- keys ---- */
 
+static int listing_key(int key)
+{
+    const int last = asm_lines > asm_page ? asm_lines - asm_page : 0;
+    if (key == HID_KEY_UP || key == 'w')
+        asm_top--;
+    else if (key == HID_KEY_DOWN || key == 's')
+        asm_top++;
+    else if (key == HID_KEY_PGUP)
+        asm_top -= asm_page;
+    else if (key == HID_KEY_PGDN)
+        asm_top += asm_page;
+    else if (key == HID_KEY_HOME)
+        asm_top = 0;
+    else if (key == HID_KEY_END)
+        asm_top = last;
+    else
+        return 0;
+    asm_top = asm_top > last ? last : asm_top;
+    asm_top = asm_top < 0 ? 0 : asm_top;
+    return 1;
+}
+
 static int rom_key(int key)
 {
+    if (key == 'a') {                           /* hex or ASM */
+        char err[sizeof note];
+        if (!asm_on && !asm_text && make_listing(err, sizeof err) != 0)
+            snprintf(note, sizeof note, "%s", err);
+        else
+            asm_on = !asm_on;
+        return 1;
+    }
+    if (asm_on)
+        return listing_key(key);
     const size_t bpr = (size_t)(hex_bpr > 0 ? hex_bpr : 16);
     const size_t total = (rom_size + bpr - 1) / bpr;
     const size_t page = (size_t)(hex_page > 0 ? hex_page : 1);

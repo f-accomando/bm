@@ -9,7 +9,8 @@
 --   R.about(rom, name)            the comment lines that say what the ROM is
 --   R.vectors(rom)                { {name, addr24, native}, ... } the vectors of the header that point in the ROM
 --   R.disasm(rom, start24, opts)  { text, addr = {line = addr24}, line_of = {offset = line}, first, last, m8, x8 }
---                                 opts: m8, x8 (the widths at the start, true = 8 bits), names = { [offset] = "label" }
+--                                 opts: m8, x8 (the widths at the start, true = 8 bits), names = { [offset] = "label" },
+--                                 last (the offset where the sweep stops, before the end of the bank)
 --   R.line_of(d, rom, pc24)       the line of the instruction at pc24 in a disassembly, or nil
 --   R.page_bytes(w, h, bpp)       the bytes of a sheet w x h of tiles at bpp
 --   R.tiles(rom, off, w, h, bpp, decode)  the indices of the sheet: { [y * w + x] = index } (decode: snesgfx decode_tile)
@@ -214,7 +215,7 @@ function R.disasm(rom, start, opts)
   local s = rom.bytes
   local off0, why = R.offset(rom, start)
   if not off0 then return nil, why end
-  local last = bank_end(rom, start, off0)
+  local last = math.min(bank_end(rom, start, off0), opts.last or math.maxinteger)
   local m8, x8 = opts.m8 ~= false, opts.x8 ~= false
   -- pass 1: the instructions and the widths
   local list, at, starts = {}, off0, {}
