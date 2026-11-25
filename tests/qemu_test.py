@@ -665,6 +665,10 @@ def test_bm_keys(b, opts):
 USB_KBD = ["-device", "usb-kbd,port=1"]      # port=1: on the root port, no hub
 
 
+# the arrows as the serial line sends them to an editor: Shell SDK moves with these only
+SDK_UP, SDK_DOWN, SDK_LEFT, SDK_RIGHT = (bytes([c]) for c in (0xF0, 0xF1, 0xF2, 0xF3))
+
+
 def sendkeys(q, keys, gap=0.15):
     """Types on the emulated USB keyboard (QEMU key names)."""
     for k in keys.split():
@@ -4449,12 +4453,15 @@ def test_shell_sdk_skeleton(b, opts):
         assert any("Project   Code   Sprite   Map   Sounds" in r for r in rows), rows
         assert any("Platform" in r and "NES cartridge (6502)" in r for r in rows), rows
         assert any("Board" in r and "NROM" in r for r in rows), rows
-        q.send("d")                                 # Enter or d: the next platform
+        q.send("sdwa")                              # letters do not move or change anything
+        time.sleep(0.5)
+        assert any("Platform" in r and "NES cartridge (6502)" in r for r in screen())
+        q.send(SDK_RIGHT)                           # Enter or Right: the next platform
         time.sleep(0.5)
         rows = screen()
         assert any("Platform" in r and "SNES cartridge (65C816)" in r for r in rows), rows
         assert any("Coprocessor" in r and "None (plain ROM)" in r for r in rows), rows
-        q.send("d")
+        q.send(SDK_RIGHT)
         time.sleep(0.5)
         rows = screen()
         assert any("Platform" in r and "bm project, SD card" in r for r in rows), rows
@@ -4477,7 +4484,7 @@ def test_shell_sdk_skeleton(b, opts):
         rows = screen()
         assert any("Save as" in r for r in rows), rows
         assert any("Project: (new)*" in r for r in rows), rows        # the platform was changed: unsaved
-        q.send("sssss\r")                           # Save as
+        q.send(SDK_DOWN * 5 + b"\r")                # Save as
         time.sleep(0.5)
         assert any("Project name" in r for r in screen())
         q.send("My Test\r")                         # 8.3: "mytest"
@@ -4485,13 +4492,13 @@ def test_shell_sdk_skeleton(b, opts):
         rows = screen()
         assert any("saved /bme/mytest.bme" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")                               # Exit (nothing unsaved any more)
+        q.send(SDK_UP + b"\r")                      # Exit (nothing unsaved any more)
         q.expect("> ", timeout=10)                  # back in the shell menu
         q.send("\r")                                # a new session of the SDK: a new NES project
         time.sleep(0.5)
         assert any("NES cartridge" in r for r in screen())
         q.send("\x1b")
-        q.send("ss\r")                              # Open
+        q.send(SDK_DOWN * 2 + b"\r")                # Open
         time.sleep(0.5)
         rows = screen()
         assert any("Open a project" in r for r in rows) and any("mytest" in r for r in rows), rows
@@ -4501,7 +4508,7 @@ def test_shell_sdk_skeleton(b, opts):
         assert any("bm project, SD card" in r for r in rows), rows
         assert any("mytest" in r and "opened" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")
+        q.send(SDK_UP + b"\r")
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -4557,7 +4564,7 @@ def test_shell_sdk_code_split(b, opts):
         rows = screen()
         assert any("lda #1" in r for r in rows) and any("Ln 2  Col 1" in r for r in rows), rows
         q.send("\x1b")
-        q.send("sss\r")                             # Open ROM
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM
         time.sleep(0.5)
         rows = screen()
         assert any("Open a ROM" in r for r in rows) and any("NES" in r and "test" in r for r in rows), rows
@@ -4591,7 +4598,11 @@ def test_shell_sdk_code_split(b, opts):
         q.send(bytes([0xF4]))                       # Home: the start of the CHR ROM again
         assert any("004010" in r for r in screen())
         q.send("b")                                 # a NES ROM has one format
-        assert any("NES tiles are 2bpp" in r for r in screen())
+        rows = screen()
+        pane = next(r.find("004010") for r in rows if "004010" in r)
+        assert any(r.find("NES tiles are 2bpp") >= pane for r in rows), rows
+        q.send("ss")                                # the letters do not scroll: only the arrows
+        assert any("004010" in r for r in screen())
         q.send("t")                                 # back to the dump
         assert any("000000 4E 45 53 1A" in r for r in screen())
         q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
@@ -4622,9 +4633,9 @@ def test_shell_sdk_code_split(b, opts):
         rows = screen()
         assert any("No ROM open" in r for r in rows), rows
         q.send("\x1b")
-        q.send("sss\r")                             # Open ROM again: the SNES ROM
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM again: the SNES ROM
         time.sleep(0.5)
-        q.send("s\r")
+        q.send(SDK_DOWN + b"\r")
         time.sleep(0.8)
         rows = screen()
         assert any("ROM: snesdemo.sfc" in r for r in rows), rows
@@ -4638,9 +4649,9 @@ def test_shell_sdk_code_split(b, opts):
         q.send("b")
         assert any("ROM  8bpp" in r for r in screen())
         q.send("\x1b")
-        q.send("w\r")                               # Exit: the text is not saved, the SDK asks
+        q.send(SDK_UP + b"\r")                      # Exit: the text is not saved, the SDK asks
         time.sleep(0.5)
-        q.send("s\r")                               # Yes, discard it
+        q.send(SDK_DOWN + b"\r")                    # Yes, discard it
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -4707,16 +4718,16 @@ def test_shell_sdk_build(b, opts):
         assert any("main.s:8:" in r and "unknown instruction" in r for r in rows), rows
         # leave with a change that is not saved: the SDK asks
         q.send(bytes([0xF9]))
-        q.send("sd")                                # the board changes (not saved)
+        q.send(SDK_DOWN + SDK_RIGHT)                # the board changes (not saved)
         q.send("\x1b")
-        q.send("w\r")                              # Exit
+        q.send(SDK_UP + b"\r")                     # Exit
         time.sleep(0.5)
         rows = screen()
         assert any("Unsaved changes" in r for r in rows), rows
-        q.send("s\r")                              # Yes, discard the changes
+        q.send(SDK_DOWN + b"\r")                   # Yes, discard the changes
         open_sdk()
         q.send("\x1b")
-        q.send("ss\r")                             # Open
+        q.send(SDK_DOWN * 2 + b"\r")               # Open
         time.sleep(0.5)
         rows = screen()
         assert any("Open a project" in r for r in rows) and any("game.bmr" in r for r in rows), rows
@@ -4726,12 +4737,12 @@ def test_shell_sdk_build(b, opts):
         rows = screen()
         assert any("jmp loop" in r for r in rows) and any("foo bar" in r for r in rows), rows    # the source is back
         q.send(bytes([0xF9]))
-        q.send("d")                                 # the project has a name: its platform is fixed
+        q.send(SDK_RIGHT)                           # the project has a name: its platform is fixed
         assert any("platform is fixed" in r for r in screen())
         q.send("\x1b")
-        q.send("s\r")                              # New: nothing is unsaved
+        q.send(SDK_DOWN + b"\r")                   # New: nothing is unsaved
         time.sleep(0.5)
-        q.send("d")                                 # NES -> SNES: the project is untouched
+        q.send(SDK_RIGHT)                           # NES -> SNES: the project is untouched
         q.send("\x02")                               # Ctrl+B: no name yet
         time.sleep(0.5)
         q.send("snes1\r")
@@ -4748,7 +4759,7 @@ def test_shell_sdk_build(b, opts):
         rows = screen()
         assert not any("ASM  line 1 of" in r for r in rows) and any("ASM  line " in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")
+        q.send(SDK_UP + b"\r")
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -4793,33 +4804,33 @@ def test_shell_sdk_template(b, opts):
         assert lum(x0 + 1, y0 + 1) > 300, lum(x0 + 1, y0 + 1)            # the square (the cell was dark)
         assert lum(x0 + 1 + 8, y0 + 1) < 100, lum(x0 + 9, y0 + 1)         # the next cell is dark
         q.send(bytes([0xF9]))
-        q.send("d")                                 # SNES: the start file follows
+        q.send(SDK_RIGHT)                           # SNES: the start file follows
         q.send(bytes([0xFA]))
         rows = screen()
         assert any("SNES game template" in r for r in rows), rows
         q.send(bytes([0xF9]))
-        q.send("d")                                 # bm: no start file
+        q.send(SDK_RIGHT)                           # bm: no start file
         q.send(bytes([0xFA]))
         rows = screen()
         assert not any("game template" in r for r in rows) and any("Ln 1  Col 1  0 bytes" in r for r in rows), rows
         q.send(bytes([0xF9]))
-        q.send("d")                                 # NES again
+        q.send(SDK_RIGHT)                           # NES again
         q.send(bytes([0xFA]))
         assert any("NES game template" in r for r in screen())
         q.send("x")                                 # code of its own: the platform is fixed
         q.send(bytes([0xF9]))
         rows = screen()
         assert any("Platform" in r and "(fixed)" in r for r in rows), rows        # edited text: fixed from now on
-        q.send("d")
+        q.send(SDK_RIGHT)
         rows = screen()
         assert any("platform is fixed" in r for r in rows), rows
         assert any("Platform" in r and "NES cartridge" in r and "(fixed)" in r for r in rows), rows
         # New: back to an untouched NES project that builds as it is
         q.send("\x1b")
-        q.send("s\r")                               # New
+        q.send(SDK_DOWN + b"\r")                    # New
         time.sleep(0.5)
         assert any("Unsaved changes" in r for r in screen())
-        q.send("s\r")                               # Yes, discard
+        q.send(SDK_DOWN + b"\r")                    # Yes, discard
         time.sleep(0.5)
         q.send("\x02")                              # Ctrl+B: no name yet
         time.sleep(0.5)
@@ -4829,11 +4840,11 @@ def test_shell_sdk_template(b, opts):
         assert any("built /nes/tpl.nes" in r for r in rows), rows
         assert any("PRG 32 KB" in r for r in rows), rows
         q.send(bytes([0xF9]))                       # a named project: the platform is fixed
-        q.send("d")
+        q.send(SDK_RIGHT)
         rows = screen()
         assert any("platform is fixed" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")
+        q.send(SDK_UP + b"\r")
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -4881,7 +4892,7 @@ def test_shell_sdk_run(b, opts):
         assert any("Project   Code   Sprite" in r for r in rows), rows
         assert any("ROM: run1.nes" in r or "back from the emulator" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")
+        q.send(SDK_UP + b"\r")
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -4946,9 +4957,9 @@ def test_shell_sdk_editor_keys(b, opts):
         rows = screen()
         assert any("Redo" in r for r in rows) and any(" 1 z" in r for r in rows), rows
         q.send("\x1b")
-        q.send("w\r")                               # Exit: the text is not saved, the SDK asks
+        q.send(SDK_UP + b"\r")                      # Exit: the text is not saved, the SDK asks
         time.sleep(0.5)
-        q.send("s\r")                               # Yes, discard it
+        q.send(SDK_DOWN + b"\r")                    # Yes, discard it
         q.expect("> ", timeout=10)
     finally:
         q.close()

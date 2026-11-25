@@ -217,8 +217,8 @@ static void window(int h, int w, int *r, int *c)
     frame(*r, *c, h, w);
 }
 
-static int is_up(int k) { return k == 'w' || k == HID_KEY_UP; }
-static int is_down(int k) { return k == 's' || k == HID_KEY_DOWN; }
+static int is_up(int k) { return k == HID_KEY_UP; }          /* the SDK moves with the arrows only */
+static int is_down(int k) { return k == HID_KEY_DOWN; }
 static int is_enter(int k) { return k == '\r' || k == '\n'; }
 
 /* A list. Returns the number of the item chosen, or -1 on Esc. The screen behind is drawn by redraw(). */
@@ -539,14 +539,14 @@ static int esc_menu(void)
     return 0;
 }
 
-/* A key in the Project tab: w s Up Down move, a d Left Right Enter change the value. */
+/* A key in the Project tab: Up and Down move, Left, Right and Enter change the value. */
 static void project_key(int c)
 {
     sdk_row_t menu[12];
     const int n = sdk_proj_rows(&proj, menu, 12);
     const sdk_proj_t before = proj;
     const int on_platform = menu[proj_sel].id == SDK_ROW_PLATFORM;
-    const int change = c == 'a' || c == HID_KEY_LEFT || c == 'd' || c == HID_KEY_RIGHT || is_enter(c);
+    const int change = c == HID_KEY_LEFT || c == HID_KEY_RIGHT || is_enter(c);
     if (on_platform && change && platform_locked()) {
         say("%s", "the platform is fixed: this project has a name or code. Esc > New starts one for another platform");
         return;
@@ -555,9 +555,9 @@ static void project_key(int c)
         proj_sel = (proj_sel + n - 1) % n;
     else if (is_down(c))
         proj_sel = (proj_sel + 1) % n;
-    else if (c == 'a' || c == HID_KEY_LEFT)
+    else if (c == HID_KEY_LEFT)
         sdk_proj_step(&proj, menu[proj_sel].id, -1);
-    else if (c == 'd' || c == HID_KEY_RIGHT || is_enter(c))
+    else if (c == HID_KEY_RIGHT || is_enter(c))
         sdk_proj_step(&proj, menu[proj_sel].id, 1);
     if (on_platform && proj.target != before.target)
         load_template(proj.target);                 /* the project was untouched: the start file follows */

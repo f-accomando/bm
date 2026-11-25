@@ -210,7 +210,7 @@ static void title_bar(int row, int col, int width, const char *text, int active)
     console_write("\x1b[0m");
 }
 
-static void draw_editor(int col, int width, int rows, int ctrl_hint, const char *msg)
+static void draw_editor(int col, int width, int rows, int split, const char *msg)
 {
     char head[64];
     snprintf(head, sizeof head, "Code%s", rom ? "  (Ctrl+T: ROM, Ctrl+W: close)" : "");
@@ -272,11 +272,20 @@ static void draw_editor(int col, int width, int rows, int ctrl_hint, const char 
     char st[96];
     snprintf(st, sizeof st, "Ln %d  Col %d  %u bytes", line + 1, c + 1, (unsigned)sdk_edit_length());
     console_write("\x1b[96m");
-    put_row(rows, col, width, msg && msg[0] ? msg : note[0] ? note : st, 200);
+    put_row(rows, col, width, msg && msg[0] ? msg : note[0] && !(split && focus == FOCUS_ROM) ? note : st, 200);
     console_write("\x1b[0m");
-    (void)ctrl_hint;
     cur_row = 1 + 1 + (line - top_line);                    /* where the text cursor is on the screen */
     cur_col = col + GUTTER + (c - left_col);
+}
+
+/* The last row of the ROM pane: the answer to the last key (a, b), or else the hint. */
+static void rom_status(int col, int width, int rows, const char *hint)
+{
+    const int answer = focus == FOCUS_ROM && note[0];
+    const char *s = answer ? note : hint;
+    console_write(answer ? "\x1b[93m" : "\x1b[96m");
+    put_row(rows, col, width, s, (int)strlen(s));
+    console_write("\x1b[0m");
 }
 
 /* The ASM side: the rows 2 to rows-1 are the listing, from asm_top. */
@@ -293,9 +302,7 @@ static void draw_listing(int col, int width, int rows)
     }
     char st[64];
     snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_top + 1, asm_lines);
-    console_write("\x1b[96m");
-    put_row(rows, col, width, st, (int)strlen(st));
-    console_write("\x1b[0m");
+    rom_status(col, width, rows, st);
 }
 
 /* The tile side: its text (the offsets); paint_tiles draws the pixels after all the text. */
@@ -318,9 +325,7 @@ static void draw_tiles(int col, int width, int rows)
         }
     }
     snprintf(b, sizeof b, "t: hex  %s  Left/Right: 1 byte", rom_info.kind == SDK_ROM_NES ? "a: ASM" : "b: bpp");
-    console_write("\x1b[96m");
-    put_row(rows, col, width, b, (int)strlen(b));
-    console_write("\x1b[0m");
+    rom_status(col, width, rows, b);
 }
 
 /* Pixels on the framebuffer: a row of tiles is as high as a row of text (when the pane is wide enough). The
@@ -411,9 +416,7 @@ static void draw_rom(int col, int width, int rows)
     }
     char st[48];
     snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)(hex_row * (size_t)bpr));
-    console_write("\x1b[96m");
-    put_row(rows, col, width, st, (int)strlen(st));
-    console_write("\x1b[0m");
+    rom_status(col, width, rows, st);
 }
 
 void sdk_code_draw(int cols, int rows, const char *msg)
@@ -449,9 +452,9 @@ void sdk_code_draw(int cols, int rows, const char *msg)
 static int listing_key(int key)
 {
     const int last = asm_lines > asm_page ? asm_lines - asm_page : 0;
-    if (key == HID_KEY_UP || key == 'w')
+    if (key == HID_KEY_UP)
         asm_top--;
-    else if (key == HID_KEY_DOWN || key == 's')
+    else if (key == HID_KEY_DOWN)
         asm_top++;
     else if (key == HID_KEY_PGUP)
         asm_top -= asm_page;
@@ -471,9 +474,9 @@ static int listing_key(int key)
 static int tiles_key(int key)
 {
     int move = -1;
-    if (key == HID_KEY_UP || key == 'w')
+    if (key == HID_KEY_UP)
         move = SDK_TILES_UP;
-    else if (key == HID_KEY_DOWN || key == 's')
+    else if (key == HID_KEY_DOWN)
         move = SDK_TILES_DOWN;
     else if (key == HID_KEY_PGUP)
         move = SDK_TILES_PGUP;
@@ -528,9 +531,9 @@ static int rom_key(int key)
     const size_t total = (rom_size + bpr - 1) / bpr;
     const size_t page = (size_t)(hex_page > 0 ? hex_page : 1);
     const size_t last = total > page ? total - page : 0;
-    if (key == HID_KEY_UP || key == 'w')
+    if (key == HID_KEY_UP)
         hex_row = hex_row ? hex_row - 1 : 0;
-    else if (key == HID_KEY_DOWN || key == 's')
+    else if (key == HID_KEY_DOWN)
         hex_row = hex_row < last ? hex_row + 1 : last;
     else if (key == HID_KEY_PGUP)
         hex_row = hex_row > page ? hex_row - page : 0;
