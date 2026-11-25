@@ -7,7 +7,7 @@ Back to [snes.md](snes.md) (the emulator that runs the ROMs). What is missing, i
 
 | File | Use |
 |---|---|
-| `core/src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player). `opts.cpu = "6502"` assembles the official NMOS 6502 instructions for the NES; `build_nes(res, header)` writes an iNES file. The Shell SDK (`core/src/kernel/shell_sdk_build.c`) uses both |
+| `core/src/script/snes_asm.lua` | the assembler and the ROM builder (`require "snes_asm"`; built into the kernels, the host tools and the web player). `opts.cpu = "6502"` assembles the official NMOS 6502 instructions for the NES; `build_nes(res, header)` writes an iNES file; the lines from `.chr` to `.endchr` of a 6502 source are the CHR ROM (`res.chr`). The Shell SDK (`core/src/kernel/shell_sdk_build.c`) uses both |
 | `tests/snes/asm_test.lua` | unit tests: all 256 opcodes, the addressing modes, width tracking, expressions, directives, macros, errors, the builder |
 | `tests/snes/testrom.s`, `tests/snes/asm_rom_test.py` | the program of `make_testrom.py` in assembly; the test compares the bytes and runs the ROM in the core |
 | `tests/snes/asm_run.c` | the host harness: it runs a ROM for N frames and checks the NMI counter and the backdrop colour |

@@ -4741,9 +4741,7 @@ def test_shell_sdk_code_split(b, opts):
         time.sleep(0.5)
         q.send("split\r")
         time.sleep(1.0)
-        q.send("\x11")                              # Ctrl+Q: the SDK asks for the canvas
-        assert any("sprite canvas is not saved" in r for r in screen())
-        q.send(SDK_DOWN + b"\r")                    # Yes, leave
+        q.send("\x11")                              # Ctrl+Q: the canvas of a NES project is in the saved code
         q.expect("> ", timeout=10)
     finally:
         q.close()
@@ -5078,6 +5076,121 @@ def test_shell_sdk_banks(b, opts):
         time.sleep(0.5)
         if any("Unsaved changes" in r for r in screen()):
             q.send(SDK_DOWN + b"\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_canvas_code(b, opts):
+    """Shell SDK (2026-11-25): the canvas of the Sprite tab is a .chr block in the ;@sprites section of the
+    code: a paste writes it, Build ROM puts it in the CHR ROM, and the project that opens brings the canvas back."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    nes = os.path.join(tmp, "test.nes")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    chr_rom = bytearray(8192)
+    chr_rom[16:32] = b"\xff" * 16                   # tile 1: colour 3; tile 0 stays empty
+    with open(nes, "wb") as f:
+        f.write(b"NES\x1a" + bytes([1, 1, 1, 0]) + bytes(8) + bytes(16384) + chr_rom)
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt"), (nes, "nes/test.nes")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.6)
+        return screen_text(q.screendump())
+
+    def white(x, y):
+        return sum(pixel(q.screendump(), x, y)) > 700
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFB]))                       # F3: the Sprite tab
+        q.send("\x1b")
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(1.0)
+        assert any("ROM: test.nes" in r for r in screen())
+        q.send(SDK_RIGHT)                           # tile 1
+        sendkeys(q, "ctrl-c ctrl-t ctrl-v")         # to the canvas, at its first cell
+        rows = screen()
+        assert any("Pasted 1 tiles" in r for r in rows), rows
+        assert white(40, 56), "the canvas has the tile"
+        q.send(bytes([0xFA]))                       # F2: the code has the block
+        sendkeys(q, "ctrl-alt-down")
+        for _ in range(5):
+            rows = screen()
+            if any(";@tiles  from the Sprite tab" in r for r in rows):
+                break
+            sendkeys(q, "pgup")
+        assert any(";@tiles  from the Sprite tab" in r for r in rows), rows
+        assert any(".chr" in r for r in rows) and any(".db $FF,$FF" in r for r in rows), rows
+        q.send("\x02")                              # Ctrl+B: Build ROM; it asks for a name
+        time.sleep(0.5)
+        q.send("canv\r")
+        time.sleep(2.5)
+        rows = screen()
+        assert any("built /nes/canv.nes" in r for r in rows) and any("ROM: canv.nes" in r for r in rows), rows
+        q.send(bytes([0xFB]))                       # F3: the tiles of the ROM that was built
+        rows = screen()
+        assert any("ROM: canv.nes" in r and "Canvas" in r for r in rows), rows
+        img = q.screendump()
+        x0 = (img[0] // 8 // 2 + 7) * 8             # the first tile of its CHR ROM
+        assert sum(pixel(img, x0 + 8, 56)) > 700, pixel(img, x0 + 8, 56)
+        q.send("\x1b")
+        q.send(SDK_DOWN + b"\r")                    # New (the project was saved by the build?)
+        time.sleep(0.5)
+        if any("Unsaved changes" in r for r in screen()):
+            q.send(SDK_DOWN + b"\r")
+        q.send(bytes([0xFB]))
+        time.sleep(0.5)
+        assert not white(40, 56), "a new project has an empty canvas"
+        q.send("\x1b")
+        q.send(SDK_DOWN * 2 + b"\r")                # Open
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(1.0)
+        q.send(bytes([0xFB]))
+        time.sleep(0.5)
+        assert white(40, 56), "the canvas of the project that opened"
+        sendkeys(q, "delete")                       # empties the cell: the block leaves the code
+        time.sleep(0.5)
+        assert not white(40, 56)
+        # a bm project has no assembly: its canvas is in no file
+        q.send("\x1b")
+        q.send(SDK_DOWN + b"\r")                    # New: the change is not saved
+        assert any("Unsaved changes" in r for r in screen())
+        q.send(SDK_DOWN + b"\r")
+        time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_RIGHT + SDK_RIGHT)       # Project: NES, SNES, bm
+        assert any("bm project, SD card" in r for r in screen())
+        q.send(bytes([0xFB]))
+        q.send("\x1b")
+        q.send(SDK_DOWN * 3 + b"\r")                # Open ROM
+        time.sleep(0.5)
+        q.send("\r")
+        time.sleep(1.0)
+        q.send(SDK_RIGHT)
+        sendkeys(q, "ctrl-c ctrl-t ctrl-v")
+        assert any("Pasted 1 tiles" in r for r in screen())
+        q.send("\x13")                              # Ctrl+S
+        time.sleep(0.5)
+        q.send("bmp\r")
+        time.sleep(1.0)
+        q.send("\x11")                              # Ctrl+Q: the SDK asks for the canvas
+        assert any("sprite canvas is not saved" in r for r in screen())
+        q.send(SDK_DOWN + b"\r")                    # Yes, leave
         q.expect("> ", timeout=10)
     finally:
         q.close()

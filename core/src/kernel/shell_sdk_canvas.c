@@ -26,6 +26,12 @@ int sdk_canvas_empty(void)
 
 const sdk_tile_t *sdk_canvas_tile(int r, int c) { return &canvas[r][c]; }
 
+void sdk_canvas_set(int r, int c, const sdk_tile_t *t)
+{
+    if (r >= 0 && r < SDK_CANVAS_H && c >= 0 && c < SDK_CANVAS_W)
+        canvas[r][c] = *t;
+}
+
 void sdk_clip_start(int w, int h)
 {
     clip_w = w < 0 ? 0 : w > SDK_CLIP_TILES ? SDK_CLIP_TILES : w;

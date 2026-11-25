@@ -23,6 +23,8 @@ void sdk_canvas_reset(void);
 int sdk_canvas_empty(void);
 /* The tile at row r, column c (both inside the canvas). */
 const sdk_tile_t *sdk_canvas_tile(int r, int c);
+/* Puts a tile at row r, column c (nothing outside the canvas). */
+void sdk_canvas_set(int r, int c, const sdk_tile_t *t);
 
 /* A new block of w x h tiles in the clipboard, all empty; the rows that do not fit are cut. Fill it with
  * sdk_clip_cell (NULL outside the block). */

@@ -42,6 +42,18 @@ void sdk_tile_decode(const uint8_t *data, size_t size, size_t off, int fmt, uint
     }
 }
 
+void sdk_tile_encode(const uint8_t pix[64], int fmt, uint8_t *out)
+{
+    const int planes = fmt == SDK_TILE_SNES4 ? 4 : fmt == SDK_TILE_SNES8 ? 8 : 2;
+    for (int y = 0; y < 8; y++)
+        for (int p = 0; p < planes; p++) {
+            uint8_t bits = 0;
+            for (int x = 0; x < 8; x++)
+                bits |= (uint8_t)(((pix[y * 8 + x] >> p) & 1) << (7 - x));
+            out[fmt == SDK_TILE_NES ? p * 8 + y : (p / 2) * 16 + y * 2 + (p & 1)] = bits;
+        }
+}
+
 size_t sdk_tiles_start(const uint8_t *data, size_t size, const sdk_rom_t *info, int *fmt, int *chr)
 {
     *chr = 0;

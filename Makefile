@@ -1790,9 +1790,9 @@ test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_c
 	$(BUILD)/host/test_shell_sdk_proj
 	$(BUILD)/host/test_shell_sdk_code
 
-$(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_tiles.h core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_view.h core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_canvas.h
+$(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_tiles.h core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_view.h core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_canvas.h core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_chr.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_canvas.c
+	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_chr.c
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

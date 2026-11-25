@@ -539,6 +539,27 @@ int sdk_edit_paste(void)
     return n;
 }
 
+int sdk_edit_replace(size_t from, size_t to, const char *text, size_t n)
+{
+    if (from > to || to > len || len - (to - from) + n > SDK_EDIT_MAX)
+        return -1;
+    if (to - from == n && !memcmp(buf + from, text, n))
+        return 0;                                       /* no change: no step, nothing to save */
+    edit_begin(0);
+    memmove(buf + from + n, buf + to, len - to);
+    memcpy(buf + from, text, n);
+    len = len - (to - from) + n;
+    if (cur >= to)
+        cur = cur - (to - from) + n;
+    else if (cur > from)
+        cur = from;
+    anchor = -1;
+    rev++;
+    keep_column();
+    edit_end();
+    return 0;
+}
+
 int sdk_edit_duplicate_line(void)
 {
     edit_begin(0);

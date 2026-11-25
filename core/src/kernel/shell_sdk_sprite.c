@@ -10,7 +10,9 @@
 #include "gfx/console.h"
 #include "gfx/draw.h"
 #include "shell_sdk_canvas.h"
+#include "shell_sdk_chr.h"
 #include "shell_sdk_code.h"
+#include "shell_sdk_edit.h"
 #include "shell_sdk_pane.h"
 #include "shell_sdk_tiles.h"
 #include "usb/hid.h"
@@ -41,6 +43,9 @@ static int focus = ON_CANVAS;
 static int hidden;                      /* Ctrl+E: the canvas takes the whole tab */
 static sdk_grid_t pen;                  /* the cursor and the selection of the canvas */
 static int canvas_top, canvas_rows = 1, canvas_scale = 1;
+static int code_kind;                   /* SDK_SPRITE_*: the code the canvas is written in */
+static unsigned code_rev;               /* the revision of the code the canvas was read from */
+static char code_err[48];               /* why its tiles block cannot be read ("": it can) */
 
 void sdk_sprite_reset(void)
 {
@@ -49,6 +54,27 @@ void sdk_sprite_reset(void)
     canvas_top = 0;
     focus = ON_CANVAS;
     hidden = 0;
+    code_kind = SDK_SPRITE_NONE;
+    code_err[0] = 0;
+}
+
+/* The canvas as the code has it. */
+static void read_code(void)
+{
+    code_rev = sdk_edit_revision();
+    code_err[0] = 0;
+    if (sdk_chr_read(code_kind == SDK_SPRITE_NES, sdk_edit_text(), sdk_edit_length(), code_err, sizeof code_err))
+        sdk_canvas_clear(0, 0, SDK_CANVAS_H - 1, SDK_CANVAS_W - 1);
+}
+
+void sdk_sprite_sync(int code)
+{
+    const int changed = code != code_kind || sdk_edit_revision() != code_rev;
+    code_kind = code;
+    if (code == SDK_SPRITE_NONE)
+        code_err[0] = 0;
+    else if (changed)
+        read_code();
 }
 
 void sdk_sprite_rom(const uint8_t *data, size_t size, const sdk_rom_t *info, const char *name)
@@ -330,6 +356,43 @@ int sdk_tiles_key(int key, int mods)
 
 /* ---- the canvas ---- */
 
+/* A change of the canvas can go into the code: with a block that cannot be read it would be lost. */
+static int can_change(void)
+{
+    if (!code_err[0])
+        return 1;
+    snprintf(sdk_note, sizeof sdk_note, "Fix the tiles block in Code first");
+    return 0;
+}
+
+/* The canvas changed: into the code, and back from it, so that it shows what the code holds. */
+static void changed_canvas(void)
+{
+    if (code_kind == SDK_SPRITE_NONE)
+        return;
+    char err[48];
+    if (sdk_chr_commit(code_kind == SDK_SPRITE_NES, err, sizeof err) != 0)
+        snprintf(sdk_note, sizeof sdk_note, "%s", err);
+    read_code();
+}
+
+/* 1 when a tile of the clipboard has a colour number that the format of the code cannot hold. */
+static int colours_lost(void)
+{
+    int w, h;
+    if (code_kind == SDK_SPRITE_NONE || !sdk_clip_size(&w, &h))
+        return 0;
+    const int colours = sdk_tile_colors(sdk_chr_format(code_kind == SDK_SPRITE_NES));
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            const sdk_tile_t *t = sdk_clip_cell(y, x);
+            for (int i = 0; t->used && i < 64; i++)
+                if (t->pix[i] >= colours)
+                    return 1;
+        }
+    return 0;
+}
+
 static void canvas_draw(int col, int width, int rows, int full, const char *msg)
 {
     uint32_t cw = 8, ch = 16, top = 0;
@@ -364,11 +427,13 @@ static void canvas_draw(int col, int width, int rows, int full, const char *msg)
                                                                                   "  (Ctrl+T: ROM)");
     sdk_title_bar(1, col, width, b, focus == ON_CANVAS);
     int w, h;
-    if (sdk_clip_size(&w, &h))
+    if (code_err[0])
+        snprintf(b, sizeof b, "Code: %s", code_err);
+    else if (sdk_clip_size(&w, &h))
         snprintf(b, sizeof b, "Cell %d,%d  copied %dx%d tiles", pen.col, pen.row, w, h);
     else
         snprintf(b, sizeof b, "Cell %d,%d  nothing copied", pen.col, pen.row);
-    console_write("\x1b[93m");
+    console_write(code_err[0] ? "\x1b[91m" : "\x1b[93m");
     sdk_put_row(2, col, width, b, (int)strlen(b));
     console_write("\x1b[90m");
     for (int i = 0; i < text; i++) {
@@ -458,17 +523,24 @@ static int canvas_key(int key, int mods)
         return 1;
     case 0x03:                                  /* Ctrl+C */
     case 0x18:                                  /* Ctrl+X */
+        if (key == 0x18 && !can_change())
+            return 1;
         sdk_canvas_copy(r1, c1, r2, c2);
-        if (key == 0x18)
-            sdk_canvas_clear(r1, c1, r2, c2);
         sdk_clip_size(&w, &h);
         snprintf(sdk_note, sizeof sdk_note, "%s %dx%d tiles", key == 0x18 ? "Cut" : "Copied", w, h);
+        if (key == 0x18) {
+            sdk_canvas_clear(r1, c1, r2, c2);
+            changed_canvas();
+        }
         return 1;
     case 0x16: {                                /* Ctrl+V: at the first cell of the selection */
         if (!sdk_clip_size(&w, &h)) {
             snprintf(sdk_note, sizeof sdk_note, "Nothing to paste: copy tiles first");
             return 1;
         }
+        if (!can_change())
+            return 1;
+        const int cut = colours_lost();
         const int n = sdk_canvas_paste(r1, c1);
         pen.row = r1;
         pen.col = c1;
@@ -476,13 +548,17 @@ static int canvas_key(int key, int mods)
         if (n < w * h)
             snprintf(sdk_note, sizeof sdk_note, "Pasted %d of %d tiles", n, w * h);
         else
-            snprintf(sdk_note, sizeof sdk_note, "Pasted %d tiles", n);
+            snprintf(sdk_note, sizeof sdk_note, "Pasted %d tiles%s", n, cut ? ", colours cut" : "");
+        changed_canvas();
         return 1;
     }
     case HID_KEY_DEL:
     case 0x08:
     case 0x7F:
-        sdk_canvas_clear(r1, c1, r2, c2);
+        if (can_change()) {
+            sdk_canvas_clear(r1, c1, r2, c2);
+            changed_canvas();
+        }
         return 1;
     default:
         return 0;

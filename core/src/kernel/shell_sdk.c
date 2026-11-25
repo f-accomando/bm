@@ -156,6 +156,8 @@ static void draw(int tab)
         return;
     }
     if (tab == SDK_TAB_SPRITE) {
+        sdk_sprite_sync(proj.target == SDK_NES ? SDK_SPRITE_NES : proj.target == SDK_SNES ? SDK_SPRITE_SNES :
+                                                                                       SDK_SPRITE_NONE);
         sdk_sprite_draw((int)cols, (int)rows, msg);
         return;
     }
@@ -320,13 +322,15 @@ static int discard_ok(void)
     return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
 }
 
-/* Asks before the SDK closes: the canvas of the Sprite tab is in no file. */
+/* Asks before the SDK closes: the canvas of a bm project is in no file. */
 static int leave_ok(void)
 {
     static const char *const yn[2] = { "No, keep working", "Yes, leave" };
     if (dirty)
         return discard_ok();
-    return sdk_canvas_empty() || popup("The sprite canvas is not saved", yn, 2, 0, redraw_screen) == 1;
+    if (proj.target != SDK_BM || sdk_canvas_empty())           /* a NES or SNES canvas is in the code */
+        return 1;
+    return popup("The sprite canvas is not saved", yn, 2, 0, redraw_screen) == 1;
 }
 
 /* ---- Esc menu: New, Open, Save, Save as, Build ---- */
@@ -354,7 +358,7 @@ static int text_is_template(int target)
  * A new project that has none of that may still change platform, and the start file follows it. */
 static int platform_locked(void)
 {
-    return pname[0] || !text_is_template(proj.target);
+    return pname[0] || !text_is_template(proj.target) || (proj.target == SDK_BM && !sdk_canvas_empty());
 }
 
 static void do_save(const char *name)

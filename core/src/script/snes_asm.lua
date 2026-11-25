@@ -444,10 +444,7 @@ do
 end
 M.nmos = NMOS
 
--- opts: name (main file name), read(path) -> text or nil (for .include and .incbin), map ("lorom"|"hirom"),
--- cpu ("6502": the NES; the default is the 65C816)
-function M.assemble(source, opts)
-    opts = opts or {}
+local function assemble_one(source, opts)
     local cpu6502 = opts.cpu == "6502"
     local read = opts.read or default_read
     local res = { ok = false, errors = {}, segments = {}, symbols = {}, symlist = {}, lines = {}, map = opts.map }
@@ -981,6 +978,69 @@ function M.assemble(source, opts)
     return res
 end
 
+-- The lines from .chr to .endchr are the CHR ROM of a NES cartridge: they leave the program and are assembled
+-- on their own, from address 0. The lines keep their numbers. Returns the program, the CHR source (nil when
+-- there is no .chr) and the first mistake.
+local function split_chr(source)
+    local main, chr, inside, found, bad, n = {}, {}, false, false, nil, 0
+    for line in (source .. "\n"):gmatch("([^\n]*)\n") do
+        n = n + 1
+        local word = slower(line:match("^%s*(%.%a+)") or "")
+        local m, c = line, ""
+        if word == ".chr" or word == ".endchr" then
+            if inside == (word == ".chr") then
+                bad = bad or { line = n, msg = word == ".chr" and ".chr inside .chr" or ".endchr without .chr" }
+            end
+            inside = word == ".chr"
+            m = ""
+            if inside and not found then c, found = ".org $0000", true end
+        elseif inside then
+            m, c = "", line
+        end
+        main[n], chr[n] = m, c
+    end
+    if inside then bad = bad or { line = n, msg = "a .chr is not closed" } end
+    if not found and not bad then return source end
+    return table.concat(main, "\n"), found and table.concat(chr, "\n") or nil, bad
+end
+
+-- opts: name (main file name), read(path) -> text or nil (for .include and .incbin), map ("lorom"|"hirom"),
+-- cpu ("6502": the NES; the default is the 65C816). With the 6502 the bytes of the .chr blocks of the source are
+-- in res.chr (build_nes puts them in the CHR ROM).
+function M.assemble(source, opts)
+    opts = opts or {}
+    if opts.cpu ~= "6502" then return assemble_one(source, opts) end
+    local program, chr, bad = split_chr(source)
+    local res = assemble_one(program, opts)
+    if bad then
+        res.ok = false
+        res.errors[#res.errors + 1] = { file = opts.name or "main.s", line = bad.line, msg = bad.msg }
+    end
+    if chr then
+        local c = assemble_one(chr, opts)
+        for _, e in ipairs(c.errors) do res.errors[#res.errors + 1] = e end
+        res.ok = res.ok and c.ok
+        if res.ok then
+            local list, out, at = {}, {}, 0
+            for _, seg in ipairs(c.segments) do if #seg.data > 0 then list[#list + 1] = seg end end
+            table.sort(list, function(x, y) return x.addr < y.addr end)
+            for _, seg in ipairs(list) do
+                if seg.addr < at then
+                    res.ok = false
+                    res.errors[#res.errors + 1] = { file = opts.name or "main.s", line = 0,
+                                                    msg = "the .chr data overlaps itself" }
+                    break
+                end
+                if seg.addr > at then out[#out + 1] = string.rep("\0", seg.addr - at) end
+                out[#out + 1] = seg.data
+                at = seg.addr + #seg.data
+            end
+            res.chr = table.concat(out)
+        end
+    end
+    return res
+end
+
 -- "file:line: message" for each error, one per line.
 function M.format_errors(res)
     local t = {}
@@ -1146,7 +1206,7 @@ end
 -- The NES builder (iNES). Assemble with { cpu = "6502" } first.
 -- ===================================================================================================
 -- h: prg_kb (16, 32, 64 ... default 32), chr_kb (0: the board has CHR RAM; else the KB of CHR ROM),
--- chr (a string with the CHR ROM bytes, optional), mapper (0 to 255), vertical, battery, four_screen,
+-- chr (a string with the CHR ROM bytes, optional; the .chr blocks of the source take its place), mapper (0 to 255), vertical, battery, four_screen,
 -- wram_kb (0 or 8), fill (the padding byte of the PRG, default $FF), vectors { nmi, reset, irq } (a label
 -- name or a number). The PRG window $8000-$FFFF is the last 32 KB of the PRG (a 16 KB PRG shows twice:
 -- $8000 and $C000 are the same byte). Bank switching is the program's own work.
@@ -1218,12 +1278,12 @@ function M.build_nes(res, h)
         if not ok then return nil, (type(e) == "table" and e.msg) or tostring(e) end
     end
     -- the CHR
-    local chr = ""
+    local chr, given = "", res.chr or h.chr          -- a .chr block of the source comes before a file
     if chr_kb > 0 then
-        chr = h.chr or ""
+        chr = given or ""
         if #chr > chr_kb * 1024 then return nil, "the CHR data is larger than the CHR ROM of the board (" .. chr_kb .. " KB)" end
         chr = chr .. string.rep("\0", chr_kb * 1024 - #chr)
-    elseif h.chr and #h.chr > 0 then
+    elseif given and #given > 0 then
         return nil, "the board has CHR RAM: it has no CHR ROM to put data in"
     end
     local flags6 = ((mapper & 0x0F) << 4) | (h.vertical and 1 or 0) | (h.battery and 2 or 0) | (h.four_screen and 8 or 0)

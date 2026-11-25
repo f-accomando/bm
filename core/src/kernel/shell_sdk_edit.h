@@ -7,7 +7,7 @@
 
 #include <stddef.h>
 
-#define SDK_EDIT_MAX 32768              /* bytes of text */
+#define SDK_EDIT_MAX (128 * 1024)       /* bytes of text: the code and the tiles written in it */
 
 void sdk_edit_reset(void);
 size_t sdk_edit_length(void);
@@ -61,6 +61,9 @@ int sdk_edit_paste(void);
 size_t sdk_edit_clip_length(void);
 /* Puts text in the clipboard (a copy from the ROM side), cut at SDK_EDIT_MAX. */
 void sdk_edit_clip_set(const char *text, size_t len);
+/* Replaces the bytes [from, to) with n bytes of text, as one step of the history; the cursor stays on the text
+ * it was on. Returns 0, or -1 when it does not fit (nothing changes). */
+int sdk_edit_replace(size_t from, size_t to, const char *text, size_t n);
 /* Copies the current line under itself, and the cursor goes to the copy. Returns 1 when the text changed. */
 int sdk_edit_duplicate_line(void);
 

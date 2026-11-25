@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "kernel/shell_sdk_canvas.h"
+#include "kernel/shell_sdk_chr.h"
 #include "kernel/shell_sdk_edit.h"
 #include "kernel/shell_sdk_rom.h"
 #include "kernel/shell_sdk_tiles.h"
@@ -84,9 +85,14 @@ static void test_edit(void)
     CHECK(line == 0 && col == 0);
 
     /* the buffer has a limit */
-    sdk_edit_reset();
-    for (int i = 0; i < SDK_EDIT_MAX + 10; i++)
-        sdk_edit_type('x');
+    static char big[SDK_EDIT_MAX + 10];
+    memset(big, 'x', sizeof big);
+    for (size_t i = 79; i < sizeof big; i += 80)
+        big[i] = '\n';
+    sdk_edit_set(big, SDK_EDIT_MAX - 1);
+    CHECK(sdk_edit_type('y') == 1 && sdk_edit_type('y') == 0 && sdk_edit_length() == SDK_EDIT_MAX);
+    CHECK(sdk_edit_replace(0, 1, "ab", 2) == -1 && sdk_edit_replace(0, 2, "ab", 2) == 0);
+    sdk_edit_set(big, sizeof big);
     CHECK(sdk_edit_length() == SDK_EDIT_MAX);
 }
 
@@ -425,6 +431,90 @@ static void test_grid(void)
     CHECK(sdk_clip_size(&w, &h) && w == 32 && h == 16);
 }
 
+/* the canvas as assembly in the source of the project */
+static void test_chr(void)
+{
+    char err[64];
+    static char out[4096];
+    sdk_canvas_reset();
+    CHECK(sdk_chr_text(1, out, sizeof out) == 0);
+
+    sdk_tile_t t = { .used = 1, .fmt = SDK_TILE_NES };
+    t.pix[0] = 3;
+    t.pix[63] = 1;
+    uint8_t bytes[32], pix[64];
+    sdk_tile_encode(t.pix, SDK_TILE_NES, bytes);
+    CHECK(bytes[0] == 0x80 && bytes[8] == 0x80 && bytes[7] == 0x01 && bytes[15] == 0);
+    sdk_tile_encode(t.pix, SDK_TILE_SNES4, bytes);
+    sdk_tile_decode(bytes, 32, 0, SDK_TILE_SNES4, pix);
+    CHECK(!memcmp(pix, t.pix, 64));
+
+    sdk_canvas_set(0, 1, &t);
+    sdk_canvas_set(1, 0, &t);
+    CHECK(sdk_chr_text(1, out, sizeof out) > 0);
+    CHECK(strstr(out, ";@tiles") == out && strstr(out, "\n.chr\n    .res 16,0   ; $000-$000\n    .db $80,$00"));
+    CHECK(strstr(out, " ; $001\n    .res 224,0   ; $002-$00F\n    .db ") && strstr(out, ".endchr\n;@tiles-end\n"));
+    CHECK(sdk_chr_text(1, out, 40) == -1);
+
+    /* into the code: before the ;@end of ;@sprites; the text around stays */
+    const char *src = "; Sections marked ;@name ... ;@end\nreset: rts\n;@sprites\n; comment\n;@end\n;@map\n;@end\n";
+    sdk_edit_set(src, strlen(src));
+    sdk_edit_goto_line(6);
+    CHECK(sdk_chr_commit(1, err, sizeof err) == 0);
+    const char *s = sdk_edit_text();
+    CHECK(strstr(s, "; comment\n;@tiles") && strstr(s, ";@tiles-end\n;@end\n;@map\n;@end\n"));
+    int line, col;
+    sdk_edit_pos(&line, &col);
+    CHECK(!strncmp(s + sdk_edit_line_offset(line), ";@map", 5));      /* the cursor stays on its line */
+    const size_t len = sdk_edit_length();
+    const unsigned rev = sdk_edit_revision();
+    CHECK(sdk_chr_commit(1, err, sizeof err) == 0 && sdk_edit_revision() == rev);    /* the same: no change */
+
+    /* back from the code into an empty canvas */
+    sdk_canvas_reset();
+    CHECK(sdk_chr_read(1, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0);
+    CHECK(sdk_canvas_tile(0, 1)->used && sdk_canvas_tile(1, 0)->used && !sdk_canvas_tile(0, 0)->used);
+    CHECK(sdk_canvas_tile(0, 1)->pix[0] == 3 && sdk_canvas_tile(0, 1)->pix[63] == 1);
+
+    /* the block is replaced, and an empty canvas removes it; one undo brings the old one back */
+    sdk_canvas_clear(1, 0, 1, 0);
+    CHECK(sdk_chr_commit(1, err, sizeof err) == 0 && sdk_edit_length() < len);
+    sdk_canvas_clear(0, 0, 31, 15);
+    CHECK(sdk_chr_commit(1, err, sizeof err) == 0);        /* the source as it was, without the block */
+    CHECK(sdk_edit_length() == strlen(src) && !memcmp(sdk_edit_text(), src, strlen(src)));
+    CHECK(sdk_edit_undo() && strstr(sdk_edit_text(), "\n;@tiles"));
+
+    /* a source with no section gets one; a SNES project: bytes after sprites_chr */
+    sdk_edit_set("reset: rts", 10);
+    t.fmt = SDK_TILE_SNES4;
+    t.pix[1] = 9;
+    sdk_canvas_set(0, 0, &t);
+    CHECK(sdk_chr_commit(0, err, sizeof err) == 0);
+    s = sdk_edit_text();
+    CHECK(strstr(s, "reset: rts\n\n;@sprites\n;@tiles") && strstr(s, "sprites_chr:\n    .db ") && strstr(s, ";@tiles-end\n;@end\n"));
+    sdk_canvas_reset();
+    CHECK(sdk_chr_read(0, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0 && sdk_canvas_tile(0, 0)->pix[1] == 9);
+
+    /* hand edits that are read, and ones that are not */
+    const char *hand = ";@tiles\n.chr\nface: .byte %11111111, 255,$ff ; three\n  .ds 13\n;@tiles-end\n";
+    CHECK(sdk_chr_read(1, hand, strlen(hand), err, sizeof err) == 0 && sdk_canvas_tile(0, 0)->pix[0] == 1);
+    const char *bad = "a\n;@tiles\n  .db $00,FOO\n;@tiles-end\n";
+    CHECK(sdk_chr_read(1, bad, strlen(bad), err, sizeof err) == -1 && strstr(err, "line 3"));
+    CHECK(sdk_canvas_tile(0, 0)->used);                 /* the canvas stays */
+    const char *open = ";@tiles\n  .db 1\n";
+    CHECK(sdk_chr_read(1, open, strlen(open), err, sizeof err) == -1 && strstr(err, "tiles-end"));
+    sdk_edit_set(open, strlen(open));
+    CHECK(sdk_chr_commit(1, err, sizeof err) == -1);
+    CHECK(sdk_chr_read(1, "rts\n", 4, err, sizeof err) == 0 && sdk_canvas_empty());
+
+    /* the whole canvas fits in the code */
+    sdk_edit_set("x\n", 2);
+    for (int i = 0; i < 512; i++)
+        sdk_canvas_set(i / 16, i % 16, &t);
+    CHECK(sdk_chr_commit(0, err, sizeof err) == 0 && sdk_edit_length() > 60000);
+    sdk_canvas_reset();
+}
+
 static void test_view(void)
 {
     sdk_view_t v;
@@ -592,6 +682,7 @@ int main(void)
     test_hex();
     test_view();
     test_grid();
+    test_chr();
     test_tiles();
     test_tiles_start();
     test_tiles_move();

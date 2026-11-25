@@ -25,6 +25,9 @@ int sdk_tile_next(int fmt);
 
 /* The 64 colour numbers (rows of 8) of the tile at off. A byte past the end of the data is 0. */
 void sdk_tile_decode(const uint8_t *data, size_t size, size_t off, int fmt, uint8_t pix[64]);
+/* The other way: the sdk_tile_bytes(fmt) bytes of a tile; the bits of a colour number past the format are
+ * dropped. */
+void sdk_tile_encode(const uint8_t pix[64], int fmt, uint8_t *out);
 
 /* Where the view of a ROM starts: the CHR ROM of a NES file (chr is set to 1), else the PRG; a SNES file
  * after its copier header. fmt gets the format to read it with. */

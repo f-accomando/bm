@@ -131,5 +131,32 @@ check("nes: code past $FFFF", rom == nil and why:find("$FFFF", 1, true), tostrin
 rom, why = build("reset: nop\n.org $C000\nnop", { prg_kb = 16 })
 check("nes 16 KB: the mirror overlaps", rom == nil and why:find("overlaps", 1, true), tostring(why))
 
+-- .chr blocks: the CHR ROM from the source
+rom = build([[
+.org $8000
+reset: jmp reset
+.chr
+    .db $80,$00,1,2
+    .res 12,0
+.endchr
+nmi: rti
+.chr
+    .db $FF
+.endchr
+]], { prg_kb = 32, chr_kb = 8, chr = "file" })
+check("nes .chr: in the CHR ROM, before a file", rom and rom:sub(16 + 32768 + 1, 16 + 32768 + 4) == "\128\0\1\2"
+      and rom:byte(16 + 32768 + 17) == 0xFF and #rom == 16 + 32768 + 8192)
+check("nes .chr: not in the program", rom and rom:sub(17, 20) == "\76\0\128\64", rom and hex(rom:sub(17, 24)))
+rom, why = build("reset: rts\n.chr\n.db 1\n.endchr", { prg_kb = 32, chr_kb = 0 })
+check("nes .chr: a CHR RAM board", rom == nil and why:find("CHR RAM", 1, true), tostring(why))
+rom, why = build("reset: rts\n.chr\n.res 9000, 1\n.endchr", { prg_kb = 32, chr_kb = 8 })
+check("nes .chr: too large", rom == nil and why:find("larger", 1, true), tostring(why))
+local r = A.assemble("reset: rts\n.chr\n.db 1\n  nop zz\n.endchr", { cpu = "6502" })
+check("nes .chr: an error keeps its line", not r.ok and r.errors[1].line == 4, r.errors[1] and r.errors[1].line)
+r = A.assemble("reset: rts\n.chr\n.db 1", { cpu = "6502" })
+check("nes .chr: not closed", not r.ok and A.format_errors(r):find("not closed", 1, true))
+r = A.assemble("reset: rts\n.endchr", { cpu = "6502" })
+check("nes .chr: .endchr alone", not r.ok)
+
 print(string.format("nes_asm_test: %d checks, %d failed", count, fails))
 os.exit(fails == 0 and 0 or 1)

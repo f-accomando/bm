@@ -132,13 +132,10 @@ irq:
     rti
 
 ;@sprites
-; Sprite sheet: the Sprite tab will write sprites.chr (4 bits a pixel, 32 bytes a 8x8
-; tile) and sprites.pal (16 colours a palette, BGR555). The sheet is 16 tiles wide
-; (128 px). The data goes in a bank of its own, in the native video format, so that a
-; DMA sends it as it is:
-;   .org $818000
-;   sprites_chr: .incbin "sprites.chr"
-;   sprites_pal: .incbin "sprites.pal"
+; Sprite sheet: the Sprite tab writes the tiles of its canvas here, bytes after the
+; label sprites_chr between ;@tiles and ;@tiles-end (4 bits a pixel, 32 bytes a 8x8
+; tile, the native video format, so that a DMA sends them as they are). The sheet is
+; 16 tiles wide (128 px). A palette is 16 colours, BGR555.
 ; The sprites of the screen are the 544 bytes of the OAM (128 sprites).
 ;@end
 

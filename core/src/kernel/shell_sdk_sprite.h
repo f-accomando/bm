@@ -13,6 +13,12 @@
 
 /* The SDK starts: an empty canvas and clipboard. */
 void sdk_sprite_reset(void);
+/* The code the canvas is written in: SDK_SPRITE_NES or SDK_SPRITE_SNES, or SDK_SPRITE_NONE (a bm project: the
+ * canvas lives only while the SDK is open). Call it before the tab is drawn: when the code changed since the
+ * last time, the canvas is read again from its tiles block (shell_sdk_chr.h). A change of the canvas is written
+ * into the code at once. */
+enum { SDK_SPRITE_NONE, SDK_SPRITE_NES, SDK_SPRITE_SNES };
+void sdk_sprite_sync(int code);
 /* The ROM that opened, or NULL when it closed. The bytes stay with the caller. A new ROM shows the split
  * screen again, with the keys on the ROM side of the Sprite tab. */
 void sdk_sprite_rom(const uint8_t *data, size_t size, const sdk_rom_t *info, const char *name);
