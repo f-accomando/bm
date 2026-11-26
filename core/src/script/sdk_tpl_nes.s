@@ -160,7 +160,7 @@ palette:
     .byte $11,$30,$21,$01, $11,$30,$21,$01, $11,$30,$21,$01, $11,$30,$21,$01
 
 ;@sprites
-; Sprite sheet: the Sprite tab writes the tiles of its canvas here, a .chr block
+; Sprite sheet: the Sprite tab writes its tiles here, a .chr block
 ; between ;@tiles and ;@tiles-end (8x8 tiles, 2 bits a pixel, 16 bytes a tile,
 ; 256 tiles in a 4 KB pattern table; the sheet is 16 tiles wide). The build puts the
 ; block in the CHR ROM (the board must have CHR ROM).

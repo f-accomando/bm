@@ -107,6 +107,25 @@ int main(void)
     CHECK(sdk_proj_info(&p, info, 8) == 5 && strstr(info[1], "1 bank of 32 KB"));
     sdk_proj_default(&p, SDK_BM);
     CHECK(sdk_proj_info(&p, info, 8) == 3);
+    {                                           /* the head of the sprite sheet of the Sprite tab */
+        char head[2][48];
+        sdk_proj_t q;
+        sdk_proj_default(&q, SDK_NES);
+        sdk_proj_sheet(&q, head);
+        CHECK(strstr(head[0], "128x256 px  512 tiles") && strstr(head[1], "the whole sheet"));
+        q.nes_chr_kb = 256;
+        sdk_proj_sheet(&q, head);
+        CHECK(strstr(head[1], "CHR 256 KB: 128x8192, first 512") && strlen(head[1]) <= 36);
+        q.nes_chr_kb = 0;
+        sdk_proj_sheet(&q, head);
+        CHECK(strstr(head[1], "CHR RAM"));
+        sdk_proj_default(&q, SDK_SNES);
+        sdk_proj_sheet(&q, head);
+        CHECK(strstr(head[0], "4bpp 16 KB") && strstr(head[1], "sprites address 512") && strlen(head[1]) <= 36);
+        sdk_proj_default(&q, SDK_BM);
+        sdk_proj_sheet(&q, head);
+        CHECK(strstr(head[1], "kept while open"));
+    }
 
     sdk_pcb_t pcb;
     sdk_proj_default(&p, SDK_SNES);

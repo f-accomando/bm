@@ -438,7 +438,9 @@ static void snap_put(const snap_t *s)
     keep_column();
 }
 
-/* Before a change of the text. A kind (1 typing, 2 Backspace, 3 Delete) merges with the step before it when the
+#define RUN_KIND 16                     /* the kinds of the runs of sdk_edit_replace start after it */
+
+/* Before a change of the text. A kind (1 typing, 2 Backspace, 3 Delete, more: a run of replacements) merges with the step before it when the
  * cursor has not moved since: a word typed in a row is one step. Kind 0 is always a step of its own. */
 static void edit_begin(int kind)
 {
@@ -539,13 +541,13 @@ int sdk_edit_paste(void)
     return n;
 }
 
-int sdk_edit_replace(size_t from, size_t to, const char *text, size_t n)
+int sdk_edit_replace(size_t from, size_t to, const char *text, size_t n, int run)
 {
     if (from > to || to > len || len - (to - from) + n > SDK_EDIT_MAX)
         return -1;
     if (to - from == n && !memcmp(buf + from, text, n))
         return 0;                                       /* no change: no step, nothing to save */
-    edit_begin(0);
+    edit_begin(run > 0 ? RUN_KIND + run : 0);
     memmove(buf + from + n, buf + to, len - to);
     memcpy(buf + from, text, n);
     len = len - (to - from) + n;

@@ -8,7 +8,10 @@
 #include "kernel/shell_sdk_canvas.h"
 #include "kernel/shell_sdk_chr.h"
 #include "kernel/shell_sdk_edit.h"
+#include "kernel/shell_sdk_pal.h"
 #include "kernel/shell_sdk_rom.h"
+#include "kernel/shell_sdk_sheet.h"
+#include "kernel/shell_sdk_sprite.h"
 #include "kernel/shell_sdk_tiles.h"
 #include "kernel/shell_sdk_view.h"
 
@@ -91,7 +94,7 @@ static void test_edit(void)
         big[i] = '\n';
     sdk_edit_set(big, SDK_EDIT_MAX - 1);
     CHECK(sdk_edit_type('y') == 1 && sdk_edit_type('y') == 0 && sdk_edit_length() == SDK_EDIT_MAX);
-    CHECK(sdk_edit_replace(0, 1, "ab", 2) == -1 && sdk_edit_replace(0, 2, "ab", 2) == 0);
+    CHECK(sdk_edit_replace(0, 1, "ab", 2, 0) == -1 && sdk_edit_replace(0, 2, "ab", 2, 0) == 0);
     sdk_edit_set(big, sizeof big);
     CHECK(sdk_edit_length() == SDK_EDIT_MAX);
 }
@@ -414,19 +417,19 @@ static void test_grid(void)
     CHECK(sdk_tiles_cell(-1, 0, 4, 1) == -7 && sdk_tiles_cell(-2, 1, 4, 1) == -6);
 
     /* the canvas: paste, copy, cut, the edges */
-    sdk_canvas_reset();
+    sdk_sheet_reset();
     int w, h;
-    CHECK(sdk_canvas_empty() && !sdk_clip_size(&w, &h) && sdk_canvas_paste(0, 0) == 0);
+    CHECK(sdk_sheet_empty() && !sdk_clip_size(&w, &h) && sdk_sheet_paste(0, 0) == 0);
     sdk_clip_start(2, 2);
     sdk_clip_cell(0, 1)->used = 1;
     sdk_clip_cell(0, 1)->pix[0] = 3;
-    CHECK(sdk_clip_cell(2, 0) == NULL && sdk_canvas_paste(1, 2) == 4);
-    CHECK(!sdk_canvas_empty() && sdk_canvas_tile(1, 3)->used && sdk_canvas_tile(1, 3)->pix[0] == 3);
-    CHECK(sdk_canvas_paste(SDK_CANVAS_H - 1, SDK_CANVAS_W - 1) == 1);
-    sdk_canvas_copy(1, 3, 1, 3);
+    CHECK(sdk_clip_cell(2, 0) == NULL && sdk_sheet_paste(1, 2) == 4);
+    CHECK(!sdk_sheet_empty() && sdk_sheet_tile(1, 3)->used && sdk_sheet_tile(1, 3)->pix[0] == 3);
+    CHECK(sdk_sheet_paste(SDK_SHEET_H - 1, SDK_SHEET_W - 1) == 1);
+    sdk_sheet_copy(1, 3, 1, 3);
     CHECK(sdk_clip_size(&w, &h) && w == 1 && h == 1 && sdk_clip_cell(0, 0)->pix[0] == 3);
-    sdk_canvas_clear(0, 0, SDK_CANVAS_H - 1, SDK_CANVAS_W - 1);
-    CHECK(sdk_canvas_empty() && sdk_canvas_paste(0, 0) == 1 && sdk_canvas_tile(0, 0)->pix[0] == 3);
+    sdk_sheet_clear(0, 0, SDK_SHEET_H - 1, SDK_SHEET_W - 1);
+    CHECK(sdk_sheet_empty() && sdk_sheet_paste(0, 0) == 1 && sdk_sheet_tile(0, 0)->pix[0] == 3);
     sdk_clip_start(32, 100);
     CHECK(sdk_clip_size(&w, &h) && w == 32 && h == 16);
 }
@@ -436,7 +439,7 @@ static void test_chr(void)
 {
     char err[64];
     static char out[4096];
-    sdk_canvas_reset();
+    sdk_sheet_reset();
     CHECK(sdk_chr_text(1, out, sizeof out) == 0);
 
     sdk_tile_t t = { .used = 1, .fmt = SDK_TILE_NES };
@@ -449,8 +452,8 @@ static void test_chr(void)
     sdk_tile_decode(bytes, 32, 0, SDK_TILE_SNES4, pix);
     CHECK(!memcmp(pix, t.pix, 64));
 
-    sdk_canvas_set(0, 1, &t);
-    sdk_canvas_set(1, 0, &t);
+    sdk_sheet_set(0, 1, &t);
+    sdk_sheet_set(1, 0, &t);
     CHECK(sdk_chr_text(1, out, sizeof out) > 0);
     CHECK(strstr(out, ";@tiles") == out && strstr(out, "\n.chr\n    .res 16,0   ; $000-$000\n    .db $80,$00"));
     CHECK(strstr(out, " ; $001\n    .res 224,0   ; $002-$00F\n    .db ") && strstr(out, ".endchr\n;@tiles-end\n"));
@@ -460,7 +463,7 @@ static void test_chr(void)
     const char *src = "; Sections marked ;@name ... ;@end\nreset: rts\n;@sprites\n; comment\n;@end\n;@map\n;@end\n";
     sdk_edit_set(src, strlen(src));
     sdk_edit_goto_line(6);
-    CHECK(sdk_chr_commit(1, err, sizeof err) == 0);
+    CHECK(sdk_chr_commit(1, 0, err, sizeof err) == 0);
     const char *s = sdk_edit_text();
     CHECK(strstr(s, "; comment\n;@tiles") && strstr(s, ";@tiles-end\n;@end\n;@map\n;@end\n"));
     int line, col;
@@ -468,19 +471,19 @@ static void test_chr(void)
     CHECK(!strncmp(s + sdk_edit_line_offset(line), ";@map", 5));      /* the cursor stays on its line */
     const size_t len = sdk_edit_length();
     const unsigned rev = sdk_edit_revision();
-    CHECK(sdk_chr_commit(1, err, sizeof err) == 0 && sdk_edit_revision() == rev);    /* the same: no change */
+    CHECK(sdk_chr_commit(1, 0, err, sizeof err) == 0 && sdk_edit_revision() == rev);    /* the same: no change */
 
     /* back from the code into an empty canvas */
-    sdk_canvas_reset();
+    sdk_sheet_reset();
     CHECK(sdk_chr_read(1, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0);
-    CHECK(sdk_canvas_tile(0, 1)->used && sdk_canvas_tile(1, 0)->used && !sdk_canvas_tile(0, 0)->used);
-    CHECK(sdk_canvas_tile(0, 1)->pix[0] == 3 && sdk_canvas_tile(0, 1)->pix[63] == 1);
+    CHECK(sdk_sheet_tile(0, 1)->used && sdk_sheet_tile(1, 0)->used && !sdk_sheet_tile(0, 0)->used);
+    CHECK(sdk_sheet_tile(0, 1)->pix[0] == 3 && sdk_sheet_tile(0, 1)->pix[63] == 1);
 
     /* the block is replaced, and an empty canvas removes it; one undo brings the old one back */
-    sdk_canvas_clear(1, 0, 1, 0);
-    CHECK(sdk_chr_commit(1, err, sizeof err) == 0 && sdk_edit_length() < len);
-    sdk_canvas_clear(0, 0, 31, 15);
-    CHECK(sdk_chr_commit(1, err, sizeof err) == 0);        /* the source as it was, without the block */
+    sdk_sheet_clear(1, 0, 1, 0);
+    CHECK(sdk_chr_commit(1, 0, err, sizeof err) == 0 && sdk_edit_length() < len);
+    sdk_sheet_clear(0, 0, 31, 15);
+    CHECK(sdk_chr_commit(1, 0, err, sizeof err) == 0);        /* the source as it was, without the block */
     CHECK(sdk_edit_length() == strlen(src) && !memcmp(sdk_edit_text(), src, strlen(src)));
     CHECK(sdk_edit_undo() && strstr(sdk_edit_text(), "\n;@tiles"));
 
@@ -488,31 +491,31 @@ static void test_chr(void)
     sdk_edit_set("reset: rts", 10);
     t.fmt = SDK_TILE_SNES4;
     t.pix[1] = 9;
-    sdk_canvas_set(0, 0, &t);
-    CHECK(sdk_chr_commit(0, err, sizeof err) == 0);
+    sdk_sheet_set(0, 0, &t);
+    CHECK(sdk_chr_commit(0, 0, err, sizeof err) == 0);
     s = sdk_edit_text();
     CHECK(strstr(s, "reset: rts\n\n;@sprites\n;@tiles") && strstr(s, "sprites_chr:\n    .db ") && strstr(s, ";@tiles-end\n;@end\n"));
-    sdk_canvas_reset();
-    CHECK(sdk_chr_read(0, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0 && sdk_canvas_tile(0, 0)->pix[1] == 9);
+    sdk_sheet_reset();
+    CHECK(sdk_chr_read(0, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0 && sdk_sheet_tile(0, 0)->pix[1] == 9);
 
     /* hand edits that are read, and ones that are not */
     const char *hand = ";@tiles\n.chr\nface: .byte %11111111, 255,$ff ; three\n  .ds 13\n;@tiles-end\n";
-    CHECK(sdk_chr_read(1, hand, strlen(hand), err, sizeof err) == 0 && sdk_canvas_tile(0, 0)->pix[0] == 1);
+    CHECK(sdk_chr_read(1, hand, strlen(hand), err, sizeof err) == 0 && sdk_sheet_tile(0, 0)->pix[0] == 1);
     const char *bad = "a\n;@tiles\n  .db $00,FOO\n;@tiles-end\n";
     CHECK(sdk_chr_read(1, bad, strlen(bad), err, sizeof err) == -1 && strstr(err, "line 3"));
-    CHECK(sdk_canvas_tile(0, 0)->used);                 /* the canvas stays */
+    CHECK(sdk_sheet_tile(0, 0)->used);                 /* the canvas stays */
     const char *open = ";@tiles\n  .db 1\n";
     CHECK(sdk_chr_read(1, open, strlen(open), err, sizeof err) == -1 && strstr(err, "tiles-end"));
     sdk_edit_set(open, strlen(open));
-    CHECK(sdk_chr_commit(1, err, sizeof err) == -1);
-    CHECK(sdk_chr_read(1, "rts\n", 4, err, sizeof err) == 0 && sdk_canvas_empty());
+    CHECK(sdk_chr_commit(1, 0, err, sizeof err) == -1);
+    CHECK(sdk_chr_read(1, "rts\n", 4, err, sizeof err) == 0 && sdk_sheet_empty());
 
     /* the whole canvas fits in the code */
     sdk_edit_set("x\n", 2);
     for (int i = 0; i < 512; i++)
-        sdk_canvas_set(i / 16, i % 16, &t);
-    CHECK(sdk_chr_commit(0, err, sizeof err) == 0 && sdk_edit_length() > 60000);
-    sdk_canvas_reset();
+        sdk_sheet_set(i / 16, i % 16, &t);
+    CHECK(sdk_chr_commit(0, 0, err, sizeof err) == 0 && sdk_edit_length() > 60000);
+    sdk_sheet_reset();
 }
 
 /* the import of the sprite sheet of a ROM */
@@ -520,25 +523,158 @@ static void test_import(void)
 {
     int n;
     /* a CHR ROM that fits is taken whole, wherever the view is */
-    CHECK(sdk_canvas_sheet(0x6010, 0x4010, 0x2000, 0x4810, 16, &n) == 0x4010 && n == 512);
-    CHECK(sdk_canvas_sheet(0x6010, 0x4010, 0x2000, 0, 16, &n) == 0x4010 && n == 512);
+    CHECK(sdk_sheet_part(0x6010, 0x4010, 0x2000, 0x4810, 16, &n) == 0x4010 && n == 512);
+    CHECK(sdk_sheet_part(0x6010, 0x4010, 0x2000, 0, 16, &n) == 0x4010 && n == 512);
     /* a larger one: from the view, to its end */
-    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x41010, 16, &n) == 0x41010 && n == 512);
-    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x5F010, 16, &n) == 0x5F010 && n == 256);
-    CHECK(sdk_canvas_sheet(0x60010, 0x40010, 0x20000, 0x10, 16, &n) == 0x10 && n == 512);
+    CHECK(sdk_sheet_part(0x60010, 0x40010, 0x20000, 0x41010, 16, &n) == 0x41010 && n == 512);
+    CHECK(sdk_sheet_part(0x60010, 0x40010, 0x20000, 0x5F010, 16, &n) == 0x5F010 && n == 256);
+    CHECK(sdk_sheet_part(0x60010, 0x40010, 0x20000, 0x10, 16, &n) == 0x10 && n == 512);
     /* no CHR ROM (a SNES file): from the view to the end of the file */
-    CHECK(sdk_canvas_sheet(0x8000, 0, 0, 0x7F00, 32, &n) == 0x7F00 && n == 8);
-    CHECK(sdk_canvas_sheet(100, 0, 0, 100, 32, &n) == 100 && n == 0);
+    CHECK(sdk_sheet_part(0x8000, 0, 0, 0x7F00, 32, &n) == 0x7F00 && n == 8);
+    CHECK(sdk_sheet_part(100, 0, 0, 100, 32, &n) == 100 && n == 0);
 
     static uint8_t data[64];
     memset(data + 16, 0xFF, 8);             /* tile 1: colour 1; tile 0 and 2: colour 0 */
     sdk_tile_t t = { .used = 1 };
+    sdk_sheet_reset();
+    sdk_sheet_set(5, 5, &t);
+    sdk_sheet_import(data, sizeof data, 0, SDK_TILE_NES, 3);
+    CHECK(!sdk_sheet_tile(0, 0)->used && sdk_sheet_tile(0, 1)->used && !sdk_sheet_tile(0, 2)->used);
+    CHECK(sdk_sheet_tile(0, 1)->pix[63] == 1 && !sdk_sheet_tile(5, 5)->used);
+    sdk_sheet_reset();
+}
+
+/* The pixel canvas: it paints into the sheet, 8x8 or 16x16, with a selection, a pen and two kinds of copy. */
+static void test_canvas(void)
+{
+    sdk_sheet_reset();
     sdk_canvas_reset();
-    sdk_canvas_set(5, 5, &t);
-    sdk_canvas_import(data, sizeof data, 0, SDK_TILE_NES, 3);
-    CHECK(!sdk_canvas_tile(0, 0)->used && sdk_canvas_tile(0, 1)->used && !sdk_canvas_tile(0, 2)->used);
-    CHECK(sdk_canvas_tile(0, 1)->pix[63] == 1 && !sdk_canvas_tile(5, 5)->used);
+    const sdk_canvas_t *cv = sdk_canvas();
+    int tiles, x1, y1, x2, y2;
+    CHECK(!cv->open && cv->size == 8 && cv->colour == 1 && sdk_canvas_paint(1, 0) == 0);
+    CHECK(sdk_canvas_copy() == 0 && sdk_canvas_paste(&tiles) == -1);
+
+    sdk_canvas_format(SDK_TILE_NES);
+    sdk_canvas_open(2, 3, 0);
+    CHECK(cv->open && cv->row == 2 && cv->col == 3 && sdk_canvas_colours() == 4);
+    CHECK(sdk_canvas_paint(1, 0) == 1 && sdk_canvas_paint(1, 0) == 0);
+    CHECK(sdk_sheet_tile(2, 3)->used && sdk_sheet_tile(2, 3)->fmt == SDK_TILE_NES && sdk_sheet_tile(2, 3)->pix[0] == 1);
+    CHECK(sdk_canvas_paint(0, 0) == 1 && !sdk_sheet_tile(2, 3)->used);     /* nothing left: an empty cell */
+    CHECK(sdk_canvas_paint(0, 0) == 0);
+
+    /* the pen goes round the colours, 0 left out */
+    sdk_canvas_colour_step(-1);
+    CHECK(cv->colour == 3);
+    sdk_canvas_colour_step(1);
+    CHECK(cv->colour == 1);
+
+    /* a selection paints; with the key held only the pixel of the cursor does */
+    sdk_canvas_move(2, 1, 0);
+    sdk_canvas_move(2, 2, 1);
+    CHECK(sdk_canvas_rect(&x1, &y1, &x2, &y2) && x1 == 2 && y1 == 1 && x2 == 4 && y2 == 3);
+    CHECK(sdk_canvas_paint(2, 0) == 9 && sdk_canvas_pixel(2, 1) == 2 && sdk_canvas_pixel(4, 3) == 2);
+    CHECK(sdk_canvas_paint(3, 1) == 1 && sdk_canvas_pixel(4, 3) == 3);
+    sdk_canvas_move(100, 100, 0);
+    CHECK(cv->x == 7 && cv->y == 7 && !cv->sel);
+
+    /* copy of pixels: pastes at the cursor, cut at the edge */
+    sdk_canvas_move(-100, -100, 0);
+    sdk_canvas_move(2, 1, 0);
+    sdk_canvas_move(1, 0, 1);
+    CHECK(sdk_canvas_copy() == 2 && sdk_canvas_has_pixels());
+    sdk_canvas_move(100, 100, 0);
+    CHECK(sdk_canvas_paste(&tiles) == 1 && !tiles && sdk_canvas_pixel(7, 7) == 2);
+    sdk_canvas_move(-100, 0, 0);
+    CHECK(sdk_canvas_paste(&tiles) == 2 && sdk_canvas_pixel(0, 7) == 2 && sdk_canvas_pixel(1, 7) == 2);
+
+    /* without a selection a copy takes the tiles: the sheet pastes them */
+    CHECK(sdk_canvas_copy() == 0 && !sdk_canvas_has_pixels());
+    CHECK(sdk_sheet_paste(10, 10) == 1 && sdk_sheet_tile(10, 10)->pix[63] == 2);
+    CHECK(sdk_canvas_erase_copied() > 0 && !sdk_sheet_tile(2, 3)->used);
+    CHECK(sdk_canvas_paste(&tiles) == 1 && tiles && sdk_sheet_tile(2, 3)->pix[63] == 2);
+
+    /* 16x16: four tiles, kept inside the sheet; a new copy of tiles wins over the pixels */
+    sdk_canvas_open(SDK_SHEET_H - 1, SDK_SHEET_W - 1, 16);
+    CHECK(cv->row == SDK_SHEET_H - 2 && cv->col == SDK_SHEET_W - 2 && cv->size == 16);
+    sdk_canvas_select_all();
+    CHECK(sdk_canvas_paint(1, 0) == 256 && sdk_sheet_tile(31, 15)->pix[63] == 1);
+    CHECK(sdk_canvas_copy() == 256);
+    sdk_sheet_copy(10, 10, 10, 10);
+    CHECK(!sdk_canvas_has_pixels());
+    sdk_canvas_open(0, 0, 0);
+    CHECK(cv->size == 16 && sdk_canvas_paste(&tiles) == 1 && tiles);
+    sdk_canvas_size(8);
+    CHECK(cv->open && cv->size == 8 && cv->x < 8 && cv->y < 8);
+
+    /* a bm project: each tile keeps its format, and it grows to hold the colour */
+    sdk_sheet_reset();
     sdk_canvas_reset();
+    sdk_canvas_format(-1);
+    sdk_canvas_open(0, 0, 8);
+    CHECK(sdk_canvas_colours() == 16 && sdk_canvas_paint(9, 0) == 1 && sdk_sheet_tile(0, 0)->fmt == SDK_TILE_SNES4);
+    sdk_tile_t two = { .used = 1, .fmt = SDK_TILE_NES };
+    two.pix[1] = 3;
+    sdk_sheet_set(0, 1, &two);
+    sdk_canvas_open(0, 1, 8);
+    CHECK(sdk_canvas_colours() == 4 && sdk_canvas_paint(9, 0) == 1 && sdk_sheet_tile(0, 1)->fmt == SDK_TILE_SNES4);
+    CHECK(sdk_sheet_tile(0, 1)->pix[1] == 3);
+
+    /* the pixels painted on one tile are one step of the undo of the code */
+    char err[48];
+    sdk_sheet_reset();
+    sdk_canvas_reset();
+    sdk_canvas_format(SDK_TILE_NES);
+    sdk_edit_set("rts\n", 4);
+    sdk_canvas_open(0, 0, 8);
+    for (int i = 0; i < 5; i++) {
+        sdk_canvas_paint(1, 0);
+        CHECK(sdk_chr_commit(1, 1, err, sizeof err) == 0);
+        sdk_canvas_move(1, 0, 0);
+    }
+    sdk_canvas_open(0, 1, 8);
+    sdk_canvas_paint(2, 0);
+    CHECK(sdk_chr_commit(1, 2, err, sizeof err) == 0);
+    CHECK(sdk_edit_undo() == 1 && sdk_chr_read(1, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0);
+    CHECK(sdk_sheet_tile(0, 0)->used && !sdk_sheet_tile(0, 1)->used);
+    CHECK(sdk_edit_undo() == 1 && sdk_edit_length() == 4 && sdk_edit_undo() == 0);
+}
+
+/* The palettes: greys, those written in the code, and 16 colours for the richer tiles. */
+static void test_pal(void)
+{
+    sdk_pal_reset();
+    CHECK(sdk_pal_count() == 2 && !strcmp(sdk_pal_name(), "greys"));
+    CHECK(sdk_pal_rgb(1, 4) == 0x6F6F6F && sdk_pal_rgb(3, 4) == 0xFFFFFF);
+    const char *nes = "x: rts\npalette:   ; eight\n    ; of four\n"
+                      "    .byte $0F,$16,$27,$18, $0F,$30,$21,$01, $0F,$30,$21,$01, $0F,$30,$21,$01\n"
+                      "    .db $0F,$06,$02,$1A, $0F,$30,$21,$01\n    .byte $0F,$30,$21,$01, $0F,$30,$21,$01\n"
+                      "other: .byte 1,2,3\n";
+    sdk_pal_load(SDK_SPRITE_NES, nes, strlen(nes));
+    CHECK(sdk_pal_count() == 9);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "SPR0 of the code") && sdk_pal_rgb(1, 4) == 0x6C0600);
+    for (int i = 0; i < 4; i++)
+        sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "BG0 of the code") && sdk_pal_rgb(1, 4) == 0xB53120);
+    sdk_pal_load(SDK_SPRITE_NES, nes, strlen(nes));
+    CHECK(!strcmp(sdk_pal_name(), "BG0 of the code"));               /* the choice stays */
+    sdk_pal_load(SDK_SPRITE_NES, "rts\n", 4);
+    CHECK(sdk_pal_count() == 1 && !strcmp(sdk_pal_name(), "greys"));
+    const char *bad = "palette: .byte $0F,$16,$27,$18,$99\n";        /* not a colour: the data ends there */
+    sdk_pal_load(SDK_SPRITE_NES, bad, strlen(bad));
+    CHECK(sdk_pal_count() == 2);
+
+    sdk_pal_reset();
+    const char *snes = "sprites_pal:\n    .dw $0000,$7FFF,$001F\n    .word $7C00\n    rts\n    .dw 1\n";
+    sdk_pal_load(SDK_SPRITE_SNES, snes, strlen(snes));
+    CHECK(sdk_pal_count() == 3);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "0 of the code") && sdk_pal_rgb(1, 16) == 0xFFFFFF);
+    CHECK(sdk_pal_rgb(2, 16) == 0xFF0000 && sdk_pal_rgb(3, 16) == 0x0000FF && sdk_pal_rgb(4, 16) == 0);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "16 colours") && sdk_pal_rgb(15, 16) == 0xFFFFFF && sdk_pal_rgb(255, 256) == 0xFFFFFF);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "greys"));
 }
 
 static void test_view(void)
@@ -710,6 +846,8 @@ int main(void)
     test_grid();
     test_chr();
     test_import();
+    test_canvas();
+    test_pal();
     test_tiles();
     test_tiles_start();
     test_tiles_move();

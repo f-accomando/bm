@@ -298,6 +298,26 @@ int sdk_proj_info(const sdk_proj_t *p, char lines[][72], int max)
     return n;
 }
 
+void sdk_proj_sheet(const sdk_proj_t *p, char lines[2][48])
+{
+    if (p->target == SDK_NES) {
+        const int kb = p->nes_chr_kb ? p->nes_chr_kb : 8, tiles = kb * 64;
+        snprintf(lines[0], 48, "128x256 px  512 tiles  2bpp 8 KB");
+        if (!p->nes_chr_kb)
+            snprintf(lines[1], 48, "CHR RAM: the build needs CHR ROM");
+        else if (tiles > 512)
+            snprintf(lines[1], 48, "CHR %d KB: 128x%d, first 512", kb, tiles / 16 * 8);
+        else
+            snprintf(lines[1], 48, "CHR ROM 8 KB: the whole sheet");
+    } else if (p->target == SDK_SNES) {
+        snprintf(lines[0], 48, "128x256 px  512 tiles  4bpp 16 KB");
+        snprintf(lines[1], 48, "ROM %d KB; sprites address 512", p->snes_rom_kb);
+    } else {
+        snprintf(lines[0], 48, "128x256 px  512 tiles");
+        snprintf(lines[1], 48, "bm: no limit; kept while open");
+    }
+}
+
 void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb)
 {
     char sz[24];

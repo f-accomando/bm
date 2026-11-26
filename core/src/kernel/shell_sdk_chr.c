@@ -1,5 +1,5 @@
 /*
- * Shell SDK: the canvas as assembly (see shell_sdk_chr.h). Original code.
+ * Shell SDK: the sheet as assembly (see shell_sdk_chr.h). Original code.
  */
 #include "shell_sdk_chr.h"
 
@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "shell_sdk_canvas.h"
+#include "shell_sdk_sheet.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_tiles.h"
 
-#define TILES (SDK_CANVAS_W * SDK_CANVAS_H)
+#define TILES (SDK_SHEET_W * SDK_SHEET_H)
 
 int sdk_chr_format(int nes) { return nes ? SDK_TILE_NES : SDK_TILE_SNES4; }
 
@@ -36,7 +36,7 @@ long sdk_chr_text(int nes, char *out, size_t max)
     const int bytes = sdk_tile_bytes(fmt);
     int last = -1;
     for (int i = 0; i < TILES; i++)
-        if (sdk_canvas_tile(i / SDK_CANVAS_W, i % SDK_CANVAS_W)->used)
+        if (sdk_sheet_tile(i / SDK_SHEET_W, i % SDK_SHEET_W)->used)
             last = i;
     if (max)
         out[0] = 0;
@@ -47,11 +47,11 @@ long sdk_chr_text(int nes, char *out, size_t max)
     add(&t, nes ? ";@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\n.chr\n"
                 : ";@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\nsprites_chr:\n");
     for (int i = 0; i <= last; i++) {
-        const sdk_tile_t *tile = sdk_canvas_tile(i / SDK_CANVAS_W, i % SDK_CANVAS_W);
+        const sdk_tile_t *tile = sdk_sheet_tile(i / SDK_SHEET_W, i % SDK_SHEET_W);
         char line[128];
         if (!tile->used) {                              /* a run of empty tiles is one line */
             int n = 1;
-            while (i + n <= last && !sdk_canvas_tile((i + n) / SDK_CANVAS_W, (i + n) % SDK_CANVAS_W)->used)
+            while (i + n <= last && !sdk_sheet_tile((i + n) / SDK_SHEET_W, (i + n) % SDK_SHEET_W)->used)
                 n++;
             snprintf(line, sizeof line, "    .res %d,0   ; $%03X-$%03X\n", n * bytes, i, i + n - 1);
             add(&t, line);
@@ -61,9 +61,16 @@ long sdk_chr_text(int nes, char *out, size_t max)
         uint8_t data[64];
         sdk_tile_encode(tile->pix, fmt, data);
         for (int row = 0; row < bytes; row += 16) {
-            size_t k = (size_t)snprintf(line, sizeof line, "    .db ");
-            for (int b = 0; b < 16; b++)
-                k += (size_t)snprintf(line + k, sizeof line - k, "%s$%02X", b ? "," : "", data[row + b]);
+            static const char hex[] = "0123456789ABCDEF";
+            size_t k = 8;                               /* by hand: written again at each painted pixel */
+            memcpy(line, "    .db ", k);
+            for (int b = 0; b < 16; b++) {
+                if (b)
+                    line[k++] = ',';
+                line[k++] = '$';
+                line[k++] = hex[data[row + b] >> 4];
+                line[k++] = hex[data[row + b] & 15];
+            }
             if (row == 0)
                 k += (size_t)snprintf(line + k, sizeof line - k, " ; $%03X", i);
             snprintf(line + k, sizeof line - k, "\n");
@@ -257,7 +264,7 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
                 return -1;
             }
         }
-    sdk_canvas_clear(0, 0, SDK_CANVAS_H - 1, SDK_CANVAS_W - 1);
+    sdk_sheet_clear(0, 0, SDK_SHEET_H - 1, SDK_SHEET_W - 1);
     for (size_t i = 0; i * bytes < n; i++) {
         int used = 0;
         for (size_t k = i * bytes; k < (i + 1) * bytes; k++)
@@ -266,7 +273,7 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
             continue;
         sdk_tile_t t = { .used = 1, .fmt = (uint8_t)fmt };
         sdk_tile_decode(data, (i + 1) * bytes, i * bytes, fmt, t.pix);
-        sdk_canvas_set((int)(i / SDK_CANVAS_W), (int)(i % SDK_CANVAS_W), &t);
+        sdk_sheet_set((int)(i / SDK_SHEET_W), (int)(i % SDK_SHEET_W), &t);
     }
     free(data);
     return 0;
@@ -274,7 +281,7 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
 
 /* ---- into the editor ---- */
 
-int sdk_chr_commit(int nes, char *err, size_t en)
+int sdk_chr_commit(int nes, int run, char *err, size_t en)
 {
     const char *src = sdk_edit_text();
     const size_t len = sdk_edit_length();
@@ -308,11 +315,11 @@ int sdk_chr_commit(int nes, char *err, size_t en)
     if (n < 0) {
         snprintf(err, en, "the tiles do not fit in the code");
         rc = -1;
-    } else if (n > 0 || found) {                /* an empty canvas with no block: nothing to write */
+    } else if (n > 0 || found) {                /* an empty sheet with no block: nothing to write */
         const size_t total = n ? head + (size_t)n + strlen(after) : 0;
         if (n)
             memcpy(text + head + n, after, strlen(after));
-        if (sdk_edit_replace(from, to, text, total) != 0) {
+        if (sdk_edit_replace(from, to, text, total, run) != 0) {
             snprintf(err, en, "the code is full: tiles not written");
             rc = -1;
         }

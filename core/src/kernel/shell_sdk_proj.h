@@ -71,6 +71,10 @@ const char *sdk_proj_note(const sdk_proj_t *p, int row_id);
 /* Memory and sprite sheet facts, one per line. Returns the number of lines (at most max). */
 int sdk_proj_info(const sdk_proj_t *p, char lines[][72], int max);
 
+/* The two lines of the head of the sprite sheet in the Sprite tab (at most 36 characters each): its size, and
+ * how it stands in the cartridge of the project. The sheet of the SDK holds 512 tiles. */
+void sdk_proj_sheet(const sdk_proj_t *p, char lines[2][48]);
+
 void sdk_proj_pcb(const sdk_proj_t *p, sdk_pcb_t *pcb);
 
 /* The project as text, for the LUA section of a .bme (the same idea as the "--cart" line of the SNES SDK):

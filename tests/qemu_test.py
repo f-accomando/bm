@@ -4475,7 +4475,7 @@ def test_shell_sdk_skeleton(b, opts):
             elif name == "Code":
                 assert any("Ln 1  Col 1" in r for r in rows), rows        # the editor
             elif name == "Sprite":
-                assert any("Canvas 16x32" in r for r in rows), rows
+                assert any("Spritesheet" in r for r in rows) and any("512 tiles" in r for r in rows), rows
             else:
                 assert any(f"{name}: not built yet" in r for r in rows), (name, rows)
         q.send(bytes([0xF9]))                       # back to the Project tab
@@ -4634,7 +4634,7 @@ def test_shell_sdk_code_split(b, opts):
         q.send(bytes([0xFB]))                       # F3: the Sprite tab shows the same ROM, the same view
         rows = screen()
         assert any("ROM: test.nes" in r for r in rows) and any("3/row 8x16" in r for r in rows), rows
-        assert any("Canvas 16x32" in r for r in rows), rows
+        assert any("Spritesheet" in r for r in rows), rows
         q.send("-")
         assert any("2/row 8x16" in r for r in screen())
         q.send(bytes([0xFA]))                       # F2: the Code tab again
@@ -4690,7 +4690,8 @@ def test_shell_sdk_code_split(b, opts):
         assert any("ROM: snesdemo.sfc" in r for r in rows) and any("ROM  8bpp" in r for r in rows), rows
         sendkeys(q, "ctrl-w")                       # closes the ROM for both tabs
         rows = screen()
-        assert any("Canvas 16x32  (Esc > Open ROM)" in r for r in rows), rows
+        assert any("Canvas 8x8" in r and "Spritesheet" in r for r in rows), rows
+        assert any("Esc > Open ROM shows a ROM here" in r for r in rows), rows
         assert any("ROM closed" in r for r in rows) and not any("ROM: " in r for r in rows), rows
         q.send("\x1b")
         q.send(SDK_DOWN * 3 + b"\r")                # Open ROM from the Sprite tab: it stays there
@@ -4698,35 +4699,43 @@ def test_shell_sdk_code_split(b, opts):
         q.send("\r")
         time.sleep(0.8)
         rows = screen()
-        assert any("ROM: test.nes" in r for r in rows) and any("Canvas 16x32  (Ctrl+T: ROM)" in r for r in rows), rows
-        assert any("16/row 8x8" in r for r in rows), rows
+        assert any("ROM: test.nes" in r and "Spritesheet" in r for r in rows), rows
+        assert any("16/row 8x8" in r for r in rows) and any("CHR ROM 8 KB: the whole sheet" in r for r in rows), rows
         img = q.screendump()
-        assert near(8, 8, (255, 255, 255)) and near(24, 24, (111, 111, 111)), pixel(img, x0 + 24, 72)
+        sx = (img[0] // 8 - 34) * 8                 # the first tile of the sheet, on the fourth row
+        at = lambda x, y, rgb: all(abs(a - b) <= 12 for a, b in zip(pixel(img, x, y), rgb))
+        assert at(56 + 8, 56, (255, 255, 255)) and at(56 + 24, 72, (111, 111, 111)), pixel(img, 80, 72)    # the ROM
         sendkeys(q, "shift-right ctrl-c")           # the cursor selects two tiles and copies them
         assert any("Copied 2x1 tiles" in r for r in screen())
-        sendkeys(q, "ctrl-t ctrl-v")                # to the canvas, paste
+        sendkeys(q, "ctrl-t ctrl-v")                # to the sheet, paste
         rows = screen()
-        assert any("Pasted 2 tiles" in r for r in rows) and any("copied 2x1 tiles" in r for r in rows), rows
-        img = q.screendump()                        # the canvas starts at the fifth column, the third row
-        assert tuple(pixel(img, 40, 56)) >= (240, 240, 240), pixel(img, 40, 56)        # tile 0, white
-        assert all(abs(a - b) <= 12 for a, b in zip(pixel(img, 56, 56), (0, 0, 56))), pixel(img, 56, 56)
-        assert yellow(32, 48), pixel(img, 32, 48)
+        assert any("Pasted 2 tiles" in r for r in rows), rows
+        img = q.screendump()
+        assert sum(pixel(img, sx + 8, 72)) > 700, pixel(img, sx + 8, 72)      # tile 0, white
+        assert at(sx + 24, 72, (0, 0, 56)), pixel(img, sx + 24, 72)
+        assert yellow(sx, 64), pixel(img, sx, 64)
         q.send(SDK_DOWN)
         sendkeys(q, "ctrl-v")                       # again, a row below
         time.sleep(0.5)
         img = q.screendump()
-        assert sum(pixel(img, 40, 72)) > 700, pixel(img, 40, 72)
+        assert sum(pixel(img, sx + 8, 88)) > 700, pixel(img, sx + 8, 88)
         q.send(bytes([0xF8]))                       # Del empties the cell
         time.sleep(0.5)
         img = q.screendump()
-        assert sum(pixel(img, 40, 72)) < 80, pixel(img, 40, 72)
-        sendkeys(q, "ctrl-e")                       # the ROM hides: the canvas takes the whole tab
+        assert sum(pixel(img, sx + 8, 88)) < 80, pixel(img, sx + 8, 88)
+        sendkeys(q, "ctrl-e")                       # the ROM hides: the canvas takes its place
         rows = screen()
         assert not any("ROM: test.nes" in r for r in rows), rows
-        assert any("(Ctrl+E: show the ROM)" in r for r in rows) and any("paste at the cursor" in r for r in rows), rows
+        assert any("Enter on a tile of the sprite sheet" in r for r in rows), rows
+        q.send(SDK_UP + b"\r")                      # Enter: tile 000 in the canvas
+        rows = screen()
+        assert any("Canvas 8x8  tile 000" in r for r in rows), rows
+        assert any("Colour 1/3  palette: greys" in r for r in rows), rows
         img = q.screendump()
-        assert sum(pixel(img, 40, 56)) > 700, pixel(img, 40, 56)      # the pasted tile is there
-        sendkeys(q, "ctrl-e")                       # the split screen again, the same ROM
+        px = min(((img[1] - 16) // 16 - 5) * 16 // 8, img[0] // 8 - 40)        # a pixel of the canvas
+        mid = lambda x, y: pixel(img, 8 + x * px + px // 2, 64 + y * px + px // 2)
+        assert sum(mid(4, 4)) > 700, mid(4, 4)      # the pixel of the tile that is white
+        sendkeys(q, "ctrl-e")                       # the ROM again, with the keys
         rows = screen()
         assert any("ROM: test.nes" in r for r in rows) and any("16/row 8x8" in r for r in rows), rows
         q.send(bytes([0xFA]))                       # F2: the Code tab has the ROM too
@@ -5083,8 +5092,10 @@ def test_shell_sdk_banks(b, opts):
 
 
 def test_shell_sdk_canvas_code(b, opts):
-    """Shell SDK (2026-11-25): the canvas of the Sprite tab is a .chr block in the ;@sprites section of the
-    code: a paste writes it, Build ROM puts it in the CHR ROM, and the project that opens brings the canvas back."""
+    """Shell SDK (2026-11-26): the sprite sheet of the Sprite tab is a .chr block in the ;@sprites section of the
+    code: a paste and the pixels painted in the canvas write it, Build ROM puts it in the CHR ROM, and the project
+    that opens brings the sheet back. The canvas paints with Space (also held), empties with Backspace, changes
+    colour with [ ] and the palette with p."""
     tmp = tempfile.mkdtemp(prefix="bm-sdk-")
     img = os.path.join(tmp, "sd.img")
     cfg = os.path.join(tmp, "config.txt")
@@ -5102,8 +5113,21 @@ def test_shell_sdk_canvas_code(b, opts):
         time.sleep(0.6)
         return screen_text(q.screendump())
 
-    def white(x, y):
-        return sum(pixel(q.screendump(), x, y)) > 700
+    def white(x=8, y=8):                            # a pixel of the first tile of the sprite sheet
+        img = q.screendump()
+        return sum(pixel(img, (img[0] // 8 - 34) * 8 + x, 64 + y)) > 700
+
+    def canvas(x, y):                               # the colour of a pixel of the 8x8 canvas
+        img = q.screendump()
+        px = min(((img[1] - 16) // 16 - 5) * 16 // 8, img[0] // 8 - 40)
+        return pixel(img, 8 + x * px + px // 2, 64 + y * px + px // 2)
+
+    def sheet(x, y):                                # and the same pixel in the sheet, tile 000
+        img = q.screendump()
+        return pixel(img, (img[0] // 8 - 34) * 8 + 2 * x + 1, 64 + 2 * y + 1)
+
+    def near(got, rgb):
+        return all(abs(a - b) <= 12 for a, b in zip(got, rgb))
 
     try:
         q.expect(MENU, timeout=30)
@@ -5123,10 +5147,10 @@ def test_shell_sdk_canvas_code(b, opts):
         time.sleep(1.0)
         assert any("ROM: test.nes" in r for r in screen())
         q.send(SDK_RIGHT)                           # tile 1
-        sendkeys(q, "ctrl-c ctrl-t ctrl-v")         # to the canvas, at its first cell
+        sendkeys(q, "ctrl-c ctrl-t ctrl-v")         # to the sheet, at its first cell
         rows = screen()
         assert any("Pasted 1 tiles" in r for r in rows), rows
-        assert white(40, 56), "the canvas has the tile"
+        assert white(), "the sheet has the tile"
         q.send(bytes([0xFA]))                       # F2: the code has the block
         sendkeys(q, "ctrl-alt-down")
         for _ in range(5):
@@ -5144,10 +5168,9 @@ def test_shell_sdk_canvas_code(b, opts):
         assert any("built /nes/canv.nes" in r for r in rows) and any("ROM: canv.nes" in r for r in rows), rows
         q.send(bytes([0xFB]))                       # F3: the tiles of the ROM that was built
         rows = screen()
-        assert any("ROM: canv.nes" in r and "Canvas" in r for r in rows), rows
+        assert any("ROM: canv.nes" in r and "Spritesheet" in r for r in rows), rows
         img = q.screendump()
-        x0 = (img[0] // 8 // 2 + 7) * 8             # the first tile of its CHR ROM
-        assert sum(pixel(img, x0 + 8, 56)) > 700, pixel(img, x0 + 8, 56)
+        assert sum(pixel(img, 64, 56)) > 700, pixel(img, 64, 56)      # the first tile of its CHR ROM
         q.send("\x1b")
         q.send(SDK_DOWN + b"\r")                    # New (the project was saved by the build?)
         time.sleep(0.5)
@@ -5155,7 +5178,7 @@ def test_shell_sdk_canvas_code(b, opts):
             q.send(SDK_DOWN + b"\r")
         q.send(bytes([0xFB]))
         time.sleep(0.5)
-        assert not white(40, 56), "a new project has an empty canvas"
+        assert not white(), "a new project has an empty sheet"
         q.send("\x1b")
         q.send(SDK_DOWN * 2 + b"\r")                # Open
         time.sleep(0.5)
@@ -5163,25 +5186,72 @@ def test_shell_sdk_canvas_code(b, opts):
         time.sleep(1.0)
         q.send(bytes([0xFB]))
         time.sleep(0.5)
-        assert white(40, 56), "the canvas of the project that opened"
+        assert white(), "the sheet of the project that opened"
         sendkeys(q, "delete")                       # empties the cell: the block leaves the code
         time.sleep(0.5)
-        assert not white(40, 56)
+        assert not white()
+        # the canvas: Enter opens the tile; arrows, ] ] for colour 3, Space paints the canvas and the sheet
+        q.send(b"\r" + SDK_RIGHT * 3 + SDK_DOWN * 3 + b"]] ")
+        rows = screen()
+        assert any("Canvas 8x8  tile 000" in r for r in rows) and any("Colour 3/3" in r for r in rows), rows
+        assert any("Pixel 3,3" in r for r in rows), rows
+        q.send(SDK_UP)                              # the cursor leaves the pixel, its frame too
+        time.sleep(0.5)
+        assert sum(canvas(3, 3)) > 700 and sum(sheet(3, 3)) > 700, (canvas(3, 3), sheet(3, 3))
+        q.send(SDK_DOWN)
+        time.sleep(0.5)
+        q.monitor("sendkey spc-right 300")          # Space held while the cursor moves: it paints there too
+        time.sleep(0.8)
+        q.send(SDK_DOWN)
+        time.sleep(0.5)
+        assert sum(canvas(4, 3)) > 700, canvas(4, 3)
+        q.send(SDK_UP + b"\x7f" + SDK_DOWN)         # Backspace: transparent
+        time.sleep(0.5)
+        assert sum(canvas(4, 3)) < 200 and sum(sheet(4, 3)) < 100, (canvas(4, 3), sheet(4, 3))
+        q.send(SDK_UP)
+        sendkeys(q, "shift-left shift-left")        # a selection of three pixels, painted at once
+        q.send(" ")
+        q.send(SDK_DOWN)
+        time.sleep(0.5)
+        assert sum(canvas(2, 3)) > 700 and sum(canvas(4, 3)) > 700, (canvas(2, 3), canvas(4, 3))
+        q.send("p")                                 # the palette of the code: colour 3 of the template is $01
+        rows = screen()
+        assert any("Palette: SPR0 of the code" in r for r in rows), rows
+        assert near(canvas(3, 3), (0, 42, 136)) and near(sheet(3, 3), (0, 42, 136)), (canvas(3, 3), sheet(3, 3))
+        q.send("p" * 8)                             # round to the greys
+        assert any("Palette: greys" in r for r in screen())
+        q.send("\rs")                              # Enter: back to the sheet; s: 16x16
+        assert any("Canvas 16x16" in r for r in screen())
+        q.send("\r")
+        assert any("Canvas 16x16  tile 000" in r for r in screen())
+        q.send("i")
+        assert any("i imports into the sheet" in r for r in screen())
+        q.send(bytes([0xFA]))                       # F2: what was painted is in the code
+        sendkeys(q, "ctrl-alt-down")
+        for _ in range(5):
+            rows = screen()
+            if any(";@tiles  from the Sprite tab" in r for r in rows):
+                break
+            sendkeys(q, "pgup")
+        assert any(".chr" in r for r in rows) and any(".db $00,$00,$00,$38" in r for r in rows), rows
+        q.send(bytes([0xFB]))
         q.send("\x1b")
         q.send(SDK_DOWN * 3 + b"\r")                # Open ROM: canv.nes, the first one
         time.sleep(0.5)
         q.send("\r")
         time.sleep(1.0)
         assert any("ROM: canv.nes" in r for r in screen())
-        q.send("i")                                 # the whole sprite sheet of the ROM into the canvas
-        rows = screen()
-        assert any("Imported 512 tiles from 008010" in r for r in rows), rows
-        assert white(40, 56), "the sheet starts with the tile of the build"
-        q.send("i")                                 # the canvas has tiles: it asks
-        assert any("i again replaces the canvas" in r for r in screen())
+        q.send("i")                                 # the whole sprite sheet of the ROM; the sheet has tiles: it asks
+        assert any("i again replaces the sheet" in r for r in screen())
         q.send(SDK_DOWN)                            # another key: the question is gone
         q.send("i")
-        assert any("i again replaces the canvas" in r for r in screen())
+        assert any("i again replaces the sheet" in r for r in screen())
+        q.send("i")
+        rows = screen()
+        assert any("Imported 512 tiles from 008010" in r for r in rows), rows
+        assert white(), "the sheet starts with the tile of the build"
+        q.send("i")
+        assert any("i again replaces the sheet" in r for r in screen())
         q.send("i")
         assert any("Imported 512 tiles" in r for r in screen())
         q.send(bytes([0xFA]))                       # F2: the sheet is in the code, to its last tile with colour
@@ -5193,7 +5263,7 @@ def test_shell_sdk_canvas_code(b, opts):
             sendkeys(q, "pgup")
         assert any(".chr" in r for r in rows) and any(".db $FF,$FF" in r for r in rows), rows
         q.send(bytes([0xFB]))
-        # a bm project has no assembly: its canvas is in no file
+        # a bm project has no assembly: its sheet is in no file
         q.send("\x1b")
         q.send(SDK_DOWN + b"\r")                    # New: the change is not saved
         assert any("Unsaved changes" in r for r in screen())
@@ -5214,8 +5284,8 @@ def test_shell_sdk_canvas_code(b, opts):
         time.sleep(0.5)
         q.send("bmp\r")
         time.sleep(1.0)
-        q.send("\x11")                              # Ctrl+Q: the SDK asks for the canvas
-        assert any("sprite canvas is not saved" in r for r in screen())
+        q.send("\x11")                              # Ctrl+Q: the SDK asks for the sheet
+        assert any("sprite sheet is not saved" in r for r in screen())
         q.send(SDK_DOWN + b"\r")                    # Yes, leave
         q.expect("> ", timeout=10)
     finally:

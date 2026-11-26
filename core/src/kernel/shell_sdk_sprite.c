@@ -13,15 +13,18 @@
 #include "shell_sdk_chr.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_edit.h"
+#include "shell_sdk_pal.h"
 #include "shell_sdk_pane.h"
+#include "shell_sdk_sheet.h"
 #include "shell_sdk_tiles.h"
 #include "usb/hid.h"
 
 #define TILES_GUTTER  7                 /* "004010 ": the offset of a row, as in the dump */
-#define CANVAS_GUTTER 4                 /* "010 ": the number of the first tile of a row */
-#define FIRST         3                 /* the ANSI row of the first row of tiles */
+#define SHEET_GUTTER  4                 /* "010 ": the number of the first tile of a row */
+#define FIRST         3                 /* the ANSI row of the first row of tiles of the ROM */
+#define SHEET_FIRST   4                 /* and of the sheet and of the canvas, under two lines */
 
-enum { ON_CANVAS, ON_ROM };
+enum { ON_LEFT, ON_SHEET };
 
 /* the ROM and its view */
 static const uint8_t *rom;
@@ -39,43 +42,53 @@ static int view_scale = 1;              /* pixels of the screen for one of a til
 static int view_active;                 /* the view has the keys, set when it is drawn */
 
 /* the Sprite tab */
-static int focus = ON_CANVAS;
-static int hidden;                      /* Ctrl+E: the canvas takes the whole tab */
-static sdk_grid_t pen;                  /* the cursor and the selection of the canvas */
-static int canvas_top, canvas_rows = 1, canvas_scale = 1;
-static int code_kind;                   /* SDK_SPRITE_*: the code the canvas is written in */
-static unsigned code_rev;               /* the revision of the code the canvas was read from */
+static int focus = ON_SHEET;
+static int hidden;                      /* the ROM is open but the canvas has its place */
+static sdk_grid_t pick;                 /* the cursor and the selection of the sheet */
+static int sheet_top, sheet_rows = 1, sheet_scale = 1;
+static int canvas_px = 8;               /* pixels of the screen for one of the canvas */
+static int code_kind;                   /* SDK_SPRITE_*: the code the sheet is written in */
+static unsigned code_rev;               /* the revision of the code the sheet was read from */
 static char code_err[48];               /* why its tiles block cannot be read ("": it can) */
-static int import_armed;                /* i was pressed on a canvas with tiles: again replaces them */
+static char info[2][48];                /* the head of the sheet: its size, for this project */
+static int import_armed;                /* i was pressed on a sheet with tiles: again replaces them */
 
 void sdk_sprite_reset(void)
 {
+    sdk_sheet_reset();
     sdk_canvas_reset();
-    memset(&pen, 0, sizeof pen);
-    canvas_top = 0;
-    focus = ON_CANVAS;
+    sdk_pal_reset();
+    memset(&pick, 0, sizeof pick);
+    sheet_top = 0;
+    focus = ON_SHEET;
     hidden = 0;
     code_kind = SDK_SPRITE_NONE;
+    code_rev = 0;
     code_err[0] = 0;
+    info[0][0] = info[1][0] = 0;
     import_armed = 0;
 }
 
-/* The canvas as the code has it. */
+/* The sheet and the palettes as the code has them. */
 static void read_code(void)
 {
     code_rev = sdk_edit_revision();
     code_err[0] = 0;
-    if (sdk_chr_read(code_kind == SDK_SPRITE_NES, sdk_edit_text(), sdk_edit_length(), code_err, sizeof code_err))
-        sdk_canvas_clear(0, 0, SDK_CANVAS_H - 1, SDK_CANVAS_W - 1);
+    if (code_kind != SDK_SPRITE_NONE &&
+        sdk_chr_read(code_kind == SDK_SPRITE_NES, sdk_edit_text(), sdk_edit_length(), code_err, sizeof code_err))
+        sdk_sheet_clear(0, 0, SDK_SHEET_H - 1, SDK_SHEET_W - 1);
+    sdk_pal_load(code_kind, sdk_edit_text(), sdk_edit_length());
 }
 
-void sdk_sprite_sync(int code)
+void sdk_sprite_sync(const sdk_proj_t *p)
 {
+    const int code = p->target == SDK_NES ? SDK_SPRITE_NES : p->target == SDK_SNES ? SDK_SPRITE_SNES :
+                                                                                     SDK_SPRITE_NONE;
     const int changed = code != code_kind || sdk_edit_revision() != code_rev;
     code_kind = code;
-    if (code == SDK_SPRITE_NONE)
-        code_err[0] = 0;
-    else if (changed)
+    sdk_proj_sheet(p, info);
+    sdk_canvas_format(code == SDK_SPRITE_NONE ? -1 : sdk_chr_format(code == SDK_SPRITE_NES));
+    if (changed)
         read_code();
 }
 
@@ -84,7 +97,7 @@ void sdk_sprite_rom(const uint8_t *data, size_t size, const sdk_rom_t *info, con
     rom = data;
     rom_size = data ? size : 0;
     hidden = 0;
-    focus = data ? ON_ROM : ON_CANVAS;
+    focus = data ? ON_LEFT : ON_SHEET;
     memset(&cursor, 0, sizeof cursor);
     view_per = SDK_TILES_ROW;
     view_tall = 0;
@@ -97,8 +110,9 @@ void sdk_sprite_rom(const uint8_t *data, size_t size, const sdk_rom_t *info, con
 
 /* ---- pixels ---- */
 
-/* The colours of a game are not in its tiles: the colour numbers show as greys, 0 as dark blue. */
-static void paint_tile(framebuffer_t *fb, const uint8_t pix[64], int fmt, int x0, int y0, int scale)
+/* The colours of a game are not in its tiles: the colour numbers show as greys (or with the palette chosen in
+ * the Sprite tab, pal), 0 as dark blue. */
+static void paint_tile(framebuffer_t *fb, const uint8_t pix[64], int fmt, int x0, int y0, int scale, int pal)
 {
     const int n = sdk_tile_colors(fmt);
     for (int y = 0; y < 8; y++)
@@ -106,9 +120,10 @@ static void paint_tile(framebuffer_t *fb, const uint8_t pix[64], int fmt, int x0
             const int v = pix[y * 8 + x];
             for (e = x + 1; e < 8 && pix[y * 8 + e] == v; e++)
                 ;
-            const uint8_t g = v ? (uint8_t)(40 + 215 * v / (n - 1)) : 0;
+            const uint32_t g = (uint32_t)(40 + 215 * v / (n - 1));
+            const uint32_t rgb = !v ? 56 : pal ? sdk_pal_rgb(v, n) : g << 16 | g << 8 | g;
             gfx_rect(fb, x0 + x * scale, y0 + y * scale, (e - x) * scale, scale,
-                     v ? fb_color(fb, g, g, g) : fb_color(fb, 0, 0, 56));
+                     fb_color(fb, (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb));
         }
 }
 
@@ -242,7 +257,7 @@ void sdk_tiles_paint(void)
                 continue;
             uint8_t pix[64];
             sdk_tile_decode(rom, rom_size, (size_t)off, view_fmt, pix);
-            paint_tile(fb, pix, view_fmt, x0 + c * side, y0 + r * side, view_scale);
+            paint_tile(fb, pix, view_fmt, x0 + c * side, y0 + r * side, view_scale, 0);
         }
     paint_cursor(fb, &cursor, x0, y0, side, 0, view_rows, view_active);
 }
@@ -356,9 +371,9 @@ int sdk_tiles_key(int key, int mods)
     return 0;
 }
 
-/* ---- the canvas ---- */
+/* ---- changes of the sheet ---- */
 
-/* A change of the canvas can go into the code: with a block that cannot be read it would be lost. */
+/* A change of the sheet can go into the code: with a block that cannot be read it would be lost. */
 static int can_change(void)
 {
     if (!code_err[0])
@@ -367,13 +382,14 @@ static int can_change(void)
     return 0;
 }
 
-/* The canvas changed: into the code, and back from it, so that it shows what the code holds. */
-static void changed_canvas(void)
+/* The sheet changed: into the code, and back from it, so that it shows what the code holds. run as in
+ * sdk_chr_commit. */
+static void changed_sheet(int run)
 {
     if (code_kind == SDK_SPRITE_NONE)
         return;
     char err[48];
-    if (sdk_chr_commit(code_kind == SDK_SPRITE_NES, err, sizeof err) != 0)
+    if (sdk_chr_commit(code_kind == SDK_SPRITE_NES, run, err, sizeof err) != 0)
         snprintf(sdk_note, sizeof sdk_note, "%s", err);
     read_code();
 }
@@ -395,108 +411,319 @@ static int colours_lost(void)
     return 0;
 }
 
-static void canvas_draw(int col, int width, int rows, int full, const char *msg)
+static void say_palette(void)
 {
+    if (sdk_pal_count() > 1)
+        snprintf(sdk_note, sizeof sdk_note, "Palette: %s", sdk_pal_name());
+    else
+        snprintf(sdk_note, sizeof sdk_note, "No palette: add the label palette");
+}
+
+/* The keys of the pen, on the canvas and on the sheet. Returns 1 when it used the key. */
+static int pen_key(int key)
+{
+    if (key == 's') {
+        const int size = sdk_canvas()->size == 8 ? 16 : 8;
+        sdk_canvas_size(size);
+        snprintf(sdk_note, sizeof sdk_note, "Canvas %dx%d", size, size);
+    } else if (key == 'p') {
+        sdk_pal_next();
+        say_palette();
+    } else if (key == '[' || key == ']') {
+        sdk_canvas_colour_step(key == '[' ? -1 : 1);
+        snprintf(sdk_note, sizeof sdk_note, "Colour %d of %d", sdk_canvas()->colour, sdk_canvas_colours() - 1);
+    } else
+        return 0;
+    return 1;
+}
+
+/* ---- the canvas ---- */
+
+/* Paints the selection or the pixel of the cursor (sdk_canvas_paint). The pixels of one block are one step of
+ * the undo of the code. */
+static void paint(int colour, int cursor_only)
+{
+    if (can_change() && sdk_canvas_paint(colour, cursor_only))
+        changed_sheet(sdk_canvas()->row * SDK_SHEET_W + sdk_canvas()->col + 1);
+}
+
+static void text_row(int row, int col, int width, const char *color, const char *s)
+{
+    console_write(color);
+    sdk_put_row(row, col, width, s, (int)strlen(s));
+    console_write("\x1b[0m");
+}
+
+static void canvas_draw(int col, int width, int rows)
+{
+    const sdk_canvas_t *cv = sdk_canvas();
+    const int active = focus == ON_LEFT;
+    char b[80];
+    if (!cv->open)
+        snprintf(b, sizeof b, "Canvas %dx%d", cv->size, cv->size);
+    else
+        snprintf(b, sizeof b, "Canvas %dx%d  tile %03X%s", cv->size, cv->size,
+                 (unsigned)(cv->row * SDK_SHEET_W + cv->col), rom ? "  (Ctrl+E: ROM)" : "");
+    sdk_title_bar(1, col, width, b, active);
+    if (!cv->open) {
+        static const char *const help[] = {
+            "Enter on a tile of the sprite sheet",
+            "opens it here.",
+            "",
+            "Space        paint (hold and move)",
+            "Backspace    transparent",
+            "[ ]          colour",
+            "p            palette",
+            "s            8x8 or 16x16",
+            "Shift+arrows select",
+            "Ctrl+C X V   copy, cut, paste",
+            "Enter        back to the sheet",
+            "Ctrl+T       the other side",
+            "Ctrl+E       ROM or canvas",
+            "i            import (on the sheet)",
+        };
+        for (int i = 0; i < (int)(sizeof help / sizeof help[0]) && FIRST + i < rows; i++)
+            text_row(FIRST + i, col + 1, width - 1, "\x1b[0m", help[i]);
+        if (!rom && FIRST + 15 < rows)
+            text_row(FIRST + 15, col + 1, width - 1, "\x1b[90m", "Esc > Open ROM shows a ROM here");
+        sdk_pane_status(col, width, rows, "", active);
+        return;
+    }
+    snprintf(b, sizeof b, " Colour %d/%d  palette: %s", cv->colour, sdk_canvas_colours() - 1, sdk_pal_name());
+    text_row(2, col, width, "\x1b[93m", b);
+    snprintf(b, sizeof b, " Pixel %d,%d", cv->x, cv->y);
+    text_row(3, col, width, "\x1b[90m", b);
     uint32_t cw = 8, ch = 16, top = 0;
     console_cell_geometry(&cw, &ch, &top);
-    const int pixels = (width - CANVAS_GUTTER) * (int)cw;
-    const int text = rows - FIRST > 0 ? rows - FIRST : 1;
-    canvas_scale = (int)ch / 8;
-    if (full) {                                 /* the whole screen: as large as 16 rows allow */
-        const int high = text * (int)ch / (16 * 8);
-        if (high > canvas_scale)
-            canvas_scale = high;
-    }
-    if (canvas_scale > pixels / (SDK_CANVAS_W * 8))
-        canvas_scale = pixels / (SDK_CANVAS_W * 8);
-    if (canvas_scale < 1)
-        canvas_scale = 1;
-    const int side = 8 * canvas_scale;
-    canvas_rows = text * (int)ch / side;
-    if (canvas_rows > SDK_CANVAS_H)
-        canvas_rows = SDK_CANVAS_H;
-    if (canvas_rows < 1)
-        canvas_rows = 1;
-    if (pen.row < canvas_top)
-        canvas_top = pen.row;
-    if (pen.row >= canvas_top + canvas_rows)
-        canvas_top = pen.row - canvas_rows + 1;
-    if (canvas_top > SDK_CANVAS_H - canvas_rows)
-        canvas_top = SDK_CANVAS_H - canvas_rows;
+    const int text = rows - SHEET_FIRST - 1 > 0 ? rows - SHEET_FIRST - 1 : 1;     /* above the colours */
+    canvas_px = text * (int)ch / cv->size;
+    if (canvas_px > (width - 2) * (int)cw / cv->size)
+        canvas_px = (width - 2) * (int)cw / cv->size;
+    if (canvas_px < 2)
+        canvas_px = 2;
+    sdk_pane_status(col, width, rows, " Space paint  Bksp erase  [ ] p s", active);
+}
 
-    char b[80];
-    snprintf(b, sizeof b, "Canvas 16x32%s", !rom ? "  (Esc > Open ROM)" : hidden ? "  (Ctrl+E: show the ROM)" :
-                                                                                  "  (Ctrl+T: ROM)");
-    sdk_title_bar(1, col, width, b, focus == ON_CANVAS);
-    int w, h;
-    if (code_err[0])
+/* A transparent pixel: two dark greys in a chequer. */
+static void paint_clear(framebuffer_t *fb, int x, int y, int w, int h)
+{
+    const uint32_t a = fb_color(fb, 24, 24, 24), b = fb_color(fb, 48, 48, 48);
+    gfx_rect(fb, x, y, w, h, a);
+    gfx_rect(fb, x + w / 2, y, w - w / 2, h / 2, b);
+    gfx_rect(fb, x, y + h / 2, w / 2, h - h / 2, b);
+}
+
+static uint32_t rgb_color(framebuffer_t *fb, uint32_t rgb)
+{
+    return fb_color(fb, (uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb);
+}
+
+static void canvas_paint(int col, int width, int rows)
+{
+    framebuffer_t *fb = console_framebuffer();
+    const sdk_canvas_t *cv = sdk_canvas();
+    if (!fb || !cv->open)
+        return;
+    uint32_t cw, ch, top;
+    console_cell_geometry(&cw, &ch, &top);
+    const int n = sdk_canvas_colours(), px = canvas_px, side = cv->size * px;
+    const int x0 = col * (int)cw;                                   /* one cell of margin */
+    const int y0 = (int)top + (SHEET_FIRST - 1) * (int)ch;
+    gfx_rect(fb, x0, y0, side + 1, side + 1, fb_color(fb, 80, 80, 80));
+    for (int y = 0; y < cv->size; y++)
+        for (int x = 0; x < cv->size; x++) {
+            const int v = sdk_canvas_pixel(x, y);
+            const int left = x0 + x * px + 1, high = y0 + y * px + 1;
+            if (v)
+                gfx_rect(fb, left, high, px - 1, px - 1, rgb_color(fb, sdk_pal_rgb(v, n)));
+            else
+                paint_clear(fb, left, high, px - 1, px - 1);
+        }
+    if (cv->size == 16) {                                           /* where the four tiles meet */
+        gfx_rect(fb, x0 + 8 * px, y0, 1, side, fb_color(fb, 170, 170, 170));
+        gfx_rect(fb, x0, y0 + 8 * px, side, 1, fb_color(fb, 170, 170, 170));
+    }
+    const sdk_grid_t g = { .row = cv->y, .col = cv->x, .sel = cv->sel, .arow = cv->ay, .acol = cv->ax };
+    paint_cursor(fb, &g, x0, y0, px, 0, cv->size, focus == ON_LEFT);
+
+    /* the colours: 0 is the transparent one, the pen has a frame; of 256, the 16 around the pen */
+    const int count = n > 16 ? 16 : n, first = n > 16 ? cv->colour / 16 * 16 : 0;
+    int sw = (width - 2) * (int)cw / count;
+    if (sw > (int)ch)
+        sw = (int)ch;
+    const int sy = (int)top + (rows - 2) * (int)ch + 3, sh = (int)ch - 4;     /* a gap under the grid */
+    for (int i = 0; i < count; i++) {
+        if (first + i == 0)
+            paint_clear(fb, x0 + i * sw, sy, sw - 1, sh);
+        else
+            gfx_rect(fb, x0 + i * sw, sy, sw - 1, sh, rgb_color(fb, sdk_pal_rgb(first + i, n)));
+    }
+    const int at = x0 + (cv->colour - first) * sw;
+    const uint32_t yellow = fb_color(fb, 255, 220, 0);
+    gfx_rect(fb, at, sy, sw - 1, 2, yellow);
+    gfx_rect(fb, at, sy + sh - 2, sw - 1, 2, yellow);
+    gfx_rect(fb, at, sy, 2, sh, yellow);
+    gfx_rect(fb, at + sw - 3, sy, 2, sh, yellow);
+}
+
+static int canvas_key(int key, int mods)
+{
+    const int shift = (mods & SDK_MOD_SHIFT) != 0;
+    int dx = 0, dy = 0;
+    switch (key) {
+    case HID_KEY_UP: dy = -1; break;
+    case HID_KEY_DOWN: dy = 1; break;
+    case HID_KEY_LEFT: dx = -1; break;
+    case HID_KEY_RIGHT: dx = 1; break;
+    case HID_KEY_PGUP: dy = -16; break;
+    case HID_KEY_PGDN: dy = 16; break;
+    case HID_KEY_HOME: dx = -16; break;
+    case HID_KEY_END: dx = 16; break;
+    default: break;
+    }
+    if (dx || dy) {
+        sdk_canvas_move(dx, dy, shift);
+        if (!shift && (mods & SDK_MOD_PAINT))
+            paint(sdk_canvas()->colour, 1);
+        else if (!shift && (mods & SDK_MOD_ERASE))
+            paint(0, 1);
+        return 1;
+    }
+    int n, tiles;
+    switch (key) {
+    case ' ':
+        paint(sdk_canvas()->colour, 0);
+        return 1;
+    case HID_KEY_DEL:
+    case 0x08:
+    case 0x7F:
+        paint(0, 0);
+        return 1;
+    case '\r':
+    case '\n':
+        focus = ON_SHEET;
+        return 1;
+    case 0x01:                                  /* Ctrl+A */
+        sdk_canvas_select_all();
+        return 1;
+    case 0x03:                                  /* Ctrl+C */
+    case 0x18:                                  /* Ctrl+X */
+        if (key == 0x18 && !can_change())
+            return 1;
+        n = sdk_canvas_copy();
+        if (n)
+            snprintf(sdk_note, sizeof sdk_note, "%s %d pixels", key == 0x18 ? "Cut" : "Copied", n);
+        else
+            snprintf(sdk_note, sizeof sdk_note, "%s the tiles of the canvas", key == 0x18 ? "Cut" : "Copied");
+        if (key == 0x18 && sdk_canvas_erase_copied())
+            changed_sheet(0);
+        return 1;
+    case 0x16: {                                /* Ctrl+V */
+        if (!can_change())
+            return 1;
+        const int cut = colours_lost();
+        n = sdk_canvas_paste(&tiles);
+        if (n < 0)
+            snprintf(sdk_note, sizeof sdk_note, "Nothing to paste: copy first");
+        else {
+            snprintf(sdk_note, sizeof sdk_note, "Pasted %d %s%s", n, tiles ? "tiles" : "pixels",
+                     tiles && cut ? ", colours cut" : "");
+            changed_sheet(0);
+        }
+        return 1;
+    }
+    default:
+        return 0;
+    }
+}
+
+/* ---- the sprite sheet ---- */
+
+static void sheet_draw(int col, int width, int rows, int active)
+{
+    sdk_title_bar(1, col, width, "Spritesheet", active);
+    text_row(2, col, width, "\x1b[93m", info[0]);
+    if (code_err[0]) {
+        char b[80];
         snprintf(b, sizeof b, "Code: %s", code_err);
-    else if (sdk_clip_size(&w, &h))
-        snprintf(b, sizeof b, "Cell %d,%d  copied %dx%d tiles", pen.col, pen.row, w, h);
-    else
-        snprintf(b, sizeof b, "Cell %d,%d  nothing copied", pen.col, pen.row);
-    console_write(code_err[0] ? "\x1b[91m" : "\x1b[93m");
-    sdk_put_row(2, col, width, b, (int)strlen(b));
+        text_row(3, col, width, "\x1b[91m", b);
+    } else
+        text_row(3, col, width, "\x1b[90m", info[1]);
+    uint32_t cw = 8, ch = 16, top = 0;
+    console_cell_geometry(&cw, &ch, &top);
+    const int text = rows - SHEET_FIRST > 0 ? rows - SHEET_FIRST : 1;
+    sheet_scale = (int)ch / 8;
+    if (sheet_scale > (width - SHEET_GUTTER) * (int)cw / (SDK_SHEET_W * 8))
+        sheet_scale = (width - SHEET_GUTTER) * (int)cw / (SDK_SHEET_W * 8);
+    if (sheet_scale < 1)
+        sheet_scale = 1;
+    const int side = 8 * sheet_scale;
+    sheet_rows = text * (int)ch / side;
+    if (sheet_rows > SDK_SHEET_H)
+        sheet_rows = SDK_SHEET_H;
+    if (sheet_rows < 1)
+        sheet_rows = 1;
+    if (pick.row < sheet_top)
+        sheet_top = pick.row;
+    if (pick.row >= sheet_top + sheet_rows)
+        sheet_top = pick.row - sheet_rows + 1;
+    if (sheet_top > SDK_SHEET_H - sheet_rows)
+        sheet_top = SDK_SHEET_H - sheet_rows;
     console_write("\x1b[90m");
     for (int i = 0; i < text; i++) {
         const int r = (i * (int)ch + side - 1) / side;
-        if (r >= canvas_rows || r * side >= (i + 1) * (int)ch)
+        if (r >= sheet_rows || r * side >= (i + 1) * (int)ch)
             continue;
-        snprintf(b, sizeof b, "%03X", (unsigned)((canvas_top + r) * SDK_CANVAS_W));
-        sdk_put_row(FIRST + i, col, CANVAS_GUTTER, b, (int)strlen(b));
+        char b[16];
+        snprintf(b, sizeof b, "%03X", (unsigned)((sheet_top + r) * SDK_SHEET_W));
+        sdk_put_row(SHEET_FIRST + i, col, SHEET_GUTTER, b, (int)strlen(b));
     }
-
-    /* with the whole screen the keys show at the right of the sheet */
-    const int sheet = CANVAS_GUTTER + (SDK_CANVAS_W * side + (int)cw - 1) / (int)cw;
-    if (full && width - sheet - 2 >= 30) {
-        static const char *const help[] = {
-            "Arrows       move (Shift selects)",
-            "Ctrl+C, X    copy, cut",
-            "Ctrl+V       paste at the cursor",
-            "Del          empty the cells",
-            "Ctrl+A       select all",
-            "i            import the ROM sheet",
-            "Ctrl+E       hide or show the ROM",
-            "Ctrl+T       canvas or ROM",
-        };
-        console_write("\x1b[0m");
-        for (int i = 0; i < (int)(sizeof help / sizeof help[0]) && FIRST + i < rows; i++)
-            sdk_put_row(FIRST + i, col + sheet + 2, width - sheet - 2, help[i], (int)strlen(help[i]));
-    }
-    const char *hint = "Ctrl+V paste  i import  Ctrl+E";
-    if (msg && msg[0]) {
-        console_write("\x1b[93m");
-        sdk_put_row(rows, col, width, msg, (int)strlen(msg));
-        console_write("\x1b[0m");
-    } else
-        sdk_pane_status(col, width, rows, hint, focus == ON_CANVAS);
+    char hint[48];
+    snprintf(hint, sizeof hint, "Tile %03X  Enter: paint  i: import",
+             (unsigned)(pick.row * SDK_SHEET_W + pick.col));
+    sdk_pane_status(col, width, rows, hint, active);
 }
 
-static void canvas_paint(int col)
+static void sheet_paint(int col)
 {
     framebuffer_t *fb = console_framebuffer();
     if (!fb)
         return;
     uint32_t cw, ch, top;
     console_cell_geometry(&cw, &ch, &top);
-    const int side = 8 * canvas_scale;
-    const int x0 = (col - 1 + CANVAS_GUTTER) * (int)cw;
-    const int y0 = (int)top + (FIRST - 1) * (int)ch;
-    for (int r = 0; r < canvas_rows; r++)
-        for (int c = 0; c < SDK_CANVAS_W; c++) {
-            const sdk_tile_t *t = sdk_canvas_tile(canvas_top + r, c);
+    const int side = 8 * sheet_scale;
+    const int x0 = (col - 1 + SHEET_GUTTER) * (int)cw;
+    const int y0 = (int)top + (SHEET_FIRST - 1) * (int)ch;
+    for (int r = 0; r < sheet_rows; r++)
+        for (int c = 0; c < SDK_SHEET_W; c++) {
+            const sdk_tile_t *t = sdk_sheet_tile(sheet_top + r, c);
             const int x = x0 + c * side, y = y0 + r * side;
             if (t->used)
-                paint_tile(fb, t->pix, t->fmt, x, y, canvas_scale);
+                paint_tile(fb, t->pix, t->fmt, x, y, sheet_scale, 1);
             else {                              /* an empty cell: its edges show the grid */
                 gfx_rect(fb, x, y, side, side, fb_color(fb, 56, 56, 56));
                 gfx_rect(fb, x + 1, y + 1, side - 1, side - 1, fb_color(fb, 16, 16, 16));
             }
         }
-    paint_cursor(fb, &pen, x0, y0, side, canvas_top, canvas_rows, focus == ON_CANVAS);
+    const sdk_canvas_t *cv = sdk_canvas();
+    if (cv->open) {                             /* the block in the canvas */
+        const int tiles = cv->size / 8, from = cv->row - sheet_top;
+        const int r1 = from < 0 ? 0 : from;
+        const int r2 = from + tiles > sheet_rows ? sheet_rows : from + tiles;
+        if (r1 < r2) {
+            const int x = x0 + cv->col * side, y = y0 + r1 * side;
+            const int w = tiles * side, h = (r2 - r1) * side;
+            const uint32_t color = fb_color(fb, 255, 0, 200);
+            gfx_rect(fb, x, y, w, 2, color);
+            gfx_rect(fb, x, y + h - 2, w, 2, color);
+            gfx_rect(fb, x, y, 2, h, color);
+            gfx_rect(fb, x + w - 2, y, 2, h, color);
+        }
+    }
+    paint_cursor(fb, &pick, x0, y0, side, sheet_top, sheet_rows, focus == ON_SHEET);
 }
 
-static int canvas_key(int key, int mods)
+static int sheet_key(int key, int mods)
 {
     const int shift = (mods & SDK_MOD_SHIFT) != 0;
     int dr = 0, dc = 0;
@@ -505,62 +732,76 @@ static int canvas_key(int key, int mods)
     case HID_KEY_DOWN: dr = 1; break;
     case HID_KEY_LEFT: dc = -1; break;
     case HID_KEY_RIGHT: dc = 1; break;
-    case HID_KEY_PGUP: dr = -canvas_rows; break;
-    case HID_KEY_PGDN: dr = canvas_rows; break;
-    case HID_KEY_HOME: dc = -SDK_CANVAS_W; break;
-    case HID_KEY_END: dc = SDK_CANVAS_W; break;
+    case HID_KEY_PGUP: dr = -sheet_rows; break;
+    case HID_KEY_PGDN: dr = sheet_rows; break;
+    case HID_KEY_HOME: dc = -SDK_SHEET_W; break;
+    case HID_KEY_END: dc = SDK_SHEET_W; break;
     default: break;
     }
     if (dr || dc) {
-        sdk_grid_move(&pen, dr, dc, shift, SDK_CANVAS_H, SDK_CANVAS_W);
+        sdk_grid_move(&pick, dr, dc, shift, SDK_SHEET_H, SDK_SHEET_W);
         return 1;
     }
     int r1, c1, r2, c2, w, h;
-    sdk_grid_rect(&pen, &r1, &c1, &r2, &c2);
+    sdk_grid_rect(&pick, &r1, &c1, &r2, &c2);
     switch (key) {
+    case '\r':
+    case '\n':                                  /* the tile, or a 2x2 selection, into the canvas */
+        if (pick.sel && r2 - r1 == 1 && c2 - c1 == 1)
+            sdk_canvas_open(r1, c1, 16);
+        else
+            sdk_canvas_open(pick.row, pick.col, 0);
+        pick.sel = 0;
+        hidden = 1;
+        focus = ON_LEFT;
+        return 1;
     case 0x01:                                  /* Ctrl+A */
-        pen.sel = 1;
-        pen.arow = pen.acol = 0;
-        pen.row = SDK_CANVAS_H - 1;
-        pen.col = SDK_CANVAS_W - 1;
+        pick.sel = 1;
+        pick.arow = pick.acol = 0;
+        pick.row = SDK_SHEET_H - 1;
+        pick.col = SDK_SHEET_W - 1;
         return 1;
     case 0x03:                                  /* Ctrl+C */
     case 0x18:                                  /* Ctrl+X */
         if (key == 0x18 && !can_change())
             return 1;
-        sdk_canvas_copy(r1, c1, r2, c2);
+        sdk_sheet_copy(r1, c1, r2, c2);
         sdk_clip_size(&w, &h);
         snprintf(sdk_note, sizeof sdk_note, "%s %dx%d tiles", key == 0x18 ? "Cut" : "Copied", w, h);
         if (key == 0x18) {
-            sdk_canvas_clear(r1, c1, r2, c2);
-            changed_canvas();
+            sdk_sheet_clear(r1, c1, r2, c2);
+            changed_sheet(0);
         }
         return 1;
     case 0x16: {                                /* Ctrl+V: at the first cell of the selection */
+        if (sdk_canvas_has_pixels()) {
+            snprintf(sdk_note, sizeof sdk_note, "Pixels paste in the canvas");
+            return 1;
+        }
         if (!sdk_clip_size(&w, &h)) {
-            snprintf(sdk_note, sizeof sdk_note, "Nothing to paste: copy tiles first");
+            snprintf(sdk_note, sizeof sdk_note, "Nothing to paste: copy first");
             return 1;
         }
         if (!can_change())
             return 1;
         const int cut = colours_lost();
-        const int n = sdk_canvas_paste(r1, c1);
-        pen.row = r1;
-        pen.col = c1;
-        pen.sel = 0;
+        const int n = sdk_sheet_paste(r1, c1);
+        pick.row = r1;
+        pick.col = c1;
+        pick.sel = 0;
         if (n < w * h)
             snprintf(sdk_note, sizeof sdk_note, "Pasted %d of %d tiles", n, w * h);
         else
             snprintf(sdk_note, sizeof sdk_note, "Pasted %d tiles%s", n, cut ? ", colours cut" : "");
-        changed_canvas();
+        changed_sheet(0);
         return 1;
     }
     case HID_KEY_DEL:
     case 0x08:
     case 0x7F:
         if (can_change()) {
-            sdk_canvas_clear(r1, c1, r2, c2);
-            changed_canvas();
+            sdk_sheet_clear(r1, c1, r2, c2);
+            changed_sheet(0);
         }
         return 1;
     default:
@@ -568,13 +809,13 @@ static int canvas_key(int key, int mods)
     }
 }
 
-/* i: the sprite sheet of the ROM into the canvas, in the place of what it has. */
+/* i: the sprite sheet of the ROM into the sheet, in the place of what it has. */
 static void import_sheet(int armed)
 {
     if (!can_change())
         return;
-    if (!armed && !sdk_canvas_empty()) {
-        snprintf(sdk_note, sizeof sdk_note, "i again replaces the canvas");
+    if (!armed && !sdk_sheet_empty()) {
+        snprintf(sdk_note, sizeof sdk_note, "i again replaces the sheet");
         import_armed = 1;
         return;
     }
@@ -584,51 +825,68 @@ static void import_sheet(int armed)
     if (chr && chr_len > rom_size - start)
         chr_len = rom_size - start;
     const int tile = sdk_tile_bytes(view_fmt);
-    const size_t from = sdk_canvas_sheet(rom_size, start, chr_len, view_off, tile, &count);
+    const size_t from = sdk_sheet_part(rom_size, start, chr_len, view_off, tile, &count);
     if (count == 0) {
         snprintf(sdk_note, sizeof sdk_note, "No tiles to import here");
         return;
     }
-    sdk_canvas_import(rom, rom_size, from, view_fmt, count);
-    memset(&pen, 0, sizeof pen);
-    canvas_top = 0;
+    sdk_sheet_import(rom, rom_size, from, view_fmt, count);
+    memset(&pick, 0, sizeof pick);
+    sheet_top = 0;
     const int whole = (int)(chr_len / (size_t)tile);
     if (code_kind != SDK_SPRITE_NONE &&
         sdk_tile_colors(view_fmt) > sdk_tile_colors(sdk_chr_format(code_kind == SDK_SPRITE_NES)))
         snprintf(sdk_note, sizeof sdk_note, "Imported %d tiles, colours cut", count);
     else if (whole > count)
-        snprintf(sdk_note, sizeof sdk_note, "Imported %d of %d tiles from %06X", count, whole, (unsigned)from);
+        snprintf(sdk_note, sizeof sdk_note, "Imported %d/%d tiles at %06X", count, whole, (unsigned)from);
     else
         snprintf(sdk_note, sizeof sdk_note, "Imported %d tiles from %06X", count, (unsigned)from);
-    changed_canvas();
+    changed_sheet(0);
 }
 
 /* ---- the Sprite tab ---- */
 
 void sdk_sprite_draw(int cols, int rows, const char *msg)
 {
-    const int split = rom && !hidden && cols >= 40;
-    if (!split)
-        focus = ON_CANVAS;
-    const int lw = split ? cols / 2 : cols;
-    canvas_draw(1, lw - 1, rows, !split, msg);
+    uint32_t cw = 8, ch = 16, top = 0;
+    console_cell_geometry(&cw, &ch, &top);
+    int wide = SHEET_GUTTER + (SDK_SHEET_W * 8 * ((int)ch / 8) + (int)cw - 1) / (int)cw;
+    if (wide < 37)                              /* room for the head of the sheet */
+        wide = 37;
+    const int split = cols >= wide + 1 + 30;    /* both sides; else the side with the keys */
+    const int show_rom = rom && !hidden;
+    const int left = split ? cols - wide - 1 : focus == ON_LEFT ? cols : 0;
+    const int right = split ? cols - wide : focus == ON_SHEET ? 1 : 0;          /* the column of the sheet */
+    const int right_width = split ? wide : cols;
+    if (left) {
+        if (show_rom) {
+            char head[80];
+            snprintf(head, sizeof head, "ROM: %s", rom_name);
+            sdk_title_bar(1, 1, left, head, focus == ON_LEFT);
+            sdk_tiles_draw(1, left, rows, 0, focus == ON_LEFT);
+        } else
+            canvas_draw(1, left, rows);
+    }
     if (split) {
         console_write("\x1b[90m");
         for (int r = 1; r <= rows; r++) {
-            sdk_at(r, lw);
+            sdk_at(r, left + 1);
             console_putc((char)0xB3);
         }
         console_write("\x1b[0m");
-        char head[80];
-        snprintf(head, sizeof head, "ROM: %s", rom_name);
-        sdk_title_bar(1, lw + 1, cols - lw - 1, head, focus == ON_ROM);
-        sdk_tiles_draw(lw + 1, cols - lw - 1, rows, 0, focus == ON_ROM);
     }
+    if (right)
+        sheet_draw(right, right_width, rows, focus == ON_SHEET);
+    if (msg && msg[0])
+        text_row(rows, 1, left ? left : right_width, "\x1b[93m", msg);
     sdk_at(1, 1);
     console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
-    canvas_paint(1);                            /* last: the console repaints the cells it writes */
-    if (split)
+    if (left && show_rom)                       /* the pixels last: the console repaints the cells it writes */
         sdk_tiles_paint();
+    else if (left)
+        canvas_paint(1, left, rows);
+    if (right)
+        sheet_paint(right);
 }
 
 int sdk_sprite_key(int key, int mods)
@@ -636,27 +894,41 @@ int sdk_sprite_key(int key, int mods)
     sdk_note[0] = 0;
     const int armed = import_armed;
     import_armed = 0;                           /* only the key after the question answers it */
-    const int swap = key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL));    /* Ctrl+T, Ctrl+Tab */
-    if (swap || key == 0x05) {                                              /* Ctrl+E: hide, show the ROM */
+    const int open = sdk_canvas()->open;
+    if (key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL))) {                   /* Ctrl+T, Ctrl+Tab */
+        if (focus == ON_LEFT)
+            focus = ON_SHEET;
+        else if (rom || open) {
+            if (!open)
+                hidden = 0;
+            focus = ON_LEFT;
+        } else
+            snprintf(sdk_note, sizeof sdk_note, "Enter on a tile opens the canvas");
+        return 1;
+    }
+    if (key == 0x05) {                          /* Ctrl+E: the ROM or the canvas on the left */
         if (!rom)
             snprintf(sdk_note, sizeof sdk_note, "No ROM open (Esc > Open ROM)");
-        else if (swap) {
-            focus = hidden || focus == ON_CANVAS ? ON_ROM : ON_CANVAS;
-            hidden = 0;
-        } else {
+        else {
             hidden = !hidden;
-            focus = ON_CANVAS;
+            focus = !hidden || open ? ON_LEFT : ON_SHEET;
         }
         return 1;
     }
+    const int on_rom = focus == ON_LEFT && rom && !hidden;
+    const int on_canvas = focus == ON_LEFT && !on_rom;
     if (key == 'i') {
-        if (rom)
+        if (on_canvas)
+            snprintf(sdk_note, sizeof sdk_note, "i imports into the sheet (Ctrl+T)");
+        else if (rom)
             import_sheet(armed);
         else
             snprintf(sdk_note, sizeof sdk_note, "No ROM open (Esc > Open ROM)");
         return 1;
     }
-    if (rom && !hidden && focus == ON_ROM)
+    if (on_rom)
         return sdk_tiles_key(key, mods);
-    return canvas_key(key, mods);
+    if (pen_key(key))
+        return 1;
+    return on_canvas ? canvas_key(key, mods) : sheet_key(key, mods);
 }

@@ -17,8 +17,8 @@
 #include "usb/hid.h"
 #include "romtabs.h"
 #include "shell_sdk_build.h"
-#include "shell_sdk_canvas.h"
 #include "shell_sdk_code.h"
+#include "shell_sdk_sheet.h"
 #include "shell_sdk_sprite.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_file.h"
@@ -156,8 +156,7 @@ static void draw(int tab)
         return;
     }
     if (tab == SDK_TAB_SPRITE) {
-        sdk_sprite_sync(proj.target == SDK_NES ? SDK_SPRITE_NES : proj.target == SDK_SNES ? SDK_SPRITE_SNES :
-                                                                                       SDK_SPRITE_NONE);
+        sdk_sprite_sync(&proj);
         sdk_sprite_draw((int)cols, (int)rows, msg);
         return;
     }
@@ -322,15 +321,15 @@ static int discard_ok(void)
     return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
 }
 
-/* Asks before the SDK closes: the canvas of a bm project is in no file. */
+/* Asks before the SDK closes: the sprite sheet of a bm project is in no file. */
 static int leave_ok(void)
 {
     static const char *const yn[2] = { "No, keep working", "Yes, leave" };
     if (dirty)
         return discard_ok();
-    if (proj.target != SDK_BM || sdk_canvas_empty())           /* a NES or SNES canvas is in the code */
+    if (proj.target != SDK_BM || sdk_sheet_empty())            /* a NES or SNES sheet is in the code */
         return 1;
-    return popup("The sprite canvas is not saved", yn, 2, 0, redraw_screen) == 1;
+    return popup("The sprite sheet is not saved", yn, 2, 0, redraw_screen) == 1;
 }
 
 /* ---- Esc menu: New, Open, Save, Save as, Build ---- */
@@ -358,7 +357,7 @@ static int text_is_template(int target)
  * A new project that has none of that may still change platform, and the start file follows it. */
 static int platform_locked(void)
 {
-    return pname[0] || !text_is_template(proj.target) || (proj.target == SDK_BM && !sdk_canvas_empty());
+    return pname[0] || !text_is_template(proj.target) || (proj.target == SDK_BM && !sdk_sheet_empty());
 }
 
 static void do_save(const char *name)
@@ -589,7 +588,8 @@ static int held_mods(void)
 {
     return (hid_usage_held(0xE0) || hid_usage_held(0xE4) ? SDK_MOD_CTRL : 0) |
            (hid_usage_held(0xE1) || hid_usage_held(0xE5) ? SDK_MOD_SHIFT : 0) |
-           (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0);
+           (hid_usage_held(0xE2) || hid_usage_held(0xE6) ? SDK_MOD_ALT : 0) |
+           (hid_usage_held(0x2C) ? SDK_MOD_PAINT : 0) | (hid_usage_held(0x2A) ? SDK_MOD_ERASE : 0);
 }
 
 int shell_sdk_open(void)

@@ -32,6 +32,8 @@ void sdk_code_draw(int cols, int rows, const char *msg);
 #define SDK_MOD_CTRL  1
 #define SDK_MOD_SHIFT 2
 #define SDK_MOD_ALT   4
+#define SDK_MOD_PAINT 8                 /* Space is held: the canvas paints as the cursor moves */
+#define SDK_MOD_ERASE 16                /* Backspace is held: it empties them */
 
 /* Handles a key of the Code tab. Returns 1 when the tab used it. The editor keys are those of bm Code:
  * Shift with a move selects; Ctrl+Left and Ctrl+Right skip a word; Ctrl+Alt+Left and Right go to the line

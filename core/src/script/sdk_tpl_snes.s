@@ -132,11 +132,15 @@ irq:
     rti
 
 ;@sprites
-; Sprite sheet: the Sprite tab writes the tiles of its canvas here, bytes after the
+; Sprite sheet: the Sprite tab writes its tiles here, bytes after the
 ; label sprites_chr between ;@tiles and ;@tiles-end (4 bits a pixel, 32 bytes a 8x8
 ; tile, the native video format, so that a DMA sends them as they are). The sheet is
 ; 16 tiles wide (128 px). A palette is 16 colours, BGR555.
 ; The sprites of the screen are the 544 bytes of the OAM (128 sprites).
+; The colours below show in the Sprite tab (key p); colour 0 is transparent.
+sprites_pal:
+    .dw $0000,$7FFF,$0000,$294A,$56B5,$001F,$02BF,$03FF
+    .dw $03E0,$01E0,$7FE0,$7C00,$3C00,$7C1F,$1CF7,$0DB1
 ;@end
 
 ;@music

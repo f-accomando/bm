@@ -1,53 +1,56 @@
 /*
- * Shell SDK, Sprite tab: the canvas, a sheet of 16 x 32 tiles where the tiles copied from a ROM are pasted, and
- * the clipboard of tiles. A tile keeps its 64 colour numbers and the format they were read with. Pure model:
- * the tests run on the PC.
+ * Shell SDK, Sprite tab: the canvas, the pixels of one tile (8x8) or of four (16x16) of the sprite sheet
+ * (shell_sdk_sheet.h). It paints straight into the sheet. It has a cursor, a selection, the colour of the pen
+ * and a clipboard of pixels. Pure model: the tests run on the PC.
  */
 #ifndef SHELL_SDK_CANVAS_H
 #define SHELL_SDK_CANVAS_H
 
-#include <stddef.h>
 #include <stdint.h>
 
-#define SDK_CANVAS_W 16                 /* tiles in a row: 128 pixels, as the tables of the NES */
-#define SDK_CANVAS_H 32
-#define SDK_CLIP_TILES (SDK_CANVAS_W * SDK_CANVAS_H)    /* the most the clipboard holds */
-
 typedef struct {
-    uint8_t used;                       /* 0: an empty cell */
-    uint8_t fmt;                        /* SDK_TILE_* */
-    uint8_t pix[64];                    /* colour numbers, rows of 8 */
-} sdk_tile_t;
+    int open;                   /* a tile of the sheet was chosen */
+    int row, col;               /* the first tile of the block in the sheet */
+    int size;                   /* 8 or 16 pixels a side */
+    int x, y;                   /* the pixel of the cursor */
+    int sel, ax, ay;            /* a selection, from the pixel (ax, ay) to the cursor */
+    int colour;                 /* the colour number of the pen, 1 or more (0 is the transparent one) */
+} sdk_canvas_t;
 
-/* An empty canvas and an empty clipboard. */
+/* Closed, 8x8, colour 1, nothing copied. */
 void sdk_canvas_reset(void);
-int sdk_canvas_empty(void);
-/* The tile at row r, column c (both inside the canvas). */
-const sdk_tile_t *sdk_canvas_tile(int r, int c);
-/* Puts a tile at row r, column c (nothing outside the canvas). */
-void sdk_canvas_set(int r, int c, const sdk_tile_t *t);
-
-/* A new block of w x h tiles in the clipboard, all empty; the rows that do not fit are cut. Fill it with
- * sdk_clip_cell (NULL outside the block). */
-void sdk_clip_start(int w, int h);
-sdk_tile_t *sdk_clip_cell(int r, int c);
-/* The size of the block. Returns 0 when the clipboard is empty. */
-int sdk_clip_size(int *w, int *h);
-
-/* Pastes the block with its first tile at row r, column c; the part outside the canvas is left out. Returns the
- * tiles placed. */
-int sdk_canvas_paste(int r, int c);
-/* The rectangle from (r1, c1) to (r2, c2), both included: copies it to the clipboard, or empties it. */
-void sdk_canvas_copy(int r1, int c1, int r2, int c2);
-void sdk_canvas_clear(int r1, int c1, int r2, int c2);
-
-/* The part of a ROM of size bytes that an import takes, with tiles of tile bytes. chr_from, chr_len: its CHR ROM
- * (chr_len 0: it has none); view: the first tile that the view shows. A CHR ROM that the canvas holds is taken
- * whole; else the tiles from view, to the end of the CHR ROM or of the file, at most SDK_CLIP_TILES. Returns
- * where it starts; *count gets the tiles. */
-size_t sdk_canvas_sheet(size_t size, size_t chr_from, size_t chr_len, size_t view, int tile, int *count);
-/* The canvas becomes count tiles of data from the offset from, in their order (16 a row); a tile of colour 0
- * only is an empty cell, the cells after the last tile are empty. */
-void sdk_canvas_import(const uint8_t *data, size_t size, size_t from, int fmt, int count);
+const sdk_canvas_t *sdk_canvas(void);
+/* The format of the tiles of the project (SDK_TILE_*), or -1: each tile keeps its own, an empty one is 4bpp. */
+void sdk_canvas_format(int fmt);
+/* Chooses the tile at row r, column c of the sheet, with the size of the canvas (8 or 16; another value keeps
+ * the size). A block of 16x16 stays inside the sheet. */
+void sdk_canvas_open(int r, int c, int size);
+/* 8 or 16 pixels a side; a chosen block stays inside the sheet. */
+void sdk_canvas_size(int size);
+/* The colour numbers the canvas paints with, 0 included: 4, 16 or 256. */
+int sdk_canvas_colours(void);
+/* The colour number of a pixel (0 outside the canvas or with no tile chosen). */
+int sdk_canvas_pixel(int x, int y);
+/* The next or the previous colour of the pen: 1 to sdk_canvas_colours() - 1, round. */
+void sdk_canvas_colour_step(int step);
+/* The cursor by dx, dy pixels, kept inside; shift: the pixels from where it started are selected. */
+void sdk_canvas_move(int dx, int dy, int shift);
+void sdk_canvas_select_all(void);
+/* The selection, both pixels included; without one, the pixel of the cursor. Returns 1 when there is one. */
+int sdk_canvas_rect(int *x1, int *y1, int *x2, int *y2);
+/* Paints the selection (or the pixel of the cursor) with a colour number, 0 for transparent. cursor_only: the
+ * pixel of the cursor, as when the key is held and the cursor moves. Returns the pixels that changed. */
+int sdk_canvas_paint(int colour, int cursor_only);
+/* Copy: the pixels of the selection; with no selection the tiles of the canvas, into the clipboard of tiles.
+ * Returns the pixels copied, or 0 for tiles. */
+int sdk_canvas_copy(void);
+/* Empties what a copy takes: the selection, or the whole canvas. Returns the pixels that changed. */
+int sdk_canvas_erase_copied(void);
+/* 1 when the last copy was one of pixels (so it pastes here only). */
+int sdk_canvas_has_pixels(void);
+/* Pastes the last copy: pixels from the cursor (or the start of the selection), tiles on the tiles of the
+ * canvas. The part outside is left out. *tiles: it was a copy of tiles. Returns the pixels or tiles placed,
+ * -1 when nothing was copied. */
+int sdk_canvas_paste(int *tiles);
 
 #endif /* SHELL_SDK_CANVAS_H */
