@@ -5611,7 +5611,11 @@ def test_shell_sdk_animation(b, opts):
         q.send(bytes([0xE6]))
         time.sleep(2.0)
         has("no mistakes: ROM")
-        q.send("\x11")                              # Ctrl+Q
+        q.send(bytes([0xFB]) + b"a\x7f")             # a pixel less, not saved
+        has("not saved")
+        q.send("\x11")                              # Ctrl+Q: the animation first, then the project
+        has("Animation not saved")
+        q.send(SDK_DOWN + b"\r")
         has("Unsaved changes")
         q.send(SDK_DOWN + b"\r")
         q.expect("> ", timeout=10)

@@ -50,6 +50,8 @@ int sdk_sprite_animating(void);
 void sdk_sprite_tick(void);
 int sdk_sprite_typing(void);
 void sdk_sprite_new_project(void);
+/* 1 when an animation has changes that are not in the sheet. */
+int sdk_sprite_unsaved(void);
 /* The legend of what has the keys now (shell_sdk_keys.h). */
 int sdk_sprite_keys(void);
 

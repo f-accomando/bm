@@ -79,6 +79,7 @@ void sdk_animui_reset(void)
 }
 
 int sdk_animui_typing(void) { return typing; }
+int sdk_animui_unsaved(void) { return have && unsaved; }
 int sdk_animui_playing(void) { return have && mode == EDIT && !broken[0] && work.frames > 1; }
 int sdk_animui_keys(void) { return mode == EDIT ? SDK_KEYS_ANIM : SDK_KEYS_ANIM_PLACE; }
 

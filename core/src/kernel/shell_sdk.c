@@ -324,10 +324,19 @@ static int cur_tab;
 
 static void redraw_screen(void) { draw(cur_tab); }
 
+/* An animation that was not saved in the sheet is in no file. Returns 1 to go on. */
+static int animation_ok(void)
+{
+    static const char *const yn[2] = { "No, keep working", "Yes, drop it" };
+    return !sdk_sprite_unsaved() || popup("Animation not saved", yn, 2, 0, redraw_screen) == 1;
+}
+
 /* Asks before a change loses work. Returns 1 to go on. */
 static int discard_ok(void)
 {
     static const char *const yn[2] = { "No, keep working", "Yes, discard the changes" };
+    if (!animation_ok())
+        return 0;
     return !dirty || popup("Unsaved changes", yn, 2, 0, redraw_screen) == 1;
 }
 
@@ -337,6 +346,8 @@ static int leave_ok(void)
     static const char *const yn[2] = { "No, keep working", "Yes, leave" };
     if (dirty)
         return discard_ok();
+    if (!animation_ok())
+        return 0;
     if (proj.target != SDK_BM || sdk_sheet_empty())            /* a NES or SNES sheet is in the code */
         return 1;
     return popup("The sprite sheet is not saved", yn, 2, 0, redraw_screen) == 1;

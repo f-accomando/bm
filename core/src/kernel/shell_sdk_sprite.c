@@ -880,6 +880,7 @@ static void code_draw(int top, int rows, int cols)
 int sdk_sprite_animating(void) { return animating && sdk_animui_playing(); }
 void sdk_sprite_tick(void) { sdk_animui_tick(); }
 int sdk_sprite_typing(void) { return animating && sdk_animui_typing(); }
+int sdk_sprite_unsaved(void) { return sdk_animui_unsaved(); }
 
 void sdk_sprite_new_project(void)
 {

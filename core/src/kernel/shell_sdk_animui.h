@@ -17,6 +17,8 @@ int sdk_animui_playing(void);
 void sdk_animui_tick(void);
 /* The legend of what has the keys (shell_sdk_keys.h). */
 int sdk_animui_keys(void);
+/* 1 when the open animation has changes that are not in the sheet. */
+int sdk_animui_unsaved(void);
 /* 1 while a name is typed: Esc belongs to the mode. */
 int sdk_animui_typing(void);
 
