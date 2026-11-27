@@ -71,6 +71,7 @@ the code. The screen shows the piano. Hold F12 to see the keys of the page.
 | `-`, `=` | the note or the value under the cursor: a half tone down (flat) or up (sharp) |
 | `_`, `+` | a larger step (a note: one octave) |
 | `1` | release (`OFF`) |
+| Alt+Up, Alt+Down | the instrument, effect, pattern or song before or after |
 
 ## The SNES
 

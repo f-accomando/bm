@@ -746,6 +746,9 @@ int shell_sdk_open(void)
             show_keys();
             continue;
         }
+        const int mods = prefix | held_mods();
+        if ((mods & (SDK_MOD_ALT | SDK_MOD_CTRL)) == SDK_MOD_ALT && (c == HID_KEY_UP || c == HID_KEY_DOWN))
+            c = c == HID_KEY_UP ? HID_KEY_PGUP : HID_KEY_PGDN;  /* in each tab a page: not each keyboard has PgUp */
         msg[0] = 0;
         const int t = shell_sdk_tab_for_key(c);
         if (t >= 0) {
@@ -753,9 +756,9 @@ int shell_sdk_open(void)
                 sdk_play_stop();
             cur_tab = t;
         } else if (cur_tab == SDK_TAB_SOUNDS && sdk_sounds_typing())
-            sdk_sounds_key(c, prefix | held_mods());           /* a name: Esc ends it too */
+            sdk_sounds_key(c, mods);                           /* a name: Esc ends it too */
         else if (cur_tab == SDK_TAB_SPRITE && sdk_sprite_typing())
-            sdk_sprite_key(c, prefix | held_mods());
+            sdk_sprite_key(c, mods);
         else if (c == 0x1B) {
             sdk_play_stop();
             if (esc_menu())
@@ -783,15 +786,15 @@ int shell_sdk_open(void)
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
-            sdk_code_key(c, prefix | held_mods());
+            sdk_code_key(c, mods);
         else if (cur_tab == SDK_TAB_SOUNDS)
-            sdk_sounds_key(c, prefix | held_mods());
+            sdk_sounds_key(c, mods);
         else if (cur_tab == SDK_TAB_SPRITE) {
             if (c == 0x17 && sdk_code_has_rom()) {              /* Ctrl+W */
                 sdk_code_close_rom();
                 say("%s", "ROM closed");
             } else
-                sdk_sprite_key(c, prefix | held_mods());
+                sdk_sprite_key(c, mods);
         }
         if (sdk_edit_revision() != seen_rev) {  /* the text changed: the project is not saved */
             seen_rev = sdk_edit_revision();

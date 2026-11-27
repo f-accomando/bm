@@ -5562,6 +5562,10 @@ def test_shell_sdk_sounds(b, opts):
         time.sleep(1.0)
         has("Instruments", "release 0: it holds")
         time.sleep(4.5)
+        sendkeys(q, "alt-up")                       # Alt+Up and Down: a page, here the instrument
+        has("Name      lead")
+        sendkeys(q, "alt-down")
+        has("Name      bass")
         q.send("\t")                                # SFX: the effect of the start file
         has("jump", "sfx_jump:", "Voice  V8", "Wave  square 50%", "volume", "effect")
         q.send(" ")

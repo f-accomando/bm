@@ -37,7 +37,7 @@ static const line_t editor[] = {
     { "Ctrl+Left Right", "a word" },
     { "Home End", "start, end of line" },
     { "Ctrl+Alt+arrows", "line, text: ends" },
-    { "PgUp PgDn", "a page (Alt+Up Down)" },
+    { "Alt+Up Down", "a page" },
     { "Ctrl+C X V", "copy, cut, paste" },
     { "Ctrl+D", "double the line" },
     { "Ctrl+A", "select all" },
@@ -55,7 +55,7 @@ static const line_t with_rom[] = {
 static const line_t rom[] = {
     { "Code: the ROM side", NULL },
     { "Arrows", "move (Shift selects)" },
-    { "PgUp PgDn", "a page" },
+    { "Alt+Up Down", "a page" },
     { "Ctrl+A", "select all" },
     { "Ctrl+C", "copy" },
     { "a", "hex or ASM" },
@@ -94,7 +94,8 @@ static const line_t tiles[] = {
     { "Arrows", "move (Shift selects)" },
     { "Ctrl+C", "copy the tiles" },
     { "Ctrl+A", "all that shows" },
-    { "PgUp PgDn Home", "scroll, back" },
+    { "Alt+Up Down", "scroll a page" },
+    { "Home", "back" },
     { ", .", "a byte" },
     { "Ctrl+Left Right", "a tile" },
     { "+ -", "tiles in a row" },
@@ -124,7 +125,7 @@ static const line_t anim[] = {
     { "Ctrl+C X V", "copy, cut, paste" },
     { "Ctrl+A", "select the frame" },
     { "d", "copy to the next frame" },
-    { "PgUp PgDn", "the frame" },
+    { "Alt+Up Down", "the frame" },
     { NULL, NULL } };
 
 static const line_t anim_set[] = {
@@ -142,7 +143,8 @@ static const line_t anim_set[] = {
 
 static const line_t place[] = {
     { "Animation: the sheet", NULL },
-    { "Arrows PgUp PgDn", "the first tile" },
+    { "Arrows", "the first tile" },
+    { "Alt+Up Down", "a page of tiles" },
     { "Enter", "save or import here" },
     { "a / Backspace", "cancel" },
     { NULL, NULL } };
@@ -170,7 +172,7 @@ static const line_t sounds[] = {
 
 static const line_t instruments[] = {
     { "Instruments", NULL },
-    { "PgUp PgDn", "the instrument" },
+    { "Alt+Up Down", "the instrument" },
     { "a / Del", "new / delete (twice)" },
     { "Up Down", "the field" },
     { "- =", "value (_ + big step)" },
@@ -184,7 +186,7 @@ static const line_t instruments[] = {
 
 static const line_t snes_instruments[] = {
     { "Instruments", NULL },
-    { "PgUp PgDn", "the instrument" },
+    { "Alt+Up Down", "the instrument" },
     { "a / Del", "new / delete (twice)" },
     { "Up Down", "the setting" },
     { "- =", "value (_ + big step)" },
@@ -195,7 +197,7 @@ static const line_t snes_instruments[] = {
 
 static const line_t sfx[] = {
     { "SFX", NULL },
-    { "PgUp PgDn", "the effect" },
+    { "Alt+Up Down", "the effect" },
     { "a / Del", "new / delete (head)" },
     { "Up Down", "head or steps" },
     { "- =", "value, or the note" },
@@ -217,13 +219,13 @@ static const line_t pattern[] = {
     { "_ +", "an octave" },
     { "[ ]", "instrument" },
     { "Backspace", "empty the step" },
-    { "PgUp PgDn", "the pattern" },
+    { "Alt+Up Down", "the pattern" },
     { "Ctrl+C V", "copy, paste it" },
     { NULL, NULL } };
 
 static const line_t song[] = {
     { "Song", NULL },
-    { "PgUp PgDn", "the song" },
+    { "Alt+Up Down", "the song" },
     { "a / Del", "new / delete (head)" },
     { "Up Down", "head or order" },
     { "Enter", "name; add or open" },
