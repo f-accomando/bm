@@ -30,7 +30,7 @@ int sdk_music_empty(const sdk_music_t *m)
     for (int i = 0; i < SDK_MUS_PATTERNS; i++)
         if (m->pat[i].used)
             return 0;
-    return !m->instruments && !m->sfxs && !m->songs;
+    return !m->instruments && !m->sfxs && !m->songs && !m->waves;
 }
 
 void sdk_music_note_name(int note, char *out)
@@ -100,7 +100,81 @@ int sdk_music_name_ok(const char *name)
     if (sdk_list_same(head, "sfx_"))
         return 0;
     snprintf(head, sizeof head, "%.5s", name);
-    return !sdk_list_same(head, "song_");
+    return !sdk_list_same(head, "song_") && !sdk_list_same(head, "wave_");
+}
+
+static const char *const snes_waves[SDK_MUS_WAVES + 1] = { "SQUARE12", "SQUARE25", "SQUARE50", "TRIANGLE", "SAW",
+                                                          "SINE", "NOISE" };
+
+int sdk_music_wave_name_ok(const char *name)
+{
+    for (int i = 0; i <= SDK_MUS_WAVES; i++)
+        if (sdk_list_same(name, snes_waves[i]))
+            return 0;
+    return sdk_music_name_ok(name);
+}
+
+int sdk_music_wave_point(const sdk_music_t *m, int wave, int i)
+{
+    static const int8_t sine[32] = { 0, 1, 3, 4, 5, 6, 6, 7, 7, 7, 6, 6, 5, 4, 3, 1,
+                                     0, -1, -3, -4, -5, -6, -6, -7, -7, -7, -6, -6, -5, -4, -3, -1 };
+    if (wave > SDK_MUS_WAVES && wave - SDK_MUS_WAVES - 1 < m->waves)
+        return m->drawn[wave - SDK_MUS_WAVES - 1].point[i];
+    switch (wave) {
+    case 0: return i < 4 ? 15 : 1;                          /* squares of 12.5, 25 and 50% */
+    case 1: return i < 8 ? 15 : 1;
+    case 2: return i < 16 ? 15 : 1;
+    case 3: return 8 + (i < 8 ? i : i < 24 ? 15 - i : i - 31);      /* triangle */
+    case 4: return i / 2;                                   /* saw */
+    default: return 8 + sine[i];
+    }
+}
+
+int sdk_music_wave_users(const sdk_music_t *m, int wave)
+{
+    int n = 0;
+    for (int i = 0; i < m->instruments; i++)
+        n += m->ins[i].wave == wave;
+    for (int i = 0; i < m->sfxs; i++)
+        n += m->sfx[i].wave == wave;
+    return n;
+}
+
+int sdk_music_add_wave(sdk_music_t *m, int from)
+{
+    if (m->waves == SDK_MUS_DRAWN)
+        return -1;
+    sdk_mus_wave_t *w = &m->drawn[m->waves];
+    memset(w, 0, sizeof *w);
+    for (int i = 0; i < SDK_MUS_POINTS; i++)
+        w->point[i] = (uint8_t)sdk_music_wave_point(m, from >= 0 && from < m->waves ? SDK_MUS_WAVES + 1 + from : 5, i);
+    for (int n = 1;; n++) {
+        if (n == 1)
+            snprintf(w->name, sizeof w->name, "custom");
+        else
+            snprintf(w->name, sizeof w->name, "custom%d", n % 100);
+        int taken = 0;
+        for (int k = 0; k < m->waves; k++)
+            taken |= sdk_list_same(m->drawn[k].name, w->name);
+        if (!taken)
+            return m->waves++;
+    }
+}
+
+void sdk_music_remove_wave(sdk_music_t *m, int k)
+{
+    if (k < 0 || k >= m->waves)
+        return;
+    memmove(&m->drawn[k], &m->drawn[k + 1], (size_t)(m->waves - k - 1) * sizeof m->drawn[0]);
+    m->waves--;
+    const int gone = SDK_MUS_WAVES + 1 + k;
+    for (int i = 0; i < m->instruments + m->sfxs; i++) {
+        uint8_t *w = i < m->instruments ? &m->ins[i].wave : &m->sfx[i - m->instruments].wave;
+        if (*w == gone)
+            *w = 2;                                         /* the square of 50% */
+        else if (*w > gone)
+            (*w)--;
+    }
 }
 
 /* ---- reading: what the lists say ---- */
@@ -342,11 +416,34 @@ static int read_song(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_song_t *s)
     return 0;
 }
 
-static const char *const snes_waves[SDK_MUS_WAVES + 1] = { "SQUARE12", "SQUARE25", "SQUARE50", "TRIANGLE", "SAW",
-                                                          "SINE", "NOISE" };
 static const char *const voice_words[SDK_MUS_VOICES] = { "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8" };
 
-static int read_snes_instrument(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_ins_t *s)
+/* The number of a wave from its word: one of the driver, the noise, or a drawn one. -1: none. */
+static int wave_of(const sdk_music_t *m, const sdk_value_t *v)
+{
+    const int w = one_of(v, snes_waves, SDK_MUS_WAVES + 1);
+    for (int k = 0; w < 0 && k < m->waves; k++)
+        if (is(v, m->drawn[k].name))
+            return SDK_MUS_WAVES + 1 + k;
+    return w;
+}
+
+static int read_wave(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_wave_t *w)
+{
+    const sdk_value_t *v = r->value + it->first;
+    if (it->count != SDK_MUS_POINTS + 1)
+        return sdk_list_wrong(r, it->line, "%s has %d values: a wave is %d points 0 to 15, then END", it->name,
+                              it->count - 1, SDK_MUS_POINTS);
+    for (int i = 0; i < SDK_MUS_POINTS; i++) {
+        int x;
+        if (number_in(r, &v[i], 0, 15, "a point of a wave", &x) != 0)
+            return -1;
+        w->point[i] = (uint8_t)x;
+    }
+    return 0;
+}
+
+static int read_snes_instrument(sdk_reader_t *r, const sdk_music_t *m, const sdk_item_t *it, sdk_mus_ins_t *s)
 {
     const sdk_value_t *v = r->value + it->first;
     static const char *const what[9] = { "the noise rate", "attack", "decay", "sustain", "release", "volume",
@@ -357,10 +454,10 @@ static int read_snes_instrument(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_i
     if (it->count != 11)
         return sdk_list_wrong(r, it->line, "instrument %s is: wave, noise rate, attack, decay, sustain, release, "
                               "volume, pan, vibrato, arpeggio, END", it->name);
-    const int w = one_of(&v[0], snes_waves, SDK_MUS_WAVES + 1);
+    const int w = wave_of(m, &v[0]);
     if (w < 0)
-        return sdk_list_wrong(r, v[0].line, "the wave is SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE or "
-                              "NOISE, not %s", shown(&v[0], b, sizeof b));
+        return sdk_list_wrong(r, v[0].line, "the wave is SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE, NOISE "
+                              "or the name of a wave_ list, not %s", shown(&v[0], b, sizeof b));
     for (int i = 0; i < 9; i++)
         if (number_in(r, &v[1 + i], 0, most[i], what[i], &x[i]) != 0)
             return -1;
@@ -406,7 +503,7 @@ static int read_snes_pattern(sdk_reader_t *r, const sdk_music_t *m, const sdk_it
     return 0;
 }
 
-static int read_snes_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s)
+static int read_snes_sfx(sdk_reader_t *r, const sdk_music_t *m, const sdk_item_t *it, sdk_mus_sfx_t *s)
 {
     const sdk_value_t *v = r->value + it->first;
     const int n = it->count - 1;
@@ -422,7 +519,7 @@ static int read_snes_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s
     if (voice < 0)
         return sdk_list_wrong(r, v[1].line, "the voice of an effect is V1 to V8, not %s", shown(&v[1], b, sizeof b));
     s->channel = (uint8_t)voice;
-    const int w = one_of(&v[2], snes_waves, SDK_MUS_WAVES + 1);
+    const int w = wave_of(m, &v[2]);
     if (w < 0)
         return sdk_list_wrong(r, v[2].line, "'%s' is not a wave", shown(&v[2], b, sizeof b));
     s->wave = (uint8_t)w;
@@ -434,7 +531,8 @@ static int read_snes_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s
     return 0;
 }
 
-/* The kind of a list from its name: 0 instrument, 1 pattern (its number in *num), 2 sfx_, 3 song_, -1 wrong. */
+/* The kind of a list from its name: 0 instrument, 1 pattern (its number in *num), 2 sfx_, 3 song_, 4 wave_,
+ * -1 wrong. */
 static int kind_of(const char *name, int *num)
 {
     if (!strncmp(name, "pattern", 7)) {
@@ -449,29 +547,40 @@ static int kind_of(const char *name, int *num)
         return sdk_music_name_ok(name + 4) ? 2 : -1;
     if (!strncmp(name, "song_", 5))
         return sdk_music_name_ok(name + 5) ? 3 : -1;
+    if (!strncmp(name, "wave_", 5))
+        return sdk_music_wave_name_ok(name + 5) ? 4 : -1;
     return sdk_music_name_ok(name) ? 0 : -1;
 }
 
 static int interpret(sdk_reader_t *r, sdk_music_t *m)
 {
-    for (int pass = 0; pass < 2; pass++)            /* the instruments first: the patterns name them */
+    for (int pass = 0; pass < 3; pass++)    /* the waves, then the instruments that name them, then the rest */
         for (int i = 0; i < r->items; i++) {
             const sdk_item_t *it = &r->item[i];
             int num = 0;
             const int kind = kind_of(it->name, &num);
-            if (kind < 0)
+            if (kind < 0 || (kind == 4 && !m->snes))
                 return sdk_list_wrong(r, it->line, "'%s' cannot be a name here", it->name);
-            if (pass != (kind != 0))
+            if (pass != (kind == 4 ? 0 : kind == 0 ? 1 : 2))
                 continue;
             if (!it->count || !is(&r->value[it->first + it->count - 1], "END"))
                 return sdk_list_wrong(r, it->line, "'%s' ends with END", it->name);
-            if (kind == 0) {
+            if (kind == 4) {
+                if (m->waves == SDK_MUS_DRAWN)
+                    return sdk_list_wrong(r, it->line, "%d waves at most", SDK_MUS_DRAWN);
+                sdk_mus_wave_t *w = &m->drawn[m->waves];
+                copy_name(w->name, it->name + 5);
+                w->line = it->line;
+                if (read_wave(r, it, w) != 0)
+                    return -1;
+                m->waves++;
+            } else if (kind == 0) {
                 if (m->instruments == SDK_MUS_INS)
                     return sdk_list_wrong(r, it->line, "%d instruments at most", SDK_MUS_INS);
                 sdk_mus_ins_t *s = &m->ins[m->instruments];
                 copy_name(s->name, it->name);
                 s->line = it->line;
-                if ((m->snes ? read_snes_instrument(r, it, s) : read_instrument(r, it, s)) != 0)
+                if ((m->snes ? read_snes_instrument(r, m, it, s) : read_instrument(r, it, s)) != 0)
                     return -1;
                 m->instruments++;
             } else if (kind == 1) {
@@ -486,7 +595,7 @@ static int interpret(sdk_reader_t *r, sdk_music_t *m)
                 sdk_mus_sfx_t *s = &m->sfx[m->sfxs];
                 copy_name(s->name, it->name + 4);
                 s->line = it->line;
-                if ((m->snes ? read_snes_sfx(r, it, s) : read_sfx(r, it, s)) != 0)
+                if ((m->snes ? read_snes_sfx(r, m, it, s) : read_sfx(r, it, s)) != 0)
                     return -1;
                 m->sfxs++;
             } else {
@@ -609,8 +718,40 @@ static void write_pattern(sdk_text_t *t, int c, const sdk_music_t *m, int num)
     sdk_list_list_flush(&l, 1);
 }
 
-static void write_sfx(sdk_text_t *t, int c, const sdk_mus_sfx_t *s, int snes)
+/* A wave of a SNES list as the word that names it. */
+static void snes_wave_word(const sdk_music_t *m, int wave, char *out, size_t n)
 {
+    const int k = wave - SDK_MUS_WAVES - 1;
+    if (k < 0 || k >= m->waves) {
+        snprintf(out, n, "%s", snes_waves[wave <= SDK_MUS_WAVES ? wave : 2]);
+        return;
+    }
+    size_t i = 0;
+    for (; m->drawn[k].name[i] && i + 1 < n; i++)
+        out[i] = (char)sdk_list_up((unsigned char)m->drawn[k].name[i]);
+    out[i] = 0;
+}
+
+static void write_wave(sdk_text_t *t, int c, const sdk_mus_wave_t *w)
+{
+    sdk_list_t l;
+    char name[20], line[160], note[24];
+    snprintf(name, sizeof name, "wave_%s", w->name);
+    sdk_list_list_open(&l, t, c, name, "a wave: 32 points 0..15");
+    for (int i = 0; i < SDK_MUS_POINTS; i += 8) {
+        size_t at = 0;
+        for (int k = i; k < i + 8; k++)
+            at = sdk_list_put(line, at, sizeof line, "%s%2d", k > i ? ", " : "", w->point[k]);
+        snprintf(note, sizeof note, "points %02d-%02d", i, i + 7);
+        sdk_list_list_line(&l, line, note);
+    }
+    sdk_list_list_line(&l, "END", "");
+    sdk_list_list_flush(&l, 1);
+}
+
+static void write_sfx(sdk_text_t *t, int c, const sdk_music_t *m, const sdk_mus_sfx_t *s)
+{
+    const int snes = m->snes;
     sdk_list_t l;
     char name[20], line[160], wave[16];
     snprintf(name, sizeof name, "sfx_%s", s->name);
@@ -620,7 +761,7 @@ static void write_sfx(sdk_text_t *t, int c, const sdk_mus_sfx_t *s, int snes)
     else if (!snes)
         snprintf(wave, sizeof wave, "%s", s->wave & SDK_MUS_SHORT ? "SHORT" : "0");
     else
-        snprintf(wave, sizeof wave, "%s", snes_waves[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+        snes_wave_word(m, s->wave, wave, sizeof wave);
     snprintf(line, sizeof line, "%d, %s, %s", s->speed,
              snes ? voice_words[s->channel & 7] : track_words[s->channel & 3], wave);
     sdk_list_list_line(&l, line, snes ? "frames a step, voice, wave" : "frames a step, channel, wave");
@@ -669,12 +810,13 @@ static void write_song(sdk_text_t *t, int c, const sdk_mus_song_t *s)
     sdk_list_list_flush(&l, 1);
 }
 
-static void write_snes_instrument(sdk_text_t *t, int c, const sdk_mus_ins_t *s)
+static void write_snes_instrument(sdk_text_t *t, int c, const sdk_music_t *m, const sdk_mus_ins_t *s)
 {
     sdk_list_t l;
-    char line[160];
+    char line[160], wave[16];
     sdk_list_list_open(&l, t, c, s->name, "instrument");
-    snprintf(line, sizeof line, "%s, %d", snes_waves[s->wave <= SDK_MUS_WAVES ? s->wave : 0], s->noise);
+    snes_wave_word(m, s->wave, wave, sizeof wave);
+    snprintf(line, sizeof line, "%s, %d", wave, s->noise);
     sdk_list_list_line(&l, line, "wave, noise rate");
     snprintf(line, sizeof line, "%d, %d, %d, %d", s->attack, s->decay, s->sustain, s->rate);
     sdk_list_list_line(&l, line, "attack,decay,sustain,release");
@@ -712,9 +854,11 @@ static void write_snes_pattern(sdk_text_t *t, int c, const sdk_music_t *m, int n
 static void write_block(sdk_text_t *t, const sdk_music_t *m, int c)
 {
     sdk_list_add(t, "%s@music  from the Sounds tab: C1..B7 (CS4 sharp), __ nothing, OFF release\n", c ? "//" : ";");
+    for (int i = 0; m->snes && i < m->waves; i++)
+        write_wave(t, c, &m->drawn[i]);
     for (int i = 0; i < m->instruments; i++)
         if (m->snes)
-            write_snes_instrument(t, c, &m->ins[i]);
+            write_snes_instrument(t, c, m, &m->ins[i]);
         else
             write_instrument(t, c, &m->ins[i]);
     for (int i = 0; i < SDK_MUS_PATTERNS; i++)
@@ -725,7 +869,7 @@ static void write_block(sdk_text_t *t, const sdk_music_t *m, int c)
                 write_pattern(t, c, m, i);
         }
     for (int i = 0; i < m->sfxs; i++)
-        write_sfx(t, c, &m->sfx[i], m->snes);
+        write_sfx(t, c, m, &m->sfx[i]);
     for (int i = 0; i < m->songs; i++)
         write_song(t, c, &m->song[i]);
     sdk_list_add(t, "%s@end\n", c ? "//" : ";");

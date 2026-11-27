@@ -11,13 +11,14 @@
 #include "shell_sdk_code.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_keys.h"
+#include "shell_sdk_lists.h"
 #include "shell_sdk_music.h"
 #include "shell_sdk_pane.h"
 #include "shell_sdk_play.h"
 #include "usb/hid.h"
 
-enum { PAGE_INS, PAGE_SFX, PAGE_PATTERN, PAGE_SONG, PAGES };
-static const char *const page_names[PAGES] = { "Instruments", "SFX", "Pattern", "Song" };
+enum { PAGE_INS, PAGE_SFX, PAGE_PATTERN, PAGE_SONG, PAGE_WAVE, PAGES };     /* the last one: SNES only */
+static const char *const page_names[PAGES] = { "Instruments", "SFX", "Pattern", "Song", "Waves" };
 static const char *const track_names[SDK_MUS_TRACKS] = { "Pulse 1", "Pulse 2", "Triangle", "Noise" };
 static const int track_channel[SDK_MUS_TRACKS] = { SDK_MUS_PULSE, SDK_MUS_PULSE, SDK_MUS_TRIANGLE, SDK_MUS_NOISE };
 static const char *const track_colour[SDK_MUS_VOICES] = { "103", "43", "102", "106", "104", "105", "101", "46" };
@@ -45,6 +46,7 @@ static int last_ins[3], last_note[3];
 static int ins_sel, ins_row, env_at;
 static int sfx_sel, sfx_grid, sfx_field, sfx_step;
 static int song_sel, song_order, song_field, place;
+static int wave_sel, wave_at, shape_next;       /* the drawn wave, its point, the shape that s gives */
 static int typing, armed;               /* a name is typed; Del was pressed once */
 static char typed[SDK_MUS_NAME];
 static sdk_mus_pattern_t clip;
@@ -68,6 +70,7 @@ void sdk_sounds_reset(void)
     ins_sel = ins_row = env_at = 0;
     sfx_sel = sfx_grid = sfx_field = sfx_step = 0;
     song_sel = song_order = song_field = place = 0;
+    wave_sel = wave_at = shape_next = 0;
     typing = armed = 0;
     memset(&clip, 0, sizeof clip);
 }
@@ -80,12 +83,21 @@ static int tracks(void) { return mus.snes ? SDK_MUS_VOICES : SDK_MUS_TRACKS; }
 static int channel_of(int t) { return mus.snes ? 0 : track_channel[t]; }
 static int hit_track(int t) { return !mus.snes && t == 3; }
 static int noise_sfx(const sdk_mus_sfx_t *s) { return mus.snes ? s->wave == SDK_MUS_WAVES : s->channel == 3; }
+static int pages(void) { return target == SDK_SNES ? PAGES : PAGE_WAVE; }
+/* The name of a wave of the SNES on the screen. */
+static const char *wave_label(int wave)
+{
+    if (wave > SDK_MUS_WAVES && wave - SDK_MUS_WAVES - 1 < mus.waves)
+        return mus.drawn[wave - SDK_MUS_WAVES - 1].name;
+    return wave_names[wave <= SDK_MUS_WAVES ? wave : 2];
+}
 
 int sdk_sounds_keys(void)
 {
     return !supported || broken[0] ? SDK_KEYS_SOUND_NONE :
            page == PAGE_INS ? (mus.snes ? SDK_KEYS_SOUND_SNES_INS : SDK_KEYS_SOUND_INSTRUMENTS) :
-           page == PAGE_SFX ? SDK_KEYS_SOUND_SFX : page == PAGE_SONG ? SDK_KEYS_SOUND_SONG : SDK_KEYS_SOUND_PATTERN;
+           page == PAGE_SFX ? SDK_KEYS_SOUND_SFX : page == PAGE_SONG ? SDK_KEYS_SOUND_SONG :
+           page == PAGE_WAVE ? SDK_KEYS_SOUND_WAVES : SDK_KEYS_SOUND_PATTERN;
 }
 
 static int within(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -96,6 +108,7 @@ static void settle(void)
     ins_sel = within(ins_sel, 0, mus.instruments ? mus.instruments - 1 : 0);
     sfx_sel = within(sfx_sel, 0, mus.sfxs ? mus.sfxs - 1 : 0);
     song_sel = within(song_sel, 0, mus.songs ? mus.songs - 1 : 0);
+    wave_sel = within(wave_sel, 0, mus.waves ? mus.waves - 1 : 0);
     const int steps = mus.pat[pat].used ? mus.pat[pat].steps : 16;
     step = within(step, 0, steps - 1);
     if (mus.instruments) {
@@ -142,6 +155,8 @@ void sdk_sounds_sync(const sdk_proj_t *p)
     const int c = sdk_build_is_c(p), other = p->target != target;
     target = p->target;
     supported = p->target != SDK_BM;
+    if (page >= pages())
+        page = PAGE_PATTERN;
     if (!supported) {
         sdk_play_stop();
         return;
@@ -164,13 +179,39 @@ static void commit(int run)
     read_code();                        /* the lines of the code, for the strip */
 }
 
-static void play(int what, int index, int note)
+static void play_of(const sdk_music_t *m, int what, int index, int note)
 {
     char err[96];
-    if (sdk_play_start(&mus, what, index, note, preview_speed, err, sizeof err) != 0)
+    if (sdk_play_start(m, what, index, note, preview_speed, err, sizeof err) != 0)
         snprintf(sdk_note, sizeof sdk_note, "%.63s", err);
     else if (sdk_play_silent() && !sdk_note[0])
         snprintf(sdk_note, sizeof sdk_note, "This console has no sound output");
+}
+
+static void play(int what, int index, int note) { play_of(&mus, what, index, note); }
+
+/* The drawn wave on the screen as a note: with an instrument made for this, that the code does not get. */
+static void hear_wave(int note)
+{
+    static sdk_music_t one;
+    one = mus;
+    const int i = one.instruments < SDK_MUS_INS ? one.instruments++ : SDK_MUS_INS - 1;
+    sdk_mus_ins_t *s = &one.ins[i];
+    memset(s, 0, sizeof *s);
+    s->wave = (uint8_t)(SDK_MUS_WAVES + 1 + wave_sel);
+    s->attack = 15;
+    s->decay = s->sustain = 7;
+    s->level = 100;
+    s->pan = 8;
+    s->loop = s->release = SDK_MUS_NO;
+    play_of(&one, SDK_PLAY_NOTE, i, note);
+}
+
+/* A change of the wave is heard, when nothing else plays. */
+static void try_wave(void)
+{
+    if (sdk_play_what() == SDK_PLAY_NOTHING || sdk_play_what() == SDK_PLAY_NOTE)
+        hear_wave(last_note[0]);
 }
 
 /* A note just written is heard, when nothing else plays. */
@@ -260,7 +301,7 @@ static void code_strip(int top, int bottom, int line)
 static void tabs_line(void)
 {
     int col = 1;
-    for (int i = 0; i < PAGES; i++) {
+    for (int i = 0; i < pages(); i++) {
         char b[24];
         snprintf(b, sizeof b, " %s ", page_names[i]);
         text(1, col, i == page ? "30;103" : "37;100", b);
@@ -399,7 +440,7 @@ static uint8_t *snes_value(sdk_mus_ins_t *s, int row, int *max, int *big)
 {
     *big = 4;
     switch (row) {
-    case SI_WAVE: *max = SDK_MUS_WAVES; *big = 1; return &s->wave;
+    case SI_WAVE: *max = SDK_MUS_WAVES + mus.waves; *big = 1; return &s->wave;
     case SI_NOISE: *max = 31; return &s->noise;
     case SI_ATTACK: *max = 15; return &s->attack;
     case SI_DECAY: *max = 7; *big = 2; return &s->decay;
@@ -442,7 +483,7 @@ static void draw_snes_instrument(void)
         if (row == SI_NAME)
             snprintf(v, sizeof v, "%s", typing ? typed : s->name);
         else if (row == SI_WAVE)
-            snprintf(v, sizeof v, "%s", wave_names[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+            snprintf(v, sizeof v, "%s", wave_label(s->wave));
         else if (row == SI_NOISE && s->wave != SDK_MUS_WAVES)
             snprintf(v, sizeof v, "-");
         else if (row == SI_PAN)
@@ -521,6 +562,57 @@ static void draw_instruments(const char *msg)
     message(msg);
 }
 
+/* The drawn wave: 32 points two columns wide, 16 levels in 8 rows of half blocks, filled from the middle. */
+#define WAVE_COL 6
+static void draw_waves(const char *msg)
+{
+    if (!mus.waves) {
+        text(3, 3, "97", "No wave of your own yet: a draws one.");
+        text(4, 3, "90", "The six of the driver stay: square 12%, 25% and 50%, triangle, saw, sine.");
+        code_strip(9, screen_rows - 1, 0);
+        message(msg);
+        return;
+    }
+    const sdk_mus_wave_t *w = &mus.drawn[wave_sel];
+    char v[80];
+    snprintf(v, sizeof v, "%d/%d", wave_sel + 1, mus.waves);
+    int col = labelled(2, 1, "Wave", v, 0);
+    col = labelled(2, col, "Name", typing ? typed : w->name, typing);
+    const int users = sdk_music_wave_users(&mus, SDK_MUS_WAVES + 1 + wave_sel);
+    if (users)
+        snprintf(v, sizeof v, "used by %d instrument%s or effect%s", users, users > 1 ? "s" : "", users > 1 ? "s" : "");
+    else
+        snprintf(v, sizeof v, "not used: choose it in Instruments or SFX");
+    text(2, col + 1, "90", v);
+    for (int r = 0; r < 8; r++) {
+        const int low = 2 * (7 - r);                    /* the lower level of the row */
+        for (int i = 0; i < SDK_MUS_POINTS; i++) {
+            const int p = w->point[i];
+            const int under = p >= 8 ? low >= 8 && low <= p : low >= p && low <= 7;
+            const int over = p >= 8 ? low + 1 >= 8 && low + 1 <= p : low + 1 >= p && low + 1 <= 7;
+            const char *ch = under && over ? "\xdb\xdb" : over ? "\xdf\xdf" : under ? "\xdc\xdc" :
+                             i % 4 ? "  " : "\xfa ";
+            const int here = i == wave_at;
+            text(3 + r, WAVE_COL + 2 * i, here ? (under || over ? "93;100" : "37;100") :
+                 under || over ? "96" : "90", ch);
+        }
+    }
+    text(3, 2, "90", "15");
+    text(6, 3, "90", "8");
+    text(10, 3, "90", "0");
+    for (int i = 0; i < SDK_MUS_POINTS; i++) {
+        if (i != wave_at && i % 4)
+            continue;
+        snprintf(v, sizeof v, "%02d", i);
+        text(11, WAVE_COL + 2 * i, i == wave_at ? "30;107" : "90", v);
+    }
+    snprintf(v, sizeof v, "point %02d  value %d", wave_at, w->point[wave_at]);
+    text(12, WAVE_COL, "93", v);
+    keyboard(13, 9);
+    code_strip(15, screen_rows - 1, w->line);
+    message(msg);
+}
+
 static void draw_sfx(const char *msg)
 {
     if (!mus.sfxs) {
@@ -542,7 +634,7 @@ static void draw_sfx(const char *msg)
     } else
         col = labelled(2, col, "Channel", sfx_channels[s->channel], !sfx_grid && sfx_field == 2);
     if (mus.snes)
-        snprintf(v, sizeof v, "%s", wave_names[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+        snprintf(v, sizeof v, "%s", wave_label(s->wave));
     else if (s->channel < 2)
         snprintf(v, sizeof v, "%s", duty_names[s->wave & 3]);
     else
@@ -691,6 +783,8 @@ void sdk_sounds_draw(int cols, int rows, const char *msg)
         draw_instruments(msg);
     else if (page == PAGE_SFX)
         draw_sfx(msg);
+    else if (page == PAGE_WAVE)
+        draw_waves(msg);
     else
         draw_song(msg);
 }
@@ -910,19 +1004,23 @@ static void take_name(void)
         name = mus.sfx[sfx_sel].name;
         for (int i = 0; i < mus.sfxs; i++)
             taken |= i != sfx_sel && !strcmp(mus.sfx[i].name, typed);
+    } else if (page == PAGE_WAVE) {
+        name = mus.drawn[wave_sel].name;
+        for (int i = 0; i < mus.waves; i++)
+            taken |= i != wave_sel && sdk_list_same(mus.drawn[i].name, typed);
     } else {
         name = mus.song[song_sel].name;
         for (int i = 0; i < mus.songs; i++)
             taken |= i != song_sel && !strcmp(mus.song[i].name, typed);
     }
-    if (!sdk_music_name_ok(typed) || taken) {
+    if (!(page == PAGE_WAVE ? sdk_music_wave_name_ok(typed) : sdk_music_name_ok(typed)) || taken) {
         snprintf(sdk_note, sizeof sdk_note, taken ? "'%s' is taken" : "'%s' cannot be a name", typed);
         return;
     }
     typing = 0;
     snprintf(name, SDK_MUS_NAME, "%s", typed);
     commit(0);
-    if (page != PAGE_INS)
+    if (page == PAGE_SFX || page == PAGE_SONG)
         snprintf(sdk_note, sizeof sdk_note, "In the program: %s_%s", page == PAGE_SFX ? "sfx" : "song", typed);
 }
 
@@ -1241,7 +1339,8 @@ static int sfx_key(int key)
             commit(0);
         } else if (d && sfx_field == 3 && mus.snes) {
             const int was = noise_sfx(s);
-            s->wave = (uint8_t)((s->wave + SDK_MUS_WAVES + 1 + d) % (SDK_MUS_WAVES + 1));
+            const int count = SDK_MUS_WAVES + 1 + mus.waves;
+            s->wave = (uint8_t)((s->wave + count + d) % count);
             noise_notes(s, was);
             commit(0);
         } else if (d && sfx_field == 3) {
@@ -1304,6 +1403,78 @@ static int sfx_key(int key)
         } else
             return 0;
     }
+    return 1;
+}
+
+static int wave_key(int key, int mods)
+{
+    if (key == 'a') {
+        const int k = sdk_music_add_wave(&mus, mus.waves ? wave_sel : -1);
+        if (k < 0)
+            snprintf(sdk_note, sizeof sdk_note, "%d waves at most", SDK_MUS_DRAWN);
+        else {
+            wave_sel = k;
+            commit(0);
+            snprintf(sdk_note, sizeof sdk_note, "New wave: choose it in Instruments or SFX");
+        }
+        return 1;
+    }
+    if (!mus.waves)
+        return 0;
+    sdk_mus_wave_t *w = &mus.drawn[wave_sel];
+    const int d = key == HID_KEY_UP || key == '=' || key == '+' ? 1 :
+                  key == HID_KEY_DOWN || key == '-' || key == '_' ? -1 : 0;
+    const int run = 200000 + wave_sel * 64;
+    const int note = piano(key);
+    if (key == HID_KEY_PGUP || key == HID_KEY_PGDN)
+        wave_sel = within(wave_sel + (key == HID_KEY_PGDN ? 1 : -1), 0, mus.waves - 1);
+    else if (key == HID_KEY_DEL) {
+        if (confirmed("wave")) {
+            sdk_music_remove_wave(&mus, wave_sel);
+            settle();
+            commit(0);
+        }
+    } else if (note >= 0) {
+        last_note[0] = note;
+        hear_wave(note);
+    } else if (key == '\r' || key == '\n')
+        start_name(w->name);
+    else if (key == HID_KEY_LEFT || key == HID_KEY_RIGHT) {
+        const int to = within(wave_at + (key == HID_KEY_RIGHT ? 1 : -1), 0, SDK_MUS_POINTS - 1);
+        const int drawing = (mods & SDK_MOD_SHIFT) && to != wave_at;    /* the point takes the value along */
+        if (drawing)
+            w->point[to] = w->point[wave_at];
+        wave_at = to;
+        if (drawing) {
+            commit(run + 32);                   /* a stroke is one step of the undo */
+            try_wave();
+        }
+    } else if (key == HID_KEY_HOME || key == HID_KEY_END)
+        wave_at = key == HID_KEY_HOME ? 0 : SDK_MUS_POINTS - 1;
+    else if (d) {
+        const int by = key == '+' || key == '_' ? 4 : 1;
+        w->point[wave_at] = (uint8_t)within(w->point[wave_at] + d * by, 0, 15);
+        commit(run + wave_at);
+        try_wave();
+    } else if (key == 's' || key == 'm' || key == 'f') {
+        if (key == 's') {                       /* a wave of the driver as the start */
+            for (int i = 0; i < SDK_MUS_POINTS; i++)
+                w->point[i] = (uint8_t)sdk_music_wave_point(&mus, shape_next, i);
+            snprintf(sdk_note, sizeof sdk_note, "Shape: %s", wave_names[shape_next]);
+            shape_next = (shape_next + 1) % SDK_MUS_WAVES;
+        } else if (key == 'm') {
+            for (int i = 0; i < SDK_MUS_POINTS / 2; i++) {
+                const uint8_t a = w->point[i];
+                w->point[i] = w->point[SDK_MUS_POINTS - 1 - i];
+                w->point[SDK_MUS_POINTS - 1 - i] = a;
+            }
+        } else
+            for (int i = 0; i < SDK_MUS_POINTS; i++)
+                w->point[i] = (uint8_t)(15 - w->point[i]);
+        commit(0);
+        try_wave();
+    } else
+        return 0;
     return 1;
 }
 
@@ -1428,7 +1599,7 @@ int sdk_sounds_key(int key, int mods)
         return 1;
     }
     if (key == '\t') {
-        page = (page + 1) % PAGES;
+        page = (page + 1) % pages();
         return 1;
     }
     if (broken[0])
@@ -1448,6 +1619,8 @@ int sdk_sounds_key(int key, int mods)
             play(SDK_PLAY_SFX, sfx_sel, 0);
         else if (page == PAGE_INS && mus.instruments)
             play(SDK_PLAY_NOTE, ins_sel, last_note[mus.ins[ins_sel].channel]);
+        else if (page == PAGE_WAVE && mus.waves)
+            hear_wave(last_note[0]);
         return 1;
     }
     if (page == PAGE_PATTERN)
@@ -1456,5 +1629,7 @@ int sdk_sounds_key(int key, int mods)
         return instruments_key(key);
     if (page == PAGE_SFX)
         return sfx_key(key);
+    if (page == PAGE_WAVE)
+        return wave_key(key, mods);
     return song_key(key);
 }

@@ -15,8 +15,9 @@
  *
  * Notes: C1..B7 (CS4 is C sharp), on the noise of an effect N0..N15; __ nothing, OFF the release.
  *
- * A SNES project has 8 voices and instruments of its own:
- *   instrument   wave (SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE, NOISE), noise rate 0..31, attack 0..15,
+ * A SNES project has 8 voices, waves of its own and instruments of its own:
+ *   wave_NAME    32 points 0..15 (8 the middle) of one period, END
+ *   instrument   wave (SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE, NOISE or NAME), noise rate 0..31, attack 0..15,
  *                decay 0..7, sustain 0..7, release 0..31, volume 0..127, pan 0..16 (8 the middle), vibrato 0..15,
  *                arpeggio, END
  *   patternNN    a row a step: note, instrument for the voices 1 to 8; END
@@ -39,7 +40,9 @@
 #define SDK_MUS_ENV 64
 #define SDK_MUS_TRACKS 4                /* NES */
 #define SDK_MUS_VOICES 8                /* SNES */
-#define SDK_MUS_WAVES 6                 /* the samples of the SNES; a wave of this number is the noise */
+#define SDK_MUS_WAVES 6                 /* the waves of the driver; a wave of this number is the noise */
+#define SDK_MUS_DRAWN 8                 /* waves drawn in a SNES project: wave SDK_MUS_WAVES + 1 + k */
+#define SDK_MUS_POINTS 32               /* of a wave: one period, 0..15 */
 #define SDK_MUS_NAME 12                 /* with the NUL */
 
 enum { SDK_MUS_PULSE, SDK_MUS_TRIANGLE, SDK_MUS_NOISE };        /* the channel of an instrument */
@@ -53,7 +56,7 @@ typedef struct {
     uint8_t channel, wave, vibrato, arp;
     uint8_t len, loop, release;         /* of the volumes; loop and release: a place, or SDK_MUS_NO */
     uint8_t volume[SDK_MUS_ENV];
-    uint8_t noise, attack, decay, sustain, rate, level, pan;     /* SNES (wave: 0..SDK_MUS_WAVES) */
+    uint8_t noise, attack, decay, sustain, rate, level, pan;     /* SNES (wave: see SDK_MUS_DRAWN) */
     int line;                           /* of the source, from 1 (0: not read from it) */
 } sdk_mus_ins_t;
 
@@ -85,12 +88,19 @@ typedef struct {
 } sdk_mus_song_t;
 
 typedef struct {
+    char name[SDK_MUS_NAME];            /* without wave_ */
+    uint8_t point[SDK_MUS_POINTS];
+    int line;
+} sdk_mus_wave_t;
+
+typedef struct {
     int snes;                           /* the music of a SNES project */
-    int instruments, sfxs, songs;
+    int instruments, sfxs, songs, waves;
     sdk_mus_ins_t ins[SDK_MUS_INS];
     sdk_mus_pattern_t pat[SDK_MUS_PATTERNS];
     sdk_mus_sfx_t sfx[SDK_MUS_SFX];
     sdk_mus_song_t song[SDK_MUS_SONGS];
+    sdk_mus_wave_t drawn[SDK_MUS_DRAWN];
 } sdk_music_t;
 
 void sdk_music_clear(sdk_music_t *m);
@@ -141,6 +151,17 @@ int sdk_music_next_ins(const sdk_music_t *m, int from, int step, int channel);
 void sdk_music_remove_ins(sdk_music_t *m, int i);
 /* A new instrument of a channel with the usual sound, a free name from the base. -1: no room. */
 int sdk_music_add_ins(sdk_music_t *m, int channel);
+
+/* A name that a drawn wave can have: as the others, and not a wave of the driver. */
+int sdk_music_wave_name_ok(const char *name);
+/* The point i (0..31) of a wave (not the noise): 0..15. */
+int sdk_music_wave_point(const sdk_music_t *m, int wave, int i);
+/* A new drawn wave: a copy of the drawn wave `from` (-1: a sine), with a free name. Its number k, or -1: no room. */
+int sdk_music_add_wave(sdk_music_t *m, int from);
+/* Removes the drawn wave k; what used it takes the square of 50%. */
+void sdk_music_remove_wave(sdk_music_t *m, int k);
+/* How many instruments and effects use the wave. */
+int sdk_music_wave_users(const sdk_music_t *m, int wave);
 
 /* The driver (shell_sdk_snd.c): the routines in assembly, without the tables. */
 const char *sdk_snd_driver(void);

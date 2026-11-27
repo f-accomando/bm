@@ -76,7 +76,7 @@ the code. The screen shows the piano. Hold F12 to see the keys of the page.
 ## The SNES
 
 The sound chip of the SNES (SPC700) is a second computer. `snd_init` sends it our driver, the data of the block and
-six samples. Then it keeps time by itself, 60 ticks a second.
+the waves (six of its own, then the ones that you drew). Then it keeps time by itself, 60 ticks a second.
 
 | Step | Assembly | bm C |
 |---|---|---|
@@ -91,7 +91,8 @@ The tab of a SNES project has the same pages and keys. These items differ:
 |---|---|
 | Pattern | 8 voices. Each voice takes each instrument. |
 | Instruments | Wave, noise rate, attack, decay, sustain, release, volume, pan, vibrato, arpeggio, and a sketch of the envelope. `a` makes a lead, then a bass, then a drum. |
-| SFX | The voice (`V1` to `V8`) and one of the 7 waves. |
+| SFX | The voice (`V1` to `V8`) and the wave: one of the driver, noise, or one that you drew. |
+| Waves | Only on the SNES. You draw up to 8 waves of your own ([Draw a wave](#draw-a-wave)). |
 | Listening | The driver runs on the emulated sound chip. |
 
 - There is no `snd_frame`. The routines keep the registers. Call them from the main loop, not from the NMI.
@@ -104,7 +105,8 @@ The lists of a SNES block:
 
 | List name | Values, then `END` |
 |---|---|
-| an instrument | wave (`SQUARE12`, `SQUARE25`, `SQUARE50`, `TRIANGLE`, `SAW`, `SINE`, `NOISE`); noise rate 0 to 31; attack 0 to 15; decay 0 to 7; sustain 0 to 7; release 0 to 31; volume 0 to 127; pan 0 to 16 (8 is the middle); vibrato 0 to 15; arpeggio |
+| `wave_NAME` | 32 points, 0 to 15 (8 is the middle): one period of a wave |
+| an instrument | wave (`SQUARE12`, `SQUARE25`, `SQUARE50`, `TRIANGLE`, `SAW`, `SINE`, `NOISE`, or the `NAME` of a `wave_` list); noise rate 0 to 31; attack 0 to 15; decay 0 to 7; sustain 0 to 7; release 0 to 31; volume 0 to 127; pan 0 to 16 (8 is the middle); vibrato 0 to 15; arpeggio |
 | `pattern00` to `pattern31` | a step is a note and an instrument for each of the 8 voices |
 | `sfx_NAME` | frames a step; the voice `V1` to `V8`; the wave; then note, volume 0 to 15 and effect a step |
 | `song_NAME` | as on the NES |
@@ -113,6 +115,27 @@ The lists of a SNES block:
   held note fades (0: it holds).
 - On a `NOISE` effect the notes are `N0` to `N15`.
 - An effect takes its voice for its length.
+
+### Draw a wave
+
+A wave is 32 points. The sound chip repeats them: they are one period of the sound. The page shows them as columns
+from the middle line.
+
+| Keys | Use |
+|---|---|
+| `a` | a new wave: a copy of the one on the screen, or a sine |
+| Left, Right, Home, End | the point |
+| Up, Down (`-`, `=`) | the value of the point; `_`, `+`: 4 at a time |
+| Shift+Left, Shift+Right | draw: the next point takes the value |
+| `s` | start from a wave of the driver (press again for the next one) |
+| `m`, `f` | mirror, flip |
+| Enter | the name |
+| `Del` twice | delete; the instruments and effects that used it take `SQUARE50` |
+| Alt+Up, Alt+Down | the wave before or after |
+| piano keys, Space | listen; each change also sounds |
+
+Choose the wave by its name in the page Instruments or SFX. A change of the points changes each sound that uses the
+wave.
 
 ```c
 //@music

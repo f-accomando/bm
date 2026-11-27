@@ -47,19 +47,12 @@ static void set16(image_t *i, int at, int v)           /* at: an address of the 
     }
 }
 
-/* The value i (0..31) of the wave w, -8..7. */
-static int wave_value(int w, int i)
+/* The sample of a wave of the music (not the noise): the waves of the driver, then the drawn ones. */
+static int sample_of(const sdk_music_t *m, int wave)
 {
-    static const int8_t sine[32] = { 0, 1, 3, 4, 5, 6, 6, 7, 7, 7, 6, 6, 5, 4, 3, 1,
-                                     0, -1, -3, -4, -5, -6, -6, -7, -7, -7, -6, -6, -5, -4, -3, -1 };
-    switch (w) {
-    case 0: return i < 4 ? 7 : -7;                      /* squares of 12.5, 25 and 50% */
-    case 1: return i < 8 ? 7 : -7;
-    case 2: return i < 16 ? 7 : -7;
-    case 3: return i < 8 ? i : i < 24 ? 15 - i : i - 31;    /* triangle */
-    case 4: return i / 2 - 8;                           /* saw */
-    default: return sine[i];
-    }
+    if (wave < SDK_MUS_WAVES)
+        return wave;
+    return wave > SDK_MUS_WAVES && wave - SDK_MUS_WAVES - 1 < m->waves ? wave - 1 : 0;
 }
 
 int sdk_spc_image(const sdk_music_t *m, uint8_t *out, int max)
@@ -86,7 +79,7 @@ int sdk_spc_image(const sdk_music_t *m, uint8_t *out, int max)
     for (int i = 0; i < m->instruments; i++) {
         const sdk_mus_ins_t *s = &m->ins[i];
         const int noise = s->wave == SDK_MUS_WAVES;
-        put(&im, noise ? 0 : s->wave);
+        put(&im, noise ? 0 : sample_of(m, s->wave));
         put(&im, noise ? s->noise : 0xFF);
         put(&im, 0x80 | (s->decay & 7) << 4 | (s->attack & 15));
         put(&im, (s->sustain & 7) << 5 | (s->rate & 31));
@@ -135,7 +128,7 @@ int sdk_spc_image(const sdk_music_t *m, uint8_t *out, int max)
         set16(&im, sfx_table + 2 * i, here(&im));
         put(&im, s->speed);
         put(&im, s->channel);
-        put(&im, s->wave == SDK_MUS_WAVES ? 0x80 : s->wave);
+        put(&im, s->wave == SDK_MUS_WAVES ? 0x80 : sample_of(m, s->wave));
         put(&im, s->steps);
         for (int k = 0; k < s->steps; k++) {
             put(&im, s->step[k].note);
@@ -145,16 +138,19 @@ int sdk_spc_image(const sdk_music_t *m, uint8_t *out, int max)
     }
     while (here(&im) & 0xFF)                            /* the list of the samples starts a page */
         put(&im, 0);
-    const int directory = here(&im), first = directory + 4 * SDK_MUS_WAVES;
-    for (int w = 0; w < SDK_MUS_WAVES; w++) {
+    const int samples = SDK_MUS_WAVES + m->waves;
+    const int directory = here(&im), first = directory + 4 * samples;
+    for (int w = 0; w < samples; w++) {
         put16(&im, first + WAVE_BYTES * w);             /* the start and the place of the loop */
         put16(&im, first + WAVE_BYTES * w);
     }
-    for (int w = 0; w < SDK_MUS_WAVES; w++)
+    for (int w = 0; w < samples; w++)
         for (int block = 0; block < 2; block++) {
+            const int wave = w < SDK_MUS_WAVES ? w : w + 1;
             put(&im, BRR_SHIFT << 4 | 2 | block);       /* no filter; loop; the second block ends */
             for (int i = 0; i < 8; i++) {
-                const int a = wave_value(w, block * 16 + 2 * i), b = wave_value(w, block * 16 + 2 * i + 1);
+                const int a = sdk_music_wave_point(m, wave, block * 16 + 2 * i) - 8,
+                          b = sdk_music_wave_point(m, wave, block * 16 + 2 * i + 1) - 8;
                 put(&im, (a & 15) << 4 | (b & 15));
             }
         }

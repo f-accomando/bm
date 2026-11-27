@@ -252,7 +252,18 @@ static void draw_cell(uint32_t col, uint32_t row, int cursor)
     }
     uint8_t *line = con.fb->base + row * h * con.fb->pitch + col * w * 4;
 
-    if (bpr == 1 && w == 8) {                           /* the usual 8-pixel glyph: unrolled */
+    if (c->ch == 0xDC || c->ch == 0xDF) {               /* the lower and the upper half of a cell: drawn here, */
+        const int lower = c->ch == 0xDC;                /* the fonts have no glyph for them */
+        for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
+            uint32_t *p = (uint32_t *)line;
+            const uint32_t colour = (y >= h / 2) == lower || (cursor && y >= h - 2) ? fg : bg;
+            for (uint32_t x = 0; x < w; x++)
+                p[x] = colour;
+        }
+        return;
+    }
+
+    if (bpr == 1 && w == 8) {                          /* the usual 8-pixel glyph: unrolled */
         for (uint32_t y = 0; y < h; y++, line += con.fb->pitch) {
             uint32_t bits = g[y];
             if (cursor && y >= h - 2)

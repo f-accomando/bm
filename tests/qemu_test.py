@@ -5549,11 +5549,33 @@ def test_shell_sdk_sounds(b, opts):
         time.sleep(1.0)
         has("Keys   (release F12 to go back)", "Pattern", "the sharps")
         time.sleep(4.5)
-        q.send("\t\t")                              # Song, Instruments
+        q.send("\t\t")                              # Song, Waves
+        has("Waves", "No wave of your own yet")
+        q.send("a")                                 # a new wave: a sine
+        time.sleep(1.5)
+        has("Name  custom", "not used", "point 00  value 8", "wave_custom:")
+        q.send("+")                                 # the first point, by 4
+        time.sleep(1.5)
+        has("point 00  value 12", ".byte 12,")
+        shot("snes-waves")
+        q.send("ss")                                # shapes: square 12%, square 25%
+        time.sleep(1.5)
+        has("Shape: square 25%", "point 00  value 15")
+        q.monitor("sendkey f12 4000")
+        time.sleep(1.0)
+        has("Waves", "start from a shape")
+        time.sleep(4.5)
+        q.send("\t")                                # Instruments
         has("Attack", "Release", "Pan", "envelope", "square 50%", "lead:")
         q.send(SDK_DOWN + b"-")                     # the wave: from 50% to 25%
         time.sleep(2.0)
         has("square 25%", "SQUARE25, 0")
+        q.send(b"=" * 6)                            # past the noise: the drawn wave
+        time.sleep(2.0)
+        has("Wave      custom", "CUSTOM, 0")
+        q.send(b"-" * 6)
+        time.sleep(2.0)
+        has("square 25%")
         q.send(b"a" + SDK_DOWN * 20)
         time.sleep(1.5)
         has("bass", "bass:")

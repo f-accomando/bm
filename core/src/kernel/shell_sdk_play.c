@@ -228,7 +228,8 @@ static void order(int cmd, int value, int channel, int ins)
 int sdk_play_start(const sdk_music_t *m, int kind, int index, int note, int speed, char *err, size_t en)
 {
     /* a note needs the instruments only: writing a pattern does not build again at each key */
-    const uint32_t ins = hash(2166136261u ^ (uint32_t)m->instruments, m->ins, sizeof m->ins);
+    const uint32_t ins = hash(hash(2166136261u ^ (uint32_t)m->instruments, m->ins, sizeof m->ins), m->drawn,
+                              sizeof m->drawn);
     const uint32_t all = hash(hash(ins, m, sizeof *m), &speed, sizeof speed) ^
                          (uint32_t)(kind == SDK_PLAY_PATTERN ? index + 1 : 0);
     const int stale = !built || (kind == SDK_PLAY_NOTE ? ins != built_ins : all != built_hash);

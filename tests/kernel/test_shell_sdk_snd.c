@@ -19,6 +19,7 @@
 #include "snes_int.h"
 
 uint8_t *spc_dsp_ptr(void);
+uint8_t *spc_ram_ptr(void);
 
 /* What the listening of the tab (shell_sdk_play.c) takes from the kernel. A SNES music needs no NES program. */
 static uint32_t ticks;
@@ -311,6 +312,81 @@ static void test_listening(void)
           music.ins[added].channel == 0 && music.ins[added].pan == 8);
 }
 
+/* A drawn wave: in the block, in the sound memory as it was drawn, played by an instrument and an effect. */
+static void test_waves(void)
+{
+    char err[160] = "";
+    static const char *const src =
+        ";@music\n"
+        "wave_organ:\n"
+        "    .byte  8,10,12,14,15,15,14,12\n"
+        "    .byte 10,10,11,12,12,11,10, 9\n"
+        "    .byte  8, 6, 4, 2, 0, 0, 2, 4\n"
+        "    .byte  6, 6, 5, 4, 4, 5, 6, 7\n"
+        "    .byte END\n"
+        "lead: .byte ORGAN,0, 15,7,7,0, 100,8,0,0, END\n"
+        "pattern00:\n"
+        "    .byte C4,LEAD, __,0, __,0, __,0, __,0, __,0, __,0, __,0\n"
+        "    .byte END\n"
+        "sfx_o: .byte 6, V3, ORGAN, C5,15,__, END\n"
+        "song_s: .byte 12, 0, 0, END\n"
+        ";@end\n";
+    static char text[16 * 1024];
+    CHECK(sdk_music_parse_snes(src, strlen(src), 0, &music, err, sizeof err) == 0);
+    if (err[0])
+        printf("%s\n", err);
+    CHECK(music.waves == 1 && !strcmp(music.drawn[0].name, "organ") && music.drawn[0].point[4] == 15 &&
+          music.ins[0].wave == SDK_MUS_WAVES + 1 && music.sfx[0].wave == SDK_MUS_WAVES + 1 &&
+          sdk_music_wave_users(&music, SDK_MUS_WAVES + 1) == 2);
+    for (int c = 0; c < 2; c++) {
+        const long n = sdk_music_text(&music, c, text, sizeof text);
+        CHECK(n > 0 && sdk_music_parse_snes(text, (size_t)n, c, &again, err, sizeof err) == 0);
+        if (err[0])
+            printf("%s\n%s\n", err, text);
+        CHECK(again.waves == 1 && !memcmp(again.drawn[0].point, music.drawn[0].point, SDK_MUS_POINTS) &&
+              again.ins[0].wave == music.ins[0].wave);
+        for (const char *s = text; *s; s = strchr(s, '\n') + 1)
+            CHECK(strchr(s, '\n') - s <= 80);
+    }
+    /* played: the voice takes the sample after the six, and the sample memory has the points */
+    loudest = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_SONG, 0, 0, 0, err, sizeof err) == 0);
+    listen(6);
+    CHECK(voice(0, 4) == SDK_MUS_WAVES && loudest > 0.02f);
+    const uint8_t *ram = spc_ram_ptr();
+    const int entry = spc_dsp_ptr()[0x5D] * 256 + 4 * SDK_MUS_WAVES;
+    const int at = ram[entry] | ram[entry + 1] << 8;
+    for (int i = 0; i < SDK_MUS_POINTS; i++) {
+        const int byte = ram[at + (i / 16) * 9 + 1 + (i % 16) / 2];
+        const int nibble = i % 2 ? byte & 15 : byte >> 4;
+        CHECK(((nibble + 8) & 15) == music.drawn[0].point[i]);
+    }
+    sdk_play_stop();
+    CHECK(sdk_play_start(&music, SDK_PLAY_SFX, 0, 0, 0, err, sizeof err) == 0);
+    listen(4);
+    CHECK(voice(2, 4) == SDK_MUS_WAVES);
+    sdk_play_stop();
+    /* a point changed is heard again with a note */
+    CHECK(sdk_play_start(&music, SDK_PLAY_NOTE, 0, 60, 0, err, sizeof err) == 0);
+    music.drawn[0].point[0] = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_NOTE, 0, 60, 0, err, sizeof err) == 0);
+    CHECK((spc_ram_ptr()[at + 1] >> 4) == 8);          /* 0 is the nibble -8 */
+    sdk_play_stop();
+    /* new, copy and removal */
+    CHECK(sdk_music_add_wave(&music, 0) == 1 && !strcmp(music.drawn[1].name, "custom") &&
+          music.drawn[1].point[4] == 15);
+    CHECK(sdk_music_add_wave(&music, -1) == 2 && !strcmp(music.drawn[2].name, "custom2") &&
+          music.drawn[2].point[0] == 8 && music.drawn[2].point[8] == 15);
+    music.sfx[0].wave = SDK_MUS_WAVES + 3;             /* the third */
+    sdk_music_remove_wave(&music, 0);
+    CHECK(music.waves == 2 && music.ins[0].wave == 2 && music.sfx[0].wave == SDK_MUS_WAVES + 2);
+    CHECK(!sdk_music_wave_name_ok("saw") && !sdk_music_name_ok("wave_x") && sdk_music_wave_name_ok("bell"));
+    const char *bad = ";@music\nwave_a: .byte 1,2,3, END\n;@end\n";
+    CHECK(sdk_music_parse_snes(bad, strlen(bad), 0, &music, err, sizeof err) != 0 && strstr(err, "32 points"));
+    bad = ";@music\nx: .byte BELL,0, 15,7,7,0, 100,8,0,0, END\n;@end\n";
+    CHECK(sdk_music_parse_snes(bad, strlen(bad), 0, &music, err, sizeof err) != 0 && strstr(err, "wave_"));
+}
+
 static char *slurp(const char *path, size_t *n)
 {
     static char b[64 * 1024];
@@ -368,6 +444,7 @@ int main(void)
     test_driver();
     test_templates();
     test_listening();
+    test_waves();
     printf("test_shell_sdk_snd: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }
