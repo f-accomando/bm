@@ -4476,6 +4476,8 @@ def test_shell_sdk_skeleton(b, opts):
                 assert any("Ln 1  Col 1" in r for r in rows), rows        # the editor
             elif name == "Sprite":
                 assert any("Spritesheet" in r for r in rows) and any("512 tiles" in r for r in rows), rows
+            elif name == "Sounds":
+                assert any("Sounds: for NES projects" in r for r in rows), rows     # this one is a bm project
             else:
                 assert any(f"{name}: not built yet" in r for r in rows), (name, rows)
         q.send(bytes([0xF9]))                       # back to the Project tab
@@ -5396,6 +5398,108 @@ def test_shell_sdk_c(b, opts):
         time.sleep(4.0)
         has("built /snes/sgame.sfc", "ROM: sgame.sfc")
         q.send("\x11")                              # Ctrl+Q: all is saved
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_sounds(b, opts):
+    """Shell SDK (2026-11-27): the Sounds tab of a NES project: the pages Pattern, Song, Instruments and SFX, a note
+    written into the ;@music block of the code, listening, Build ROM with the sound driver; the same block in bm C."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.8)
+        return screen_text(q.screendump())
+
+    def has(*words):
+        rows = screen()
+        for w in words:
+            assert any(w in r for r in rows), (w, rows)
+
+    f5 = bytes([0xFD])
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(f5)                                  # F5: the Pattern page of a new NES project
+        has("Pattern", "Triangle", "main.s  ;@music", "sfx_jump:")
+        q.send("z")                                 # C4 on pulse 1: an instrument comes with it
+        time.sleep(2.0)
+        has("New instrument lead", "pattern00:", "C4,LEAD,")
+        q.send(SDK_RIGHT + b"c")                    # step 2: E4
+        time.sleep(2.0)
+        has("E4,LEAD,")
+        sendkeys(q, "ctrl-z")
+        has("Done")
+        rows = screen()
+        assert not any("E4,LEAD," in r for r in rows), rows
+        q.send(" ")                                 # Space: the pattern sounds
+        time.sleep(1.5)
+        has("octave 4  pattern")
+        q.send(" ")
+        has("octave 4  stopped")
+        q.send("\t")                                # Song
+        has("No song yet")
+        q.send("a")
+        has("In the program: song_title", "song_title:", "Pattern order")
+        q.send(" ")
+        time.sleep(1.5)
+        has("octave 4  song")
+        q.send("\t")                                # Instruments
+        has("Name", "Channel", "Volume, one a frame", "lead:")
+        q.send(SDK_DOWN * 2 + SDK_RIGHT + b"=")     # the wave: from 50% to 75%
+        time.sleep(2.0)
+        has("PULSE, DUTY75")
+        q.send("\t")                                # SFX: the effect of the start file
+        has("jump", "sfx_jump:", "volume", "effect")
+        q.send(" ")
+        time.sleep(1.5)
+        q.send(bytes([0xFA]))                       # F2: the block is in the code
+        sendkeys(q, "ctrl-alt-down")
+        for _ in range(4):
+            if any(";@music" in r for r in screen()):
+                break
+            sendkeys(q, "pgup")
+        has(";@music")
+        q.send(bytes([0xE6]))                       # F6: the program with the driver assembles
+        time.sleep(2.0)
+        has("no mistakes: ROM")
+        q.send("\x02")                              # Ctrl+B
+        time.sleep(0.5)
+        q.send("tune\r")
+        time.sleep(5.0)
+        has("built /nes/tune.nes", "ROM: tune.nes")
+        # bm C: the same tab writes const byte arrays into main.c
+        q.send("\x0e")                              # Ctrl+N
+        time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_DOWN + SDK_RIGHT)
+        has("C (bm C)")
+        q.send(f5)
+        has("main.c  //@music", "const byte sfx_jump[]", "Triangle", "Play speed")    # a new project: Pattern
+        q.send("z")
+        time.sleep(2.0)
+        has("const byte pattern00[]", "C4,LEAD,")
+        q.send(bytes([0xFA]))
+        q.send(bytes([0xE6]))
+        time.sleep(2.0)
+        has("no mistakes: ROM")
+        q.send("\x11")                              # Ctrl+Q: the new project is not saved
+        has("Unsaved changes")
+        q.send(SDK_DOWN + b"\r")
         q.expect("> ", timeout=10)
     finally:
         q.close()

@@ -857,7 +857,7 @@ static void write_instrument(text_t *t, int c, const sdk_mus_ins_t *s)
     wave_word(s->channel, s->wave, wave, sizeof wave);
     snprintf(line, sizeof line, "%s, %s, %d, $%02X", channel_words[s->channel], s->channel == SDK_MUS_TRIANGLE ?
              "0" : wave, s->vibrato, s->arp);
-    list_line(&l, line, "channel, wave, vibrato, arpeggio");
+    list_line(&l, line, "channel,wave,vibrato,arpeggio");
     size_t at = 0;
     int on = 0, first = 1;
     for (int i = 0; i < s->len; i++) {
@@ -866,15 +866,15 @@ static void write_instrument(text_t *t, int c, const sdk_mus_ins_t *s)
         if (i == s->release)
             at = put(line, at, sizeof line, "%sRELEASE", at ? ", " : "");
         at = put(line, at, sizeof line, "%s%d", at ? ", " : "", s->volume[i]);
-        if (++on == 12) {
-            list_line(&l, line, first ? "volume, one a frame" : "");
+        if (++on == 10) {
+            list_line(&l, line, first ? "volume" : "");
             at = 0;
             on = 0;
             first = 0;
         }
     }
     put(line, at, sizeof line, "%sEND", at ? ", " : "");
-    list_line(&l, line, first ? "volume, one a frame" : "");
+    list_line(&l, line, first ? "volume" : "");
     list_flush(&l, 1);
 }
 
@@ -884,7 +884,7 @@ static void write_pattern(text_t *t, int c, const sdk_music_t *m, int num)
     list_t l;
     char name[16], line[160];
     snprintf(name, sizeof name, "pattern%02d", num);
-    list_open(&l, t, c, name, "a row a step: pulse 1, 2, triangle, noise");
+    list_open(&l, t, c, name, "a step: pulse 1, 2, triangle, noise");
     for (int s = 0; s < p->steps; s++) {
         size_t at = 0;
         for (int k = 0; k < 3; k++) {
@@ -899,7 +899,7 @@ static void write_pattern(text_t *t, int c, const sdk_music_t *m, int num)
             strcpy(noise, "OFF");
         else
             ins_word(m, p->cell[s][3].ins, "__", noise, sizeof noise);
-        put(line, at, sizeof line, "%s", noise);
+        put(line, at, sizeof line, "%-5s", noise);
         snprintf(num2, sizeof num2, "%02d", s);
         list_line(&l, line, num2);
     }

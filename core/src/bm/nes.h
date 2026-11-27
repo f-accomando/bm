@@ -75,6 +75,7 @@ typedef struct {
 void nes_debug(nes_debug_t *d);
 uint8_t nes_peek(uint16_t addr);                    /* a CPU read with no side effect (the registers read 0) */
 const uint8_t *nes_ram(void);                       /* the 2 KB of work RAM */
+void nes_poke_ram(uint16_t addr, uint8_t v);        /* a write to it (the listening of the Shell SDK) */
 const uint8_t *nes_oam(void);                       /* the 256 bytes of sprite memory */
 const uint8_t *nes_palette(void);                   /* the 32 bytes of palette */
 /* tests only: one instruction at a time, and a start state (the nestest.nes log starts at $C000, P $24, S $FD, 7 cycles) */

@@ -1338,6 +1338,7 @@ uint8_t nes_peek(uint16_t a)
     return 0;
 }
 const uint8_t *nes_ram(void) { return ram; }
+void nes_poke_ram(uint16_t addr, uint8_t v) { ram[addr & 0x7FF] = v; }
 const uint8_t *nes_oam(void) { return oam; }
 const uint8_t *nes_palette(void) { return pal; }
 

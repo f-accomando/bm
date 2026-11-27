@@ -162,6 +162,13 @@ done:
     return rc;
 }
 
+int sdk_build_plain(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
+                    size_t *rom_len, char *err, size_t en)
+{
+    unsigned used = 0;
+    return assemble(p, name, source, len, rom, rom_len, &used, err, en);
+}
+
 int sdk_build_write(const sdk_proj_t *p, const char *name, const uint8_t *rom, size_t rom_len, char *err, size_t en)
 {
     char path[40];

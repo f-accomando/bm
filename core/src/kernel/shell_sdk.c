@@ -21,7 +21,9 @@
 #include "shell_sdk_hl.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_sheet.h"
+#include "shell_sdk_sounds.h"
 #include "shell_sdk_sprite.h"
+#include "shell_sdk_play.h"
 #include "shell_sdk_edit.h"
 #include "shell_sdk_file.h"
 #include "shell_sdk_pcb.h"
@@ -161,6 +163,11 @@ static void draw(int tab)
     if (tab == SDK_TAB_SPRITE) {
         sdk_sprite_sync(&proj);
         sdk_sprite_draw((int)cols, (int)rows, msg);
+        return;
+    }
+    if (tab == SDK_TAB_SOUNDS) {
+        sdk_sounds_sync(&proj);
+        sdk_sounds_draw((int)cols, (int)rows, msg);
         return;
     }
     console_cursor_mode(CONSOLE_CURSOR_HIDDEN);             /* only the Code tab has a text cursor */
@@ -403,6 +410,7 @@ static void do_new(void)
     proj_sel = 0;
     pname[0] = 0;
     sdk_code_reset();
+    sdk_sounds_reset();
     load_template();
     dirty = 0;
     say("%s", "a new project: Esc > Save as gives it a name");
@@ -437,6 +445,7 @@ static void do_open(void)
     sdk_file_stem(names[pick], pname);
     sdk_edit_set(source ? source : "", source_len);
     free(source);
+    sdk_sounds_reset();
     seen_rev = sdk_edit_revision();
     dirty = 0;
     say("opened %s", names[pick]);
@@ -544,6 +553,7 @@ static void do_listing(void)
  * ROM beside the code. An error goes to the message line and the cursor goes to its line. */
 static int do_build(void)
 {
+    sdk_play_stop();
     if (proj.target == SDK_BM) {
         say("%s", "a bm project has no ROM: Build is for NES and SNES");
         return -1;
@@ -662,6 +672,23 @@ static int held_mods(void)
            (hid_usage_held(0x2C) ? SDK_MOD_PAINT : 0) | (hid_usage_held(0x2A) ? SDK_MOD_ERASE : 0);
 }
 
+/* The next key. While the Sounds tab plays, the frames of the sound run between the keys. */
+static int wait_key(void)
+{
+    while (sdk_play_what() != SDK_PLAY_NOTHING) {
+        const int c = input_key();
+        if (c >= 0)
+            return c & 0xFF;
+        if (sdk_play_tick()) {
+            if (sdk_play_what() == SDK_PLAY_NOTHING)
+                draw(cur_tab);
+            else if (cur_tab == SDK_TAB_SOUNDS)
+                sdk_sounds_playhead();
+        }
+    }
+    return (unsigned char)input_getc();
+}
+
 int shell_sdk_open(void)
 {
     cur_tab = SDK_TAB_PROJECT;
@@ -672,12 +699,13 @@ int shell_sdk_open(void)
     msg[0] = 0;
     sdk_code_reset();
     sdk_sprite_reset();
+    sdk_sounds_reset();
     load_template();
     hid_text_mode(1);
     console_clear();
     for (;;) {
         draw(cur_tab);
-        int c = (unsigned char)input_getc();
+        int c = wait_key();
         int prefix = 0;                         /* the keyboard says Ctrl (and Shift) before some keys */
         while (c == HID_KEY_CTRL || c == HID_KEY_CTRL_SHIFT) {
             prefix |= c == HID_KEY_CTRL ? SDK_MOD_CTRL : SDK_MOD_CTRL | SDK_MOD_SHIFT;
@@ -685,9 +713,14 @@ int shell_sdk_open(void)
         }
         msg[0] = 0;
         const int t = shell_sdk_tab_for_key(c);
-        if (t >= 0)
+        if (t >= 0) {
+            if (t != cur_tab)
+                sdk_play_stop();
             cur_tab = t;
+        } else if (cur_tab == SDK_TAB_SOUNDS && sdk_sounds_typing())
+            sdk_sounds_key(c, prefix | held_mods());           /* a name: Esc ends it too */
         else if (c == 0x1B) {
+            sdk_play_stop();
             if (esc_menu())
                 break;
         } else if (c == 0x11) {                 /* Ctrl+Q */
@@ -714,6 +747,8 @@ int shell_sdk_open(void)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)
             sdk_code_key(c, prefix | held_mods());
+        else if (cur_tab == SDK_TAB_SOUNDS)
+            sdk_sounds_key(c, prefix | held_mods());
         else if (cur_tab == SDK_TAB_SPRITE) {
             if (c == 0x17 && sdk_code_has_rom()) {              /* Ctrl+W */
                 sdk_code_close_rom();
@@ -726,6 +761,7 @@ int shell_sdk_open(void)
             dirty = 1;
         }
     }
+    sdk_play_stop();
     sdk_code_reset();
     console_cursor_mode(CONSOLE_CURSOR_UNDERLINE);
     hid_text_mode(0);

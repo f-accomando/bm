@@ -28,6 +28,10 @@ int sdk_build_is_c(const sdk_proj_t *p);
 int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom, size_t *rom_len,
               sdk_build_info_t *info, char *err, size_t en);
 
+/* The assembly as it is, with no sound driver added: the listening of the Sounds tab, which has its own. */
+int sdk_build_plain(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
+                    size_t *rom_len, char *err, size_t en);
+
 /* Writes the ROM to /nes or /snes (the folder is made; a file of the same name is replaced).
  * Returns 0, or -1 with the reason in err. */
 int sdk_build_write(const sdk_proj_t *p, const char *name, const uint8_t *rom, size_t rom_len, char *err, size_t en);
