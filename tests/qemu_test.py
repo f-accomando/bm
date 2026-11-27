@@ -4477,7 +4477,7 @@ def test_shell_sdk_skeleton(b, opts):
             elif name == "Sprite":
                 assert any("Spritesheet" in r for r in rows) and any("512 tiles" in r for r in rows), rows
             elif name == "Sounds":
-                assert any("Sounds: for NES projects" in r for r in rows), rows     # this one is a bm project
+                assert any("Sounds: for NES and SNES" in r for r in rows), rows     # this one is a bm project
             else:
                 assert any(f"{name}: not built yet" in r for r in rows), (name, rows)
         q.send(bytes([0xF9]))                       # back to the Project tab
@@ -5433,6 +5433,10 @@ def test_shell_sdk_sounds(b, opts):
         for w in words:
             assert any(w in r for r in rows), (w, rows)
 
+    def shot(name):
+        if opts.shots:
+            _save_png(q.screendump(), os.path.join(opts.shots, name + ".png"))
+
     f5 = bytes([0xFD])
     try:
         q.expect(MENU, timeout=30)
@@ -5518,9 +5522,61 @@ def test_shell_sdk_sounds(b, opts):
         q.send(bytes([0xE6]))
         time.sleep(2.0)
         has("no mistakes: ROM")
-        q.send("\x11")                              # Ctrl+Q: the new project is not saved
-        has("Unsaved changes")
-        q.send(SDK_DOWN + b"\r")
+        # SNES: eight voices, instruments of waves and envelopes, effects on a voice
+        q.send("\x0e")                              # Ctrl+N
+        time.sleep(0.5)
+        if any("Unsaved changes" in r for r in screen()):
+            q.send(SDK_DOWN + b"\r")
+            time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_RIGHT)           # F1: the target, the next one
+        has("SNES")
+        q.send(f5)
+        has("main.s  ;@music", "Voice 1", "Voice 8", "sfx_jump:")
+        shot("snes-pattern-empty")
+        q.send("q")
+        time.sleep(2.0)
+        has("New instrument lead", "Voice 1   C4")
+        q.send(SDK_DOWN * 7 + SDK_RIGHT + b"e")     # voice 8, step 2: E4
+        time.sleep(2.0)
+        has("E4,LEAD")
+        q.send(" ")
+        time.sleep(1.5)
+        has("octave 4  pattern")
+        shot("snes-pattern")
+        q.send(" ")
+        has("octave 4  stopped")
+        q.monitor("sendkey f12 4000")
+        time.sleep(1.0)
+        has("Keys   (release F12 to go back)", "Pattern", "the sharps")
+        time.sleep(4.5)
+        q.send("\t\t")                              # Song, Instruments
+        has("Attack", "Release", "Pan", "envelope", "square 50%", "lead:")
+        q.send(SDK_DOWN + b"-")                     # the wave: from 50% to 25%
+        time.sleep(2.0)
+        has("square 25%", "SQUARE25, 0")
+        q.send(b"a" + SDK_DOWN * 20)
+        time.sleep(1.5)
+        has("bass", "bass:")
+        shot("snes-instruments")
+        q.monitor("sendkey f12 4000")
+        time.sleep(1.0)
+        has("Instruments", "release 0: it holds")
+        time.sleep(4.5)
+        q.send("\t")                                # SFX: the effect of the start file
+        has("jump", "sfx_jump:", "Voice  V8", "Wave  square 50%", "volume", "effect")
+        q.send(" ")
+        time.sleep(1.5)
+        shot("snes-sfx")
+        q.send(bytes([0xFA]))                       # F2
+        q.send(bytes([0xE6]))                       # F6: the program with the sound driver assembles
+        time.sleep(5.0)
+        has("no mistakes: ROM")
+        q.send("\x02")                              # Ctrl+B
+        time.sleep(0.5)
+        q.send("song\r")
+        time.sleep(8.0)
+        has("built /snes/song.sfc", "ROM: song.sfc")
+        q.send("\x11")                              # Ctrl+Q: the build saved the project
         q.expect("> ", timeout=10)
     finally:
         q.close()

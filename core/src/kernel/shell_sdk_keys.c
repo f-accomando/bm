@@ -182,6 +182,17 @@ static const line_t instruments[] = {
     { "[ / ]", "loop / release here" },
     { NULL, NULL } };
 
+static const line_t snes_instruments[] = {
+    { "Instruments", NULL },
+    { "PgUp PgDn", "the instrument" },
+    { "a / Del", "new / delete (twice)" },
+    { "Up Down", "the setting" },
+    { "- =", "value (_ + big step)" },
+    { "Enter", "name, or listen" },
+    { "", "attack: larger, faster" },
+    { "", "release 0: it holds" },
+    { NULL, NULL } };
+
 static const line_t sfx[] = {
     { "SFX", NULL },
     { "PgUp PgDn", "the effect" },
@@ -238,7 +249,8 @@ static const struct { const line_t *left, *right; } screens[SDK_KEYS_COUNT] = {
     [SDK_KEYS_SOUND_SONG] = { song, sounds },
     [SDK_KEYS_SOUND_NONE] = { no_sounds, NULL },
     [SDK_KEYS_ANIM] = { anim, anim_set },
-    [SDK_KEYS_ANIM_PLACE] = { place, NULL } };
+    [SDK_KEYS_ANIM_PLACE] = { place, NULL },
+    [SDK_KEYS_SOUND_SNES_INS] = { snes_instruments, sounds } };
 
 /* A list from the row `row` of a column; the row after it, with an empty one. */
 static int list(const line_t *l, int row, int col, int width, int rows)

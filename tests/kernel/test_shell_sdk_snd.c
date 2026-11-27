@@ -11,12 +11,29 @@
 
 #include "kernel/shell_sdk_cc.h"
 #include "kernel/shell_sdk_music.h"
+#include "kernel/shell_sdk_play.h"
+#include "kernel/shell_sdk_proj.h"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
 #include "snes_int.h"
 
 uint8_t *spc_dsp_ptr(void);
+
+/* What the listening of the tab (shell_sdk_play.c) takes from the kernel. A SNES music needs no NES program. */
+static uint32_t ticks;
+static int (*output)(float *, unsigned, float);
+uint32_t timer_ticks(void) { return ticks; }
+void audio_set_ext(int (*mix)(float *, unsigned, float)) { output = mix; }
+int audio_ready(void) { return 1; }
+int audio_init(void) { return 0; }
+void sdk_proj_default(sdk_proj_t *p, int target) { memset(p, 0, sizeof *p); (void)target; }
+int sdk_build_plain(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
+                    size_t *rom_len, char *err, size_t en)
+{
+    (void)p, (void)name, (void)source, (void)len, (void)rom, (void)rom_len, (void)err, (void)en;
+    return -1;
+}
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); fails++; } } while (0)
@@ -222,6 +239,78 @@ static void test_driver(void)
     CHECK((spc_dsp_ptr()[0x5C] & 0x07) == 0x07 && loudest < 0.01f);
 }
 
+/* n frames of listening: the ticks of the tab, then what the output would take. */
+static void listen(int n)
+{
+    static float out[2 * 800];
+    for (int f = 0; f < n; f++) {
+        ticks += 16639;
+        sdk_play_tick();
+        memset(out, 0, sizeof out);
+        if (output)
+            output(out, 800, 1.0f);
+        for (int i = 0; i < 1600; i++) {
+            const float v = out[i] < 0 ? -out[i] : out[i];
+            loudest = v > loudest ? v : loudest;
+        }
+    }
+}
+
+static void test_listening(void)
+{
+    char err[160] = "";
+    int order, row;
+    CHECK(sdk_music_parse_snes(sample, strlen(sample), 0, &music, err, sizeof err) == 0);
+    loudest = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_SONG, 0, 0, 0, err, sizeof err) == 0);
+    if (err[0])
+        printf("%s\n", err);
+    CHECK(sdk_play_what() == SDK_PLAY_SONG && output);
+    listen(6);
+    sdk_play_position(&order, &row);
+    CHECK(order == 0 && row == 0 && voice(0, 4) == 1 && voice(0, 0) == 100 && loudest > 0.02f);
+    CHECK(pitch(0) >= 1070 && pitch(0) <= 1074);
+    listen(12);
+    sdk_play_position(&order, &row);
+    CHECK(row == 1 && pitch(1) > 1340 && pitch(1) < 1360);
+    listen(36);                                 /* round again */
+    sdk_play_position(&order, &row);
+    CHECK(row == 0 && sdk_play_what() == SDK_PLAY_SONG);
+    sdk_play_stop();
+    CHECK(sdk_play_what() == SDK_PLAY_NOTHING && !output);
+    /* a pattern, at the speed asked */
+    CHECK(sdk_play_start(&music, SDK_PLAY_PATTERN, 0, 0, 4, err, sizeof err) == 0);
+    listen(7);
+    sdk_play_position(&order, &row);
+    CHECK(row == 1);
+    sdk_play_stop();
+    /* an effect ends by itself */
+    loudest = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_SFX, 0, 0, 0, err, sizeof err) == 0);
+    listen(4);
+    CHECK(voice(5, 4) == 5 && pitch(5) > 2000 && pitch(5) < 2300 && loudest > 0.02f);
+    listen(60);
+    CHECK(sdk_play_what() == SDK_PLAY_NOTHING);
+    /* a note of an instrument: it sounds, is released, ends; the next one needs no new start */
+    loudest = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_NOTE, 1, 69, 0, err, sizeof err) == 0);
+    listen(4);
+    CHECK(voice(0, 4) == 3 && pitch(0) >= 1798 && pitch(0) <= 1806 && loudest > 0.02f);
+    listen(30);
+    CHECK(spc_dsp_ptr()[0x5C] & 1);
+    listen(80);
+    CHECK(sdk_play_what() == SDK_PLAY_NOTHING);
+    loudest = 0;
+    CHECK(sdk_play_start(&music, SDK_PLAY_NOTE, 0, 60, 0, err, sizeof err) == 0);
+    listen(4);
+    CHECK(voice(0, 4) == 1 && pitch(0) >= 1070 && pitch(0) <= 1074 && loudest > 0.02f);
+    sdk_play_stop();
+    /* a new instrument of the tab has what a SNES one needs */
+    const int added = sdk_music_add_ins(&music, 2);
+    CHECK(added == 3 && !strcmp(music.ins[added].name, "drum2") && music.ins[added].wave == SDK_MUS_WAVES &&
+          music.ins[added].channel == 0 && music.ins[added].pan == 8);
+}
+
 static char *slurp(const char *path, size_t *n)
 {
     static char b[64 * 1024];
@@ -278,6 +367,7 @@ int main(void)
     test_block();
     test_driver();
     test_templates();
+    test_listening();
     printf("test_shell_sdk_snd: %s\n", fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

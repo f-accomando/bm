@@ -1016,15 +1016,33 @@ int sdk_music_add_ins(sdk_music_t *m, int channel)
         { "hat", 2, 6, SDK_MUS_NO, SDK_MUS_NO, { 12, 8, 5, 3, 1, 0 } } };
     if (m->instruments == SDK_MUS_INS || channel < 0 || channel > 2)
         return -1;
+    static const struct {
+        const char *name;
+        uint8_t wave, noise, attack, decay, sustain, rate, level;
+    } snes[3] = { { "lead", 2, 0, 15, 7, 7, 0, 100 }, { "bass", 3, 0, 15, 7, 7, 0, 110 },
+                  { "drum", SDK_MUS_WAVES, 24, 15, 7, 2, 26, 90 } };
     sdk_mus_ins_t *s = &m->ins[m->instruments];
     memset(s, 0, sizeof *s);
+    const char *base = m->snes ? snes[channel].name : usual[channel].name;
     for (int n = 1;; n++) {
         if (n == 1)
-            snprintf(s->name, sizeof s->name, "%s", usual[channel].name);
+            snprintf(s->name, sizeof s->name, "%s", base);
         else
-            snprintf(s->name, sizeof s->name, "%s%d", usual[channel].name, n);
+            snprintf(s->name, sizeof s->name, "%s%d", base, n);
         if (find_ins(m, s->name) < 0)
             break;
+    }
+    if (m->snes) {                              /* every voice takes every instrument: no channel */
+        s->wave = snes[channel].wave;
+        s->noise = snes[channel].noise;
+        s->attack = snes[channel].attack;
+        s->decay = snes[channel].decay;
+        s->sustain = snes[channel].sustain;
+        s->rate = snes[channel].rate;
+        s->level = snes[channel].level;
+        s->pan = 8;
+        s->loop = s->release = SDK_MUS_NO;
+        return m->instruments++;
     }
     s->channel = (uint8_t)channel;
     s->wave = usual[channel].wave;

@@ -10,11 +10,13 @@
 
 #include "audio/audio.h"
 #include "bm/nes.h"
+#include "bm/snes.h"
 #include "drivers/timer.h"
 #include "shell_sdk_build.h"
 #include "shell_sdk_proj.h"
 
 #define FRAME_US 16639              /* a frame of the NTSC machine */
+#define SPC_FRAME 17067             /* the cycles of the SNES sound CPU in a frame (1.024 MHz) */
 
 /* The program: the driver, and orders from the SDK at $07F0 (what), $07F1 (the number or the note), $07F2 (the
  * channel) and $07F3 (the instrument + 1), taken by the vertical blank. */
@@ -86,6 +88,9 @@ static int frames, quiet;
 static int at_order, at_row;
 static int note_channel;
 static int silent;
+static int snes;                        /* the program that plays is the SNES's, on the sound chip alone */
+static uint8_t spc_last;                /* the last order given to its driver */
+uint8_t *spc_ram_ptr(void);             /* bm/snes_spc.c: the sound memory */
 
 static uint32_t hash(uint32_t h, const void *p, size_t n)
 {
@@ -113,6 +118,8 @@ void sdk_play_stop(void)
 }
 
 /* Builds the program with the music m and loads it in the core. */
+static int build_snes(char *err, size_t en);
+
 static int build(const sdk_music_t *m, int pattern, int speed, char *err, size_t en)
 {
     scratch = *m;
@@ -127,6 +134,9 @@ static int build(const sdk_music_t *m, int pattern, int speed, char *err, size_t
         if (scratch.songs <= preview_song)
             scratch.songs = preview_song + 1;
     }
+    snes = scratch.snes;
+    if (snes)
+        return build_snes(err, en);
     char *driver = sdk_music_asm(&scratch);
     static const char chr[] = ".chr\n    .res 8192,0\n.endchr\n";
     const size_t n = driver ? sizeof stub + strlen(driver) + sizeof chr : 0;
@@ -159,8 +169,56 @@ static int build(const sdk_music_t *m, int pattern, int speed, char *err, size_t
     return 0;
 }
 
+/* The sound chip alone: the image goes in through its ports, as a program sends it, and the driver starts. */
+static int build_snes(char *err, size_t en)
+{
+    enum { MOST = 0x8000 };
+    uint8_t *image = malloc(MOST);
+    const int n = image ? sdk_spc_image(&scratch, image, MOST) : -1;
+    if (n < 0) {
+        free(image);
+        snprintf(err, en, "cannot play: the music is too large");
+        return -1;
+    }
+    spc_reset();
+    spc_port_write(2, SDK_SPC_START & 0xFF);
+    spc_port_write(3, SDK_SPC_START >> 8);
+    spc_port_write(1, 1);
+    spc_port_write(0, 0xCC);
+    (void)spc_port_read(0);
+    for (int i = 0; i < n; i++) {
+        spc_port_write(1, image[i]);
+        spc_port_write(0, (uint8_t)i);
+        (void)spc_port_read(0);
+    }
+    free(image);
+    spc_port_write(2, SDK_SPC_START & 0xFF);
+    spc_port_write(3, SDK_SPC_START >> 8);
+    spc_port_write(1, 0);
+    spc_port_write(0, (uint8_t)((n + 1) & 0xFF ? n + 1 : 2));     /* past the last index: the start */
+    (void)spc_port_read(0);
+    for (int i = 0; i < 20 && spc_port_read(0) != 0xEE; i++)
+        spc_run(SPC_FRAME / 4);
+    if (spc_port_read(0) != 0xEE) {
+        snprintf(err, en, "cannot play: the sound chip does not answer");
+        return -1;
+    }
+    spc_last = 0xEE;
+    return 0;
+}
+
 static void order(int cmd, int value, int channel, int ins)
 {
+    if (snes) {
+        spc_port_write(1, (uint8_t)value);
+        spc_port_write(2, (uint8_t)ins);
+        spc_port_write(3, (uint8_t)channel);
+        spc_last = (uint8_t)(((spc_last + 0x10) & 0xF0) | (cmd == 4 ? 4 : cmd));
+        spc_port_write(0, spc_last);
+        for (int i = 0; i < 40 && spc_port_read(0) != spc_last; i++)
+            spc_run(256);                       /* the driver takes it at once */
+        return;
+    }
     nes_poke_ram(0x7F1, (uint8_t)value);
     nes_poke_ram(0x7F2, (uint8_t)channel);
     nes_poke_ram(0x7F3, (uint8_t)ins);
@@ -188,7 +246,10 @@ int sdk_play_start(const sdk_music_t *m, int kind, int index, int note, int spee
         order(1, index, 0, 0);
     else if (kind == SDK_PLAY_SFX)
         order(2, index, 0, 0);
-    else {
+    else if (snes) {
+        note_channel = 0;
+        order(4, note, note_channel, index + 1);
+    } else {
         note_channel = m->ins[index].channel == SDK_MUS_PULSE ? 0 :
                        m->ins[index].channel == SDK_MUS_TRIANGLE ? 2 : 3;
         order(3, note, note_channel, index + 1);
@@ -196,7 +257,7 @@ int sdk_play_start(const sdk_music_t *m, int kind, int index, int note, int spee
     if (!audio_ready())
         audio_init();
     silent = !audio_ready();
-    audio_set_ext(nes_audio_mix);
+    audio_set_ext(snes ? snes_audio_mix : nes_audio_mix);
     what = kind;
     frames = quiet = 0;
     at_order = at_row = 0;
@@ -215,22 +276,34 @@ int sdk_play_tick(void)
         next_frame = now - FRAME_US;
     int changed = 0;
     for (int i = 0; i < 3 && (int32_t)(now - next_frame) >= 0; i++, next_frame += FRAME_US) {
-        nes_frame(0, 0, 0);
+        int row, place_, on;
+        if (snes) {
+            spc_run(SPC_FRAME);
+            const uint8_t *ram = spc_ram_ptr();     /* the direct page of the driver (shell_sdk_spc.asm) */
+            row = ram[0x14] ? ram[0x14] - 1 : 0;    /* m_row is the next one */
+            place_ = ram[0x13];
+            on = what == SDK_PLAY_SFX ? 0 : ram[0x10];
+            for (int v = 0; what == SDK_PLAY_SFX && v < SDK_MUS_VOICES; v++)
+                on |= ram[0x50 + v];
+        } else {
+            nes_frame(0, 0, 0);
+            const uint8_t *ram = nes_ram();
+            row = ram[M_AT_ROW];
+            place_ = ram[M_AT_ORDER];
+            on = what == SDK_PLAY_SFX ? ram[X_ON] | ram[X_ON + 1] | ram[X_ON + 2] | ram[X_ON + 3] : ram[M_ON];
+        }
         frames++;
-        const uint8_t *ram = nes_ram();
-        if (ram[M_AT_ROW] != at_row || ram[M_AT_ORDER] != at_order) {
-            at_row = ram[M_AT_ROW];
-            at_order = ram[M_AT_ORDER];
+        if (row != at_row || place_ != at_order) {
+            at_row = row;
+            at_order = place_;
             changed = 1;
         }
         int done = 0;
         if (what == SDK_PLAY_NOTE) {
             if (frames == 24)
-                order(3, SDK_MUS_OFF, note_channel, 0);
+                order(snes ? 4 : 3, SDK_MUS_OFF, note_channel, 0);
             done = frames > 100;
         } else {
-            const int on = what == SDK_PLAY_SFX ? ram[X_ON] | ram[X_ON + 1] | ram[X_ON + 2] | ram[X_ON + 3]
-                                                : ram[M_ON];
             quiet = on ? 0 : quiet + 1;
             done = quiet > 30;
         }

@@ -1,6 +1,7 @@
 /*
- * Shell SDK: listening in the Sounds tab. A small NES program with the sound driver and the music of the tab is
- * built and run in the bm NES core, so what sounds here is what the cartridge will play.
+ * Shell SDK: listening in the Sounds tab. NES: a small program with the sound driver and the music of the tab is
+ * built and run in the bm NES core. SNES: the sound memory for the tab's music (the driver, its tables and samples)
+ * goes to the emulated sound chip alone. What sounds here is what the cartridge will play.
  */
 #ifndef SHELL_SDK_PLAY_H
 #define SHELL_SDK_PLAY_H

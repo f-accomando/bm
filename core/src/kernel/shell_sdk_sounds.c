@@ -20,7 +20,9 @@ enum { PAGE_INS, PAGE_SFX, PAGE_PATTERN, PAGE_SONG, PAGES };
 static const char *const page_names[PAGES] = { "Instruments", "SFX", "Pattern", "Song" };
 static const char *const track_names[SDK_MUS_TRACKS] = { "Pulse 1", "Pulse 2", "Triangle", "Noise" };
 static const int track_channel[SDK_MUS_TRACKS] = { SDK_MUS_PULSE, SDK_MUS_PULSE, SDK_MUS_TRIANGLE, SDK_MUS_NOISE };
-static const char *const track_colour[SDK_MUS_TRACKS] = { "103", "43", "102", "106" };
+static const char *const track_colour[SDK_MUS_VOICES] = { "103", "43", "102", "106", "104", "105", "101", "46" };
+static const char *const wave_names[SDK_MUS_WAVES + 1] = { "square 12%", "square 25%", "square 50%", "triangle",
+                                                          "saw", "sine", "noise" };
 static const char *const channel_names[3] = { "pulse", "triangle", "noise" };
 static const char *const duty_names[4] = { "12%", "25%", "50%", "75%" };
 static const char *const sfx_channels[4] = { "Pulse 1", "Pulse 2", "Triangle", "Noise" };
@@ -31,7 +33,7 @@ static const char *const sfx_channels[4] = { "Pulse 1", "Pulse 2", "Triangle", "
 #define PIANO "q2w3er5t6y7ui9o0p"
 
 static sdk_music_t mus, reading;
-static int supported, target, is_c;     /* a NES project; its language */
+static int supported, target, is_c;     /* a NES or SNES project; its language */
 static int synced;
 static unsigned code_rev;
 static char broken[128];                /* why the block cannot be read ("": it can) */
@@ -50,6 +52,7 @@ static int screen_cols = 80, screen_rows = 21;
 
 void sdk_sounds_reset(void)
 {
+    sdk_note[0] = 0;
     sdk_play_stop();
     sdk_music_clear(&mus);
     synced = 0;
@@ -71,9 +74,17 @@ void sdk_sounds_reset(void)
 
 int sdk_sounds_typing(void) { return typing; }
 
+/* What differs between the machines. The NES has four tracks, each with its channel; the noise track takes only
+ * hits. The SNES has eight voices that take every instrument. */
+static int tracks(void) { return mus.snes ? SDK_MUS_VOICES : SDK_MUS_TRACKS; }
+static int channel_of(int t) { return mus.snes ? 0 : track_channel[t]; }
+static int hit_track(int t) { return !mus.snes && t == 3; }
+static int noise_sfx(const sdk_mus_sfx_t *s) { return mus.snes ? s->wave == SDK_MUS_WAVES : s->channel == 3; }
+
 int sdk_sounds_keys(void)
 {
-    return !supported || broken[0] ? SDK_KEYS_SOUND_NONE : page == PAGE_INS ? SDK_KEYS_SOUND_INSTRUMENTS :
+    return !supported || broken[0] ? SDK_KEYS_SOUND_NONE :
+           page == PAGE_INS ? (mus.snes ? SDK_KEYS_SOUND_SNES_INS : SDK_KEYS_SOUND_INSTRUMENTS) :
            page == PAGE_SFX ? SDK_KEYS_SOUND_SFX : page == PAGE_SONG ? SDK_KEYS_SOUND_SONG : SDK_KEYS_SOUND_PATTERN;
 }
 
@@ -106,7 +117,9 @@ static void read_code(void)
     code_rev = sdk_edit_revision();
     synced = 1;
     broken[0] = 0;
-    if (sdk_music_parse(sdk_edit_text(), sdk_edit_length(), is_c, &reading, broken, sizeof broken) == 0) {
+    const int snes = target == SDK_SNES;
+    if ((snes ? sdk_music_parse_snes : sdk_music_parse)(sdk_edit_text(), sdk_edit_length(), is_c, &reading, broken,
+                                                       sizeof broken) == 0) {
         mus = reading;
         for (int i = 0; i < SDK_MUS_PATTERNS; i++)
             if (!mus.pat[i].used)
@@ -126,14 +139,14 @@ static void read_code(void)
 
 void sdk_sounds_sync(const sdk_proj_t *p)
 {
-    const int c = sdk_build_is_c(p);
+    const int c = sdk_build_is_c(p), other = p->target != target;
     target = p->target;
-    supported = p->target == SDK_NES;
+    supported = p->target != SDK_BM;
     if (!supported) {
         sdk_play_stop();
         return;
     }
-    if (!synced || c != is_c || sdk_edit_revision() != code_rev) {
+    if (!synced || c != is_c || other || sdk_edit_revision() != code_rev) {
         is_c = c;
         read_code();
     }
@@ -263,7 +276,8 @@ static void tabs_line(void)
 static void message(const char *msg)
 {
     const char *s = sdk_note[0] ? sdk_note : msg && msg[0] ? msg : silent_program && !broken[0] ?
-                    "main.s calls no driver: add jsr snd_init, and jsr snd_frame in nmi" : NULL;
+                    (mus.snes ? "main.s calls no sound: add jsr snd_init before the NMI is on"
+                              : "main.s calls no driver: add jsr snd_init, and jsr snd_frame in nmi") : NULL;
     if (!s)
         return;
     console_write("\x1b[93m");
@@ -300,7 +314,7 @@ static void cell_text(const sdk_mus_cell_t *c, int t, char out[4])
 {
     if (c->note == SDK_MUS_OFF)
         strcpy(out, "OFF");
-    else if (t == 3) {
+    else if (hit_track(t)) {
         if (c->ins >= 1 && c->ins <= mus.instruments) {
             for (int i = 0; i < 3; i++) {
                 const char ch = mus.ins[c->ins - 1].name[i];
@@ -334,9 +348,12 @@ static void draw_pattern(const char *msg)
     text(2, col, "90", v);
     pattern_playhead();
     const int from = step / 16 * 16;
-    for (int t = 0; t < SDK_MUS_TRACKS; t++) {
+    for (int t = 0; t < tracks(); t++) {
         char b[24];
-        snprintf(b, sizeof b, "%-9s", track_names[t]);
+        if (mus.snes)
+            snprintf(b, sizeof b, "Voice %d  ", t + 1);
+        else
+            snprintf(b, sizeof b, "%-9s", track_names[t]);
         text(4 + t, 1, !on_header && t == track ? "97" : "37", b);
         for (int s = from; s < from + 16 && s < steps; s++) {
             char c[4], cell[8], colour[16];
@@ -361,14 +378,87 @@ static void draw_pattern(const char *msg)
     char about[80] = "";
     if (!on_header && c->ins >= 1 && c->ins <= mus.instruments)
         snprintf(about, sizeof about, "step %02d: %s", step, mus.ins[c->ins - 1].name);
-    else if (!on_header && last_ins[track_channel[track]] < mus.instruments &&
-             mus.instruments && mus.ins[last_ins[track_channel[track]]].channel == track_channel[track])
+    else if (!on_header && last_ins[channel_of(track)] < mus.instruments &&
+             mus.ins[last_ins[channel_of(track)]].channel == channel_of(track))
         snprintf(about, sizeof about, "step %02d   next note: %s", step,
-                 mus.ins[last_ins[track_channel[track]]].name);
-    text(8, 11, "93", about);
-    keyboard(9, 11);
-    code_strip(11, screen_rows - 1, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
+                 mus.ins[last_ins[channel_of(track)]].name);
+    const int under = 4 + tracks();
+    text(under, 11, "93", about);
+    keyboard(under + 1, 11);
+    code_strip(under + 3, screen_rows - 1, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
     message(msg);
+}
+
+/* The settings of a SNES instrument: the row, its value, how far it goes and the larger step. */
+enum { SI_NAME, SI_WAVE, SI_NOISE, SI_ATTACK, SI_DECAY, SI_SUSTAIN, SI_RELEASE, SI_VOLUME, SI_PAN, SI_VIBRATO,
+       SI_ARP, SI_ROWS };
+static const char *const si_names[SI_ROWS] = { "Name", "Wave", "Noise", "Attack", "Decay", "Sustain", "Release",
+                                               "Volume", "Pan", "Vibrato", "Arpeggio" };
+
+static uint8_t *snes_value(sdk_mus_ins_t *s, int row, int *max, int *big)
+{
+    *big = 4;
+    switch (row) {
+    case SI_WAVE: *max = SDK_MUS_WAVES; *big = 1; return &s->wave;
+    case SI_NOISE: *max = 31; return &s->noise;
+    case SI_ATTACK: *max = 15; return &s->attack;
+    case SI_DECAY: *max = 7; *big = 2; return &s->decay;
+    case SI_SUSTAIN: *max = 7; *big = 2; return &s->sustain;
+    case SI_RELEASE: *max = 31; return &s->rate;
+    case SI_VOLUME: *max = 127; *big = 16; return &s->level;
+    case SI_PAN: *max = 16; return &s->pan;
+    case SI_VIBRATO: *max = 15; return &s->vibrato;
+    default: *max = 255; *big = 16; return &s->arp;
+    }
+}
+
+/* The shape of the envelope, 36 columns of 10 half rows: a sketch of what attack, decay, sustain and release do. */
+static void snes_envelope(const sdk_mus_ins_t *s, int row, int col)
+{
+    const int attack = 1 + (15 - s->attack) / 2, decay = 2 + (7 - s->decay), hold = (s->sustain + 1) * 10 / 8;
+    const int fade = s->rate ? 2 + (31 - s->rate) : 0;
+    for (int x = 0; x < 36; x++) {
+        int high;
+        if (x < attack)
+            high = 10 * (x + 1) / attack;
+        else if (x < attack + decay)
+            high = 10 - (10 - hold) * (x - attack + 1) / decay;
+        else
+            high = fade ? within(hold - hold * (x - attack - decay) / fade, 0, hold) : hold;
+        const char *colour = x < attack ? "93" : x < attack + decay ? "33" : "35";
+        for (int r = 0; r < 5; r++) {
+            const int low = 2 * (4 - r);
+            text(row + r, col + x, colour, high >= low + 2 ? "\xdb" : high == low + 1 ? "\xdc" : r == 4 ? "_" : " ");
+        }
+    }
+}
+
+static void draw_snes_instrument(void)
+{
+    sdk_mus_ins_t *s = &mus.ins[ins_sel];
+    for (int row = 0; row < SI_ROWS; row++) {
+        char v[32], label[16];
+        int max, big;
+        if (row == SI_NAME)
+            snprintf(v, sizeof v, "%s", typing ? typed : s->name);
+        else if (row == SI_WAVE)
+            snprintf(v, sizeof v, "%s", wave_names[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+        else if (row == SI_NOISE && s->wave != SDK_MUS_WAVES)
+            snprintf(v, sizeof v, "-");
+        else if (row == SI_PAN)
+            snprintf(v, sizeof v, s->pan == 8 ? "center" : s->pan < 8 ? "left %d" : "right %d",
+                     s->pan < 8 ? 8 - s->pan : s->pan - 8);
+        else if (row == SI_ARP && s->arp)
+            snprintf(v, sizeof v, "$%02X +%d +%d", s->arp, s->arp >> 4, s->arp & 15);
+        else if (row == SI_ARP)
+            snprintf(v, sizeof v, "off");
+        else
+            snprintf(v, sizeof v, "%d", *snes_value(s, row, &max, &big));
+        snprintf(label, sizeof label, "%-8s", si_names[row]);
+        labelled(2 + row, 18, label, v, (row == SI_NAME && typing) || ins_row == row);
+    }
+    text(2, 42, "90", "envelope");
+    snes_envelope(s, 3, 42);
 }
 
 static void draw_instruments(const char *msg)
@@ -385,6 +475,13 @@ static void draw_instruments(const char *msg)
         char b[24];
         snprintf(b, sizeof b, " %02d %-10s", top + i, mus.ins[top + i].name);
         text(2 + i, 1, top + i == ins_sel ? "30;103" : "37", b);
+    }
+    if (mus.snes) {
+        draw_snes_instrument();
+        keyboard(9, 40);
+        code_strip(14, screen_rows - 1, s->line);
+        message(msg);
+        return;
     }
     char v[48];
     labelled(2, 18, "Name    ", typing ? typed : s->name, typing || ins_row == 0);
@@ -439,8 +536,14 @@ static void draw_sfx(const char *msg)
     col = labelled(2, col, "Name", typing ? typed : s->name, typing || (!sfx_grid && sfx_field == 0));
     snprintf(v, sizeof v, "%d", s->speed);
     col = labelled(2, col, "Speed", v, !sfx_grid && sfx_field == 1);
-    col = labelled(2, col, "Channel", sfx_channels[s->channel], !sfx_grid && sfx_field == 2);
-    if (s->channel < 2)
+    if (mus.snes) {
+        snprintf(v, sizeof v, "V%d", s->channel + 1);
+        col = labelled(2, col, "Voice", v, !sfx_grid && sfx_field == 2);
+    } else
+        col = labelled(2, col, "Channel", sfx_channels[s->channel], !sfx_grid && sfx_field == 2);
+    if (mus.snes)
+        snprintf(v, sizeof v, "%s", wave_names[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+    else if (s->channel < 2)
         snprintf(v, sizeof v, "%s", duty_names[s->wave & 3]);
     else
         snprintf(v, sizeof v, "%s", s->channel == 3 ? (s->wave & SDK_MUS_SHORT ? "short" : "long") : "-");
@@ -451,7 +554,7 @@ static void draw_sfx(const char *msg)
         const int here = sfx_grid && i == sfx_step, used = i < s->steps;
         int high = 0;                       /* the height of the bar, 1 to 12 half rows */
         if (used && e->note >= SDK_MUS_LOW)
-            high = s->channel == 3 ? 1 + ((e->note - SDK_MUS_LOW) & 15) * 11 / 15
+            high = noise_sfx(s) ? 1 + ((e->note - SDK_MUS_LOW) & 15) * 11 / 15
                                    : 1 + within(e->note - 36, 0, 60) * 11 / 60;
         for (int r = 0; r < 6; r++) {
             const int low = 2 * (5 - r);
@@ -479,7 +582,7 @@ static void draw_sfx(const char *msg)
     if (sfx_grid && sfx_step < s->steps) {
         const sdk_mus_step_t *e = &s->step[sfx_step];
         char note[4], fx[20] = "none";
-        if (s->channel == 3 && e->note >= SDK_MUS_LOW)
+        if (noise_sfx(s) && e->note >= SDK_MUS_LOW)
             snprintf(note, sizeof note, "N%d", (e->note - SDK_MUS_LOW) & 15);
         else
             sdk_music_note_name(e->note, note);
@@ -568,8 +671,7 @@ void sdk_sounds_draw(int cols, int rows, const char *msg)
     screen_rows = rows;
     console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
     if (!supported) {
-        text(rows / 2 - 1, 3, "97", target == SDK_SNES ? "SNES sound: write the music block in Code. The pages come next."
-                                    : "Sounds: for NES projects. A bm project takes its sounds from bm Sound.");
+        text(rows / 2 - 1, 3, "97", "Sounds: for NES and SNES. A bm project takes its sounds from bm Sound.");
         return;
     }
     tabs_line();
@@ -644,20 +746,20 @@ static void use_pattern(void)
 /* A note (or for the noise a hit) at the cursor. */
 static void put_note(int note, int advance)
 {
-    const int ch = track_channel[track];
+    const int ch = channel_of(track);
     const int i = instrument_for(ch);
     if (i < 0)
         return;
     use_pattern();
     sdk_mus_cell_t *c = &mus.pat[pat].cell[step][track];
     c->ins = (uint8_t)(i + 1);
-    c->note = (uint8_t)(track == 3 ? SDK_MUS_NONE : note);
-    if (track != 3)
+    c->note = (uint8_t)(hit_track(track) ? SDK_MUS_NONE : note);
+    if (!hit_track(track))
         last_note[ch] = note;
     if (advance)
         step = (step + 1) % mus.pat[pat].steps;
     commit(0);
-    try_note(i, track == 3 ? 60 : note);
+    try_note(i, hit_track(track) ? 60 : note);
 }
 
 static void change_note(int by)
@@ -665,7 +767,7 @@ static void change_note(int by)
     if (!mus.pat[pat].used)
         return;
     sdk_mus_cell_t *c = &mus.pat[pat].cell[step][track];
-    if (track == 3) {                           /* the noise: the next noise instrument */
+    if (hit_track(track)) {                     /* the noise: the next noise instrument */
         if (!c->ins)
             return;
         const int i = sdk_music_next_ins(&mus, c->ins - 1, by > 0 ? 1 : -1, SDK_MUS_NOISE);
@@ -677,11 +779,11 @@ static void change_note(int by)
         if (c->note < SDK_MUS_LOW)
             return;
         c->note = (uint8_t)within(c->note + by, SDK_MUS_LOW, SDK_MUS_HIGH);
-        last_note[track_channel[track]] = c->note;
+        last_note[channel_of(track)] = c->note;
     }
-    const int i = c->ins - 1, note = track == 3 ? 60 : c->note;
-    commit(1000 + pat * 300 + step * 4 + track);
-    try_note(i >= 0 ? i : last_ins[track_channel[track]], note);
+    const int i = c->ins - 1, note = hit_track(track) ? 60 : c->note;
+    commit(100000 + pat * 600 + step * 8 + track);       /* a range of its own: the other pages count below */
+    try_note(i >= 0 ? i : last_ins[channel_of(track)], note);
 }
 
 static int pattern_key(int key, int mods)
@@ -729,7 +831,7 @@ static int pattern_key(int key, int mods)
         else
             on_header = 1;
     } else if (key == HID_KEY_DOWN)
-        track = within(track + 1, 0, SDK_MUS_TRACKS - 1);
+        track = within(track + 1, 0, tracks() - 1);
     else if (key == HID_KEY_LEFT && !ctrl)
         step = (step + steps - 1) % steps;
     else if (key == HID_KEY_RIGHT && !ctrl)
@@ -744,7 +846,7 @@ static int pattern_key(int key, int mods)
             c->note = c->ins = 0;
             commit(0);
         } else
-            put_note(last_note[track_channel[track]], 0);
+            put_note(last_note[channel_of(track)], 0);
     } else if (piano(key) >= 0)
         put_note(piano(key), 1);
     else if (key == '1') {
@@ -765,19 +867,20 @@ static int pattern_key(int key, int mods)
     else if (key == '_' || key == '+')
         change_note(key == '+' ? 12 : -12);
     else if (key == '[' || key == ']') {
-        const int ch = track_channel[track];
+        const int ch = channel_of(track);
         sdk_mus_cell_t *c = &mus.pat[pat].cell[step][track];
         const int has = mus.pat[pat].used && c->ins;
         const int i = sdk_music_next_ins(&mus, has ? c->ins - 1 : last_ins[ch] < mus.instruments &&
                                          mus.ins[last_ins[ch]].channel == ch ? last_ins[ch] : -1,
                                          key == ']' ? 1 : -1, ch);
         if (i < 0)
-            snprintf(sdk_note, sizeof sdk_note, "No %s instrument yet", channel_names[ch]);
+            snprintf(sdk_note, sizeof sdk_note, "No %s%sinstrument yet", mus.snes ? "" : channel_names[ch],
+                     mus.snes ? "" : " ");
         else {
             last_ins[ch] = i;
             if (has) {
                 c->ins = (uint8_t)(i + 1);
-                const int note = track == 3 ? 60 : c->note;
+                const int note = hit_track(track) ? 60 : c->note;
                 commit(0);
                 try_note(i, note >= SDK_MUS_LOW ? note : last_note[ch]);
             } else
@@ -908,10 +1011,55 @@ static void envelope_delete(sdk_mus_ins_t *s)
         env_at--;
 }
 
+static int snes_instrument_key(int key)
+{
+    sdk_mus_ins_t *s = &mus.ins[ins_sel];
+    const int d = key == '=' || key == '+' ? 1 : key == '-' || key == '_' ? -1 : 0;
+    const int note = piano(key);
+    if (key == HID_KEY_UP)
+        ins_row = within(ins_row - 1, 0, SI_ROWS - 1);
+    else if (key == HID_KEY_DOWN)
+        ins_row = within(ins_row + 1, 0, SI_ROWS - 1);
+    else if (note >= 0) {
+        last_note[0] = note;
+        play(SDK_PLAY_NOTE, ins_sel, note);
+    } else if (ins_row == SI_NAME && (key == '\r' || key == '\n'))
+        start_name(s->name);
+    else if (key == '\r' || key == '\n')
+        play(SDK_PLAY_NOTE, ins_sel, last_note[0]);
+    else if (d && ins_row != SI_NAME) {
+        int max, big;
+        uint8_t *v = snes_value(s, ins_row, &max, &big);
+        *v = (uint8_t)within(*v + d * (key == '+' || key == '_' ? big : 1), 0, max);
+        commit(2000 + ins_sel * 16 + ins_row);
+        try_note(ins_sel, last_note[0]);
+    } else
+        return 0;
+    return 1;
+}
+
+/* What a new instrument starts from. NES: the channel of the one on the screen. SNES: lead, bass or drum, the first
+ * the music has not got; with all three, the kind of the one on the screen. */
+static int new_kind(void)
+{
+    if (!mus.snes)
+        return mus.instruments ? mus.ins[ins_sel].channel : SDK_MUS_PULSE;
+    static const char *const kinds[3] = { "lead", "bass", "drum" };
+    for (int k = 0; k < 3; k++) {
+        int i = 0;
+        while (i < mus.instruments && strcmp(mus.ins[i].name, kinds[k]))
+            i++;
+        if (i == mus.instruments)
+            return k;
+    }
+    const int wave = mus.ins[ins_sel].wave;
+    return wave == SDK_MUS_WAVES ? 2 : wave == 3 ? 1 : 0;       /* 3: the triangle */
+}
+
 static int instruments_key(int key)
 {
     if (key == 'a') {
-        const int i = sdk_music_add_ins(&mus, mus.instruments ? mus.ins[ins_sel].channel : SDK_MUS_PULSE);
+        const int i = sdk_music_add_ins(&mus, new_kind());
         if (i < 0)
             snprintf(sdk_note, sizeof sdk_note, "%d instruments at most", SDK_MUS_INS);
         else {
@@ -936,7 +1084,9 @@ static int instruments_key(int key)
             settle();
             commit(0);
         }
-    } else if (key == HID_KEY_UP)
+    } else if (mus.snes)
+        return snes_instrument_key(key);
+    else if (key == HID_KEY_UP)
         ins_row = within(ins_row - 1, 0, 5);
     else if (key == HID_KEY_DOWN)
         ins_row = within(ins_row + 1, 0, 5);
@@ -1020,6 +1170,18 @@ static void sfx_put(int note)
         s->step[sfx_step].volume = 12;
 }
 
+/* The noise counts its pitches from N0: the notes of an effect that becomes, or stops being, noise. */
+static void noise_notes(sdk_mus_sfx_t *s, int was)
+{
+    const int now = noise_sfx(s);
+    for (int i = 0; i < s->steps; i++) {
+        uint8_t *n = &s->step[i].note;
+        if (*n < SDK_MUS_LOW || now == was)
+            continue;
+        *n = (uint8_t)(now ? SDK_MUS_LOW + (*n - SDK_MUS_LOW) % 16 : 60 + (*n - SDK_MUS_LOW));
+    }
+}
+
 static int sfx_key(int key)
 {
     if (key == 'a') {
@@ -1032,6 +1194,7 @@ static int sfx_key(int key)
         free_name(s->name, "sound", 0);
         s->speed = 2;
         s->wave = 2;
+        s->channel = mus.snes ? SDK_MUS_VOICES - 1 : 0;
         s->steps = 1;
         s->step[0].note = 72;
         s->step[0].volume = 15;
@@ -1067,19 +1230,19 @@ static int sfx_key(int key)
         else if (d && sfx_field == 1) {
             s->speed = (uint8_t)within(s->speed + d, 1, 60);
             commit(run + 1);
+        } else if (d && sfx_field == 2 && mus.snes) {
+            s->channel = (uint8_t)((s->channel + SDK_MUS_VOICES + d) % SDK_MUS_VOICES);
+            commit(run + 2);
         } else if (d && sfx_field == 2) {
-            const int was = s->channel;
+            const int was = noise_sfx(s);
             s->channel = (uint8_t)((s->channel + 4 + d) % 4);
-            for (int i = 0; i < s->steps; i++) {        /* the noise counts its pitches from N0 */
-                uint8_t *n = &s->step[i].note;
-                if (*n < SDK_MUS_LOW)
-                    continue;
-                if (s->channel == 3 && was != 3)
-                    *n = (uint8_t)(SDK_MUS_LOW + (*n - SDK_MUS_LOW) % 16);
-                else if (s->channel != 3 && was == 3)
-                    *n = (uint8_t)(60 + (*n - SDK_MUS_LOW));
-            }
+            noise_notes(s, was);
             s->wave = s->channel < 2 ? 2 : 0;
+            commit(0);
+        } else if (d && sfx_field == 3 && mus.snes) {
+            const int was = noise_sfx(s);
+            s->wave = (uint8_t)((s->wave + SDK_MUS_WAVES + 1 + d) % (SDK_MUS_WAVES + 1));
+            noise_notes(s, was);
             commit(0);
         } else if (d && sfx_field == 3) {
             if (s->channel < 2)
@@ -1107,10 +1270,10 @@ static int sfx_key(int key)
             if (in && e->note)
                 e->note = 0;
             else
-                sfx_put(s->channel == 3 ? SDK_MUS_LOW + 8 : 72);
+                sfx_put(noise_sfx(s) ? SDK_MUS_LOW + 8 : 72);
             commit(0);
         } else if (note >= 0) {
-            sfx_put(s->channel == 3 ? SDK_MUS_LOW + note % 16 : note);
+            sfx_put(noise_sfx(s) ? SDK_MUS_LOW + note % 16 : note);
             sfx_step = within(sfx_step + 1, 0, SDK_MUS_SFX_STEPS - 1);
             commit(0);
         } else if (key == '1') {
@@ -1119,7 +1282,7 @@ static int sfx_key(int key)
         } else if (d && in && e->note >= SDK_MUS_LOW) {
             const int by = key == '+' || key == '_' ? 12 : 1;
             e->note = (uint8_t)within(e->note + d * by, SDK_MUS_LOW,
-                                      s->channel == 3 ? SDK_MUS_LOW + 15 : SDK_MUS_HIGH);
+                                      noise_sfx(s) ? SDK_MUS_LOW + 15 : SDK_MUS_HIGH);
             commit(run);
         } else if ((key == ';' || key == '\'') && in) {
             e->volume = (uint8_t)within(e->volume + (key == '\'' ? 1 : -1), 0, 15);

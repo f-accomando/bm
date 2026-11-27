@@ -1,11 +1,13 @@
 # Shell SDK: sound of the NES and SNES projects
 
-The Sounds tab (F5) of the Shell SDK writes the music of a NES project. A SNES project has the same block, which you
-write by hand for now ([The SNES](#the-snes)). The code holds the data: the block between
+The Sounds tab (F5) of the Shell SDK writes the music of a NES or SNES project ([The SNES](#the-snes) says what
+differs). The code holds the data: the block between
 `;@music` and `;@end` (assembly) or `//@music` and `//@end` (bm C). The tab reads the block and writes it again at
 each change. The tab keeps no other copy.
 
 ## Use
+
+The routines of a NES project:
 
 | Step | Assembly | bm C |
 |---|---|---|
@@ -82,6 +84,15 @@ six samples. Then it keeps time by itself, 60 ticks a second.
 | An effect | `lda #sfx_jump` and `jsr play_sfx` | `play_sfx(sfx_jump);` |
 | Silence the music | `jsr stop_music` | `stop_music();` |
 
+The tab of a SNES project has the same pages and keys. These items differ:
+
+| Page | SNES |
+|---|---|
+| Pattern | 8 voices. Each voice takes each instrument. |
+| Instruments | Wave, noise rate, attack, decay, sustain, release, volume, pan, vibrato, arpeggio, and a sketch of the envelope. `a` makes a lead, then a bass, then a drum. |
+| SFX | The voice (`V1` to `V8`) and one of the 7 waves. |
+| Listening | The driver runs on the emulated sound chip. |
+
 - There is no `snd_frame`. The routines keep the registers. Call them from the main loop, not from the NMI.
 - Without `snd_init` the other routines do nothing.
 - The assembly routines use the byte `$0F` of the direct page. Registers: A of 8 bits, X and Y of 16.
@@ -121,6 +132,7 @@ The driver is `core/src/kernel/shell_sdk_spc.asm`. After a change run
 
 ## Code
 
-`core/src/kernel/shell_sdk_music.c` (the block), `shell_sdk_snd.c` (the driver, 6502), `shell_sdk_sounds.c` (the
-tab), `shell_sdk_play.c` (listening: the driver runs in the bm NES core). Test: `make test-sdk-music`, and
+`core/src/kernel/shell_sdk_music.c` (the block), `shell_sdk_snd.c` (the driver, 6502), `shell_sdk_spc.c` (the
+SNES side), `shell_sdk_sounds.c` (the tab), `shell_sdk_play.c` (listening: the NES driver runs in the bm NES core,
+the SNES driver on the sound chip of the bm SNES core). Tests: `make test-sdk-music`, `make test-sdk-snd`, and
 `tests/qemu_test.py -k shell_sdk_sounds`.

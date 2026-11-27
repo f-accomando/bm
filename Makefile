@@ -1828,9 +1828,9 @@ test-sdk-snd: $(BUILD)/host/test_shell_sdk_snd core/src/script/snes_asm.lua core
 	python3 core/scripts/spc_asm.py --check core/src/kernel/shell_sdk_spc.asm core/src/kernel/shell_sdk_spc_bin.h
 	$(BUILD)/host/test_shell_sdk_snd
 
-$(BUILD)/host/test_shell_sdk_snd: tests/kernel/test_shell_sdk_snd.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_music.h core/src/kernel/shell_sdk_spc_bin.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
+$(BUILD)/host/test_shell_sdk_snd: tests/kernel/test_shell_sdk_snd.c core/src/kernel/shell_sdk_play.c core/src/kernel/shell_sdk_play.h core/src/bm/nes.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_music.h core/src/kernel/shell_sdk_spc_bin.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_snd.c $(SDK_CC_SRCS) $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
+	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_snd.c core/src/kernel/shell_sdk_play.c core/src/bm/nes.c $(SDK_CC_SRCS) $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)
