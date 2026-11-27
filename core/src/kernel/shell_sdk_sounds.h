@@ -17,6 +17,8 @@ void sdk_sounds_draw(int cols, int rows, const char *msg);
 void sdk_sounds_playhead(void);
 /* A key of the tab. Returns 1 when it used it. */
 int sdk_sounds_key(int key, int mods);
+/* The legend of the page (shell_sdk_keys.h). */
+int sdk_sounds_keys(void);
 /* 1 while a name is being typed: Esc and the other keys of the SDK belong to the tab. */
 int sdk_sounds_typing(void);
 

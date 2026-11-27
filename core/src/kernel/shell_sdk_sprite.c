@@ -13,6 +13,7 @@
 #include "shell_sdk_chr.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_edit.h"
+#include "shell_sdk_keys.h"
 #include "shell_sdk_pal.h"
 #include "shell_sdk_pane.h"
 #include "shell_sdk_sheet.h"
@@ -237,15 +238,9 @@ void sdk_tiles_draw(int col, int width, int rows, int code, int active)
             sdk_put_row(FIRST + i, col, TILES_GUTTER, b, (int)strlen(b));
         }
     }
-    const char *order = view_tall ? "8x8" : "8x16";
-    if (code)
-        snprintf(b, sizeof b, "t: hex  %s  +/-: row  o: %s", rom_info.kind == SDK_ROM_NES ? "a: ASM" : "b: bpp",
-                 order);
-    else {
-        const long off = cell_offset(cursor.row, cursor.col);
-        snprintf(b, sizeof b, "%06X +/- row  o %s  ,. byte%s", (unsigned)(off < 0 ? 0 : off), order,
-                 rom_info.kind == SDK_ROM_NES ? "" : "  b bpp");
-    }
+    const long off = cell_offset(cursor.row, cursor.col);
+    snprintf(b, sizeof b, "Offset %06X", (unsigned)(off < 0 ? 0 : off));
+    (void)code;
     sdk_pane_status(col, width, rows, b, active);
 }
 
@@ -472,28 +467,11 @@ static void canvas_draw(int col, int width, int rows)
     if (!cv->open)
         snprintf(b, sizeof b, "Canvas %dx%d", cv->size, cv->size);
     else
-        snprintf(b, sizeof b, "Canvas %dx%d  tile %03X%s", cv->size, cv->size,
-                 (unsigned)(cv->row * SDK_SHEET_W + cv->col), rom ? "  (Ctrl+E: ROM)" : "");
+        snprintf(b, sizeof b, "Canvas %dx%d  tile %03X", cv->size, cv->size,
+                 (unsigned)(cv->row * SDK_SHEET_W + cv->col));
     sdk_title_bar(1, col, width, b, active);
     if (!cv->open) {
-        static const char *const help[] = {
-            "Enter on a tile of the sprite sheet",
-            "opens it here.",
-            "Space        paint (hold and move)",
-            "Backspace    transparent",
-            "[ ]  p  s    colour, palette, 8/16",
-            "Shift+arrows select",
-            "Ctrl+C X V   copy, cut, paste",
-            "Enter        back to the sheet",
-            "Ctrl+T       the other side",
-            "v            hide or show the code",
-        };
-        const int n = (int)(sizeof help / sizeof help[0]);
-        for (int i = 0; i < n && FIRST + i < rows; i++)
-            text_row(FIRST + i, col + 1, width - 1, "\x1b[0m", help[i]);
-        if (FIRST + n < rows)                   /* the ROM: what opens it, or how to see it */
-            text_row(FIRST + n, col + 1, width - 1, "\x1b[90m",
-                     rom ? "Ctrl+E ROM view  i import to sheet" : "Esc > Open ROM shows a ROM here");
+        text_row(FIRST, col + 1, width - 1, "\x1b[90m", "No tile open");
         sdk_pane_status(col, width, rows, "", active);
         return;
     }
@@ -509,7 +487,7 @@ static void canvas_draw(int col, int width, int rows)
         canvas_px = (width - 2) * (int)cw / cv->size;
     if (canvas_px < 2)
         canvas_px = 2;
-    sdk_pane_status(col, width, rows, " Space paint  Bksp erase  [ ] p s", active);
+    sdk_pane_status(col, width, rows, "", active);
 }
 
 /* A transparent pixel: two dark greys in a chequer. */
@@ -687,8 +665,7 @@ static void sheet_draw(int col, int width, int rows, int active)
         sdk_put_row(SHEET_FIRST + i, col, SHEET_GUTTER, b, (int)strlen(b));
     }
     char hint[48];
-    snprintf(hint, sizeof hint, "Tile %03X  Enter: paint  i: import",
-             (unsigned)(pick.row * SDK_SHEET_W + pick.col));
+    snprintf(hint, sizeof hint, "Tile %03X", (unsigned)(pick.row * SDK_SHEET_W + pick.col));
     sdk_pane_status(col, width, rows, hint, active);
 }
 
@@ -869,11 +846,11 @@ static void code_draw(int top, int rows, int cols)
                       sdk_chr_lines(chr_kind(), sdk_edit_text(), sdk_edit_length(), tile, &first, &last);
     char head[96];
     if (found && first == last)
-        snprintf(head, sizeof head, "%s  tile %03X  line %d   v hides", file, (unsigned)tile, first);
+        snprintf(head, sizeof head, "%s  tile %03X  line %d", file, (unsigned)tile, first);
     else if (found)
-        snprintf(head, sizeof head, "%s  tile %03X  lines %d-%d   v hides", file, (unsigned)tile, first, last);
+        snprintf(head, sizeof head, "%s  tile %03X  lines %d-%d", file, (unsigned)tile, first, last);
     else
-        snprintf(head, sizeof head, "%s  tile %03X  %s   v hides", file, (unsigned)tile,
+        snprintf(head, sizeof head, "%s  tile %03X  %s", file, (unsigned)tile,
                  code_err[0] ? "the block cannot be read" : "empty: not in the code yet");
     sdk_title_bar(top, 1, cols, head, 0);
     const int room = rows - 1;
@@ -941,6 +918,11 @@ void sdk_sprite_draw(int cols, int rows, const char *msg)
         canvas_paint(1, left, rows);
     if (right)
         sheet_paint(right);
+}
+
+int sdk_sprite_keys(void)
+{
+    return focus != ON_LEFT ? SDK_KEYS_SHEET : rom && !hidden ? SDK_KEYS_TILES : SDK_KEYS_CANVAS;
 }
 
 int sdk_sprite_key(int key, int mods)

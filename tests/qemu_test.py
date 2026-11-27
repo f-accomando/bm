@@ -4641,7 +4641,7 @@ def test_shell_sdk_code_split(b, opts):
         assert any("2/row 8x16" in r for r in screen())
         q.send(bytes([0xFA]))                       # F2: the Code tab again
         rows = screen()
-        assert any("2/row 8x16" in r for r in rows) and any("Ctrl+T: ROM" in r for r in rows), rows
+        assert any("2/row 8x16" in r for r in rows) and any(" Code" in r for r in rows), rows
         q.send("t")                                 # back to the dump
         assert any("000000 4E 45 53 1A" in r for r in screen())
         q.send(bytes([0xF7]))                       # Page Down scrolls the dump, not the text
@@ -4693,7 +4693,7 @@ def test_shell_sdk_code_split(b, opts):
         sendkeys(q, "ctrl-w")                       # closes the ROM for both tabs
         rows = screen()
         assert any("Canvas 8x8" in r and "Spritesheet" in r for r in rows), rows
-        assert any("Esc > Open ROM shows a ROM here" in r for r in rows), rows
+        assert any("No tile open" in r for r in rows), rows
         assert any("ROM closed" in r for r in rows) and not any("ROM: " in r for r in rows), rows
         q.send("\x1b")
         q.send(SDK_DOWN * 3 + b"\r")                # Open ROM from the Sprite tab: it stays there
@@ -4728,7 +4728,7 @@ def test_shell_sdk_code_split(b, opts):
         sendkeys(q, "ctrl-e")                       # the ROM hides: the canvas takes its place
         rows = screen()
         assert not any("ROM: test.nes" in r for r in rows), rows
-        assert any("Enter on a tile of the sprite sheet" in r for r in rows), rows
+        assert any("No tile open" in r for r in rows), rows
         q.send(SDK_UP + b"\r")                      # Enter: tile 000 in the canvas
         rows = screen()
         assert any("Canvas 8x8  tile 000" in r for r in rows), rows
@@ -4745,7 +4745,7 @@ def test_shell_sdk_code_split(b, opts):
         sendkeys(q, "ctrl-e")                       # and hides it: the editor on the whole screen
         rows = screen()
         assert not any("ROM: test.nes" in r for r in rows), rows
-        assert any("Code  (Ctrl+E: show the ROM)" in r for r in rows), rows
+        assert any("Code  (ROM hidden)" in r for r in rows), rows
         sendkeys(q, "ctrl-e")
         assert any("ROM: test.nes" in r for r in screen())
         q.send("\x13")                              # Ctrl+S: the project is saved, the canvas is not
@@ -5048,7 +5048,7 @@ def test_shell_sdk_banks(b, opts):
         rows = screen()
         assert any("PRG bank 31/31 (8 KB) at $E000" in r for r in rows), rows
         assert any("reset:" in r for r in rows) and any("E002  jmp reset" in r for r in rows), rows
-        assert any("+/-: bank" in r for r in rows), rows
+        assert any(re.search(r"ASM \d+/\d+", r) for r in rows), rows
         q.send("+")                                 # past the last bank: the first one
         time.sleep(1.5)
         rows = screen()
@@ -5467,6 +5467,12 @@ def test_shell_sdk_sounds(b, opts):
         has("octave 4  pattern")
         q.send(" ")
         has("octave 4  stopped")
+        q.monitor("sendkey f12 4000")                # F12 held: the keys of the page, over the screen
+        time.sleep(1.0)
+        has("Keys   (release F12 to go back)", "Pattern", "the sharps", "Shell SDK")
+        time.sleep(4.5)                             # released: the page is back
+        rows = screen()
+        assert any("Play speed" in r for r in rows) and not any("release F12" in r for r in rows), rows
         q.send("\t")                                # Song
         has("No song yet")
         q.send("a")

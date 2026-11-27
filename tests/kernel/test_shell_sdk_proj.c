@@ -116,7 +116,7 @@ int main(void)
         CHECK(count == 8 && menu[1].id == SDK_ROW_CART_LANG && strstr(menu[1].value, "Assembly (6502)"));
         sdk_proj_step(&q, SDK_ROW_CART_LANG, 1);
         sdk_proj_rows(&q, menu, 12);
-        CHECK(q.cart_c == 1 && strstr(menu[1].value, "C (bm C)") && strstr(sdk_proj_note(&q, SDK_ROW_CART_LANG), "F7"));
+        CHECK(q.cart_c == 1 && strstr(menu[1].value, "C (bm C)") && strstr(sdk_proj_note(&q, SDK_ROW_CART_LANG), "bm C"));
         const int n = sdk_proj_text(&q, text, sizeof text);
         CHECK(n > 0 && sdk_proj_parse(text, (size_t)n, &r) == 0 && r.cart_c == 1 && !memcmp(&q, &r, sizeof q));
     }

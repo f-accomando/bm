@@ -20,6 +20,8 @@ void sdk_code_reset(void);
 /* Opens a ROM from the SD card. Returns 0, or -1 with the reason in err. The focus goes to the editor. */
 int sdk_code_open_rom(const char *path, char *err, size_t en);
 int sdk_code_has_rom(void);
+/* 1 while the ROM side (or the assembly) has the keys. */
+int sdk_code_on_rom(void);
 /* Closes the ROM (Ctrl+W in the Sprite tab). */
 void sdk_code_close_rom(void);
 /* "Super Mario World.sfc": the file name of the open ROM ("" when there is none). */

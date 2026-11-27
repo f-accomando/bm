@@ -10,6 +10,7 @@
 #include "shell_sdk_build.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_edit.h"
+#include "shell_sdk_keys.h"
 #include "shell_sdk_music.h"
 #include "shell_sdk_pane.h"
 #include "shell_sdk_play.h"
@@ -69,6 +70,12 @@ void sdk_sounds_reset(void)
 }
 
 int sdk_sounds_typing(void) { return typing; }
+
+int sdk_sounds_keys(void)
+{
+    return !supported || broken[0] ? SDK_KEYS_SOUND_NONE : page == PAGE_INS ? SDK_KEYS_SOUND_INSTRUMENTS :
+           page == PAGE_SFX ? SDK_KEYS_SOUND_SFX : page == PAGE_SONG ? SDK_KEYS_SOUND_SONG : SDK_KEYS_SOUND_PATTERN;
+}
 
 static int within(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -252,14 +259,15 @@ static void tabs_line(void)
     text(1, screen_cols - 20, "96", b);
 }
 
-static void help(const char *a, const char *b, const char *msg)
+/* The answer to a key, a message of the SDK or a warning, on the last row. */
+static void message(const char *msg)
 {
-    const char *first = sdk_note[0] ? sdk_note : msg && msg[0] ? msg : silent_program && !broken[0] ?
-                        "main.s calls no driver: add jsr snd_init, and jsr snd_frame in nmi" : NULL;
-    console_write(first ? "\x1b[93m" : "\x1b[96m");
-    sdk_put_row(screen_rows - 1, 1, screen_cols - 1, first ? first : a, (int)strlen(first ? first : a));
-    console_write("\x1b[96m");
-    sdk_put_row(screen_rows, 1, screen_cols - 1, b, (int)strlen(b));
+    const char *s = sdk_note[0] ? sdk_note : msg && msg[0] ? msg : silent_program && !broken[0] ?
+                    "main.s calls no driver: add jsr snd_init, and jsr snd_frame in nmi" : NULL;
+    if (!s)
+        return;
+    console_write("\x1b[93m");
+    sdk_put_row(screen_rows, 1, screen_cols - 1, s, (int)strlen(s));
     console_write("\x1b[0m");
 }
 
@@ -359,17 +367,16 @@ static void draw_pattern(const char *msg)
                  mus.ins[last_ins[track_channel[track]]].name);
     text(8, 11, "93", about);
     keyboard(9, 11);
-    code_strip(11, screen_rows - 2, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
-    help("Arrows move  Enter note  q..p piano  z x octave  - = flat sharp  [ ] ins",
-         "1 off  Bksp erase  PgUp PgDn pattern  Ctrl+C V copy  Space play  Tab page", msg);
+    code_strip(11, screen_rows - 1, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
+    message(msg);
 }
 
 static void draw_instruments(const char *msg)
 {
     if (!mus.instruments) {
-        text(3, 3, "97", "No instrument yet.  a: a new pulse instrument");
-        code_strip(9, screen_rows - 2, 0);
-        help("a new instrument", "Tab page  Esc menu", msg);
+        text(3, 3, "97", "No instrument yet");
+        code_strip(9, screen_rows - 1, 0);
+        message(msg);
         return;
     }
     const sdk_mus_ins_t *s = &mus.ins[ins_sel];
@@ -413,21 +420,16 @@ static void draw_instruments(const char *msg)
         text(8 + ENV_ROWS, 18 + i - from, i == env_at && ins_row == 5 ? "30;107" : "96", mark);
     }
     keyboard(5, 40);
-    code_strip(14, screen_rows - 2, s->line);
-    if (ins_row == 5)
-        help("Left Right frame  - = volume  _ + by 4  d add  Bksp remove  [ loop  ] release",
-             "q..p tries it  z x octave  Space listen  PgUp PgDn  a new  Del delete  Tab", msg);
-    else
-        help("Up Down field  - = value  _ + big step  Enter name  q..p tries  z x octave",
-             "Space listen  PgUp PgDn instrument  a new  Del delete  Tab page  Esc menu", msg);
+    code_strip(14, screen_rows - 1, s->line);
+    message(msg);
 }
 
 static void draw_sfx(const char *msg)
 {
     if (!mus.sfxs) {
-        text(3, 3, "97", "No effect yet.  a: a new effect");
-        code_strip(9, screen_rows - 2, 0);
-        help("a new effect", "Tab page  Esc menu", msg);
+        text(3, 3, "97", "No effect yet");
+        code_strip(9, screen_rows - 1, 0);
+        message(msg);
         return;
     }
     const sdk_mus_sfx_t *s = &mus.sfx[sfx_sel];
@@ -489,10 +491,8 @@ static void draw_sfx(const char *msg)
         snprintf(about, sizeof about, "step %02d: a note adds it", sfx_step + 1);
     text(12, 1, "93", about);
     keyboard(13, 9);
-    code_strip(15, screen_rows - 2, s->line);
-    help(sfx_grid ? "Enter note  1 off  - = note  _ + octave  ; ' volume  k l effect  n m amount"
-                  : "Left Right field  - = value  Enter name  Down the steps",
-         "Bksp remove  Space play  PgUp PgDn effect  a new  Del delete (head)  Tab page", msg);
+    code_strip(15, screen_rows - 1, s->line);
+    message(msg);
 }
 
 static void song_playhead(void)
@@ -517,9 +517,9 @@ static void song_playhead(void)
 static void draw_song(const char *msg)
 {
     if (!mus.songs) {
-        text(3, 3, "97", "No song yet.  a: a new song of the pattern shown in Pattern");
-        code_strip(9, screen_rows - 2, 0);
-        help("a new song", "Tab page  Esc menu", msg);
+        text(3, 3, "97", "No song yet");
+        code_strip(9, screen_rows - 1, 0);
+        message(msg);
         return;
     }
     const sdk_mus_song_t *s = &mus.song[song_sel];
@@ -556,12 +556,10 @@ static void draw_song(const char *msg)
         const sdk_mus_pattern_t *p = &mus.pat[s->order[place]];
         snprintf(v, sizeof v, "pattern %02d", s->order[place]);
         text(10, 18, "93", v);
-        text(10, 30, "90", p->used ? "Enter opens it" : "(empty: 16 steps of silence)");
+        text(10, 30, "90", p->used ? "" : "(empty: 16 steps of silence)");
     }
-    code_strip(11, screen_rows - 2, s->line);
-    help(song_order ? "Enter add or open  - = pattern  i duplicate  Bksp remove  [ loop here"
-                    : "Up Down field  - = value  Enter name  Left Right the order",
-         "Space play  PgUp PgDn song  a new  Del delete (head)  Tab page  Esc menu", msg);
+    code_strip(11, screen_rows - 1, s->line);
+    message(msg);
 }
 
 void sdk_sounds_draw(int cols, int rows, const char *msg)
@@ -572,18 +570,17 @@ void sdk_sounds_draw(int cols, int rows, const char *msg)
     if (!supported) {
         text(rows / 2 - 1, 3, "97", target == SDK_SNES ? "Sounds: for NES projects. The SNES is not there yet."
                                     : "Sounds: for NES projects. A bm project takes its sounds from bm Sound.");
-        text(rows / 2 + 1, 3, "90", "F1 to F5: the tabs   Esc: menu");
         return;
     }
     tabs_line();
     if (broken[0]) {
         text(3, 3, "91", "The music block of the code cannot be read:");
         text(4, 3, "93", broken);
-        text(5, 3, "90", "Put it right in Code (F2), or Ctrl+Z. Nothing is written until then.");
+        text(5, 3, "90", "Put it right in the code. Nothing is written until then.");
         int line = 0;
         sscanf(broken, "line %d", &line);
-        code_strip(7, rows - 2, line);
-        help("F2 the code  Ctrl+Z undo", "Esc menu", msg);
+        code_strip(7, rows - 1, line);
+        message(msg);
         return;
     }
     if (page == PAGE_PATTERN)

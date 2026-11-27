@@ -21,6 +21,7 @@
 #include "shell_sdk_hl.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_sheet.h"
+#include "shell_sdk_keys.h"
 #include "shell_sdk_sounds.h"
 #include "shell_sdk_sprite.h"
 #include "shell_sdk_play.h"
@@ -178,8 +179,7 @@ static void draw(int tab)
         at(1, (int)cols - 28);
         console_write("\x1b[96m");
         console_write(head);
-        at(2, (int)cols - 28);
-        console_write("\x1b[90mEsc menu  F1-F5 tabs\x1b[0m");
+        console_write("\x1b[0m");
     }
     if (msg[0]) {
         at(5, 2);
@@ -689,6 +689,22 @@ static int wait_key(void)
     return (unsigned char)input_getc();
 }
 
+/* F12: the keys of what has them now, over the screen while the key is held. */
+static void show_keys(void)
+{
+    const int what = cur_tab == SDK_TAB_PROJECT ? SDK_KEYS_PROJECT :
+                     cur_tab == SDK_TAB_CODE ? (sdk_code_on_rom() ? SDK_KEYS_ROM : SDK_KEYS_EDITOR) :
+                     cur_tab == SDK_TAB_SPRITE ? sdk_sprite_keys() :
+                     cur_tab == SDK_TAB_SOUNDS ? sdk_sounds_keys() : SDK_KEYS_MAP;
+    uint32_t cols, rows;
+    console_size(&cols, &rows);
+    sdk_keys_draw(what, (int)cols, (int)rows);
+    do {
+        (void)input_key();                      /* reads the keyboard; the repeats of F12 go */
+        sdk_play_tick();                        /* what plays goes on */
+    } while (hid_usage_held(0x45));
+}
+
 int shell_sdk_open(void)
 {
     cur_tab = SDK_TAB_PROJECT;
@@ -710,6 +726,10 @@ int shell_sdk_open(void)
         while (c == HID_KEY_CTRL || c == HID_KEY_CTRL_SHIFT) {
             prefix |= c == HID_KEY_CTRL ? SDK_MOD_CTRL : SDK_MOD_CTRL | SDK_MOD_SHIFT;
             c = (unsigned char)input_getc();    /* the keys may be up again when this one is read */
+        }
+        if (c == HID_KEY_F6 + 6) {              /* F12 */
+            show_keys();
+            continue;
         }
         msg[0] = 0;
         const int t = shell_sdk_tab_for_key(c);

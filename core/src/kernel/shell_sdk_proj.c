@@ -252,7 +252,7 @@ const char *sdk_proj_note(const sdk_proj_t *p, int row)
     switch (row) {
     case SDK_ROW_PLATFORM: return "Platform: NES cartridge (6502), SNES cartridge (65C816) or a bm project on the SD card (ARM).";
     case SDK_ROW_BOARD: return boards[p->nes_board].note;
-    case SDK_ROW_CART_LANG: return "Language: assembly, or bm C that the SDK turns into it (F6 checks, F7 shows it).";
+    case SDK_ROW_CART_LANG: return "Language: assembly, or bm C that the SDK turns into it.";
     case SDK_ROW_PRG: return "PRG ROM: the program, in 16 KB banks.";
     case SDK_ROW_CHR: return "CHR: the tiles of the sprites and the background; ROM on the board, or 8 KB of RAM.";
     case SDK_ROW_WRAM: return "Work RAM: 8 KB at $6000 on boards that wire it (a save needs it and a battery).";

@@ -128,6 +128,7 @@ void sdk_code_reset(void)
 }
 
 int sdk_code_has_rom(void) { return rom != NULL; }
+int sdk_code_on_rom(void) { return (rom != NULL || gen_text != NULL) && !rom_hidden && focus == FOCUS_ROM; }
 const char *sdk_code_rom_name(void) { return rom_name; }
 
 int sdk_code_open_rom(const char *path, char *err, size_t en)
@@ -271,12 +272,8 @@ static void text_row(int row, int col, int width, const char *s, int n, int sc, 
 
 static void draw_editor(int col, int width, int rows, int split, const char *msg)
 {
-    char head[64];
-    snprintf(head, sizeof head, "Code%s", !rom ? "" : split ? "  (Ctrl+T: ROM, Ctrl+E: hide)" :
-                                                       "  (Ctrl+E: show the ROM)");
-    if (gen_text)
-        snprintf(head, sizeof head, "Code%s", split ? "  (Ctrl+T: asm, Ctrl+E: hide)" : "  (Ctrl+E: show the asm)");
-    sdk_title_bar(1, col, width, head, focus == FOCUS_EDITOR);
+    sdk_title_bar(1, col, width, !split && gen_text ? "Code  (assembly hidden)" :
+                  !split && rom ? "Code  (ROM hidden)" : "Code", focus == FOCUS_EDITOR);
 
     const int h = rows - 2;                         /* rows 2 to rows-1 */
     const int tw = width - GUTTER;
@@ -417,9 +414,9 @@ static void draw_listing(int col, int width, int rows)
     view_rows(&asm_view, asm_text_line, first, col, width, h, 1);
     char st[64];
     if (asm_info.banks)
-        snprintf(st, sizeof st, "ASM %d/%d  +/-: bank  a: hex", asm_view.line + 1, asm_lines);
+        snprintf(st, sizeof st, "ASM %d/%d", asm_view.line + 1, asm_lines);
     else
-        snprintf(st, sizeof st, "ASM  line %d of %d  a: hex", asm_view.line + 1, asm_lines);
+        snprintf(st, sizeof st, "ASM  line %d of %d", asm_view.line + 1, asm_lines);
     sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 
@@ -436,7 +433,7 @@ static void draw_rom(int col, int width, int rows)
         gen_page = rows > 3 ? rows - 3 : 1;
         view_rows(&gen_view, gen_text_line, 2, col, width, rows - 2, 1);
         char st[64];
-        snprintf(st, sizeof st, "Line %d of %d  F7: again", gen_view.line + 1, gen_view.lines);
+        snprintf(st, sizeof st, "Line %d of %d", gen_view.line + 1, gen_view.lines);
         sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
         return;
     }
@@ -484,7 +481,7 @@ static void draw_rom(int col, int width, int rows)
     if (at_byte >= rom_size && rom_size)
         at_byte = rom_size - 1;
     char st[48];
-    snprintf(st, sizeof st, "Offset %06X  a: ASM  t: tiles", (unsigned)at_byte);
+    snprintf(st, sizeof st, "Offset %06X", (unsigned)at_byte);
     sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 

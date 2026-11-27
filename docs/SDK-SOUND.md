@@ -58,7 +58,7 @@ song_title:
 ## The keys of the tab
 
 Tab changes the page: Instruments, SFX, Pattern, Song. Space plays or stops. Ctrl+Z and Ctrl+Y are the history of
-the code. The screen shows the piano, and its last two rows show the keys of the page.
+the code. The screen shows the piano. Hold F12 to see the keys of the page.
 
 | Keys | Use |
 |---|---|
