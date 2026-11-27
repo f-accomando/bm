@@ -11,6 +11,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "script/luavm.h"
+#include "shell_sdk_cc.h"
 
 extern const uint8_t bm_lib_snes_asm[], bm_lib_snes_asm_end[];
 
@@ -34,7 +35,9 @@ static const char driver[] =
     "  rom, info = M.build_rom(res, h)\n"
     "end\n"
     "if not rom then return nil, info end\n"
-    "return rom\n";
+    "local used = 0\n"
+    "for _, s in ipairs(res.segments) do used = used + #s.data end\n"
+    "return rom, used\n";
 
 static void first_line(char *err, size_t en, const char *msg)
 {
@@ -46,8 +49,50 @@ static void first_line(char *err, size_t en, const char *msg)
     err[n] = 0;
 }
 
+/* The assembler's message for assembly that bm C wrote: "main.s:L: ..." gets the line of main.c. */
+static void c_line(const sdk_cc_out_t *c, char *err, size_t en)
+{
+    const char *colon = strchr(err, ':');
+    const int at = colon ? atoi(colon + 1) : 0;
+    const char *why = colon ? strchr(colon + 1, ':') : NULL;
+    if (at < 1 || at > c->lines || !why)
+        return;
+    char msg[160];
+    snprintf(msg, sizeof msg, "main.c:%d: in the assembly:%s", c->line_of[at - 1], why + 1);
+    snprintf(err, en, "%s", msg);
+}
+
+static int assemble(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
+                    size_t *rom_len, unsigned *used, char *err, size_t en);
+
+int sdk_build_is_c(const sdk_proj_t *p) { return p->target == SDK_NES && p->nes_lang; }
+
 int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom, size_t *rom_len,
-              char *err, size_t en)
+              sdk_build_info_t *info, char *err, size_t en)
+{
+    unsigned used = 0;
+    int rc, ram = -1;
+    if (sdk_build_is_c(p)) {
+        sdk_cc_out_t c;
+        if (sdk_cc_compile(source, len, &c, err, en) != 0)
+            return -1;
+        rc = assemble(p, name, c.text, c.len, rom, rom_len, &used, err, en);
+        if (rc != 0)
+            c_line(&c, err, en);
+        ram = c.ram;
+        sdk_cc_free(&c);
+    } else
+        rc = assemble(p, name, source, len, rom, rom_len, &used, err, en);
+    if (rc == 0 && info) {
+        info->rom = used;
+        info->rom_size = (unsigned)(p->target == SDK_NES ? p->nes_prg_kb : p->snes_rom_kb) * 1024u;
+        info->ram = ram;
+    }
+    return rc;
+}
+
+static int assemble(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
+                    size_t *rom_len, unsigned *used, char *err, size_t en)
 {
     char header[384];
     if (p->target == SDK_BM) {
@@ -95,6 +140,7 @@ int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t 
         }
         memcpy(*rom, data, n);
         *rom_len = n;
+        *used = (unsigned)lua_tointeger(L, -1);
         rc = 0;
     } else {
         first_line(err, en, lua_isstring(L, -1) ? lua_tostring(L, -1) : "the build failed");

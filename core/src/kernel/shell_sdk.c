@@ -17,6 +17,8 @@
 #include "usb/hid.h"
 #include "romtabs.h"
 #include "shell_sdk_build.h"
+#include "shell_sdk_cc.h"
+#include "shell_sdk_hl.h"
 #include "shell_sdk_code.h"
 #include "shell_sdk_sheet.h"
 #include "shell_sdk_sprite.h"
@@ -74,7 +76,7 @@ static void draw_project(int cols, int rows)
     for (int i = 0; i < n && P_MENU + i < rows; i++) {
         char line[96];
         snprintf(line, sizeof line, " %-13s %.*s%s", menu[i].label, room > 0 ? room : 0, menu[i].value,
-                 menu[i].id == SDK_ROW_PLATFORM && platform_locked() ? "  (fixed)" : "");
+                 (menu[i].id == SDK_ROW_PLATFORM || menu[i].id == SDK_ROW_NES_LANG) && platform_locked() ? "  (fixed)" : "");
         at(P_MENU + i, 2);
         console_write(i == proj_sel ? "\x1b[7m" : "\x1b[0m");
         console_write(line);
@@ -152,6 +154,7 @@ static void draw(int tab)
     console_write("\x1b[0m\x1b[2J");
 
     if (tab == SDK_TAB_CODE) {
+        sdk_code_language(proj.target == SDK_BM ? SDK_HL_NONE : sdk_build_is_c(&proj) ? SDK_HL_C : SDK_HL_ASM);
         sdk_code_draw((int)cols, (int)rows, msg);
         return;
     }
@@ -337,19 +340,20 @@ static int leave_ok(void)
 static unsigned seen_rev;               /* the revision of the text when the project was saved or opened */
 
 /* The start file of the platform in the editor. */
-static void load_template(int target)
+static void load_template(void)
 {
     size_t n;
-    const char *t = sdk_template(target, &n);
+    const char *t = sdk_template(proj.target, proj.nes_lang, &n);
     sdk_edit_set(t, n);
     seen_rev = sdk_edit_revision();
 }
 
-/* 1 when the text in the editor is the start file of the platform, as it was given (nothing written yet). */
-static int text_is_template(int target)
+/* 1 when the text in the editor is the start file of the platform and the language, as it was given (nothing
+ * written yet). */
+static int text_is_template(void)
 {
     size_t n;
-    const char *t = sdk_template(target, &n);
+    const char *t = sdk_template(proj.target, proj.nes_lang, &n);
     return sdk_edit_length() == n && !memcmp(sdk_edit_text(), t, n);
 }
 
@@ -357,7 +361,7 @@ static int text_is_template(int target)
  * A new project that has none of that may still change platform, and the start file follows it. */
 static int platform_locked(void)
 {
-    return pname[0] || !text_is_template(proj.target) || (proj.target == SDK_BM && !sdk_sheet_empty());
+    return pname[0] || !text_is_template() || (proj.target == SDK_BM && !sdk_sheet_empty());
 }
 
 static void do_save(const char *name)
@@ -399,7 +403,7 @@ static void do_new(void)
     proj_sel = 0;
     pname[0] = 0;
     sdk_code_reset();
-    load_template(proj.target);
+    load_template();
     dirty = 0;
     say("%s", "a new project: Esc > Save as gives it a name");
 }
@@ -471,6 +475,71 @@ static void do_open_rom(void)
     say("opened %s", sdk_code_rom_name());
 }
 
+/* A mistake of the compiler or of the assembler: the cursor goes to its line. */
+static void show_mistake(const char *err)
+{
+    const int line = sdk_proj_error_line(err);
+    cur_tab = SDK_TAB_CODE;
+    if (line > 0)
+        sdk_edit_goto_line(line);
+    say("%s", err);
+}
+
+static void used_text(const sdk_build_info_t *info, char *out, size_t n)
+{
+    if (info->ram >= 0)
+        snprintf(out, n, "ROM %u/%u, RAM %d/2048", info->rom, info->rom_size, info->ram);
+    else
+        snprintf(out, n, "ROM %u/%u", info->rom, info->rom_size);
+}
+
+/* F6: compiles and assembles as Build does, and writes no file. */
+static void do_check(void)
+{
+    if (proj.target == SDK_BM) {
+        say("%s", "a bm project has no ROM: Check is for NES and SNES");
+        return;
+    }
+    char err[160];
+    uint8_t *rom = NULL;
+    size_t rom_len = 0;
+    sdk_build_info_t info;
+    if (sdk_build(&proj, pname[0] ? pname : "check", sdk_edit_text(), sdk_edit_length(), &rom, &rom_len, &info, err,
+                  sizeof err) != 0) {
+        show_mistake(err);
+        return;
+    }
+    free(rom);
+    cur_tab = SDK_TAB_CODE;
+    char took[64];
+    used_text(&info, took, sizeof took);
+    say("no mistakes: %s", took);
+}
+
+/* F7: the assembly that bm C makes of main.c, beside it, at the line of the cursor. */
+static void do_listing(void)
+{
+    if (!sdk_build_is_c(&proj)) {
+        say("%s", "F7 shows the assembly of a bm C project (Project tab > Language)");
+        return;
+    }
+    char err[160];
+    sdk_cc_out_t c;
+    if (sdk_cc_compile(sdk_edit_text(), sdk_edit_length(), &c, err, sizeof err) != 0) {
+        show_mistake(err);
+        return;
+    }
+    int line, col;
+    sdk_edit_pos(&line, &col);
+    cur_tab = SDK_TAB_CODE;
+    if (sdk_code_show_generated(c.text, c.len, line + 1) != 0)
+        say("%s", "not enough memory for the assembly");
+    else
+        snprintf(msg, sizeof msg, "bm C: RAM %d/2048 bytes", c.ram);
+    c.text = NULL;                          /* the Code tab has it now */
+    sdk_cc_free(&c);
+}
+
 /* Build ROM: assembles the source of the Code tab and writes /nes/NAME.nes or /snes/NAME.sfc, then shows the
  * ROM beside the code. An error goes to the message line and the cursor goes to its line. */
 static int do_build(void)
@@ -485,15 +554,12 @@ static int do_build(void)
         return -1;
     if (dirty)
         do_save(pname);
-    char err[96];
+    char err[160];
     uint8_t *rom = NULL;
     size_t rom_len = 0;
-    if (sdk_build(&proj, pname, sdk_edit_text(), sdk_edit_length(), &rom, &rom_len, err, sizeof err) != 0) {
-        const int line = sdk_proj_error_line(err);
-        cur_tab = SDK_TAB_CODE;
-        if (line > 0)
-            sdk_edit_goto_line(line);
-        say("%s", err);
+    sdk_build_info_t info;
+    if (sdk_build(&proj, pname, sdk_edit_text(), sdk_edit_length(), &rom, &rom_len, &info, err, sizeof err) != 0) {
+        show_mistake(err);
         return -1;
     }
     if (sdk_build_write(&proj, pname, rom, rom_len, err, sizeof err) != 0) {
@@ -509,7 +575,9 @@ static int do_build(void)
         return -1;
     }
     cur_tab = SDK_TAB_CODE;
-    snprintf(msg, sizeof msg, "built %s (%u KB)", path, (unsigned)((rom_len + 1023) / 1024));
+    char took[64];
+    used_text(&info, took, sizeof took);
+    snprintf(msg, sizeof msg, "built %s (%u KB) %s", path, (unsigned)((rom_len + 1023) / 1024), took);
     return 0;
 }
 
@@ -564,10 +632,12 @@ static void project_key(int c)
     sdk_row_t menu[12];
     const int n = sdk_proj_rows(&proj, menu, 12);
     const sdk_proj_t before = proj;
-    const int on_platform = menu[proj_sel].id == SDK_ROW_PLATFORM;
+    const int on_language = menu[proj_sel].id == SDK_ROW_NES_LANG;
+    const int on_platform = menu[proj_sel].id == SDK_ROW_PLATFORM || on_language;
     const int change = c == HID_KEY_LEFT || c == HID_KEY_RIGHT || is_enter(c);
     if (on_platform && change && platform_locked()) {
-        say("%s", "the platform is fixed: this project has a name or code. Esc > New starts one for another platform");
+        say("the %s is fixed: this project has a name or code. Esc > New starts another one",
+            on_language ? "language" : "platform");
         return;
     }
     if (is_up(c))
@@ -578,8 +648,8 @@ static void project_key(int c)
         sdk_proj_step(&proj, menu[proj_sel].id, -1);
     else if (c == HID_KEY_RIGHT || is_enter(c))
         sdk_proj_step(&proj, menu[proj_sel].id, 1);
-    if (on_platform && proj.target != before.target)
-        load_template(proj.target);                 /* the project was untouched: the start file follows */
+    if (on_platform && (proj.target != before.target || proj.nes_lang != before.nes_lang))
+        load_template();                 /* the project was untouched: the start file follows */
     if (memcmp(&before, &proj, sizeof proj))
         dirty = 1;
 }
@@ -602,7 +672,7 @@ int shell_sdk_open(void)
     msg[0] = 0;
     sdk_code_reset();
     sdk_sprite_reset();
-    load_template(proj.target);
+    load_template();
     hid_text_mode(1);
     console_clear();
     for (;;) {
@@ -636,6 +706,10 @@ int shell_sdk_open(void)
             do_build();
         else if (c == 0x12)                     /* Ctrl+R */
             do_run();
+        else if (c == HID_KEY_F6)
+            do_check();
+        else if (c == HID_KEY_F6 + 1)           /* F7 */
+            do_listing();
         else if (cur_tab == SDK_TAB_PROJECT)
             project_key(c);
         else if (cur_tab == SDK_TAB_CODE)

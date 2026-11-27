@@ -25,6 +25,13 @@ void sdk_code_close_rom(void);
 /* "Super Mario World.sfc": the file name of the open ROM ("" when there is none). */
 const char *sdk_code_rom_name(void);
 
+/* The colours of the source: SDK_HL_* (shell_sdk_hl.h). */
+void sdk_code_language(int lang);
+/* Shows the assembly that bm C made on the right side, with the keys, at the code of line source_line of main.c.
+ * It takes text (from malloc, len bytes and a 0). Ctrl+W closes it; a ROM that opens takes its place.
+ * Returns 0, or -1 with no memory. */
+int sdk_code_show_generated(char *text, size_t len, int source_line);
+
 /* Draws the tab on the rows 1 to rows of the console; msg (or NULL) goes on the last row. */
 void sdk_code_draw(int cols, int rows, const char *msg);
 

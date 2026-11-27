@@ -35,7 +35,7 @@ int main(void)
     CHECK(!strcmp(value(&p, SDK_ROW_SRAM), "none"));
     CHECK(!strcmp(value(&p, SDK_ROW_CHIP), "None (plain ROM)"));
     sdk_proj_default(&p, SDK_NES);
-    CHECK(sdk_proj_rows(&p, rows, 16) == 7 && rows[1].id == SDK_ROW_BOARD);
+    CHECK(sdk_proj_rows(&p, rows, 16) == 8 && rows[1].id == SDK_ROW_NES_LANG && rows[2].id == SDK_ROW_BOARD);
     sdk_proj_default(&p, SDK_BM);
     CHECK(sdk_proj_rows(&p, rows, 16) == 3 && rows[1].id == SDK_ROW_LANG);
 
@@ -107,6 +107,19 @@ int main(void)
     CHECK(sdk_proj_info(&p, info, 8) == 5 && strstr(info[1], "1 bank of 32 KB"));
     sdk_proj_default(&p, SDK_BM);
     CHECK(sdk_proj_info(&p, info, 8) == 3);
+    {                                           /* bm C: a choice of the NES projects, kept in the text */
+        sdk_proj_t q, r;
+        sdk_row_t menu[12];
+        char text[512];
+        sdk_proj_default(&q, SDK_NES);
+        const int count = sdk_proj_rows(&q, menu, 12);
+        CHECK(count == 8 && menu[1].id == SDK_ROW_NES_LANG && strstr(menu[1].value, "Assembly"));
+        sdk_proj_step(&q, SDK_ROW_NES_LANG, 1);
+        sdk_proj_rows(&q, menu, 12);
+        CHECK(q.nes_lang == 1 && strstr(menu[1].value, "C (bm C)") && strstr(sdk_proj_note(&q, SDK_ROW_NES_LANG), "F7"));
+        const int n = sdk_proj_text(&q, text, sizeof text);
+        CHECK(n > 0 && sdk_proj_parse(text, (size_t)n, &r) == 0 && r.nes_lang == 1 && !memcmp(&q, &r, sizeof q));
+    }
     {                                           /* the head of the sprite sheet of the Sprite tab */
         char head[2][48];
         sdk_proj_t q;

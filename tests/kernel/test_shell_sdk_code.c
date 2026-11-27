@@ -8,6 +8,7 @@
 #include "kernel/shell_sdk_canvas.h"
 #include "kernel/shell_sdk_chr.h"
 #include "kernel/shell_sdk_edit.h"
+#include "kernel/shell_sdk_hl.h"
 #include "kernel/shell_sdk_pal.h"
 #include "kernel/shell_sdk_rom.h"
 #include "kernel/shell_sdk_sheet.h"
@@ -677,6 +678,63 @@ static void test_pal(void)
     CHECK(!strcmp(sdk_pal_name(), "greys"));
 }
 
+/* bm C: the tiles block, the palettes of the calls and the colours of the source. */
+static void test_c(void)
+{
+    char err[64];
+    const char *src = "void update(void) { }\n//@sprites\n// about\n//@end\n//@map\n//@end\n";
+    sdk_sheet_reset();
+    sdk_edit_set(src, strlen(src));
+    sdk_tile_t t = { .used = 1, .fmt = SDK_TILE_NES };
+    t.pix[0] = 3;
+    sdk_sheet_set(0, 2, &t);
+    CHECK(sdk_chr_commit(SDK_CHR_NES_C, 0, err, sizeof err) == 0);
+    static char got[2048];
+    snprintf(got, sizeof got, "%.*s", (int)sdk_edit_length(), sdk_edit_text());
+    CHECK(strstr(got, "//@tiles  from the Sprite tab") && strstr(got, "tiles {\n    blank(2), // $000-$001\n"));
+    CHECK(strstr(got, "    0x80,0x00,") && strstr(got, "// $002\n}\n//@tiles-end\n//@end\n//@map\n"));
+    sdk_sheet_reset();
+    CHECK(sdk_chr_read(SDK_CHR_NES_C, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0);
+    CHECK(sdk_sheet_tile(0, 2)->used && sdk_sheet_tile(0, 2)->pix[0] == 3 && !sdk_sheet_tile(0, 0)->used);
+    const unsigned rev = sdk_edit_revision();
+    CHECK(sdk_chr_commit(SDK_CHR_NES_C, 0, err, sizeof err) == 0 && sdk_edit_revision() == rev);
+    /* written by hand: decimal and binary numbers, a tile on two lines; then what cannot be read */
+    const char *hand = "//@tiles\ntiles { blank(1),\n  0b10000000, 0,0,0,0,0,0,0,\n  128,0,0,0,0,0,0,0, // two planes\n}\n"
+                       "//@tiles-end\n";
+    CHECK(sdk_chr_read(SDK_CHR_NES_C, hand, strlen(hand), err, sizeof err) == 0 && sdk_sheet_tile(0, 1)->pix[0] == 3);
+    const char *bad = "//@tiles\ntiles { WHITE }\n//@tiles-end\n";
+    CHECK(sdk_chr_read(SDK_CHR_NES_C, bad, strlen(bad), err, sizeof err) == -1 && strstr(err, "line 2"));
+    const char *own = "tiles { blank(1) }\n";
+    CHECK(sdk_chr_read(SDK_CHR_NES_C, own, strlen(own), err, sizeof err) == -1 && strstr(err, "without //@tiles"));
+    const char *open = "//@tiles\ntiles {\n";
+    CHECK(sdk_chr_read(SDK_CHR_NES_C, open, strlen(open), err, sizeof err) == -1 && strstr(err, "//@tiles-end"));
+
+    sdk_pal_reset();
+    const char *calls = "// sprite_palette(3, RED, RED, RED);\nbackground(BLUE);\nbackground_palette(1, 0x16, 22, PINK);\n"
+                        "sprite_palette(0, WHITE, SKY, NAVY);\nsprite_palette(x, 1, 2, 3);\n";
+    sdk_pal_load(SDK_SPRITE_NES_C, calls, strlen(calls));
+    CHECK(sdk_pal_count() == 3);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "SPR0 of the code") && sdk_pal_rgb(1, 4) == 0xFFFEFF && sdk_pal_rgb(3, 4) == 0x1412A7);
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "BG1 of the code") && sdk_pal_rgb(1, 4) == 0xB53120);
+
+    uint8_t cls[80];
+    const char *c = "if (held(LEFT)) x -= 12; // go";
+    CHECK(sdk_hl_line(SDK_HL_C, c, (int)strlen(c), 0, cls, sizeof cls) == 0);
+    CHECK(cls[0] == HL_WORD && cls[4] == HL_NAME && cls[9] == HL_NAME && cls[16] == HL_TEXT && cls[21] == HL_NUMBER);
+    CHECK(cls[25] == HL_COMMENT && cls[29] == HL_COMMENT);
+    c = "byte a; /* from";
+    CHECK(sdk_hl_line(SDK_HL_C, c, (int)strlen(c), 0, cls, sizeof cls) == 1 && cls[0] == HL_TYPE && cls[12] == HL_COMMENT);
+    c = "here */ return \"x\";";
+    CHECK(sdk_hl_line(SDK_HL_C, c, (int)strlen(c), 1, cls, sizeof cls) == 0 && cls[0] == HL_COMMENT && cls[8] == HL_WORD &&
+          cls[15] == HL_STRING);
+    c = "main: LDA #$01 ; note .byte";
+    CHECK(sdk_hl_line(SDK_HL_ASM, c, (int)strlen(c), 0, cls, sizeof cls) == 0);
+    CHECK(cls[0] == HL_MARK && cls[6] == HL_TYPE && cls[10] == HL_NUMBER && cls[16] == HL_COMMENT && cls[22] == HL_COMMENT);
+    CHECK(sdk_hl_line(SDK_HL_C, "/*", 2, 0, NULL, 0) == 1 && sdk_hl_line(SDK_HL_NONE, "/*", 2, 0, cls, 1) == 0);
+}
+
 static void test_view(void)
 {
     sdk_view_t v;
@@ -848,6 +906,7 @@ int main(void)
     test_import();
     test_canvas();
     test_pal();
+    test_c();
     test_tiles();
     test_tiles_start();
     test_tiles_move();

@@ -19,7 +19,7 @@ void sdk_sprite_reset(void);
  * sheet lives only while the SDK is open). Call sdk_sprite_sync before the tab is drawn: when the code changed
  * since the last time, the sheet is read again from its tiles block (shell_sdk_chr.h) and the palettes from the
  * source (shell_sdk_pal.h). A change of the sheet is written into the code at once. */
-enum { SDK_SPRITE_NONE, SDK_SPRITE_NES, SDK_SPRITE_SNES };
+enum { SDK_SPRITE_NONE, SDK_SPRITE_NES, SDK_SPRITE_SNES, SDK_SPRITE_NES_C };
 void sdk_sprite_sync(const sdk_proj_t *p);
 /* The ROM that opened, or NULL when it closed. The bytes stay with the caller. A new ROM takes the left of the
  * Sprite tab, with the keys. */

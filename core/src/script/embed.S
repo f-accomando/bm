@@ -119,6 +119,10 @@ bm_lib_sdk_dis_end:
     .section .rodata
     .balign 4
     .globl bm_sdk_tpl_nes, bm_sdk_tpl_nes_end, bm_sdk_tpl_snes, bm_sdk_tpl_snes_end
+    .globl bm_sdk_tpl_nes_c, bm_sdk_tpl_nes_c_end
+bm_sdk_tpl_nes_c:
+    .incbin "core/src/script/sdk_tpl_nes_c.txt"
+bm_sdk_tpl_nes_c_end:
 bm_sdk_tpl_nes:
     .incbin "core/src/script/sdk_tpl_nes.s"
 bm_sdk_tpl_nes_end:

@@ -4817,7 +4817,7 @@ def test_shell_sdk_build(b, opts):
         assert any("main.s:8:" in r and "unknown instruction" in r for r in rows), rows
         # leave with a change that is not saved: the SDK asks
         q.send(bytes([0xF9]))
-        q.send(SDK_DOWN + SDK_RIGHT)                # the board changes (not saved)
+        q.send(SDK_DOWN * 2 + SDK_RIGHT)            # the board changes (not saved)
         q.send("\x1b")
         q.send(SDK_UP + b"\r")                     # Exit
         time.sleep(0.5)
@@ -4900,7 +4900,7 @@ def test_shell_sdk_template(b, opts):
             i = (y * w + x) * 3
             return int(px[i]) + int(px[i + 1]) + int(px[i + 2])
         x0, y0 = 4 * 8, 2 * 16                      # the first cell of the text: ANSI column 5, row 2
-        assert lum(x0 + 1, y0 + 1) > 300, lum(x0 + 1, y0 + 1)            # the square (the cell was dark)
+        assert lum(x0 + 1, y0 + 1) > 200, lum(x0 + 1, y0 + 1)    # the square, in the colour of the comment
         assert lum(x0 + 1 + 8, y0 + 1) < 100, lum(x0 + 9, y0 + 1)         # the next cell is dark
         q.send(bytes([0xF9]))
         q.send(SDK_RIGHT)                           # SNES: the start file follows
@@ -5287,6 +5287,88 @@ def test_shell_sdk_canvas_code(b, opts):
         q.send("\x11")                              # Ctrl+Q: the SDK asks for the sheet
         assert any("sprite sheet is not saved" in r for r in screen())
         q.send(SDK_DOWN + b"\r")                    # Yes, leave
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_shell_sdk_c(b, opts):
+    """Shell SDK (2026-11-27): a NES project in bm C: the language of the Project tab, the C start file, F6
+    checks (a mistake puts the cursor on its line), F7 shows the assembly, Build ROM, and the Sprite tab reads
+    and writes the tiles { } block."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.8)
+        return screen_text(q.screendump())
+
+    def has(*words):
+        rows = screen()
+        for w in words:
+            assert any(w in r for r in rows), (w, rows)
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        has("Language", "Assembly (6502)")
+        q.send(SDK_DOWN + SDK_RIGHT)                # the language: bm C
+        has("C (bm C)")
+        q.send(bytes([0xFA]))                       # F2: the C start file
+        has("NES game in bm C")
+        q.send(bytes([0xE6]))                       # F6: check
+        has("no mistakes: ROM", "RAM 2/2048")
+        q.send("oops;\r")                           # a mistake on the first line, the cursor elsewhere
+        sendkeys(q, "ctrl-alt-down")
+        q.send(bytes([0xE6]))
+        has("main.c:1:", "found 'oops'")
+        sendkeys(q, "ctrl-z")
+        sendkeys(q, "ctrl-z")
+        q.send(bytes([0xE6]))
+        has("no mistakes")
+        sendkeys(q, "ctrl-alt-up")
+        q.send(SDK_DOWN * 12)                       # inside start(): F7 goes to its assembly
+        q.send(bytes([0xE7]))
+        has("Assembly of main.c", "; main.c:13", "jsr __")
+        sendkeys(q, "ctrl-w")
+        has("Assembly closed")
+        q.send(bytes([0xFB]))                       # F3: the sheet has the ball of the start file
+        time.sleep(0.5)
+        has("Spritesheet", "CHR ROM 8 KB")
+        pic = q.screendump()
+        sx = (pic[0] // 8 - 34) * 8                 # the first tile of the sheet; the ball is the second
+        assert sum(sum(pixel(pic, sx + 16 + x, 64 + 8)) for x in (4, 8, 12)) > 300, pixel(pic, sx + 24, 72)
+        q.send("p")
+        has("Palette: SPR0 of the code")
+        q.send(SDK_RIGHT * 2 + b"\r ")              # tile 2 in the canvas, one pixel
+        has("Canvas 8x8  tile 002")
+        q.send(bytes([0xFA]))                       # F2: the tiles block has it
+        sendkeys(q, "ctrl-alt-down")
+        for _ in range(5):
+            rows = screen()
+            if any("//@tiles-end" in r for r in rows):
+                break
+            sendkeys(q, "pgup")
+        assert any("0x80,0x00" in r for r in rows), rows
+        q.send("\x02")                              # Ctrl+B: the name, then the ROM
+        time.sleep(0.5)
+        q.send("cgame\r")
+        time.sleep(3.0)
+        has("built /nes/cgame.nes", "RAM 2/2048", "ROM: cgame.nes")
+        q.send("\x11")                              # Ctrl+Q: all is saved
         q.expect("> ", timeout=10)
     finally:
         q.close()

@@ -102,14 +102,100 @@ static int data_after(const char *s, size_t len, const char *label, long top, lo
     return n;
 }
 
+/* A colour of a call of bm C: a number or a name. -1: neither. */
+static int c_colour(const char **p, const char *end)
+{
+    static const struct { const char *name; int value; } names[] = {
+        { "BLACK", 0x0F }, { "DARK_GRAY", 0x00 }, { "GRAY", 0x10 }, { "WHITE", 0x30 }, { "RED", 0x16 },
+        { "ORANGE", 0x27 }, { "YELLOW", 0x28 }, { "GREEN", 0x1A }, { "LIME", 0x2A }, { "CYAN", 0x2C },
+        { "SKY", 0x21 }, { "BLUE", 0x12 }, { "NAVY", 0x02 }, { "PURPLE", 0x14 }, { "PINK", 0x25 }, { "BROWN", 0x07 } };
+    const char *s = *p;
+    while (s < end && (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == ','))
+        s++;
+    const char *w = s;
+    while (s < end && (*s == '_' || (*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9')))
+        s++;
+    *p = s;
+    const size_t n = (size_t)(s - w);
+    if (!n)
+        return -1;
+    if (*w >= '0' && *w <= '9') {
+        const int hex = n > 2 && w[0] == '0' && (w[1] == 'x' || w[1] == 'X');
+        int v = 0;
+        for (size_t i = hex ? 2 : 0; i < n; i++) {
+            const char c = w[i];
+            const int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 :
+                          c >= 'A' && c <= 'F' ? c - 'A' + 10 : 99;
+            if (d >= (hex ? 16 : 10) || v > 63)
+                return -1;
+            v = v * (hex ? 16 : 10) + d;
+        }
+        return v <= 63 ? v : -1;
+    }
+    for (size_t i = 0; i < sizeof names / sizeof names[0]; i++)
+        if (strlen(names[i].name) == n && !memcmp(names[i].name, w, n))
+            return names[i].value;
+    return -1;
+}
+
+/* The palettes that the calls of a bm C source set: sprite_palette(n, a, b, c), background_palette(...), with the
+ * colour behind from background(colour). Calls whose arguments are not plain colours are left out. */
+static void c_palettes(const char *src, size_t len)
+{
+    static const char *const calls[3] = { "sprite_palette(", "background_palette(", "background(" };
+    int colour[8][4], have[8] = { 0 }, behind = 0x0F;
+    const char *end = src + len;
+    for (const char *p = src; p < end; p++) {
+        if (p[0] == '/' && p + 1 < end && p[1] == '/') {
+            while (p + 1 < end && p[1] != '\n')
+                p++;
+            continue;
+        }
+        if (p > src && (p[-1] == '_' || (p[-1] >= 'a' && p[-1] <= 'z')))
+            continue;
+        for (int k = 0; k < 3; k++) {
+            const size_t n = strlen(calls[k]);
+            if ((size_t)(end - p) < n || memcmp(p, calls[k], n))
+                continue;
+            const char *q = p + n;
+            if (k == 2) {
+                const int v = c_colour(&q, end);
+                if (v >= 0)
+                    behind = v;
+                break;
+            }
+            int v[4];
+            for (int i = 0; i < 4; i++)
+                v[i] = c_colour(&q, end);
+            if (v[0] >= 0 && v[1] >= 0 && v[2] >= 0 && v[3] >= 0) {
+                const int at = (v[0] & 3) + (k == 0 ? 0 : 4);       /* the sprites first */
+                memcpy(&colour[at][1], &v[1], 3 * sizeof v[0]);
+                have[at] = 1;
+            }
+            break;
+        }
+    }
+    for (int at = 0; at < 8; at++) {
+        if (!have[at])
+            continue;
+        snprintf(code_name[code_count], sizeof code_name[0], "%s%d of the code", at < 4 ? "SPR" : "BG", at % 4);
+        colour[at][0] = behind;
+        for (int c = 0; c < 16; c++)
+            code_rgb[code_count][c] = nes_rgb[colour[at][c % 4]];
+        code_count++;
+    }
+}
+
 void sdk_pal_load(int kind, const char *src, size_t len)
 {
     char before[20];
     snprintf(before, sizeof before, "%s", sdk_pal_name());
     code_count = 0;
-    has_set16 = kind != SDK_SPRITE_NES;
+    has_set16 = kind != SDK_SPRITE_NES && kind != SDK_SPRITE_NES_C;
     long v[SDK_PAL_CODE_MAX * 16];
-    if (kind == SDK_SPRITE_NES) {
+    if (kind == SDK_SPRITE_NES_C)
+        c_palettes(src, len);
+    else if (kind == SDK_SPRITE_NES) {
         const int n = data_after(src, len, "palette", 0x3F, v, 32);
         const int groups = n / 4;
         for (int i = 0; i < groups; i++) {          /* the sprite palettes first: they are the last four */

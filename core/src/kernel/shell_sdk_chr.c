@@ -44,8 +44,10 @@ long sdk_chr_text(int nes, char *out, size_t max)
         return 0;
 
     text_t t = { out, max, 0, 0 };
-    add(&t, nes ? ";@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\n.chr\n"
-                : ";@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\nsprites_chr:\n");
+    const int c = nes == SDK_CHR_NES_C;
+    add(&t, c ? "//@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\ntiles {\n"
+              : nes ? ";@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\n.chr\n"
+                    : ";@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\nsprites_chr:\n");
     for (int i = 0; i <= last; i++) {
         const sdk_tile_t *tile = sdk_sheet_tile(i / SDK_SHEET_W, i % SDK_SHEET_W);
         char line[128];
@@ -53,13 +55,34 @@ long sdk_chr_text(int nes, char *out, size_t max)
             int n = 1;
             while (i + n <= last && !sdk_sheet_tile((i + n) / SDK_SHEET_W, (i + n) % SDK_SHEET_W)->used)
                 n++;
-            snprintf(line, sizeof line, "    .res %d,0   ; $%03X-$%03X\n", n * bytes, i, i + n - 1);
+            if (!c)
+                snprintf(line, sizeof line, "    .res %d,0   ; $%03X-$%03X\n", n * bytes, i, i + n - 1);
+            else if (n == 1)
+                snprintf(line, sizeof line, "    blank(1), // $%03X\n", i);
+            else
+                snprintf(line, sizeof line, "    blank(%d), // $%03X-$%03X\n", n, i, i + n - 1);
             add(&t, line);
             i += n - 1;
             continue;
         }
         uint8_t data[64];
         sdk_tile_encode(tile->pix, fmt, data);
+        if (c) {                                        /* one line a tile, in C numbers */
+            static const char hexc[] = "0123456789ABCDEF";
+            char row[128];
+            size_t k = 4;
+            memcpy(row, "    ", k);
+            for (int b = 0; b < bytes; b++) {
+                row[k++] = '0';
+                row[k++] = 'x';
+                row[k++] = hexc[data[b] >> 4];
+                row[k++] = hexc[data[b] & 15];
+                row[k++] = ',';
+            }
+            snprintf(row + k, sizeof row - k, " // $%03X\n", i);
+            add(&t, row);
+            continue;
+        }
         for (int row = 0; row < bytes; row += 16) {
             static const char hex[] = "0123456789ABCDEF";
             size_t k = 8;                               /* by hand: written again at each painted pixel */
@@ -77,7 +100,7 @@ long sdk_chr_text(int nes, char *out, size_t max)
             add(&t, line);
         }
     }
-    add(&t, nes ? ".endchr\n;@tiles-end\n" : ";@tiles-end\n");
+    add(&t, c ? "}\n//@tiles-end\n" : nes ? ".endchr\n;@tiles-end\n" : ";@tiles-end\n");
     return t.full ? -1 : (long)t.len;
 }
 
@@ -110,12 +133,12 @@ static size_t find_marker(const char *s, size_t len, size_t p, const char *marke
 
 /* The block of a source: [*from, *to), with its last line. Returns 1, 0 when there is none, -1 when it has no
  * end. */
-static int find_block(const char *s, size_t len, size_t *from, size_t *to)
+static int find_block(int c, const char *s, size_t len, size_t *from, size_t *to)
 {
-    *from = find_marker(s, len, 0, ";@tiles");
+    *from = find_marker(s, len, 0, c ? "//@tiles" : ";@tiles");
     if (*from == len)
         return 0;
-    const size_t end = find_marker(s, len, *from, ";@tiles-end");
+    const size_t end = find_marker(s, len, *from, c ? "//@tiles-end" : ";@tiles-end");
     if (end == len)
         return -1;
     *to = next_line(s, len, end);
@@ -235,14 +258,75 @@ static int read_line(const char *p, const char *end, uint8_t *data, uint8_t *set
     return -1;
 }
 
+/* One line of a tiles { } block of C: numbers and blank(n), between commas. Returns 0, or -1. */
+static int read_c_line(const char *p, const char *end, uint8_t *data, uint8_t *set, size_t *n, size_t max)
+{
+    for (const char *q = p; q + 1 < end; q++)
+        if (q[0] == '/' && q[1] == '/')
+            end = q;
+    while (end > p && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r'))
+        end--;
+    spaces(&p, end);
+    if (end - p >= 5 && !memcmp(p, "tiles", 5)) {
+        p += 5;
+        spaces(&p, end);
+        if (p == end || *p++ != '{')
+            return -1;
+    }
+    while (spaces(&p, end), p < end) {
+        long v;
+        if (*p == '}' || *p == ',') {
+            p++;
+            continue;
+        }
+        if (end - p > 6 && !memcmp(p, "blank(", 6)) {
+            p += 6;
+            spaces(&p, end);
+            if (number(&p, end, &v) != 0)
+                return -1;
+            spaces(&p, end);
+            if (p == end || *p++ != ')' || v < 0 || (size_t)v * 16 > max - *n)
+                return -1;
+            memset(data + *n, 0, (size_t)v * 16);
+            memset(set + *n, 0, (size_t)v * 16);
+            *n += (size_t)v * 16;
+            continue;
+        }
+        if (end - p > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X' || p[1] == 'b' || p[1] == 'B')) {
+            const int base = p[1] == 'x' || p[1] == 'X' ? 16 : 2;
+            int digits = 0;
+            for (p += 2, v = 0; p < end && v < 256; p++, digits++) {
+                const int d = *p >= '0' && *p <= '9' ? *p - '0' : *p >= 'a' && *p <= 'f' ? *p - 'a' + 10 :
+                              *p >= 'A' && *p <= 'F' ? *p - 'A' + 10 : 99;
+                if (d >= base)
+                    break;
+                v = v * base + d;
+            }
+            if (!digits)
+                return -1;
+        } else if (number(&p, end, &v) != 0)
+            return -1;
+        if (v > 255 || *n >= max)
+            return -1;
+        data[*n] = (uint8_t)v;
+        set[(*n)++] = 1;
+    }
+    return 0;
+}
+
 int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
 {
     const int fmt = sdk_chr_format(nes);
     const size_t bytes = (size_t)sdk_tile_bytes(fmt), max = TILES * bytes;
     size_t from = 0, to = 0;
-    const int found = find_block(src, len, &from, &to);
+    const int c = nes == SDK_CHR_NES_C;
+    const int found = find_block(c, src, len, &from, &to);
     if (found < 0) {
-        snprintf(err, en, "line %d: no ;@tiles-end", line_number(src, from));
+        snprintf(err, en, "line %d: no %s@tiles-end", line_number(src, from), c ? "//" : ";");
+        return -1;
+    }
+    if (c && !found && find_marker(src, len, 0, "tiles") < len) {
+        snprintf(err, en, "line %d: tiles without //@tiles", line_number(src, find_marker(src, len, 0, "tiles")));
         return -1;
     }
     uint8_t *data = calloc(2, max);
@@ -258,7 +342,9 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
             size_t stop = e;
             while (stop > p && src[stop - 1] == '\n')
                 stop--;
-            if (read_line(src + p, src + stop, data, set, &n, max) != 0) {
+            if (find_marker(src + p, stop - p, 0, c ? "//@tiles-end" : ";@tiles-end") < stop - p)
+                continue;
+            if ((c ? read_c_line : read_line)(src + p, src + stop, data, set, &n, max) != 0) {
                 snprintf(err, en, "line %d of the tiles block", line_number(src, p));
                 free(data);
                 return -1;
@@ -286,9 +372,10 @@ int sdk_chr_commit(int nes, int run, char *err, size_t en)
     const char *src = sdk_edit_text();
     const size_t len = sdk_edit_length();
     size_t from = 0, to = 0;
-    const int found = find_block(src, len, &from, &to);
+    const int c = nes == SDK_CHR_NES_C;
+    const int found = find_block(c, src, len, &from, &to);
     if (found < 0) {
-        snprintf(err, en, "line %d: no ;@tiles-end", line_number(src, from));
+        snprintf(err, en, "line %d: no %s@tiles-end", line_number(src, from), c ? "//" : ";");
         return -1;
     }
     char *text = malloc(SDK_EDIT_MAX);
@@ -298,14 +385,16 @@ int sdk_chr_commit(int nes, int run, char *err, size_t en)
     }
     const char *before = "", *after = "";
     if (!found) {                               /* before the ;@end of the sprites section, or a new section */
-        const size_t section = find_marker(src, len, 0, ";@sprites");
-        const size_t end = section < len ? find_marker(src, len, section, ";@end") : len;
+        const size_t section = find_marker(src, len, 0, c ? "//@sprites" : ";@sprites");
+        const size_t end = section < len ? find_marker(src, len, section, c ? "//@end" : ";@end") : len;
         if (section < len && end < len)
             from = to = end;
         else {
             from = to = len;
-            before = len && src[len - 1] != '\n' ? "\n\n;@sprites\n" : "\n;@sprites\n";
-            after = ";@end\n";
+            const int open_line = len && src[len - 1] != '\n';
+            before = c ? (open_line ? "\n\n//@sprites\n" : "\n//@sprites\n")
+                       : (open_line ? "\n\n;@sprites\n" : "\n;@sprites\n");
+            after = c ? "//@end\n" : ";@end\n";
         }
     }
     const size_t head = strlen(before);

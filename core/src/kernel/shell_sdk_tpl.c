@@ -9,9 +9,14 @@
 
 extern const uint8_t bm_sdk_tpl_nes[], bm_sdk_tpl_nes_end[];
 extern const uint8_t bm_sdk_tpl_snes[], bm_sdk_tpl_snes_end[];
+extern const uint8_t bm_sdk_tpl_nes_c[], bm_sdk_tpl_nes_c_end[];
 
-const char *sdk_template(int target, size_t *len)
+const char *sdk_template(int target, int c, size_t *len)
 {
+    if (target == SDK_NES && c) {
+        *len = (size_t)(bm_sdk_tpl_nes_c_end - bm_sdk_tpl_nes_c);
+        return (const char *)bm_sdk_tpl_nes_c;
+    }
     if (target == SDK_NES) {
         *len = (size_t)(bm_sdk_tpl_nes_end - bm_sdk_tpl_nes);
         return (const char *)bm_sdk_tpl_nes;

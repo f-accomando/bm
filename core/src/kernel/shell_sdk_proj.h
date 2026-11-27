@@ -16,7 +16,8 @@ enum {
     SDK_ROW_PLATFORM,
     SDK_ROW_BOARD, SDK_ROW_PRG, SDK_ROW_CHR, SDK_ROW_WRAM, SDK_ROW_NES_BATTERY, SDK_ROW_MIRROR,      /* NES */
     SDK_ROW_MAP, SDK_ROW_SPEED, SDK_ROW_ROM, SDK_ROW_SRAM, SDK_ROW_SNES_BATTERY, SDK_ROW_CHIP,     /* SNES */
-    SDK_ROW_LANG, SDK_ROW_KERNELS                                                                      /* bm */
+    SDK_ROW_LANG, SDK_ROW_KERNELS,                                                                     /* bm */
+    SDK_ROW_NES_LANG                                                                                   /* NES */
 };
 
 typedef struct {
@@ -28,6 +29,7 @@ typedef struct {
     int nes_wram_kb;        /* 0 or 8 */
     int nes_battery;
     int nes_vertical;       /* mirroring: 0 horizontal, 1 vertical (AxROM: one screen, fixed) */
+    int nes_lang;           /* 0 assembly (main.s), 1 bm C (main.c, shell_sdk_cc.h) */
     /* SNES */
     int snes_hirom;
     int snes_fast;

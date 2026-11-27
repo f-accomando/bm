@@ -97,7 +97,7 @@ FORCE:
 # Third-party code: its own warning policy, not ours.
 $(LUA_OBJS) $(LWIP_OBJS) $(MBEDTLS_OBJS) $(THIRD7_OBJS): WARN := -w
 # Lua scripts embedded with .incbin
-$(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua core/src/script/*.s) core/lua/snesrom.lua core/keys/release-pub.pem core/keys/market-pub.pem \
+$(BUILD)/k/core/src/script/embed.S.o $(BUILD)/k7/core/src/script/embed.S.o: $(wildcard core/src/script/*.lua core/src/script/*.s core/src/script/*.txt) core/lua/snesrom.lua core/keys/release-pub.pem core/keys/market-pub.pem \
                                  core/src/ai/assist.lua core/src/ai/predict.lua core/src/ai/padtype.lua
 
 # The development assistant (M30): knowledge base + trained network, built
@@ -1786,13 +1786,22 @@ test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/
 	$(BUILD)/host/snes_sdk_tpl_run $(BUILD)/host/sdk_tpl.sfc
 	$(BUILD)/host/nes_sdk_tpl_run $(BUILD)/host/sdk_tpl.nes
 
+# bm C, the C of the NES projects: compiled, assembled and run in the NES core
+SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c
+test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt
+	$(BUILD)/host/test_shell_sdk_cc
+
+$(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_cc.h core/src/kernel/shell_sdk_cc_int.h core/src/bm/nes.c core/src/bm/nes.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(LUA_SRCS) -lm
+
 test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code
 	$(BUILD)/host/test_shell_sdk_proj
 	$(BUILD)/host/test_shell_sdk_code
 
-$(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_tiles.h core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_view.h core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_sheet.h core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_chr.h core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_canvas.h core/src/kernel/shell_sdk_pal.c core/src/kernel/shell_sdk_pal.h
+$(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_tiles.h core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_view.h core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_sheet.h core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_chr.h core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_canvas.h core/src/kernel/shell_sdk_pal.c core/src/kernel/shell_sdk_pal.h core/src/kernel/shell_sdk_hl.c core/src/kernel/shell_sdk_hl.h
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_pal.c
+	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_pal.c core/src/kernel/shell_sdk_hl.c
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

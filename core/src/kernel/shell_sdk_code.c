@@ -11,6 +11,7 @@
 #include "gfx/console.h"
 #include "shell_sdk_dis.h"
 #include "shell_sdk_edit.h"
+#include "shell_sdk_hl.h"
 #include "shell_sdk_pane.h"
 #include "shell_sdk_rom.h"
 #include "shell_sdk_sprite.h"
@@ -39,6 +40,22 @@ static char **asm_line;                 /* where each line of the listing starts
 static int asm_lines, asm_page = 1;
 static sdk_dis_info_t asm_info;         /* the bank it shows, for a ROM with banks */
 static int tiles_on;                    /* the ROM side shows the bytes as 8x8 tiles */
+static int language;                    /* SDK_HL_*: the colours of the editor */
+static char *gen_text;                  /* the assembly that bm C made (NULL: none), shown on the ROM side */
+static char **gen_line;
+static sdk_view_t gen_view;
+static int gen_page = 1;
+
+void sdk_code_language(int lang) { language = lang; }
+
+static void close_generated(void)
+{
+    free(gen_line);
+    free(gen_text);
+    gen_line = NULL;
+    gen_text = NULL;
+    sdk_view_reset(&gen_view, 0);
+}
 
 static void free_listing(void)
 {
@@ -87,6 +104,7 @@ static int make_listing(int bank, char *err, size_t en)
 /* The ROM goes away: the editor takes the whole tab. The text stays. */
 static void close_rom(void)
 {
+    close_generated();
     free_listing();
     tiles_on = 0;
     free(rom);
@@ -135,6 +153,7 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
         free(data);
         return -1;
     }
+    close_generated();
     free_listing();
     free(rom);
     rom = data;
@@ -150,9 +169,74 @@ int sdk_code_open_rom(const char *path, char *err, size_t en)
     return 0;
 }
 
+int sdk_code_show_generated(char *text, size_t len, int source_line)
+{
+    int n = 1;
+    for (size_t i = 0; i < len; i++)
+        n += text[i] == '\n';
+    char **line = malloc((size_t)n * sizeof *line);
+    if (!line) {
+        free(text);
+        return -1;
+    }
+    close_generated();
+    gen_text = text;
+    gen_line = line;
+    line[0] = text;
+    for (size_t i = 0, k = 1; i < len; i++)
+        if (text[i] == '\n') {
+            text[i] = 0;
+            line[k++] = text + i + 1;
+        }
+    sdk_view_reset(&gen_view, n);
+    char key[24];                           /* to the code of the line the editor is on, or of one before */
+    for (; source_line > 0; source_line--) {
+        const size_t m = (size_t)snprintf(key, sizeof key, "; main.c:%d ", source_line);
+        int i = 0;
+        while (i < n && strncmp(line[i], key, m))
+            i++;
+        if (i < n) {
+            gen_view.line = i;
+            gen_view.top = i > 2 ? i - 2 : 0;
+            break;
+        }
+    }
+    focus = FOCUS_ROM;
+    rom_hidden = 0;
+    return 0;
+}
+
 /* ---- drawing ---- */
 
 #define GUTTER 4
+
+/* A row of source: the cells of one colour and of one state (selected or not) are written together. */
+static void colour_row(int row, int col, int width, const char *s, int n, const uint8_t *cls, int sc, int ec)
+{
+    static const char *const colour[HL_CLASSES] = { "", "\x1b[90m", "\x1b[93m", "\x1b[96m", "\x1b[95m",
+                                                    "\x1b[92m", "\x1b[36m", "\x1b[33m" };
+    char line[256];
+    if (width > (int)sizeof line - 1)
+        width = (int)sizeof line - 1;
+    if (width < 1)
+        return;
+    snprintf(line, sizeof line, "%-*.*s", width, n < width ? n : width, s);
+    sdk_at(row, col);
+    for (int i = 0, e; i < width; i = e) {
+        const int c = i < n ? cls[i] : HL_TEXT, swap = i >= sc && i < ec;
+        for (e = i + 1; e < width && (e < n ? cls[e] : HL_TEXT) == c && (e >= sc && e < ec) == swap; e++)
+            ;
+        console_write("\x1b[0m");
+        console_write(colour[c]);
+        if (swap)
+            console_write("\x1b[7m");
+        const char keep = line[e];
+        line[e] = 0;
+        console_write(line + i);
+        line[e] = keep;
+    }
+    console_write("\x1b[0m");
+}
 
 /* A row of text where the cells sc to ec (not included) are selected: the swapped colours. */
 static void text_row(int row, int col, int width, const char *s, int n, int sc, int ec)
@@ -190,6 +274,8 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
     char head[64];
     snprintf(head, sizeof head, "Code%s", !rom ? "" : split ? "  (Ctrl+T: ROM, Ctrl+E: hide)" :
                                                        "  (Ctrl+E: show the ROM)");
+    if (gen_text)
+        snprintf(head, sizeof head, "Code%s", split ? "  (Ctrl+T: asm, Ctrl+E: hide)" : "  (Ctrl+E: show the asm)");
     sdk_title_bar(1, col, width, head, focus == FOCUS_EDITOR);
 
     const int h = rows - 2;                         /* rows 2 to rows-1 */
@@ -212,6 +298,14 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
     const int has_sel = sdk_edit_selection(&sel_a, &sel_b);
     size_t off = sdk_edit_line_offset(top_line);            /* the offset of the line being drawn */
     const int total = sdk_edit_line_count();
+    int inside = 0;                                         /* a C comment opened above the first line */
+    if (language == SDK_HL_C)
+        for (int l = 0; l < top_line; l++) {
+            const char *s;
+            const int n = sdk_edit_line(l, &s);
+            if (s)
+                inside = sdk_hl_line(language, s, n, inside, NULL, 0);
+        }
     for (int i = 0; i < h; i++) {
         const int l = top_line + i;
         char num[16];
@@ -235,6 +329,9 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
             ec = (int)((sel_b < next ? sel_b : next) - off) - left_col;
         }
         off = next;
+        uint8_t cls[512];
+        inside = sdk_hl_line(language, s, n, inside, cls, (int)sizeof cls);
+        const int known = n < (int)sizeof cls ? n : (int)sizeof cls;
         if (left_col >= n) {
             s = "";
             n = 0;
@@ -242,7 +339,10 @@ static void draw_editor(int col, int width, int rows, int split, const char *msg
             s += left_col;
             n -= left_col;
         }
-        text_row(2 + i, col + GUTTER, tw, s, n, sc, ec);
+        if (language != SDK_HL_NONE && left_col < known)
+            colour_row(2 + i, col + GUTTER, tw, s, known - left_col, cls + left_col, sc, ec);
+        else
+            text_row(2 + i, col + GUTTER, tw, s, n, sc, ec);
     }
 
     char st[96];
@@ -323,8 +423,23 @@ static void draw_listing(int col, int width, int rows)
     sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 
+static int gen_text_line(void *ctx, int line, char *out, size_t n)
+{
+    (void)ctx;
+    return snprintf(out, n, "%s", gen_line && line >= 0 && line < gen_view.lines ? gen_line[line] : "");
+}
+
 static void draw_rom(int col, int width, int rows)
 {
+    if (gen_text) {
+        sdk_title_bar(1, col, width, "Assembly of main.c", focus == FOCUS_ROM);
+        gen_page = rows > 3 ? rows - 3 : 1;
+        view_rows(&gen_view, gen_text_line, 2, col, width, rows - 2, 1);
+        char st[64];
+        snprintf(st, sizeof st, "Line %d of %d  F7: again", gen_view.line + 1, gen_view.lines);
+        sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
+        return;
+    }
     char head[80];
     snprintf(head, sizeof head, "ROM: %s", rom_name);
     sdk_title_bar(1, col, width, head, focus == FOCUS_ROM);
@@ -373,13 +488,51 @@ static void draw_rom(int col, int width, int rows)
     sdk_pane_status(col, width, rows, st, focus == FOCUS_ROM);
 }
 
+/* The next line of a message cut at a space to width cells: its length, and *p moves past it. */
+static int wrap(const char **p, int width)
+{
+    const char *s = *p;
+    int n = (int)strlen(s);
+    if (n > width) {
+        for (n = width; n > width / 2 && s[n] != ' '; n--)
+            ;
+        if (s[n] != ' ')
+            n = width;
+    }
+    *p = s + n;
+    while (**p == ' ')
+        (*p)++;
+    return n;
+}
+
 void sdk_code_draw(int cols, int rows, const char *msg)
 {
-    const int split = rom != NULL && !rom_hidden && cols >= 40;
+    /* a message longer than the editor (a mistake that says how to put it right) takes the last rows, across the
+     * whole screen, and the panes end above it */
+    const int editor = (rom != NULL || gen_text != NULL) && !rom_hidden && cols >= 40 ? cols / 2 - 1 : cols - 1;
+    const char *whole = NULL;
+    int more = 0;
+    if (msg && (int)strlen(msg) > editor) {
+        whole = msg;
+        msg = NULL;
+        for (const char *p = whole; *p && more < 3; more++)
+            wrap(&p, cols - 1);
+        rows -= more;
+    }
+    const int split = (rom != NULL || gen_text != NULL) && !rom_hidden && cols >= 40;
     if (!split)
         focus = FOCUS_EDITOR;
     const int lw = split ? cols / 2 : cols;         /* the left side: up to and with the divider */
     draw_editor(1, lw - 1, rows, split, msg);
+    if (whole) {
+        console_write("\x1b[93m");
+        for (int i = 0; i < more; i++) {
+            const char *line = whole;
+            const int n = wrap(&whole, cols - 1);
+            sdk_put_row(rows + 1 + i, 1, cols - 1, line, n);
+        }
+        console_write("\x1b[0m");
+    }
     if (!split) {
         sdk_at(cur_row, cur_col);
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
@@ -395,14 +548,14 @@ void sdk_code_draw(int cols, int rows, const char *msg)
     if (focus == FOCUS_EDITOR) {
         sdk_at(cur_row, cur_col);                               /* a solid square, the letter under it swapped */
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
-    } else if (!tiles_on) {                                 /* the same square in the dump and the listing */
+    } else if (!tiles_on || gen_text) {                     /* the same square in the dump and the listing */
         sdk_at(rom_cur_row, rom_cur_col);
         console_cursor_mode(CONSOLE_CURSOR_BLOCK);
     } else {
         sdk_at(1, 1);
         console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
     }
-    if (tiles_on)
+    if (tiles_on && !gen_text)
         sdk_tiles_paint();                                  /* last: the console repaints the cells it writes */
 }
 
@@ -461,6 +614,13 @@ static int listing_key(int key, int mods)
 
 static int rom_key(int key, int mods)
 {
+    if (gen_text) {                             /* the generated assembly: read and copy */
+        if (key == 0x18 || key == 0x16) {
+            snprintf(sdk_note, sizeof sdk_note, "Read only: change main.c, then F7");
+            return 1;
+        }
+        return view_key(&gen_view, gen_text_line, gen_page, key, mods);
+    }
     if (key == 't') {                           /* hex or tiles */
         tiles_on = !tiles_on;
         asm_on = 0;
@@ -565,7 +725,7 @@ int sdk_code_key(int key, int mods)
     sdk_note[0] = 0;
     const int swap = key == 0x14 || (key == 9 && (mods & SDK_MOD_CTRL));    /* Ctrl+T, Ctrl+Tab */
     if (swap || key == 0x17 || key == 0x05) {                  /* Ctrl+W: close the ROM; Ctrl+E: hide it */
-        if (!rom)
+        if (!rom && !gen_text)
             snprintf(sdk_note, sizeof sdk_note, "No ROM open (Esc > Open ROM)");
         else if (swap) {
             focus = rom_hidden || focus == FOCUS_EDITOR ? FOCUS_ROM : FOCUS_EDITOR;
@@ -573,13 +733,17 @@ int sdk_code_key(int key, int mods)
         } else if (key == 0x05) {
             rom_hidden = !rom_hidden;
             focus = FOCUS_EDITOR;
+        } else if (gen_text) {
+            close_generated();
+            focus = FOCUS_EDITOR;
+            snprintf(sdk_note, sizeof sdk_note, "Assembly closed");
         } else {
             close_rom();
             snprintf(sdk_note, sizeof sdk_note, "ROM closed");
         }
         return 1;
     }
-    if (rom && focus == FOCUS_ROM)
+    if ((rom || gen_text) && focus == FOCUS_ROM)
         return rom_key(key, mods);
     return editor_key(key, mods);
 }
