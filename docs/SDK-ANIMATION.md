@@ -7,8 +7,8 @@ animation is 1 to 8 frames. A frame is a block of 8x8 tiles: 8x8, 8x16, 16x8, 16
 ## Make an animation
 
 1. Press `n`. The new animation has 4 empty frames of 16x16.
-2. Set the name, size, frames, speed, palette and reuse in the first row. Left and Right choose a setting. `-` and
-   `=` change it. Enter types the name.
+2. Set the name, size, frames, speed, palette and reuse in the first row (a SNES project also has **Spr**: 8x8 or
+   16x16 sprites). Left and Right choose a setting. `-` and `=` change it. Enter types the name.
 3. Press Down. Paint the frames. The preview on the right moves while you work.
 4. Press `w`. Choose the first tile in the sheet. Press Enter.
 
@@ -41,15 +41,25 @@ const byte anim_spin[] = {          // 16x16, 2 frames
 
 | Value | Meaning |
 |---|---|
-| wide, high | tiles across and down, 1 to 4 |
+| wide, high | tiles across and down, 1 to 4. SNES: wide + `$80` says 16x16 sprites (wide and high even) |
 | frames | 1 to 8 |
 | speed | screen frames for each animation frame, 1 to 60 |
-| tile | 0 to 255 |
-| attribute | palette 0 to 3; `$40` mirrored; `$80` upside down; `$10` empty cell |
+| tile | 0 to 255; with `$08` in the attribute, the tile + 256 (SNES) |
+| attribute | palette 0 to 3 (SNES: 0 to 7); `$40` mirrored; `$80` upside down; `$10` empty cell |
+
+| | NES | SNES |
+|---|---|---|
+| Tiles that an animation can use | 256 | 512 |
+| Palettes | 4 | 8 |
+| Hardware sprites | 8x8, one a cell | 8x8, or 16x16 (one a block of 2x2 tiles) |
+
+A 16x16 sprite takes the tiles `t`, `t+1`, `t+16` and `t+17` of the sheet. `w` finds places for these blocks. The
+reuse then compares whole blocks.
 
 ## Show it in the program
 
-Each cell is one hardware sprite. A 16x16 animation takes 4 sprites. The NES shows 8 sprites on a line at most.
+Each cell is one hardware sprite. A 16x16 animation of 8x8 sprites takes 4 sprites, of a 16x16 sprite 1. On a
+line the NES shows 8 sprites at most, the SNES 32.
 
 **bm C** (NES and SNES):
 
@@ -78,7 +88,23 @@ void update(void) {
 
 - The build adds the routines when the program calls them. They use the zero page `$FA-$FB`, the RAM `$0780-$078F`
   and the sprite table at `$0200`.
-- **Assembly, SNES**: the block is there. The routines are not.
+
+**Assembly, SNES** (registers: A of 8 bits, X and Y of 16, as in the start file):
+
+```asm
+    lda #4
+    sta anim_n                    ; the first sprite
+    ldx #100
+    stx anim_x                    ; 2 bytes
+    lda #80
+    sta anim_y
+    ldx #anim_spin
+    jsr anim_draw
+    jsr anim_tick                 ; once a frame
+```
+
+- The routines write the sprite table at `$0200` (544 bytes), which the start file sends at each vertical blank.
+  They use the RAM `$0780-$0793` and the divider `$4204-$4206`: do not divide in the vertical blank.
 
 ## Code
 

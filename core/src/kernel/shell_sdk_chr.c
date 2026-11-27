@@ -43,10 +43,14 @@ long sdk_chr_text(int nes, char *out, size_t max)
             last = i;
     if (max)
         out[0] = 0;
-    if (last < 0)
-        return 0;
-
     text_t t = { out, max, 0, 0 };
+    if (last < 0) {
+        if (nes != SDK_CHR_SNES)
+            return 0;
+        /* the SNES program sends the sheet from its labels: they stay with no tile */
+        add(&t, ";@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\nsprites_chr:\nsprites_chr_end:\n;@tiles-end\n");
+        return t.full ? -1 : (long)t.len;
+    }
     const int c = nes == SDK_CHR_NES_C || nes == SDK_CHR_SNES_C;
     add(&t, nes == SDK_CHR_SNES_C ? "//@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\ntiles {\n"
           : c ? "//@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\ntiles {\n"
@@ -109,7 +113,7 @@ long sdk_chr_text(int nes, char *out, size_t max)
             add(&t, line);
         }
     }
-    add(&t, c ? "}\n//@tiles-end\n" : nes ? ".endchr\n;@tiles-end\n" : ";@tiles-end\n");
+    add(&t, c ? "}\n//@tiles-end\n" : nes ? ".endchr\n;@tiles-end\n" : "sprites_chr_end:\n;@tiles-end\n");
     return t.full ? -1 : (long)t.len;
 }
 
@@ -450,7 +454,7 @@ int sdk_chr_commit(int nes, int run, char *err, size_t en)
     if (n < 0) {
         snprintf(err, en, "the tiles do not fit in the code");
         rc = -1;
-    } else if (n > 0 || found) {                /* an empty sheet with no block: nothing to write */
+    } else if (found || (n > 0 && !sdk_sheet_empty())) {   /* an empty sheet with no block: nothing to write */
         const size_t total = n ? head + (size_t)n + strlen(after) : 0;
         if (n)
             memcpy(text + head + n, after, strlen(after));

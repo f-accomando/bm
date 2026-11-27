@@ -28,6 +28,10 @@ int main(int argc, char **argv)
           pic[256 * 50 + 10] == pic[256 * 100 + 200]);
     CHECK("the blue is blue", pic && (pic[256 * 50 + 10] & 0x1F) > 20 && (pic[256 * 50 + 10] >> 11) < 8);
     CHECK("no button: pad is 0", S.wram[0x00] == 0 && S.wram[0x01] == 0);
+    /* the ball: the tile 1 of the sheet in the video memory, the sprite 0 at 124,108, white in its middle */
+    CHECK("the sheet is in the video memory", S.vram[32] != 0 || S.vram[33] != 0);
+    CHECK("the sprite 0", S.wram[0x200] == 124 && S.wram[0x201] == 108 && S.wram[0x202] == 1);
+    CHECK("the ball shows", pic && pic[256 * 111 + 127] != pic[256 * 50 + 10]);
     for (int i = 0; i < 3; i++) snes_frame(SNES_PAD_A | SNES_PAD_START, 0, 1);
     CHECK("A and Start: pad = $1080", S.wram[0x00] == 0x80 && S.wram[0x01] == 0x10);
     CHECK("held: pad_old = pad", S.wram[0x02] == 0x80 && S.wram[0x03] == 0x10);
@@ -36,6 +40,8 @@ int main(int argc, char **argv)
     CHECK("a new button: pad_new = Up ($0800)", S.wram[0x04] == 0 && S.wram[0x05] == 0x08);
     snes_frame(SNES_PAD_A | SNES_PAD_START | SNES_PAD_UP, 0, 1);
     CHECK("then held: pad_new = 0", S.wram[0x04] == 0 && S.wram[0x05] == 0);
+    for (int i = 0; i < 10; i++) snes_frame(SNES_PAD_RIGHT, 0, 1);
+    CHECK("Right moves the ball", S.wram[0x200] >= 132 && S.wram[0x200] <= 136);
     printf("sdk_tpl_run (SNES): %d frames counted, %s\n", frames, fails ? "FAILED" : "ok");
     return fails ? 1 : 0;
 }

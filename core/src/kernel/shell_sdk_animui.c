@@ -25,7 +25,8 @@
 #include "usb/hid.h"
 
 enum { EDIT, SAVE, IMPORT };
-enum { F_NAME, F_SIZE, F_FRAMES, F_SPEED, F_PALETTE, F_REUSE, FIELDS };
+enum { F_NAME, F_SIZE, F_FRAMES, F_SPEED, F_PALETTE, F_REUSE, F_BIG, FIELDS };    /* F_BIG: SNES only */
+#define PICK_ROWS 16                    /* the rows of the sheet that the picker shows */
 
 #define TOP_ROW_ART 3                   /* the first text row of the frames */
 #define ART_ROWS 11                     /* and how many they take */
@@ -87,6 +88,13 @@ static int within(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v;
 static int width(void) { return work.wide * 8; }
 static int height(void) { return work.high * 8; }
 static int colours(void) { return sdk_tile_colors(format); }
+static int on_snes(void) { return chr == SDK_CHR_SNES || chr == SDK_CHR_SNES_C; }
+static int tile_limit(void) { return on_snes() ? 512 : 256; }
+static int palettes(void) { return on_snes() ? 8 : 4; }
+static int fields(void) { return on_snes() ? FIELDS : F_BIG; }
+static int tiles_of(const sdk_anim_plan_t *p) { return p->count * (p->side == 16 ? 4 : 1); }
+/* The first row of the sheet that the picker shows: the cursor in view. */
+static int pick_top(void) { return within(pick_tile / 16 - PICK_ROWS / 2, 0, tile_limit() / 16 - PICK_ROWS); }
 
 static void settle(void)
 {
@@ -107,6 +115,8 @@ static void open_anim(int i)
     selecting = 0;
     if (have) {
         work = all.anim[sel];
+        if (!on_snes())
+            work.big = 0;
         sdk_anim_load(&work, pix);
         reuse = 1;
         settle();
@@ -307,17 +317,19 @@ static void draw_edit(void)
     col = labelled(1, col, "Frames", v, header && field == F_FRAMES);
     snprintf(v, sizeof v, "%d", work.speed);
     col = labelled(1, col, "Speed", v, header && field == F_SPEED);
-    snprintf(v, sizeof v, "%d", work.cell[0][0][1] & 3);
+    snprintf(v, sizeof v, "%d", work.cell[0][0][1] & 7);
     col = labelled(1, col, "Pal", v, header && field == F_PALETTE);
-    labelled(1, col, "Reuse", reuse ? "mirrors" : "off", header && field == F_REUSE);
+    col = labelled(1, col, "Reuse", reuse ? "mirrors" : "off", header && field == F_REUSE);
+    if (on_snes())
+        labelled(1, col, "Spr", work.big ? "16x16" : "8x8", header && field == F_BIG);
     sdk_anim_plan(&work, pix, reuse, &plan);
     int cells = 0;
     for (int f = 0; f < work.frames; f++)
-        for (int i = 0; i < work.wide * work.high; i++)
+        for (int i = 0; i < sdk_anim_across(&work) * sdk_anim_down(&work); i++)
             cells += plan.use[f][i] >= 0;
     char b[96];
     snprintf(b, sizeof b, "frame %d/%d  pixel %d,%d   %d tile%s for %d cells   %s", frame + 1, work.frames, cx, cy,
-             plan.count, plan.count == 1 ? "" : "s", cells, unsaved ? "not saved" : "saved");
+             tiles_of(&plan), tiles_of(&plan) == 1 ? "" : "s", cells, unsaved ? "not saved" : "saved");
     text(2, 2, unsaved ? "93" : "90", b);
     text(2, 64, "96", "preview");
 }
@@ -327,14 +339,14 @@ static void draw_picker(void)
     char b[80];
     sdk_anim_plan(&work, pix, reuse, &plan);
     if (mode == SAVE)
-        snprintf(b, sizeof b, " Save anim_%s: %d tile%s from $%02X", work.name, plan.count,
-                 plan.count == 1 ? "" : "s", (unsigned)pick_tile);
+        snprintf(b, sizeof b, " Save anim_%s: %d tile%s from $%02X", work.name, tiles_of(&plan),
+                 tiles_of(&plan) == 1 ? "" : "s", (unsigned)pick_tile);
     else
         snprintf(b, sizeof b, " Import into anim_%s: %d frames of %dx%d from $%02X", work.name, work.frames,
                  width(), height(), (unsigned)pick_tile);
     sdk_title_bar(1, 1, screen_cols, b, 1);
-    for (int r = 0; r < 16; r++) {
-        snprintf(b, sizeof b, "%02X", r * 16);
+    for (int r = 0; r < PICK_ROWS; r++) {
+        snprintf(b, sizeof b, "%03X", (pick_top() + r) * 16);
         text(3 + r, 2, "90", b);
     }
     const int col = SHEET_LEFT + 34;
@@ -342,7 +354,7 @@ static void draw_picker(void)
         int where[SDK_ANIM_UNIQUE];
         uint8_t own[SDK_ANIM_TILES];
         sdk_anim_own(&all, sel, own);
-        const int fit = sdk_anim_spots(&plan, pick_tile, sel < all.count ? own : NULL, where);
+        const int fit = sdk_anim_spots(&plan, pick_tile, tile_limit(), sel < all.count ? own : NULL, where);
         text(3, col, "93", "Yellow: where they go");
         text(5, col, "37", "Empty tiles are taken, and the");
         text(6, col, "37", "tiles this animation had.");
@@ -352,7 +364,7 @@ static void draw_picker(void)
         }
     } else {
         text(3, col, "96", "Blue: the frames, side by side");
-        if ((pick_tile % 16) + work.frames * work.wide > 16 || pick_tile / 16 + work.high > 16)
+        if ((pick_tile % 16) + work.frames * work.wide > 16 || pick_tile / 16 + work.high > tile_limit() / 16)
             text(5, col, "91", "They pass the sheet from here");
     }
 }
@@ -366,9 +378,10 @@ static void paint_picker(void)
     console_cell_geometry(&cw, &ch, &top);
     const int side = (int)ch;                           /* a tile a row of text */
     const int x0 = (SHEET_LEFT - 1) * (int)cw, y0 = (int)top + 2 * (int)ch;
-    for (int t = 0; t < SDK_ANIM_TILES; t++) {
+    const int top_row = pick_top();
+    for (int t = top_row * 16; t < (top_row + PICK_ROWS) * 16; t++) {
         const sdk_tile_t *tile = sdk_sheet_tile(t / 16, t % 16);
-        const int x = x0 + (t % 16) * side, y = y0 + (t / 16) * side;
+        const int x = x0 + (t % 16) * side, y = y0 + (t / 16 - top_row) * side;
         gfx_rect(fb, x, y, side, side, fb_color(fb, 56, 56, 56));
         gfx_rect(fb, x + 1, y + 1, side - 1, side - 1, fb_color(fb, 16, 16, 16));
         if (!tile->used)
@@ -382,21 +395,25 @@ static void paint_picker(void)
         int where[SDK_ANIM_UNIQUE];
         uint8_t own[SDK_ANIM_TILES];
         sdk_anim_own(&all, sel, own);
-        const int fit = sdk_anim_spots(&plan, pick_tile, sel < all.count ? own : NULL, where);
-        for (int i = 0; i < fit; i++)
-            frame_rect(fb, x0 + (where[i] % 16) * side, y0 + (where[i] / 16) * side, side, side, 2,
-                       fb_color(fb, 255, 220, 0));
+        const int fit = sdk_anim_spots(&plan, pick_tile, tile_limit(), sel < all.count ? own : NULL, where);
+        const int n = plan.side / 8;
+        for (int i = 0; i < fit; i++) {
+            const int row = where[i] / 16 - top_row;
+            if (row >= 0 && row + n <= PICK_ROWS)
+                frame_rect(fb, x0 + (where[i] % 16) * side, y0 + row * side, n * side, n * side, 2,
+                           fb_color(fb, 255, 220, 0));
+        }
     } else {
         const int column = pick_tile % 16, row = pick_tile / 16;
         for (int f = 0; f < work.frames; f++) {
             const int c = column + f * work.wide;
-            if (c + work.wide > 16 || row + work.high > 16)
+            if (c + work.wide > 16 || row - top_row + work.high > PICK_ROWS)
                 break;
-            frame_rect(fb, x0 + c * side, y0 + row * side, work.wide * side, work.high * side, 2,
+            frame_rect(fb, x0 + c * side, y0 + (row - top_row) * side, work.wide * side, work.high * side, 2,
                        fb_color(fb, 0, 200, 255));
         }
     }
-    frame_rect(fb, x0 + (pick_tile % 16) * side, y0 + (pick_tile / 16) * side, side, side, 1,
+    frame_rect(fb, x0 + (pick_tile % 16) * side, y0 + (pick_tile / 16 - top_row) * side, side, side, 1,
                fb_color(fb, 255, 255, 255));
 }
 
@@ -568,15 +585,25 @@ static void set_header(int d)
         i = within(i + d, 0, count - 1);
         work.wide = sizes[i][0];
         work.high = sizes[i][1];
+        if (work.big && (work.wide & 1 || work.high & 1)) {
+            work.big = 0;
+            snprintf(sdk_note, sizeof sdk_note, "This size takes 8x8 sprites");
+        }
     } else if (field == F_FRAMES)
         work.frames = (uint8_t)within(work.frames + d, 1, SDK_ANIM_FRAMES);
     else if (field == F_SPEED)
         work.speed = (uint8_t)within(work.speed + d, 1, 60);
     else if (field == F_PALETTE) {
-        const int p = ((work.cell[0][0][1] & 3) + 4 + d) % 4;
+        const int p = ((work.cell[0][0][1] & 7) + palettes() + d) % palettes();
         for (int f = 0; f < SDK_ANIM_FRAMES; f++)
             for (int i = 0; i < SDK_ANIM_CELLS; i++)
-                work.cell[f][i][1] = (uint8_t)((work.cell[f][i][1] & ~3) | p);
+                work.cell[f][i][1] = (uint8_t)((work.cell[f][i][1] & ~7) | p);
+    } else if (field == F_BIG) {
+        if (!work.big && (work.wide & 1 || work.high & 1)) {
+            snprintf(sdk_note, sizeof sdk_note, "16x16 sprites need an even width and height");
+            return;
+        }
+        work.big = !work.big;
     } else
         reuse = !reuse;
     unsaved = 1;
@@ -594,13 +621,13 @@ static void save(void)
     uint8_t own[SDK_ANIM_TILES];
     sdk_anim_plan(&work, pix, reuse, &plan);
     sdk_anim_own(&all, sel, own);
-    const int fit = sdk_anim_spots(&plan, pick_tile, sel < all.count ? own : NULL, where);
+    const int fit = sdk_anim_spots(&plan, pick_tile, tile_limit(), sel < all.count ? own : NULL, where);
     if (fit < plan.count) {
-        snprintf(sdk_note, sizeof sdk_note, "Only %d of %d tiles fit from $%02X", fit, plan.count,
-                 (unsigned)pick_tile);
+        snprintf(sdk_note, sizeof sdk_note, "Only %d of %d %s fit from $%02X", fit, plan.count,
+                 plan.side == 16 ? "16x16 blocks" : "tiles", (unsigned)pick_tile);
         return;
     }
-    const int palette = work.cell[0][0][1] & 3;
+    const int palette = work.cell[0][0][1] & 7;
     sdk_anim_place(&work, &plan, where, format, palette);
     if (sel >= all.count)
         sel = all.count++;
@@ -609,19 +636,23 @@ static void save(void)
     mode = EDIT;
     write_code(1);
     if (!sdk_note[0])
-        snprintf(sdk_note, sizeof sdk_note, "Saved anim_%s: %d tiles in the sheet", work.name, plan.count);
+        snprintf(sdk_note, sizeof sdk_note, "Saved anim_%s: %d tiles in the sheet", work.name, tiles_of(&plan));
 }
 
 static void picker_key(int key)
 {
     if (key == HID_KEY_LEFT)
-        pick_tile = within(pick_tile - 1, 0, 255);
+        pick_tile = within(pick_tile - 1, 0, tile_limit() - 1);
     else if (key == HID_KEY_RIGHT)
-        pick_tile = within(pick_tile + 1, 0, 255);
+        pick_tile = within(pick_tile + 1, 0, tile_limit() - 1);
     else if (key == HID_KEY_UP)
         pick_tile = pick_tile >= 16 ? pick_tile - 16 : pick_tile;
     else if (key == HID_KEY_DOWN)
-        pick_tile = pick_tile < 240 ? pick_tile + 16 : pick_tile;
+        pick_tile = pick_tile < tile_limit() - 16 ? pick_tile + 16 : pick_tile;
+    else if (key == HID_KEY_PGUP)
+        pick_tile = within(pick_tile - 16 * PICK_ROWS, pick_tile % 16, tile_limit() - 1);
+    else if (key == HID_KEY_PGDN)
+        pick_tile = pick_tile + 16 * PICK_ROWS < tile_limit() ? pick_tile + 16 * PICK_ROWS : pick_tile;
     else if (key == 0x08 || key == 0x7F)
         mode = EDIT;
     else if (key == '\r' || key == '\n') {
@@ -749,15 +780,15 @@ int sdk_animui_key(int key, int mods)
     if (key == 'w' || key == 'i') {
         mode = key == 'w' ? SAVE : IMPORT;
         if (key == 'w' && sel < all.count && !(work.cell[0][0][1] & SDK_ANIM_EMPTY))
-            pick_tile = work.cell[0][0][0];     /* where it was */
+            pick_tile = sdk_anim_tile(work.cell[0][0]);    /* where it was */
         selecting = 0;
         return 1;
     }
     if (header) {
         if (key == HID_KEY_LEFT)
-            field = (field + FIELDS - 1) % FIELDS;
+            field = (field + fields() - 1) % fields();
         else if (key == HID_KEY_RIGHT)
-            field = (field + 1) % FIELDS;
+            field = (field + 1) % fields();
         else if (key == HID_KEY_DOWN)
             header = 0;
         else if (d)

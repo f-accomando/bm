@@ -5617,6 +5617,35 @@ def test_shell_sdk_animation(b, opts):
         has("Animation not saved")
         q.send(SDK_DOWN + b"\r")
         has("Unsaved changes")
+        q.send(b"\r")                                # keep working
+        q.send("\x0e")                              # Ctrl+N: a SNES project: 16x16 sprites, 512 tiles
+        time.sleep(0.5)
+        for _ in range(2):                          # the animation, then the project
+            if any("Animation not saved" in r or "Unsaved changes" in r for r in screen()):
+                q.send(SDK_DOWN + b"\r")
+                time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_RIGHT)
+        has("SNES cartridge")
+        q.send(bytes([0xFB]))
+        q.send("a")
+        has("Animation: none yet")
+        q.send("n")
+        has("Spr  8x8")
+        q.send(SDK_RIGHT * 6 + b"=")                # the setting Spr
+        has("Spr  16x16")
+        q.send(SDK_DOWN + b" ")
+        has("4 tiles for 1 cells")
+        q.send("w")
+        has("Save anim_spin: 4 tiles from $00", "000", "0F0")
+        q.send("\r")
+        time.sleep(1.0)
+        has("Saved anim_spin: 4 tiles in the sheet", "main.s  anim_spin", ".byte $82, 2, 4, 8")
+        q.send("a")
+        q.send(bytes([0xE6]))                       # F6: the start file and the block assemble
+        time.sleep(2.5)
+        has("no mistakes: ROM")
+        q.send("\x11")                              # Ctrl+Q: leave, the project is not saved
+        has("Unsaved changes")
         q.send(SDK_DOWN + b"\r")
         q.expect("> ", timeout=10)
     finally:

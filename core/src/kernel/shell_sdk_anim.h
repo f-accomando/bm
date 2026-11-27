@@ -5,8 +5,10 @@
  * bm C), one list anim_NAME for each:
  *
  *     width, height (in tiles), frames, speed (screen frames a frame), then for each frame, row by row,
- *     tile, attribute for each cell. The attribute: the palette (0 to 3), $40 mirrored, $80 upside down,
- *     $10 an empty cell.
+ *     tile, attribute for each cell. The attribute: the palette (0 to 3; SNES 0 to 7), $08 the tile + 256
+ *     (SNES), $40 mirrored, $80 upside down, $10 an empty cell.
+ *
+ * SNES: a width of $80 + tiles says 16x16 sprites: a cell is then 16x16 pixels, the tiles t, t+1, t+16, t+17.
  *
  * The pixels live in the sheet; the tab edits them in a workspace and puts them back with sdk_anim_plan and
  * sdk_anim_place. Pure model: the tests run on the PC.
@@ -23,14 +25,16 @@
 #define SDK_ANIM_CELLS (SDK_ANIM_SIDE * SDK_ANIM_SIDE)
 #define SDK_ANIM_PIXELS (SDK_ANIM_SIDE * 8)
 #define SDK_ANIM_UNIQUE (SDK_ANIM_FRAMES * SDK_ANIM_CELLS)
-#define SDK_ANIM_TILES 256              /* a sprite names a tile 0 to 255 */
+#define SDK_ANIM_TILES 512              /* the sheet; a NES sprite names a tile 0 to 255 */
 #define SDK_ANIM_NAME 12                /* with the NUL */
 
-enum { SDK_ANIM_EMPTY = 0x10, SDK_ANIM_FLIP_X = 0x40, SDK_ANIM_FLIP_Y = 0x80 };
+enum { SDK_ANIM_HIGH = 0x08, SDK_ANIM_EMPTY = 0x10, SDK_ANIM_FLIP_X = 0x40, SDK_ANIM_FLIP_Y = 0x80 };
+#define SDK_ANIM_BIG 0x80               /* in the width: 16x16 sprites */
 
 typedef struct {
     char name[SDK_ANIM_NAME];           /* without anim_ */
-    uint8_t wide, high, frames, speed;
+    uint8_t wide, high, frames, speed;  /* wide, high: in tiles */
+    uint8_t big;                        /* 16x16 sprites (SNES): a cell is 2x2 tiles */
     uint8_t cell[SDK_ANIM_FRAMES][SDK_ANIM_CELLS][2];    /* tile, attribute; row by row */
     int line;                           /* of the source (0: not read from it) */
 } sdk_anim_t;
@@ -59,18 +63,25 @@ void sdk_anim_load(const sdk_anim_t *a, sdk_anim_pixels_t pix);
 /* What the frames need: the tiles to write (each 64 pixels) and for each cell which one and how it is flipped.
  * reuse: cells that are the same, also mirrored or upside down, take one tile. */
 typedef struct {
-    int count;                                          /* tiles */
-    uint8_t tile[SDK_ANIM_UNIQUE][64];
-    int16_t use[SDK_ANIM_FRAMES][SDK_ANIM_CELLS];       /* the tile of the cell, -1: empty */
+    int count;                                          /* blocks: a tile, or 16x16 pixels */
+    int side;                                           /* their pixels across: 8 or 16 */
+    uint8_t tile[SDK_ANIM_UNIQUE][256];
+    int16_t use[SDK_ANIM_FRAMES][SDK_ANIM_CELLS];       /* the block of the cell, -1: empty */
     uint8_t flip[SDK_ANIM_FRAMES][SDK_ANIM_CELLS];      /* SDK_ANIM_FLIP_X, _Y */
 } sdk_anim_plan_t;
 
 void sdk_anim_plan(const sdk_anim_t *a, sdk_anim_pixels_t pix, int reuse, sdk_anim_plan_t *p);
 
-/* Where the tiles of a plan go: from the tile `start`, in the order of the sheet, into the empty cells and into
- * the tiles `own` (flags, SDK_ANIM_TILES; NULL: none). where[] gets p->count numbers. Returns how many found a
+/* The cells of a frame across and down, and the tile that a cell names. */
+int sdk_anim_across(const sdk_anim_t *a);
+int sdk_anim_down(const sdk_anim_t *a);
+int sdk_anim_tile(const uint8_t cell[2]);
+
+/* Where the blocks of a plan go: from the tile `start`, in the order of the sheet and below `limit` (256 NES,
+ * 512 SNES), into the empty cells and into the tiles `own` (flags, SDK_ANIM_TILES; NULL: none). A 16x16 block takes
+ * the tiles t, t+1, t+16, t+17. where[] gets p->count numbers (the first tile of each). Returns how many found a
  * place: p->count when they all fit. */
-int sdk_anim_spots(const sdk_anim_plan_t *p, int start, const uint8_t *own, int *where);
+int sdk_anim_spots(const sdk_anim_plan_t *p, int start, int limit, const uint8_t *own, int *where);
 
 /* The tiles of an animation that no other one names: they are its own, and writing it again may use them. */
 void sdk_anim_own(const sdk_anims_t *all, int which, uint8_t own[SDK_ANIM_TILES]);
@@ -96,7 +107,8 @@ int sdk_anim_called(const char *src, size_t len, int c);
 /* animate(sprite, x, y, anim_NAME) in bm C, put after a program that calls it: it draws the frame of now. */
 const char *sdk_anim_prelude(int snes);
 
-/* The source of a NES assembly project with the routines anim_draw and anim_tick after the block. */
+/* The source of an assembly project with the routines anim_draw and anim_tick: of the NES after the block, of
+ * the SNES at the end (they say the widths of the registers). */
 typedef struct {
     char *text;             /* from malloc; NULL: the source as it is */
     size_t len;
@@ -104,7 +116,7 @@ typedef struct {
 } sdk_anim_src_t;
 
 /* Returns 0, or -1 with the message in err. */
-int sdk_anim_expand(const char *src, size_t len, sdk_anim_src_t *s, char *err, size_t en);
+int sdk_anim_expand(const char *src, size_t len, int snes, sdk_anim_src_t *s, char *err, size_t en);
 /* The assembler's message for the expanded source: its line of the source. */
 void sdk_anim_error_line(const sdk_anim_src_t *s, char *err, size_t en);
 

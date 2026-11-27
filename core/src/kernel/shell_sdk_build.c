@@ -85,9 +85,9 @@ int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t 
         ram_size = c.ram_size;
         sdk_cc_free(&c);
     } else {
-        /* NES: the routines of the animations and the sound driver go into the source */
+        /* the routines of the animations and, on the NES, the sound driver go into the source */
         sdk_anim_src_t a = { 0 };
-        if (p->target == SDK_NES && sdk_anim_expand(source, len, &a, err, en) != 0)
+        if (p->target != SDK_BM && sdk_anim_expand(source, len, p->target == SDK_SNES, &a, err, en) != 0)
             return -1;
         if (a.text) {
             source = a.text;

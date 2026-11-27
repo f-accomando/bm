@@ -142,7 +142,7 @@ static const line_t anim_set[] = {
 
 static const line_t place[] = {
     { "Animation: the sheet", NULL },
-    { "Arrows", "the first tile" },
+    { "Arrows PgUp PgDn", "the first tile" },
     { "Enter", "save or import here" },
     { "a / Backspace", "cancel" },
     { NULL, NULL } };
