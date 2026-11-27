@@ -138,7 +138,7 @@ static void test_apu(void)
     float lo = 0, hi = 0;
     for (int i = 0; i < 512; i++) { if (buf[2 * i] < lo) lo = buf[2 * i]; if (buf[2 * i] > hi) hi = buf[2 * i]; }
     CHECK(sound == 1 && hi > 0.05f && lo < -0.05f, "pulse wave: sound %d range %.3f..%.3f", sound, lo, hi);
-    /* a pulse of period $50 is 1789773 / (16 * 81) = 1381 Hz: at 48 kHz about 35 samples a cycle; count the rising crossings in 512 samples */
+    /* a pulse of period $50 plays at 1786830 / (16 * 81) = 1379 Hz: at 48 kHz about 35 samples a cycle; count the rising crossings in 512 samples */
     int cross = 0;
     for (int i = 1; i < 512; i++) if (buf[2 * (i - 1)] < 0.0f && buf[2 * i] >= 0.0f) cross++;
     CHECK(cross >= 12 && cross <= 16, "pitch: %d rising crossings in 512 samples (14 expected)", cross);
@@ -321,18 +321,29 @@ static void test_pal_sound(void)
         int cross = 0, first = 0, last = 0;
         for (int i = 1; i < 2048; i++) if (buf[2 * (i - 1)] < 0.0f && buf[2 * i] >= 0.0f) { if (!cross++) first = i; last = i; }
         const double hz = cross > 1 ? (cross - 1) * 48000.0 / (last - first) : 0;
-        /* NTSC 1789773 / (16 * 81) = 1381 Hz; PAL 1662375 / (16 * 81) = 1283 Hz */
-        const double want = pal ? 1283 : 1381;
+        /* the sound follows the caller's frame rate: NTSC 1786830 / (16 * 81) = 1379 Hz; PAL 1662375 / (16 * 81) = 1283 Hz */
+        const double want = pal ? 1283 : 1379;
         CHECK(cross > 30 && hz > want - 8 && hz < want + 8, "pitch (pal %d): %.0f Hz from %d crossings (first %d last %d), %.0f expected", pal, hz, cross, first, last, want);
-        /* the samples of two frames: PAL 1920, NTSC 1597; the rest of 2048 is missing */
+        /* the samples of two frames: PAL 1920, NTSC 1600; the rest of 2048 is missing */
         nes_reset();
         for (int i = 0; i < 2; i++) nes_frame(0, 0, 0);
         nes_debug_t a, b;
         nes_debug(&a);
         nes_audio_mix(buf, 2048, 1.0f);
         nes_debug(&b);
-        const int under = (int)(b.audio_under - a.audio_under), exp_under = pal ? 128 : 451;
+        const int under = (int)(b.audio_under - a.audio_under), exp_under = pal ? 128 : 448;
         CHECK(under >= exp_under - 3 && under <= exp_under + 3, "samples of two frames (pal %d): %d missing, %d expected", pal, under, exp_under);
+        /* ten seconds, each frame followed by the samples the output takes in that time: none missing, none piling up */
+        const unsigned per_frame = pal ? 960 : 800;
+        nes_reset();
+        nes_debug(&a);
+        for (int i = 0; i < (pal ? 500 : 600); i++) { nes_frame(0, 0, 0); nes_audio_mix(buf, per_frame, 1.0f); }
+        nes_debug(&b);
+        const int short_by = (int)(b.audio_under - a.audio_under);
+        nes_audio_mix(buf, 2048, 1.0f);
+        nes_debug(&a);
+        const int left = 2048 - (int)(a.audio_under - b.audio_under);
+        CHECK(short_by <= 2 && left <= 8, "ten seconds of sound (pal %d): %d samples missing, %d left over", pal, short_by, left);
     }
 }
 

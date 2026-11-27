@@ -468,11 +468,11 @@ static const uint16_t dmc_tabs[2][16] = {
     { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 },
     { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 } };
 static const uint16_t *noise_tab = noise_tabs[0], *dmc_tab = dmc_tabs[0];
-/* The CPU cycles of one second of sound (one output sample each 1/48000 of it). NTSC: the console's clock, 1789773 Hz.
- * PAL: the cycles of 50 frames (33247.5 each) instead of the clock's 1662607 Hz, because the caller runs exactly 50
- * frames a second: 960 samples a frame, and the output never runs short. */
-static const int snd_hz_tab[2] = { 1789773, 1662375 };
-static int snd_hz = 1789773;
+/* The CPU cycles of one second of sound (one output sample each 1/48000 of it): the cycles of the frames the caller runs
+ * in a second, not the console's clock, so the output never runs short. NTSC: 60 frames of 29780.5 cycles (the clock,
+ * 1789773 Hz, is 60.1 frames): 800 samples a frame. PAL: 50 frames of 33247.5 cycles (1662607 Hz is 50.007 frames): 960. */
+static const int snd_hz_tab[2] = { 1786830, 1662375 };
+static int snd_hz = 1786830;
 static const uint8_t tri_tab[32] = { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
 typedef struct {

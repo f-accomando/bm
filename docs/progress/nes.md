@@ -48,7 +48,7 @@ The parts of `nes.c`:
 - The machine is plain C with no dependence on the kernel, so the host tests build it alone. Keep `nes.c` free of kernel headers.
 - The time is in CPU cycles. A line is 341 dots. The vblank starts at line 241. The last line of a frame is the pre-render line.
 - Keep every value that depends on the region in `set_timing`: NTSC has 3 dots to a cycle and 262 lines; PAL has 3.2 dots to a cycle and 312 lines, no short odd frame, and its own noise, DMC and frame counter tables.
-- The sound of a PAL frame is 960 samples (50 frames a second exactly), not the console's 50.007. The caller runs 50 frames a second.
+- Resample the sound for the frames the caller runs in a second: 60 for NTSC (800 samples a frame) and 50 for PAL (960 samples a frame). Do not use the console's CPU clock (60.1 and 50.007 frames): the output runs short.
 - A visible line is drawn at its start from the registers at that moment. At dot 257 the vertical bits of `v` go up by one line and the horizontal bits come from `t`.
   A write to `$2006` after dot 257 works on the next line. A write in the middle of a line does not change that line.
 - The PPU registers are read and written through `ppu_read` and `ppu_write`. A read of `$2002` checks the sprite 0 dot (`s0_dot`) at that moment.
