@@ -411,6 +411,7 @@ static void do_new(void)
     pname[0] = 0;
     sdk_code_reset();
     sdk_sounds_reset();
+    sdk_sprite_new_project();
     load_template();
     dirty = 0;
     say("%s", "a new project: Esc > Save as gives it a name");
@@ -446,6 +447,7 @@ static void do_open(void)
     sdk_edit_set(source ? source : "", source_len);
     free(source);
     sdk_sounds_reset();
+    sdk_sprite_new_project();
     seen_rev = sdk_edit_revision();
     dirty = 0;
     say("opened %s", names[pick]);
@@ -675,10 +677,12 @@ static int held_mods(void)
 /* The next key. While the Sounds tab plays, the frames of the sound run between the keys. */
 static int wait_key(void)
 {
-    while (sdk_play_what() != SDK_PLAY_NOTHING) {
+    while (sdk_play_what() != SDK_PLAY_NOTHING || (cur_tab == SDK_TAB_SPRITE && sdk_sprite_animating())) {
         const int c = input_key();
         if (c >= 0)
             return c & 0xFF;
+        if (cur_tab == SDK_TAB_SPRITE)
+            sdk_sprite_tick();                  /* the preview of an animation */
         if (sdk_play_tick()) {
             if (sdk_play_what() == SDK_PLAY_NOTHING)
                 draw(cur_tab);
@@ -739,6 +743,8 @@ int shell_sdk_open(void)
             cur_tab = t;
         } else if (cur_tab == SDK_TAB_SOUNDS && sdk_sounds_typing())
             sdk_sounds_key(c, prefix | held_mods());           /* a name: Esc ends it too */
+        else if (cur_tab == SDK_TAB_SPRITE && sdk_sprite_typing())
+            sdk_sprite_key(c, prefix | held_mods());
         else if (c == 0x1B) {
             sdk_play_stop();
             if (esc_menu())

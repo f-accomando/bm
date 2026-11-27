@@ -5527,6 +5527,99 @@ def test_shell_sdk_sounds(b, opts):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_shell_sdk_animation(b, opts):
+    """Shell SDK (2026-11-27): the animation mode of the Sprite tab (a): a new animation, pixels painted, a mirrored
+    frame, a copy into the next one, the tiles counted with their mirrors, saved in the sheet and in the code,
+    Check; the same in bm C."""
+    tmp = tempfile.mkdtemp(prefix="bm-sdk-")
+    img = os.path.join(tmp, "sd.img")
+    cfg = os.path.join(tmp, "config.txt")
+    with open(cfg, "w") as f:
+        f.write("layout=us\nwifi_boot=0\n")
+    mksd.build(img, [(cfg, "bm/config.txt"), (cfg, "config.txt")])
+    q = Qemu(b("kernel.img"), ["-drive", f"if=sd,format=raw,file={img}"] + USB_KBD)
+
+    def screen():
+        time.sleep(0.8)
+        return screen_text(q.screendump())
+
+    def has(*words):
+        rows = screen()
+        for w in words:
+            assert any(w in r for r in rows), (w, rows)
+
+    try:
+        q.expect(MENU, timeout=30)
+        q.send("q")
+        q.expect("> ", timeout=10)
+        q.send("d")
+        q.expect("> ", timeout=10)
+        q.send("d")                                 # Shell SDK
+        q.expect("> ", timeout=10)
+        q.send("\r")
+        time.sleep(0.5)
+        q.send(bytes([0xFB]))                       # F3: the Sprite tab
+        q.send("a")
+        has("Animation: none yet")
+        q.send("n")
+        has("Anim  spin", "Size  16x16", "Frames  4", "not saved", "0 tiles for 0 cells")
+        q.send(SDK_DOWN + b" ")                     # to the pixels; one at the corner of frame 1
+        has("1 tile for 1 cells")
+        q.send("m")                                 # mirrored: to the other corner; paint the first one again
+        q.send(" ")
+        has("1 tile for 2 cells")                   # the two cells are one tile, mirrored
+        img1 = q.screendump()
+        assert sum(pixel(img1, 8 + 2, 50 + 2)) > 300, pixel(img1, 8 + 2, 50 + 2)    # the pixel shows
+        q.send("d")                                 # frame 2 as frame 1
+        has("frame 2/4", "1 tile for 4 cells")
+        q.send("w")                                 # where the tiles go
+        has("Save anim_spin: 1 tile from $00")
+        q.send("\r")
+        time.sleep(1.0)
+        has("Saved anim_spin: 1 tiles in the sheet", "saved", "main.s  anim_spin  line", ".byte 2, 2, 4, 8")
+        q.monitor("sendkey f12 3000")
+        time.sleep(1.0)
+        has("Animation: frames", "mirror / flip")
+        time.sleep(3.0)
+        q.send("a")                                 # back to the sprites: the sheet has the tile
+        has("Spritesheet")
+        q.send(bytes([0xE6]))                       # F6: the block assembles
+        time.sleep(2.0)
+        has("no mistakes: ROM")
+        sendkeys(q, "ctrl-z")                       # one step: the block and the tile go
+        rows = screen()
+        assert not any(";@anim" in r for r in rows), rows
+        q.send(bytes([0xFB]) + b"a")
+        has("Animation: none yet")
+        q.send("a")
+        q.send("\x0e")                              # Ctrl+N: a new project, in bm C
+        time.sleep(0.5)
+        if any("Unsaved changes" in r for r in screen()):
+            q.send(SDK_DOWN + b"\r")
+            time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_DOWN + SDK_RIGHT)
+        has("C (bm C)")
+        q.send(bytes([0xFB]))
+        q.send("a")
+        has("Animation: none yet")
+        q.send("n" + "")
+        q.send(SDK_DOWN + b" ")
+        q.send("w\r")
+        time.sleep(1.0)
+        has("main.c  anim_spin  line", "const byte anim_spin[]")
+        q.send("a")
+        q.send(bytes([0xE6]))
+        time.sleep(2.0)
+        has("no mistakes: ROM")
+        q.send("\x11")                              # Ctrl+Q
+        has("Unsaved changes")
+        q.send(SDK_DOWN + b"\r")
+        q.expect("> ", timeout=10)
+    finally:
+        q.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_shell_sdk_editor_keys(b, opts):
     """Shell SDK Code tab (2026-11-23): the keys of bm Code on a USB keyboard. Shift with a move selects,
     Ctrl+Left skips a word, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+D, PgUp, Ctrl+A."""

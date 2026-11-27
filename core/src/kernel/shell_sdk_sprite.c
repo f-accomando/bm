@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "drivers/fb.h"
+#include "shell_sdk_animui.h"
 #include "gfx/console.h"
 #include "gfx/draw.h"
 #include "shell_sdk_canvas.h"
@@ -55,6 +56,7 @@ static char code_err[48];               /* why its tiles block cannot be read ("
 static char info[2][48];                /* the head of the sheet: its size, for this project */
 static int import_armed;                /* i was pressed on a sheet with tiles: again replaces them */
 static int show_code = 1;               /* the code under the panes (v) */
+static int animating;                   /* the animation mode (a) has the tab */
 
 void sdk_sprite_reset(void)
 {
@@ -71,6 +73,8 @@ void sdk_sprite_reset(void)
     info[0][0] = info[1][0] = 0;
     import_armed = 0;
     show_code = 1;
+    animating = 0;
+    sdk_animui_reset();
 }
 
 static int chr_kind(void)
@@ -873,8 +877,23 @@ static void code_draw(int top, int rows, int cols)
 
 /* ---- the Sprite tab ---- */
 
+int sdk_sprite_animating(void) { return animating && sdk_animui_playing(); }
+void sdk_sprite_tick(void) { sdk_animui_tick(); }
+int sdk_sprite_typing(void) { return animating && sdk_animui_typing(); }
+
+void sdk_sprite_new_project(void)
+{
+    animating = 0;
+    sdk_animui_reset();
+}
+
 void sdk_sprite_draw(int cols, int rows, const char *msg)
 {
+    if (animating && code_kind != SDK_SPRITE_NONE) {
+        sdk_animui_sync(chr_kind(), !code_err[0]);
+        sdk_animui_draw(cols, rows, msg);
+        return;
+    }
     uint32_t cw = 8, ch = 16, top = 0;
     console_cell_geometry(&cw, &ch, &top);
     int wide = SHEET_GUTTER + (SDK_SHEET_W * 8 * ((int)ch / 8) + (int)cw - 1) / (int)cw;
@@ -922,12 +941,26 @@ void sdk_sprite_draw(int cols, int rows, const char *msg)
 
 int sdk_sprite_keys(void)
 {
+    if (animating)
+        return sdk_animui_keys();
     return focus != ON_LEFT ? SDK_KEYS_SHEET : rom && !hidden ? SDK_KEYS_TILES : SDK_KEYS_CANVAS;
 }
 
 int sdk_sprite_key(int key, int mods)
 {
     sdk_note[0] = 0;
+    if (animating) {
+        if (!sdk_animui_key(key, mods))
+            animating = 0;
+        return 1;
+    }
+    if (key == 'a') {
+        if (code_kind == SDK_SPRITE_NONE)
+            snprintf(sdk_note, sizeof sdk_note, "Animations are for NES and SNES projects");
+        else
+            animating = 1;
+        return 1;
+    }
     const int armed = import_armed;
     import_armed = 0;                           /* only the key after the question answers it */
     const int open = sdk_canvas()->open;

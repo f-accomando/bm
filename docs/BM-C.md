@@ -77,6 +77,7 @@ This table is the NES. The next section says what changes on the SNES.
 | `sprite_style(n, style)` | palette 0 to 3, plus `FLIP_X`, `FLIP_Y`, `BEHIND` |
 | `hide_sprite(n)` | takes sprite n off the screen |
 | `random()` | a byte from a pseudo-random sequence |
+| `animate(sprite, x, y, anim_NAME)` | the animation of the `//@anim` block ([SDK-ANIMATION.md](SDK-ANIMATION.md)) |
 | `play_song(song_NAME)`, `play_sfx(sfx_NAME)`, `stop_music()` | NES only: the sound of the `//@music` block ([SDK-SOUND.md](SDK-SOUND.md)) |
 | `peek(address)`, `poke(address, value)` | reads or writes one byte of the address space |
 

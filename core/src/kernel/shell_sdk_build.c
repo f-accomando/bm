@@ -11,6 +11,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "script/luavm.h"
+#include "shell_sdk_anim.h"
 #include "shell_sdk_cc.h"
 #include "shell_sdk_music.h"
 
@@ -84,13 +85,27 @@ int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t 
         ram_size = c.ram_size;
         sdk_cc_free(&c);
     } else {
-        sdk_music_src_t s = { 0 };
-        if (p->target == SDK_NES && sdk_music_expand(source, len, &s, err, en) != 0)
+        /* NES: the routines of the animations and the sound driver go into the source */
+        sdk_anim_src_t a = { 0 };
+        if (p->target == SDK_NES && sdk_anim_expand(source, len, &a, err, en) != 0)
             return -1;
+        if (a.text) {
+            source = a.text;
+            len = a.len;
+        }
+        sdk_music_src_t s = { 0 };
+        if (p->target == SDK_NES && sdk_music_expand(source, len, &s, err, en) != 0) {
+            free(a.text);
+            return -1;
+        }
         rc = assemble(p, name, s.text ? s.text : source, s.text ? s.len : len, rom, rom_len, &used, err, en);
-        if (rc != 0 && s.text)
-            sdk_music_error_line(&s, err, en);
+        if (rc != 0) {
+            if (s.text)
+                sdk_music_error_line(&s, err, en);
+            sdk_anim_error_line(&a, err, en);
+        }
         free(s.text);
+        free(a.text);
     }
     if (rc == 0 && info) {
         info->rom = used;

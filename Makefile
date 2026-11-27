@@ -1789,7 +1789,7 @@ test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/
 	$(BUILD)/host/nes_sdk_tpl_run $(BUILD)/host/sdk_tpl.nes
 
 # bm C, the C of the NES projects: compiled, assembled and run in the NES core
-SDK_MUS_SRCS := core/src/kernel/shell_sdk_music.c core/src/kernel/shell_sdk_snd.c core/src/kernel/shell_sdk_edit.c
+SDK_MUS_SRCS := core/src/kernel/shell_sdk_lists.c core/src/kernel/shell_sdk_music.c core/src/kernel/shell_sdk_snd.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_anim.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_tiles.c
 SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c $(SDK_MUS_SRCS)
 test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt core/src/script/sdk_tpl_snes_c.txt
 	$(BUILD)/host/test_shell_sdk_cc
@@ -1798,7 +1798,7 @@ $(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
-test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code test-sdk-music
+test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code test-sdk-music test-sdk-anim
 	$(BUILD)/host/test_shell_sdk_proj
 	$(BUILD)/host/test_shell_sdk_code
 
@@ -1813,6 +1813,14 @@ test-sdk-music: $(BUILD)/host/test_shell_sdk_music core/src/script/snes_asm.lua 
 $(BUILD)/host/test_shell_sdk_music: tests/kernel/test_shell_sdk_music.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_music.h core/src/bm/nes.c core/src/bm/nes.h $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_music.c $(SDK_CC_SRCS) core/src/bm/nes.c $(LUA_SRCS) -lm
+
+# the animations of the Sprite tab: the block, the tiles, the recall in the NES and SNES cores
+test-sdk-anim: $(BUILD)/host/test_shell_sdk_anim core/src/script/snes_asm.lua
+	$(BUILD)/host/test_shell_sdk_anim
+
+$(BUILD)/host/test_shell_sdk_anim: tests/kernel/test_shell_sdk_anim.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_anim.h core/src/bm/nes.c core/src/bm/nes.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_anim.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

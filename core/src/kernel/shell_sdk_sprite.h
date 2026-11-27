@@ -44,6 +44,12 @@ void sdk_sprite_draw(int cols, int rows, const char *msg);
  * Enter back to the sheet. Sheet and canvas: p the palette, s 8x8 or 16x16. ROM: sdk_tiles_key, and i. Everywhere
  * in a NES or SNES project: v hides or shows the code under the panes. */
 int sdk_sprite_key(int key, int mods);
+/* The animation mode (a): 1 while its preview moves (call sdk_sprite_tick between the keys), 1 while a name is
+ * typed there (Esc is the tab's), and its end when another project comes. */
+int sdk_sprite_animating(void);
+void sdk_sprite_tick(void);
+int sdk_sprite_typing(void);
+void sdk_sprite_new_project(void);
 /* The legend of what has the keys now (shell_sdk_keys.h). */
 int sdk_sprite_keys(void);
 

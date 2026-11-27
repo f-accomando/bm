@@ -108,8 +108,43 @@ static const line_t sprite[] = {
     { "p", "palette" },
     { "s", "8x8 or 16x16" },
     { "v", "the code below" },
+    { "a", "animations" },
     { "Ctrl+T", "the other side" },
     { "Ctrl+E", "ROM or canvas" },
+    { NULL, NULL } };
+
+static const line_t anim[] = {
+    { "Animation: frames", NULL },
+    { "Arrows", "pixel, next frame" },
+    { "Shift+arrows", "select" },
+    { "Space", "paint (hold and move)" },
+    { "Backspace", "transparent (too)" },
+    { "[ ]", "colour" },
+    { "m / f", "mirror / flip" },
+    { "Ctrl+C X V", "copy, cut, paste" },
+    { "Ctrl+A", "select the frame" },
+    { "d", "copy to the next frame" },
+    { "PgUp PgDn", "the frame" },
+    { NULL, NULL } };
+
+static const line_t anim_set[] = {
+    { "Animation", NULL },
+    { "Up from top", "the settings" },
+    { "- =", "change the setting" },
+    { "- = on name", "other animation" },
+    { "Enter / Del", "rename / delete" },
+    { "n", "new animation" },
+    { "w", "save in the sheet" },
+    { "i", "import from the sheet" },
+    { "p", "colours shown" },
+    { "a", "back to the sprites" },
+    { NULL, NULL } };
+
+static const line_t place[] = {
+    { "Animation: the sheet", NULL },
+    { "Arrows", "the first tile" },
+    { "Enter", "save or import here" },
+    { "a / Backspace", "cancel" },
     { NULL, NULL } };
 
 static const line_t map[] = {
@@ -201,7 +236,9 @@ static const struct { const line_t *left, *right; } screens[SDK_KEYS_COUNT] = {
     [SDK_KEYS_SOUND_SFX] = { sfx, sounds },
     [SDK_KEYS_SOUND_PATTERN] = { pattern, sounds },
     [SDK_KEYS_SOUND_SONG] = { song, sounds },
-    [SDK_KEYS_SOUND_NONE] = { no_sounds, NULL } };
+    [SDK_KEYS_SOUND_NONE] = { no_sounds, NULL },
+    [SDK_KEYS_ANIM] = { anim, anim_set },
+    [SDK_KEYS_ANIM_PLACE] = { place, NULL } };
 
 /* A list from the row `row` of a column; the row after it, with an empty one. */
 static int list(const line_t *l, int row, int col, int width, int rows)

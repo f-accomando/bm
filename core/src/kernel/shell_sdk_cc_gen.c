@@ -4,6 +4,7 @@
  * A value of a byte is in A, a value of 16 bits in A (low) and X (high). The other side of an operation waits on
  * the stack of the machine, then in __b. Every variable has a fixed place (no recursion): the zero page first.
  */
+#include "shell_sdk_anim.h"
 #include "shell_sdk_cc_int.h"
 #include "shell_sdk_music.h"
 
@@ -2390,6 +2391,21 @@ int sdk_cc_compile(const char *src, size_t len, int snes, sdk_cc_out_t *out, cha
     read = sound(g, src, len, music);
     if (!read)
         goto done;
+    if (sdk_anim_called(read, len, 1)) {        /* animate(): its code after the program's lines */
+        const char *more = sdk_anim_prelude(g->snes);
+        const size_t n = strlen(more);
+        char *with = malloc(len + n + 2);
+        if (!with) {
+            snprintf(err, en, "main.c:1: not enough memory to compile");
+            goto done;
+        }
+        memcpy(with, read, len);
+        with[len] = '\n';
+        memcpy(with + len + 1, more, n + 1);
+        free(read);
+        read = with;
+        cc->len = len + 1 + n;
+    }
     cc->src = read;
     if (!setjmp(cc->fail)) {
         builtin_names(g);
