@@ -25,6 +25,9 @@ static const char *const duty_names[4] = { "12%", "25%", "50%", "75%" };
 static const char *const sfx_channels[4] = { "Pulse 1", "Pulse 2", "Triangle", "Noise" };
 
 #define ENV_ROWS 5                      /* the volumes: two levels a row */
+/* The piano in the order of the notes: q to p are the white keys, from C to the E of the octave above; the
+ * numbers over them are the black ones. */
+#define PIANO "q2w3er5t6y7ui9o0p"
 
 static sdk_music_t mus, reading;
 static int supported, target, is_c;     /* a NES project; its language */
@@ -184,6 +187,26 @@ static int labelled(int row, int col, const char *label, const char *value, int 
     return col + (int)strlen(b) + 1;
 }
 
+/* The picture of the piano, two rows and 40 columns: the black keys over the white ones, each with its note. */
+static void keyboard(int row, int col)
+{
+    static const char white[] = "qwertyuiop", black[] = "23 567 90";
+    static const char *const sharp = "CD FGA CD";
+    static const char names[] = "CDEFGABCDE";
+    for (int i = 0; i < 10; i++) {
+        char b[8];
+        snprintf(b, sizeof b, "%c %c", white[i], names[i]);
+        text(row + 1, col + 4 * i, "30;47", b);
+    }
+    for (int i = 0; i < 9; i++) {
+        if (black[i] == ' ')
+            continue;
+        char b[8];
+        snprintf(b, sizeof b, "%c%c#", black[i], sharp[i]);
+        text(row, col + 4 * i + 2, "97;100", b);
+    }
+}
+
 /* The lines of the code round `line` (from 1), from the row top to the row bottom. */
 static void code_strip(int top, int bottom, int line)
 {
@@ -335,8 +358,9 @@ static void draw_pattern(const char *msg)
         snprintf(about, sizeof about, "step %02d   next note: %s", step,
                  mus.ins[last_ins[track_channel[track]]].name);
     text(8, 11, "93", about);
-    code_strip(9, screen_rows - 2, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
-    help("Arrows move  Enter note  z s x.. q 2 w.. piano  , . octave  - = note  [ ] ins",
+    keyboard(9, 11);
+    code_strip(11, screen_rows - 2, p->used ? (on_header ? p->line : p->row_line[step]) : 0);
+    help("Arrows move  Enter note  q..p piano  z x octave  - = flat sharp  [ ] ins",
          "1 off  Bksp erase  PgUp PgDn pattern  Ctrl+C V copy  Space play  Tab page", msg);
 }
 
@@ -388,12 +412,13 @@ static void draw_instruments(const char *msg)
         const char *mark = i == s->loop ? "L" : i == s->release ? "R" : ins_row == 5 && i == env_at ? "^" : " ";
         text(8 + ENV_ROWS, 18 + i - from, i == env_at && ins_row == 5 ? "30;107" : "96", mark);
     }
+    keyboard(5, 40);
     code_strip(14, screen_rows - 2, s->line);
     if (ins_row == 5)
-        help("Left Right frame  - = volume  _ + by 4  i add  Bksp remove  [ loop  ] release",
-             "piano tries it  Space listen  PgUp PgDn instrument  a new  Del delete  Tab", msg);
+        help("Left Right frame  - = volume  _ + by 4  d add  Bksp remove  [ loop  ] release",
+             "q..p tries it  z x octave  Space listen  PgUp PgDn  a new  Del delete  Tab", msg);
     else
-        help("Up Down field  - = value  _ + big step  Enter name  piano tries it",
+        help("Up Down field  - = value  _ + big step  Enter name  q..p tries  z x octave",
              "Space listen  PgUp PgDn instrument  a new  Del delete  Tab page  Esc menu", msg);
 }
 
@@ -463,8 +488,9 @@ static void draw_sfx(const char *msg)
     } else if (sfx_grid)
         snprintf(about, sizeof about, "step %02d: a note adds it", sfx_step + 1);
     text(12, 1, "93", about);
-    code_strip(13, screen_rows - 2, s->line);
-    help(sfx_grid ? "Enter note  1 off  - = note  _ + octave  ; ' volume  k l effect  o p amount"
+    keyboard(13, 9);
+    code_strip(15, screen_rows - 2, s->line);
+    help(sfx_grid ? "Enter note  1 off  - = note  _ + octave  ; ' volume  k l effect  n m amount"
                   : "Left Right field  - = value  Enter name  Down the steps",
          "Bksp remove  Space play  PgUp PgDn effect  a new  Del delete (head)  Tab page", msg);
 }
@@ -582,19 +608,11 @@ void sdk_sounds_playhead(void)
 
 /* ---- keys ---- */
 
-/* The piano: z s x d c v g b h n j m from the C of the octave, q 2 w 3 e r 5 t 6 y 7 u an octave up. -1: not one. */
+/* A key of the piano as a note: from the C of the octave, a half tone a key (PIANO). -1: not one. */
 static int piano(int key)
 {
-    static const char low[] = "zsxdcvgbhnjm", high[] = "q2w3er5t6y7u";
-    if (key <= 0 || key > 126)
-        return -1;
-    const char *p = strchr(low, key);
-    int n = p ? (int)(p - low) : -1;
-    if (n < 0) {
-        p = strchr(high, key);
-        n = p ? 12 + (int)(p - high) : -1;
-    }
-    return n < 0 ? -1 : within((octave + 1) * 12 + n, SDK_MUS_LOW, SDK_MUS_HIGH);
+    const char *p = key > 0 && key < 127 ? strchr(PIANO, key) : NULL;
+    return p ? within((octave + 1) * 12 + (int)(p - PIANO), SDK_MUS_LOW, SDK_MUS_HIGH) : -1;
 }
 
 /* The instrument for a new note of a channel: the last one used, else the first, else a new one. -1: no room. */
@@ -954,7 +972,7 @@ static int instruments_key(int key)
     else if (ins_row == 5 && d && s->len) {
         s->volume[env_at] = (uint8_t)within(s->volume[env_at] + d * (big ? 4 : 1), 0, 15);
         commit(2500 + ins_sel * 70 + env_at);
-    } else if (ins_row == 5 && key == 'i') {
+    } else if (ins_row == 5 && key == 'd') {
         envelope_insert(s);
         commit(0);
     } else if (ins_row == 5 && (key == 0x08 || key == 0x7F)) {
@@ -1113,8 +1131,8 @@ static int sfx_key(int key)
             const int kind = ((e->fx >> 4) + (key == 'l' ? 1 : 3)) % 4;
             e->fx = (uint8_t)(kind ? kind << 4 | (e->fx & 15 ? e->fx & 15 : 2) : 0);
             commit(run + 2);
-        } else if ((key == 'o' || key == 'p') && in && e->fx) {
-            e->fx = (uint8_t)((e->fx & 0xF0) | within((e->fx & 15) + (key == 'p' ? 1 : -1), 1, 15));
+        } else if ((key == 'n' || key == 'm') && in && e->fx) {
+            e->fx = (uint8_t)((e->fx & 0xF0) | within((e->fx & 15) + (key == 'm' ? 1 : -1), 1, 15));
             commit(run + 3);
         } else if ((key == 0x08 || key == 0x7F || key == HID_KEY_DEL)) {
             if (in) {
@@ -1255,8 +1273,8 @@ int sdk_sounds_key(int key, int mods)
     }
     if (broken[0])
         return 0;
-    if (key == ',' || key == '.') {
-        octave = within(octave + (key == '.' ? 1 : -1), 0, 7);
+    if (key == 'z' || key == 'x') {
+        octave = within(octave + (key == 'x' ? 1 : -1), 1, 6);
         return 1;
     }
     if (key == ' ') {

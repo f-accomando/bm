@@ -57,10 +57,17 @@ song_title:
 
 ## The keys of the tab
 
-Tab changes the page: Instruments, SFX, Pattern, Song. Space plays or stops. The piano is `z s x d c v g b h n j m`
-and, an octave higher, `q 2 w 3 e r 5 t 6 y 7 u`. `,` and `.` change the octave. `-` and `=` change a value, `_`
-and `+` change it more. Ctrl+Z and Ctrl+Y are the history of the code. The last two rows of the screen show the keys
-of the page.
+Tab changes the page: Instruments, SFX, Pattern, Song. Space plays or stops. Ctrl+Z and Ctrl+Y are the history of
+the code. The screen shows the piano, and its last two rows show the keys of the page.
+
+| Keys | Use |
+|---|---|
+| `q w e r t y u i o p` | the white keys: C D E F G A B, then C D E of the octave above |
+| `2 3 5 6 7 9 0` | the black keys (sharps) |
+| `z`, `x` | octave down, octave up (1 to 6) |
+| `-`, `=` | the note or the value under the cursor: a half tone down (flat) or up (sharp) |
+| `_`, `+` | a larger step (a note: one octave) |
+| `1` | release (`OFF`) |
 
 ## Code
 

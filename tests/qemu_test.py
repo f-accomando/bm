@@ -5332,14 +5332,17 @@ def test_shell_sdk_c(b, opts):
         q.send(bytes([0xFA]))                       # F2: the C start file
         has("NES game in bm C")
         q.send(bytes([0xE6]))                       # F6: check
+        time.sleep(1.5)
         has("no mistakes: ROM", "RAM 2/2048")
         q.send("oops;\r")                           # a mistake on the first line, the cursor elsewhere
         sendkeys(q, "ctrl-alt-down")
         q.send(bytes([0xE6]))
+        time.sleep(1.5)                             # compile and assemble
         has("main.c:1:", "found 'oops'")
         sendkeys(q, "ctrl-z")
         sendkeys(q, "ctrl-z")
         q.send(bytes([0xE6]))
+        time.sleep(1.5)                             # compile and assemble
         has("no mistakes")
         sendkeys(q, "ctrl-alt-up")
         q.send(SDK_DOWN * 12)                       # inside start(): F7 goes to its assembly
@@ -5380,6 +5383,7 @@ def test_shell_sdk_c(b, opts):
         q.send(bytes([0xFA]))
         has("SNES game in bm C")
         q.send(bytes([0xE6]))
+        time.sleep(1.5)                             # compile and assemble
         has("no mistakes: ROM", "/32768, RAM 3/8192")
         q.send(bytes([0xE7]))
         has("Assembly of main.c", "Written by bm C")
@@ -5437,12 +5441,18 @@ def test_shell_sdk_sounds(b, opts):
         time.sleep(0.5)
         q.send(f5)                                  # F5: the Pattern page of a new NES project
         has("Pattern", "Triangle", "main.s  ;@music", "sfx_jump:")
-        q.send("z")                                 # C4 on pulse 1: an instrument comes with it
+        has("2C#", "q C w D e E", "p E")            # the piano on the screen
+        q.send("q")                                 # C4 on pulse 1: an instrument comes with it
         time.sleep(2.0)
         has("New instrument lead", "pattern00:", "C4,LEAD,")
-        q.send(SDK_RIGHT + b"c")                    # step 2: E4
+        q.send(SDK_RIGHT + b"e")                    # step 2: E4
         time.sleep(2.0)
         has("E4,LEAD,")
+        q.send("x5")                                # an octave up, then a black key: F sharp
+        time.sleep(2.0)
+        has("octave 5", "FS5,LEAD,")
+        q.send("z")
+        sendkeys(q, "ctrl-z")
         sendkeys(q, "ctrl-z")
         has("Done")
         rows = screen()
@@ -5490,7 +5500,7 @@ def test_shell_sdk_sounds(b, opts):
         has("C (bm C)")
         q.send(f5)
         has("main.c  //@music", "const byte sfx_jump[]", "Triangle", "Play speed")    # a new project: Pattern
-        q.send("z")
+        q.send("q")
         time.sleep(2.0)
         has("const byte pattern00[]", "C4,LEAD,")
         q.send(bytes([0xFA]))
