@@ -261,6 +261,26 @@ static int read_pattern(sdk_reader_t *r, const sdk_music_t *m, const sdk_item_t 
     return 0;
 }
 
+/* The three values of a step of an effect: note, volume, effect. */
+static int read_step(sdk_reader_t *r, const sdk_value_t *v, int noise, sdk_mus_step_t *s)
+{
+    int x;
+    if (note_value(r, &v[0], noise, &s->note) != 0 || number_in(r, &v[1], 0, 15, "a volume", &x) != 0)
+        return -1;
+    s->volume = (uint8_t)x;
+    int fx = 0;
+    for (int f = 0; f < 3; f++)
+        if (v[2].word[0] && sdk_list_same(v[2].word, fx_words[f]))
+            fx = f + 1;
+    if (fx && v[2].num >= 1 && v[2].num <= 15)
+        s->fx = (uint8_t)(fx << 4 | v[2].num);
+    else if (is(&v[2], "__") || (!v[2].word[0] && !v[2].num))
+        s->fx = 0;
+    else
+        return sdk_list_wrong(r, v[2].line, "an effect is __, UP+n, DOWN+n or VIB+n with n 1 to 15");
+    return 0;
+}
+
 static int read_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s)
 {
     const sdk_value_t *v = r->value + it->first;
@@ -289,22 +309,9 @@ static int read_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s)
     s->wave = (uint8_t)x;
     s->steps = (uint8_t)((n - 3) / 3);
     v += 3;
-    for (int i = 0; i < s->steps; i++, v += 3) {
-        if (note_value(r, &v[0], ch == 3, &s->step[i].note) != 0 ||
-            number_in(r, &v[1], 0, 15, "a volume", &x) != 0)
+    for (int i = 0; i < s->steps; i++, v += 3)
+        if (read_step(r, v, ch == 3, &s->step[i]) != 0)
             return -1;
-        s->step[i].volume = (uint8_t)x;
-        int fx = 0;
-        for (int f = 0; f < 3; f++)
-            if (v[2].word[0] && sdk_list_same(v[2].word, fx_words[f]))
-                fx = f + 1;
-        if (fx && v[2].num >= 1 && v[2].num <= 15)
-            s->step[i].fx = (uint8_t)(fx << 4 | v[2].num);
-        else if (is(&v[2], "__") || (!v[2].word[0] && !v[2].num))
-            s->step[i].fx = 0;
-        else
-            return sdk_list_wrong(r, v[2].line, "an effect is __, UP+n, DOWN+n or VIB+n with n 1 to 15");
-    }
     return 0;
 }
 
@@ -332,6 +339,98 @@ static int read_song(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_song_t *s)
             return -1;
         s->order[i] = (uint8_t)x;
     }
+    return 0;
+}
+
+static const char *const snes_waves[SDK_MUS_WAVES + 1] = { "SQUARE12", "SQUARE25", "SQUARE50", "TRIANGLE", "SAW",
+                                                          "SINE", "NOISE" };
+static const char *const voice_words[SDK_MUS_VOICES] = { "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8" };
+
+static int read_snes_instrument(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_ins_t *s)
+{
+    const sdk_value_t *v = r->value + it->first;
+    static const char *const what[9] = { "the noise rate", "attack", "decay", "sustain", "release", "volume",
+                                         "pan", "vibrato", "arpeggio" };
+    static const int most[9] = { 31, 15, 7, 7, 31, 127, 16, 15, 255 };
+    char b[24];
+    int x[9];
+    if (it->count != 11)
+        return sdk_list_wrong(r, it->line, "instrument %s is: wave, noise rate, attack, decay, sustain, release, "
+                              "volume, pan, vibrato, arpeggio, END", it->name);
+    const int w = one_of(&v[0], snes_waves, SDK_MUS_WAVES + 1);
+    if (w < 0)
+        return sdk_list_wrong(r, v[0].line, "the wave is SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE or "
+                              "NOISE, not %s", shown(&v[0], b, sizeof b));
+    for (int i = 0; i < 9; i++)
+        if (number_in(r, &v[1 + i], 0, most[i], what[i], &x[i]) != 0)
+            return -1;
+    s->wave = (uint8_t)w;
+    s->noise = (uint8_t)x[0];
+    s->attack = (uint8_t)x[1];
+    s->decay = (uint8_t)x[2];
+    s->sustain = (uint8_t)x[3];
+    s->rate = (uint8_t)x[4];
+    s->level = (uint8_t)x[5];
+    s->pan = (uint8_t)x[6];
+    s->vibrato = (uint8_t)x[7];
+    s->arp = (uint8_t)x[8];
+    s->loop = s->release = SDK_MUS_NO;
+    return 0;
+}
+
+static int read_snes_pattern(sdk_reader_t *r, const sdk_music_t *m, const sdk_item_t *it, sdk_mus_pattern_t *p)
+{
+    const sdk_value_t *v = r->value + it->first;
+    const int n = it->count - 1, row = 2 * SDK_MUS_VOICES;
+    if (!n || n % row || n / row > SDK_MUS_STEPS)
+        return sdk_list_wrong(r, it->line, "%s has %d values: a step is %d (a note and an instrument for 8 voices), "
+                              "1 to %d steps", it->name, n, row, SDK_MUS_STEPS);
+    p->used = 1;
+    p->steps = (uint8_t)(n / row);
+    p->line = it->line;
+    for (int s = 0; s < p->steps; s++, v += row) {
+        p->row_line[s] = (uint16_t)v->line;
+        for (int t = 0; t < SDK_MUS_VOICES; t++) {
+            const sdk_value_t *i = &v[2 * t + 1];
+            char b[24];
+            if (note_value(r, &v[2 * t], 0, &p->cell[s][t].note) != 0)
+                return -1;
+            if (is(i, "__") || (!i->word[0] && !i->num))
+                continue;
+            const int at = i->word[0] && !i->num ? find_ins(m, i->word) : -1;
+            if (at < 0)
+                return sdk_list_wrong(r, i->line, "there is no instrument '%s'", shown(i, b, sizeof b));
+            p->cell[s][t].ins = (uint8_t)(at + 1);
+        }
+    }
+    return 0;
+}
+
+static int read_snes_sfx(sdk_reader_t *r, const sdk_item_t *it, sdk_mus_sfx_t *s)
+{
+    const sdk_value_t *v = r->value + it->first;
+    const int n = it->count - 1;
+    char b[24];
+    int x;
+    if (n < 3 || (n - 3) % 3 || (n - 3) / 3 > SDK_MUS_SFX_STEPS)
+        return sdk_list_wrong(r, it->line, "%s needs speed, voice, wave, then note, volume, effect a step (%d at "
+                              "most)", it->name, SDK_MUS_SFX_STEPS);
+    if (number_in(r, &v[0], 1, 60, "the speed (frames a step)", &x) != 0)
+        return -1;
+    s->speed = (uint8_t)x;
+    const int voice = one_of(&v[1], voice_words, SDK_MUS_VOICES);
+    if (voice < 0)
+        return sdk_list_wrong(r, v[1].line, "the voice of an effect is V1 to V8, not %s", shown(&v[1], b, sizeof b));
+    s->channel = (uint8_t)voice;
+    const int w = one_of(&v[2], snes_waves, SDK_MUS_WAVES + 1);
+    if (w < 0)
+        return sdk_list_wrong(r, v[2].line, "'%s' is not a wave", shown(&v[2], b, sizeof b));
+    s->wave = (uint8_t)w;
+    s->steps = (uint8_t)((n - 3) / 3);
+    v += 3;
+    for (int i = 0; i < s->steps; i++, v += 3)
+        if (read_step(r, v, w == SDK_MUS_WAVES, &s->step[i]) != 0)
+            return -1;
     return 0;
 }
 
@@ -372,13 +471,14 @@ static int interpret(sdk_reader_t *r, sdk_music_t *m)
                 sdk_mus_ins_t *s = &m->ins[m->instruments];
                 copy_name(s->name, it->name);
                 s->line = it->line;
-                if (read_instrument(r, it, s) != 0)
+                if ((m->snes ? read_snes_instrument(r, it, s) : read_instrument(r, it, s)) != 0)
                     return -1;
                 m->instruments++;
             } else if (kind == 1) {
                 if (m->pat[num].used)
                     return sdk_list_wrong(r, it->line, "pattern %d is there twice", num);
-                if (read_pattern(r, m, it, &m->pat[num]) != 0)
+                if ((m->snes ? read_snes_pattern(r, m, it, &m->pat[num])
+                             : read_pattern(r, m, it, &m->pat[num])) != 0)
                     return -1;
             } else if (kind == 2) {
                 if (m->sfxs == SDK_MUS_SFX)
@@ -386,7 +486,7 @@ static int interpret(sdk_reader_t *r, sdk_music_t *m)
                 sdk_mus_sfx_t *s = &m->sfx[m->sfxs];
                 copy_name(s->name, it->name + 4);
                 s->line = it->line;
-                if (read_sfx(r, it, s) != 0)
+                if ((m->snes ? read_snes_sfx(r, it, s) : read_sfx(r, it, s)) != 0)
                     return -1;
                 m->sfxs++;
             } else {
@@ -403,18 +503,31 @@ static int interpret(sdk_reader_t *r, sdk_music_t *m)
     return 0;
 }
 
-int sdk_music_parse(const char *src, size_t len, int c, sdk_music_t *m, char *err, size_t en)
+static int parse(const char *src, size_t len, int c, int snes, sdk_music_t *m, char *err, size_t en)
 {
     sdk_music_clear(m);
+    m->snes = snes;
     sdk_reader_t *r = NULL;
     const int found = sdk_list_read(src, len, c, "music", &r, err, en);
     if (found <= 0)
         return found;
     const int rc = interpret(r, m);
-    if (rc != 0)
+    if (rc != 0) {
         sdk_music_clear(m);
+        m->snes = snes;
+    }
     sdk_list_free(r);
     return rc;
+}
+
+int sdk_music_parse(const char *src, size_t len, int c, sdk_music_t *m, char *err, size_t en)
+{
+    return parse(src, len, c, 0, m, err, en);
+}
+
+int sdk_music_parse_snes(const char *src, size_t len, int c, sdk_music_t *m, char *err, size_t en)
+{
+    return parse(src, len, c, 1, m, err, en);
 }
 
 static void wave_word(int channel, int wave, char *out, size_t n)
@@ -496,23 +609,26 @@ static void write_pattern(sdk_text_t *t, int c, const sdk_music_t *m, int num)
     sdk_list_list_flush(&l, 1);
 }
 
-static void write_sfx(sdk_text_t *t, int c, const sdk_mus_sfx_t *s)
+static void write_sfx(sdk_text_t *t, int c, const sdk_mus_sfx_t *s, int snes)
 {
     sdk_list_t l;
     char name[20], line[160], wave[16];
     snprintf(name, sizeof name, "sfx_%s", s->name);
     sdk_list_list_open(&l, t, c, name, "sound effect");
-    if (s->channel < 2)
+    if (!snes && s->channel < 2)
         snprintf(wave, sizeof wave, "%s", duty_words[s->wave & 3]);
-    else
+    else if (!snes)
         snprintf(wave, sizeof wave, "%s", s->wave & SDK_MUS_SHORT ? "SHORT" : "0");
-    snprintf(line, sizeof line, "%d, %s, %s", s->speed, track_words[s->channel & 3], wave);
-    sdk_list_list_line(&l, line, "frames a step, channel, wave");
+    else
+        snprintf(wave, sizeof wave, "%s", snes_waves[s->wave <= SDK_MUS_WAVES ? s->wave : 0]);
+    snprintf(line, sizeof line, "%d, %s, %s", s->speed,
+             snes ? voice_words[s->channel & 7] : track_words[s->channel & 3], wave);
+    sdk_list_list_line(&l, line, snes ? "frames a step, voice, wave" : "frames a step, channel, wave");
     size_t at = 0;
     for (int i = 0; i < s->steps; i++) {
         const sdk_mus_step_t *e = &s->step[i];
         char note[4], fx[12];
-        if (s->channel == 3 && e->note >= SDK_MUS_LOW)
+        if ((snes ? s->wave == SDK_MUS_WAVES : s->channel == 3) && e->note >= SDK_MUS_LOW)
             snprintf(note, sizeof note, "N%d", (e->note - SDK_MUS_LOW) & 15);
         else
             sdk_music_note_name(e->note, note);
@@ -553,16 +669,63 @@ static void write_song(sdk_text_t *t, int c, const sdk_mus_song_t *s)
     sdk_list_list_flush(&l, 1);
 }
 
+static void write_snes_instrument(sdk_text_t *t, int c, const sdk_mus_ins_t *s)
+{
+    sdk_list_t l;
+    char line[160];
+    sdk_list_list_open(&l, t, c, s->name, "instrument");
+    snprintf(line, sizeof line, "%s, %d", snes_waves[s->wave <= SDK_MUS_WAVES ? s->wave : 0], s->noise);
+    sdk_list_list_line(&l, line, "wave, noise rate");
+    snprintf(line, sizeof line, "%d, %d, %d, %d", s->attack, s->decay, s->sustain, s->rate);
+    sdk_list_list_line(&l, line, "attack,decay,sustain,release");
+    snprintf(line, sizeof line, "%d, %d, %d, $%02X, END", s->level, s->pan, s->vibrato, s->arp);
+    sdk_list_list_line(&l, line, "volume,pan,vibrato,arpeggio");
+    sdk_list_list_flush(&l, 1);
+}
+
+static void write_snes_pattern(sdk_text_t *t, int c, const sdk_music_t *m, int num)
+{
+    const sdk_mus_pattern_t *p = &m->pat[num];
+    sdk_list_t l;
+    char name[16], line[160];
+    snprintf(name, sizeof name, "pattern%02d", num);
+    sdk_list_list_open(&l, t, c, name, "two rows a step: voices 1-4, 5-8");
+    for (int s = 0; s < p->steps; s++)
+        for (int half = 0; half < 2; half++) {
+            size_t at = 0;
+            for (int k = 4 * half; k < 4 * half + 4; k++) {
+                char note[4], ins[SDK_MUS_NAME], cell[32];
+                sdk_music_note_name(p->cell[s][k].note, note);
+                ins_word(m, p->cell[s][k].ins, "0", ins, sizeof ins);
+                snprintf(cell, sizeof cell, "%s,%s,", note, ins);
+                at = sdk_list_put(line, at, sizeof line, k % 4 < 3 ? "%-11s " : "%s", cell);
+            }
+            line[strlen(line) - 1] = 0;             /* the last ',' comes with the next line */
+            char comment[16];
+            snprintf(comment, sizeof comment, half ? "" : "%02d", s);
+            sdk_list_list_line(&l, line, comment);
+        }
+    sdk_list_list_line(&l, "END", "");
+    sdk_list_list_flush(&l, 1);
+}
+
 static void write_block(sdk_text_t *t, const sdk_music_t *m, int c)
 {
     sdk_list_add(t, "%s@music  from the Sounds tab: C1..B7 (CS4 sharp), __ nothing, OFF release\n", c ? "//" : ";");
     for (int i = 0; i < m->instruments; i++)
-        write_instrument(t, c, &m->ins[i]);
+        if (m->snes)
+            write_snes_instrument(t, c, &m->ins[i]);
+        else
+            write_instrument(t, c, &m->ins[i]);
     for (int i = 0; i < SDK_MUS_PATTERNS; i++)
-        if (m->pat[i].used)
-            write_pattern(t, c, m, i);
+        if (m->pat[i].used) {
+            if (m->snes)
+                write_snes_pattern(t, c, m, i);
+            else
+                write_pattern(t, c, m, i);
+        }
     for (int i = 0; i < m->sfxs; i++)
-        write_sfx(t, c, &m->sfx[i]);
+        write_sfx(t, c, &m->sfx[i], m->snes);
     for (int i = 0; i < m->songs; i++)
         write_song(t, c, &m->song[i]);
     sdk_list_add(t, "%s@end\n", c ? "//" : ";");
@@ -735,7 +898,7 @@ static int lines_in(const char *s, size_t n)
     return lines;
 }
 
-int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err, size_t en)
+static int expand(const char *src, size_t len, int snes, sdk_music_src_t *s, char *err, size_t en)
 {
     memset(s, 0, sizeof *s);
     sdk_music_t *m = malloc(sizeof *m);
@@ -745,7 +908,7 @@ int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err,
     }
     char why[128];
     int rc = -1;
-    if (sdk_music_parse(src, len, 0, m, why, sizeof why) != 0) {
+    if (parse(src, len, 0, snes, m, why, sizeof why) != 0) {
         int line = 1, used = 0;
         if (sscanf(why, "line %d: %n", &line, &used) != 1)
             used = 0;
@@ -759,12 +922,13 @@ int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err,
     size_t from, to;
     if (sdk_music_find(src, len, 0, &from, &to) <= 0)
         from = to = len;
-    char *driver = sdk_music_asm(m);
+    char *driver = snes ? sdk_music_snes_asm(m, 0x0F) : sdk_music_asm(m);
     const size_t n = driver ? strlen(driver) : 0;
     s->text = driver ? malloc(len + n + 2) : NULL;
     if (!s->text) {
         free(driver);
-        snprintf(err, en, "main.s:1: not enough memory for the music");
+        snprintf(err, en, snes ? "main.s:1: the music does not fit in the ROM bank (or no memory)"
+                               : "main.s:1: not enough memory for the music");
         goto done;
     }
     const size_t gap = from == len && len && src[len - 1] != '\n';
@@ -783,6 +947,16 @@ int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err,
 done:
     free(m);
     return rc;
+}
+
+int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err, size_t en)
+{
+    return expand(src, len, 0, s, err, en);
+}
+
+int sdk_music_expand_snes(const char *src, size_t len, sdk_music_src_t *s, char *err, size_t en)
+{
+    return expand(src, len, 1, s, err, en);
 }
 
 /* The assembler's message for the source with the driver in it: the line of the source. */
@@ -822,7 +996,7 @@ void sdk_music_remove_ins(sdk_music_t *m, int i)
     m->instruments--;
     for (int p = 0; p < SDK_MUS_PATTERNS; p++)
         for (int s = 0; s < SDK_MUS_STEPS; s++)
-            for (int t = 0; t < SDK_MUS_TRACKS; t++) {
+            for (int t = 0; t < SDK_MUS_VOICES; t++) {
                 uint8_t *ins = &m->pat[p].cell[s][t].ins;
                 if (*ins == i + 1)
                     *ins = 0;

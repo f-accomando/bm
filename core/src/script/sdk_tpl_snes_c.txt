@@ -22,9 +22,7 @@ void update(void)          // once every frame (60 times a second)
     if (held(RIGHT)) x += 2;
     if (held(UP))    y -= 2;
     if (held(DOWN))  y += 2;
-    if (pressed(A)) {
-        // something that happens when A goes down
-    }
+    if (pressed(A)) play_sfx(sfx_jump);     // an effect of //@music
     sprite(0, x, y, 1);    // sprite 0 shows the tile 1 of the sheet
 }
 
@@ -41,8 +39,12 @@ tiles {
 //@tiles-end
 //@end
 
-//@music
-// Music: the Sounds tab will write the songs here.
+//@music  from the Sounds tab: C1..B7 (CS4 sharp), __ nothing, OFF release
+const byte sfx_jump[] = {          // sound effect
+    3, V8, SQUARE50,                         // frames a step, voice, wave
+    C4,12,__,  E4,12,__,  G4,11,__,  C5,10,UP+3,
+    C5,7,UP+3,  C5,4,UP+3,  OFF,0,__,
+    END };
 //@end
 
 //@map

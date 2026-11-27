@@ -498,6 +498,7 @@ static const char snes_base[] =
     "    stz $2101              ; sprites of 8x8 and 16x16, tiles from $0000\n"
     "    lda #$10\n"
     "    sta $212C              ; the sprites on the screen\n"
+    "@@snd_init\n"
     "    lda #$81\n"
     "    sta $4200              ; NMI on, the machine reads the pad\n"
     "    jmp __program\n"

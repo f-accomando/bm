@@ -42,7 +42,7 @@ end
 
 -- SNES: LoROM, 32 KB
 src = read("core/src/script/sdk_tpl_snes.s")
-res = A.assemble(src, { map = "lorom" })
+res = A.assemble(read(out .. "/sdk_tpl_snes_full.s"), { map = "lorom" })        -- with the sound
 check("snes template assembles", res.ok, A.format_errors(res))
 if res.ok then
     local rom, info = A.build_rom(res, { title = "TEMPLATE", map = "lorom", min_kb = 32, chipset = 0 })

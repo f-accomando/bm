@@ -1781,6 +1781,7 @@ $(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c core/src/kernel/sh
 test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/script/sdk_dis.lua core/lua/snesrom.lua tests/snes/sdk_dis_test.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_snes.s tests/snes/sdk_tpl_build.lua tests/snes/sdk_tpl_run.c tests/nes/sdk_tpl_run.c core/src/bm/nes.c $(wildcard core/src/bm/snes*.h) tests/kernel/sdk_music_expand.c $(SDK_MUS_SRCS) core/src/kernel/shell_sdk_music.h
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src -o $(BUILD)/host/sdk_music_expand tests/kernel/sdk_music_expand.c $(SDK_MUS_SRCS)
 	$(BUILD)/host/sdk_music_expand core/src/script/sdk_tpl_nes.s $(BUILD)/host/sdk_tpl_nes_full.s
+	$(BUILD)/host/sdk_music_expand core/src/script/sdk_tpl_snes.s $(BUILD)/host/sdk_tpl_snes_full.s snes
 	$(BUILD)/host/luahost tests/snes/sdk_tpl_build.lua $(BUILD)/host
 	$(BUILD)/host/luahost tests/snes/sdk_dis_test.lua
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes_sdk_tpl_run tests/snes/sdk_tpl_run.c $(SNES_CORE_SRCS)
@@ -1789,7 +1790,7 @@ test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/
 	$(BUILD)/host/nes_sdk_tpl_run $(BUILD)/host/sdk_tpl.nes
 
 # bm C, the C of the NES projects: compiled, assembled and run in the NES core
-SDK_MUS_SRCS := core/src/kernel/shell_sdk_lists.c core/src/kernel/shell_sdk_music.c core/src/kernel/shell_sdk_snd.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_anim.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_tiles.c
+SDK_MUS_SRCS := core/src/kernel/shell_sdk_lists.c core/src/kernel/shell_sdk_music.c core/src/kernel/shell_sdk_snd.c core/src/kernel/shell_sdk_spc.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_anim.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_tiles.c
 SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c $(SDK_MUS_SRCS)
 test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt core/src/script/sdk_tpl_snes_c.txt
 	$(BUILD)/host/test_shell_sdk_cc
@@ -1798,7 +1799,7 @@ $(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
-test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code test-sdk-music test-sdk-anim
+test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code test-sdk-music test-sdk-anim test-sdk-snd
 	$(BUILD)/host/test_shell_sdk_proj
 	$(BUILD)/host/test_shell_sdk_code
 
@@ -1821,6 +1822,15 @@ test-sdk-anim: $(BUILD)/host/test_shell_sdk_anim core/src/script/snes_asm.lua
 $(BUILD)/host/test_shell_sdk_anim: tests/kernel/test_shell_sdk_anim.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_anim.h core/src/bm/nes.c core/src/bm/nes.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_anim.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
+
+# the sound of the SNES projects: the driver of the sound chip in the SNES core
+test-sdk-snd: $(BUILD)/host/test_shell_sdk_snd core/src/script/snes_asm.lua core/src/script/sdk_tpl_snes.s core/src/script/sdk_tpl_snes_c.txt
+	python3 core/scripts/spc_asm.py --check core/src/kernel/shell_sdk_spc.asm core/src/kernel/shell_sdk_spc_bin.h
+	$(BUILD)/host/test_shell_sdk_snd
+
+$(BUILD)/host/test_shell_sdk_snd: tests/kernel/test_shell_sdk_snd.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_music.h core/src/kernel/shell_sdk_spc_bin.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_snd.c $(SDK_CC_SRCS) $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

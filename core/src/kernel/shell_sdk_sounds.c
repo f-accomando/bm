@@ -568,7 +568,7 @@ void sdk_sounds_draw(int cols, int rows, const char *msg)
     screen_rows = rows;
     console_cursor_mode(CONSOLE_CURSOR_HIDDEN);
     if (!supported) {
-        text(rows / 2 - 1, 3, "97", target == SDK_SNES ? "Sounds: for NES projects. The SNES is not there yet."
+        text(rows / 2 - 1, 3, "97", target == SDK_SNES ? "SNES sound: write the music block in Code. The pages come next."
                                     : "Sounds: for NES projects. A bm project takes its sounds from bm Sound.");
         return;
     }

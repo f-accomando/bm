@@ -94,7 +94,8 @@ int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t 
             len = a.len;
         }
         sdk_music_src_t s = { 0 };
-        if (p->target == SDK_NES && sdk_music_expand(source, len, &s, err, en) != 0) {
+        if ((p->target == SDK_NES && sdk_music_expand(source, len, &s, err, en) != 0) ||
+            (p->target == SDK_SNES && sdk_music_expand_snes(source, len, &s, err, en) != 0)) {
             free(a.text);
             return -1;
         }

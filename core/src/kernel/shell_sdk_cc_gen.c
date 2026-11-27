@@ -42,9 +42,9 @@ static const struct {
     { "palette", "(index, colour)", "__palette", CT_VOID, 2, { 0 }, { 1, 2 }, ON_SNES, RT_PALETTE },
     { "rgb", "(r, g, b)", NULL, CT_U16, 3, { 0 }, { 1, 1, 1 }, ON_SNES, 0 },
     /* the sound driver (shell_sdk_snd.c) takes the number in A */
-    { "play_song", "(song)", "play_song", CT_VOID, 1, { 1 }, { 0 }, ON_NES, 0 },
-    { "play_sfx", "(effect)", "play_sfx", CT_VOID, 1, { 1 }, { 0 }, ON_NES, 0 },
-    { "stop_music", "()", "stop_music", CT_VOID, 0, { 0 }, { 0 }, ON_NES, 0 } };
+    { "play_song", "(song)", "play_song", CT_VOID, 1, { 1 }, { 1 }, ON_BOTH, 0 },
+    { "play_sfx", "(effect)", "play_sfx", CT_VOID, 1, { 1 }, { 1 }, ON_BOTH, 0 },
+    { "stop_music", "()", "stop_music", CT_VOID, 0, { 0 }, { 0 }, ON_BOTH, 0 } };
 
 typedef struct { const char *name; int value; } constant_t;
 
@@ -2311,12 +2311,13 @@ static void builtin_names(gen_t *g)
     }
 }
 
-/* The sound of a NES program: reads the music block, gives its numbers their names, and hands the reader a source
+/* The sound of a program: reads the music block, gives its numbers their names, and hands the reader a source
  * where the block is empty lines. Returns the source to read (from malloc), or NULL with the message in err. */
 static char *sound(gen_t *g, const char *src, size_t len, sdk_music_t *m)
 {
     char why[128];
-    if (!g->snes && sdk_music_parse(src, len, 1, m, why, sizeof why) != 0) {
+    if ((g->snes ? sdk_music_parse_snes(src, len, 1, m, why, sizeof why)
+                 : sdk_music_parse(src, len, 1, m, why, sizeof why)) != 0) {
         int line = 1, used = 0;
         if (sscanf(why, "line %d: %n", &line, &used) != 1)
             used = 0;
@@ -2331,19 +2332,22 @@ static char *sound(gen_t *g, const char *src, size_t len, sdk_music_t *m)
     memcpy(copy, src, len);
     copy[len] = 0;
     size_t from, to;
-    if (!g->snes && sdk_music_find(src, len, 1, &from, &to) > 0)
+    if (sdk_music_find(src, len, 1, &from, &to) > 0)
         for (size_t i = from; i < to; i++)
             if (copy[i] != '\n')
                 copy[i] = ' ';
-    if (!g->snes && (!sdk_music_empty(m) || sdk_music_called(copy, len, 1))) {
-        g->sound = sdk_music_asm(m);
+    if (!sdk_music_empty(m) || sdk_music_called(copy, len, 1)) {
+        g->sound = g->snes ? sdk_music_snes_asm(m, 0x1F) : sdk_music_asm(m);
         if (!g->sound) {
-            snprintf(g->cc->err, g->cc->en, "main.c:1: not enough memory for the music");
+            snprintf(g->cc->err, g->cc->en, g->snes ? "main.c:1: the music does not fit in the ROM bank"
+                                                     : "main.c:1: not enough memory for the music");
             free(copy);
             return NULL;
         }
-        g->zp_end = 0xFC;                       /* the driver's places */
-        g->ram_end = 0x700;
+        if (!g->snes) {
+            g->zp_end = 0xFC;                   /* the driver's places */
+            g->ram_end = 0x700;
+        }
     }
     return copy;
 }

@@ -14,6 +14,14 @@
  *   song_NAME    frames a step, the place to loop to (END: no loop), pattern numbers, END
  *
  * Notes: C1..B7 (CS4 is C sharp), on the noise of an effect N0..N15; __ nothing, OFF the release.
+ *
+ * A SNES project has 8 voices and instruments of its own:
+ *   instrument   wave (SQUARE12, SQUARE25, SQUARE50, TRIANGLE, SAW, SINE, NOISE), noise rate 0..31, attack 0..15,
+ *                decay 0..7, sustain 0..7, release 0..31, volume 0..127, pan 0..16 (8 the middle), vibrato 0..15,
+ *                arpeggio, END
+ *   patternNN    a row a step: note, instrument for the voices 1 to 8; END
+ *   sfx_NAME     frames a step, voice (V1..V8), wave, then note, volume, effect a step; END
+ *   song_NAME    as on the NES
  */
 #ifndef SHELL_SDK_MUSIC_H
 #define SHELL_SDK_MUSIC_H
@@ -29,7 +37,9 @@
 #define SDK_MUS_SONGS 8
 #define SDK_MUS_ORDER 64
 #define SDK_MUS_ENV 64
-#define SDK_MUS_TRACKS 4
+#define SDK_MUS_TRACKS 4                /* NES */
+#define SDK_MUS_VOICES 8                /* SNES */
+#define SDK_MUS_WAVES 6                 /* the samples of the SNES; a wave of this number is the noise */
 #define SDK_MUS_NAME 12                 /* with the NUL */
 
 enum { SDK_MUS_PULSE, SDK_MUS_TRIANGLE, SDK_MUS_NOISE };        /* the channel of an instrument */
@@ -43,6 +53,7 @@ typedef struct {
     uint8_t channel, wave, vibrato, arp;
     uint8_t len, loop, release;         /* of the volumes; loop and release: a place, or SDK_MUS_NO */
     uint8_t volume[SDK_MUS_ENV];
+    uint8_t noise, attack, decay, sustain, rate, level, pan;     /* SNES (wave: 0..SDK_MUS_WAVES) */
     int line;                           /* of the source, from 1 (0: not read from it) */
 } sdk_mus_ins_t;
 
@@ -52,7 +63,7 @@ typedef struct { uint8_t note, ins; } sdk_mus_cell_t;
 
 typedef struct {
     uint8_t used, steps;
-    sdk_mus_cell_t cell[SDK_MUS_STEPS][SDK_MUS_TRACKS];
+    sdk_mus_cell_t cell[SDK_MUS_STEPS][SDK_MUS_VOICES];
     int line;
     uint16_t row_line[SDK_MUS_STEPS];
 } sdk_mus_pattern_t;
@@ -74,6 +85,7 @@ typedef struct {
 } sdk_mus_song_t;
 
 typedef struct {
+    int snes;                           /* the music of a SNES project */
     int instruments, sfxs, songs;
     sdk_mus_ins_t ins[SDK_MUS_INS];
     sdk_mus_pattern_t pat[SDK_MUS_PATTERNS];
@@ -88,6 +100,8 @@ int sdk_music_empty(const sdk_music_t *m);
 int sdk_music_find(const char *src, size_t len, int c, size_t *from, size_t *to);
 /* Reads the block (no block: an empty music). Returns 0, or -1 with "line N: ..." in err. */
 int sdk_music_parse(const char *src, size_t len, int c, sdk_music_t *m, char *err, size_t en);
+/* The same for a SNES project. */
+int sdk_music_parse_snes(const char *src, size_t len, int c, sdk_music_t *m, char *err, size_t en);
 /* The block as text, with its marker lines. Returns its length, or -1 when it does not fit in max. */
 long sdk_music_text(const sdk_music_t *m, int c, char *out, size_t max);
 /* Writes the block into the text of the Code tab (sdk_edit_replace; run as there). Returns 0, or -1 with the
@@ -111,6 +125,8 @@ typedef struct {
 /* Returns 0, or -1 with "main.s:12: music: ..." in err. The driver goes in when the block has music or the
  * program calls it. */
 int sdk_music_expand(const char *src, size_t len, sdk_music_src_t *s, char *err, size_t en);
+/* The same for a SNES source: the orders and the image of the sound memory in the place of the block. */
+int sdk_music_expand_snes(const char *src, size_t len, sdk_music_src_t *s, char *err, size_t en);
 /* The assembler's message for the expanded source ("main.s:L: ..."): L becomes the line of the source. */
 void sdk_music_error_line(const sdk_music_src_t *s, char *err, size_t en);
 
@@ -128,5 +144,14 @@ int sdk_music_add_ins(sdk_music_t *m, int channel);
 
 /* The driver (shell_sdk_snd.c): the routines in assembly, without the tables. */
 const char *sdk_snd_driver(void);
+
+/* SNES (shell_sdk_spc.c): the image of the sound memory, from $0200: the driver, the tables, the samples. Its
+ * length, or -1 when it is larger than max. */
+#define SDK_SPC_START 0x0200
+int sdk_spc_image(const sdk_music_t *m, uint8_t *out, int max);
+/* The assembly of a SNES program with sound, from malloc: the numbers song_NAME and sfx_NAME, snd_init, play_song,
+ * play_sfx, stop_music and the image. last: a byte of the direct page for the driver. NULL: no memory, or the
+ * music is too large. */
+char *sdk_music_snes_asm(const sdk_music_t *m, int last);
 
 #endif /* SHELL_SDK_MUSIC_H */

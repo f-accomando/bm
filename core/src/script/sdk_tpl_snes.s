@@ -141,6 +141,7 @@ reset:
     lda #$10
     sta TM                 ; the sprites on the screen
 
+    jsr snd_init           ; the sound chip: the driver and the data of ;@music
     lda #$0F
     sta INIDISP            ; screen on, full brightness
     lda #$81
@@ -160,6 +161,12 @@ main:
 
 ; ---- your game: called once per frame, after the pad was read --------------
 update:
+    lda pad_new            ; when A goes down: the effect sfx_jump of ;@music
+    bit #<BTN_A
+    beq @move
+    lda #sfx_jump
+    jsr play_sfx
+@move:
     ; The example moves the ball with the pad. pad+1 has B Y Select Start Up
     ; Down Left Right; pad_new has the buttons that went down now.
     lda pad+1
@@ -261,13 +268,12 @@ sprites_pal:
     .dw $03E0,$01E0,$7FE0,$7C00,$3C00,$7C1F,$1CF7,$0DB1
 ;@end
 
-;@music
-; Music: the Sounds tab will write the songs and the sound effects as entries of the
-; BMAP table (the one table of all the resources of the ROM, at the start of a bank):
-;   .song "title"
-;   .sfx  "jump"
-; The SDK routines snd_init, play_song, play_sfx and stop play them through the ports
-; $2140-$2143. Until then the sound chip is not started.
+;@music  from the Sounds tab: C1..B7 (CS4 sharp), __ nothing, OFF release
+sfx_jump:                    ; sound effect
+    .byte 3, V8, SQUARE50                    ; frames a step, voice, wave
+    .byte C4,12,__,  E4,12,__,  G4,11,__,  C5,10,UP+3
+    .byte C5,7,UP+3,  C5,4,UP+3,  OFF,0,__
+    .byte END
 ;@end
 
 ;@map

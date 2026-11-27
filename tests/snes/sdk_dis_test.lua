@@ -181,7 +181,7 @@ text, why = D.listing(A, R, "hello")
 check("a small file is refused", text == nil, why)
 
 -- the SNES start file
-res = A.assemble(read("core/src/script/sdk_tpl_snes.s"), { map = "lorom" })
+res = A.assemble(read("build/host/sdk_tpl_snes_full.s"), { map = "lorom" })     -- with the sound
 check("snes template assembles", res.ok)
 rom = assert(A.build_rom(res, { title = "TEMPLATE", map = "lorom", min_kb = 32, chipset = 0 }))
 text, why = D.listing(A, R, rom)
@@ -192,7 +192,7 @@ if text then
     check("snes: xce", text:find("  xce%s+FB\n") ~= nil)
     check("snes: the widths show", text:find("\n      %.a16\n") ~= nil)
     check("snes: the empty end is one line", text:find("\n%x%x%x%x  ; %d+ bytes of %$%x%x$") ~= nil, text:sub(-200))
-    check("snes: short", select(2, text:gsub("\n", "")) < 600)
+    check("snes: short", select(2, text:gsub("\n", "")) < 5000, select(2, text:gsub("\n", "")))   -- the sound image
 end
 
 print(fails == 0 and "sdk_dis_test: ok" or ("sdk_dis_test: " .. fails .. " FAILED"))
