@@ -7,7 +7,8 @@
  *   - the 2A03: a 6502 with no decimal mode; all the official opcodes and the usual unofficial ones
  *   - the sound: two pulse channels, the triangle, the noise and the DMC, the frame counter, a 48 kHz mono ring
  *
- * The time is in CPU cycles; the picture unit has 3 dots to a cycle and a line is 341 dots (262 lines a frame).
+ * The time is in CPU cycles. A line is 341 dots of the picture unit. NTSC: 3 dots to a cycle, 262 lines a frame. PAL:
+ * 3.2 dots to a cycle, 312 lines a frame (the vblank is 70 lines long), no short odd frame, its own sound periods.
  * The machine is plain C with no dependence on the kernel.
  */
 #include "nes.h"
@@ -254,7 +255,11 @@ static uint8_t oam[256], pal[32];
 static uint8_t p_ctrl, p_mask, p_status, p_oamaddr, p_rdbuf, p_x, p_w, p_bus;
 static uint16_t p_v, p_t;
 static int s0_pend, s0_dot;
-static int dot, scanline;
+static int dot, scanline;                   /* dot: the time in the line, in units of 1/dot_unit of a dot */
+/* what depends on the region (set_timing) */
+static int region = NES_NTSC;
+static int dot_cyc = 3, dot_unit = 1;       /* the units a CPU cycle adds to dot, and the units of one dot */
+static int n_lines = 262;                   /* the lines of a frame; the last one is the pre-render line */
 static uint32_t frames, cpu_cycles;
 static int nmi_pending;
 
@@ -292,7 +297,7 @@ static uint8_t ppu_read(unsigned r)
     uint8_t ret = p_bus;
     switch (r) {
     case 2:
-        if (s0_pend && dot >= s0_dot) { p_status |= 0x40; s0_pend = 0; }
+        if (s0_pend && dot >= s0_dot * dot_unit) { p_status |= 0x40; s0_pend = 0; }
         ret = (uint8_t)((p_status & 0xE0) | (p_bus & 0x1F));
         p_status &= 0x7F;
         p_w = 0;
@@ -455,8 +460,19 @@ static void ppu_yinc(void)
 /* ------------------------------------------------------------------ the sound */
 static const uint8_t len_tab[32] = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 static const uint8_t duty_tab[4][8] = { { 0, 1, 0, 0, 0, 0, 0, 0 }, { 0, 1, 1, 0, 0, 0, 0, 0 }, { 0, 1, 1, 1, 1, 0, 0, 0 }, { 1, 0, 0, 1, 1, 1, 1, 1 } };
-static const uint16_t noise_tab[16] = { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
-static const uint16_t dmc_tab[16] = { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
+/* the noise and DMC periods in CPU cycles: NTSC, PAL */
+static const uint16_t noise_tabs[2][16] = {
+    { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 },
+    { 4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 } };
+static const uint16_t dmc_tabs[2][16] = {
+    { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 },
+    { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 } };
+static const uint16_t *noise_tab = noise_tabs[0], *dmc_tab = dmc_tabs[0];
+/* The CPU cycles of one second of sound (one output sample each 1/48000 of it). NTSC: the console's clock, 1789773 Hz.
+ * PAL: the cycles of 50 frames (33247.5 each) instead of the clock's 1662607 Hz, because the caller runs exactly 50
+ * frames a second: 960 samples a frame, and the output never runs short. */
+static const int snd_hz_tab[2] = { 1789773, 1662375 };
+static int snd_hz = 1789773;
 static const uint8_t tri_tab[32] = { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
 typedef struct {
@@ -487,7 +503,11 @@ static int16_t ring[RING];
 static volatile uint32_t ring_rd, ring_wr;
 static uint32_t n_under, n_over;
 
-static const uint16_t ev_cyc[2][6] = { { 7457, 14913, 22371, 29829, 29830, 0 }, { 7457, 14913, 22371, 29829, 37281, 37282 } };
+/* the cycles of the frame counter's steps: [region][4 or 5 step mode][step] */
+static const uint16_t ev_cycs[2][2][6] = {
+    { { 7457, 14913, 22371, 29829, 29830, 0 }, { 7457, 14913, 22371, 29829, 37281, 37282 } },
+    { { 8313, 16627, 24939, 33253, 33254, 0 }, { 8313, 16627, 24939, 33253, 41565, 41566 } } };
+static const uint16_t (*ev_cyc)[6] = ev_cycs[0];
 static const uint8_t ev_act[2][6] = { { 1, 3, 1, 3 | 4, 8, 0 }, { 1, 3, 1, 0, 3, 8 } };
 
 static unsigned sweep_target(const pulse_t *p, int ones)
@@ -610,8 +630,8 @@ static void apu_run(int n)
         if (dirty) remix();
         acc_sum += cur_mix; acc_n++;
         frac += 48000;
-        if (frac >= 1789773) {
-            frac -= 1789773;
+        if (frac >= snd_hz) {
+            frac -= snd_hz;
             const int x = acc_sum / acc_n;
             acc_sum = 0; acc_n = 0;
             const int y = x - hp_prev_in + ((hp_prev_out * 32604) >> 15);   /* a high-pass filter: no steady level */
@@ -1108,7 +1128,7 @@ static int step(void)
     c += stall;
     stall = 0;
     cpu_cycles += (uint32_t)c;
-    dot += 3 * c;
+    dot += dot_cyc * c;
     if (mapper == 69) fme7_clock(c);
     apu_run(c);
     return c;
@@ -1122,14 +1142,16 @@ void nes_set_clock(uint32_t (*us_fn)(void)) { now_us = us_fn; }
 
 static void run_to(int d)
 {
-    while (dot < d) step();
+    const int t = d * dot_unit;
+    while (dot < t) step();
 }
 
 static void scan_line(int ln, int render, int timed, uint32_t *t_ppu)
 {
     scanline = ln;
     if (ln == 241) { p_status |= 0x80; if (p_ctrl & 0x80) nmi_pending = 1; }
-    if (ln == 261) { p_status &= 0x1F; s0_pend = 0; }
+    const int pre = n_lines - 1;                            /* the pre-render line */
+    if (ln == pre) { p_status &= 0x1F; s0_pend = 0; }
     if (ln < 240) {
         if (timed && render) {
             const uint32_t a = now_us();
@@ -1139,7 +1161,7 @@ static void scan_line(int ln, int render, int timed, uint32_t *t_ppu)
             ppu_line(ln, render);
         }
     }
-    const int active = ln < 240 || ln == 261;
+    const int active = ln < 240 || ln == pre;
     run_to(257);
     if (active && (p_mask & 0x18)) {
         if (ln < 240) ppu_yinc();
@@ -1147,13 +1169,13 @@ static void scan_line(int ln, int render, int timed, uint32_t *t_ppu)
     }
     run_to(261);
     if (active && (p_mask & 0x18)) map_scanline();
-    if (ln == 261) {
+    if (ln == pre) {
         run_to(305);
         if (p_mask & 0x18) p_v = (uint16_t)((p_v & ~0x7BE0) | (p_t & 0x7BE0));
     }
-    const int len = (ln == 261 && (frames & 1) && (p_mask & 0x18)) ? 340 : 341;
+    const int len = (region == NES_NTSC && ln == pre && (frames & 1) && (p_mask & 0x18)) ? 340 : 341;
     run_to(len);
-    dot -= len;
+    dot -= len * dot_unit;
     if (ln < 240 && s0_pend) { p_status |= 0x40; s0_pend = 0; }
 }
 
@@ -1170,7 +1192,7 @@ void nes_frame(uint8_t pad1, uint8_t pad2, int render)
     }
     uint32_t t_ppu = 0;
     const uint32_t t_start = timed ? now_us() : 0;
-    for (int ln = 0; ln < 262; ln++) scan_line(ln, render, timed, &t_ppu);
+    for (int ln = 0; ln < n_lines; ln++) scan_line(ln, render, timed, &t_ppu);
     frames++;
     if (timed) {
         const uint32_t over = (timed && render) ? rc10 * 240 / 10 : 0;
@@ -1201,6 +1223,26 @@ static void tables_init(void)
     tnd_tab[0] = 0;
     for (int i = 1; i < 203; i++) tnd_tab[i] = (int)(163.67 / (24329.0 / i + 100.0) * 16384.0);
 }
+
+static void set_timing(int r)
+{
+    region = r == NES_PAL ? NES_PAL : NES_NTSC;
+    dot_cyc = region ? 16 : 3;                              /* PAL: 16 fifths of a dot to a cycle */
+    dot_unit = region ? 5 : 1;
+    n_lines = region ? 312 : 262;
+    noise_tab = noise_tabs[region]; dmc_tab = dmc_tabs[region]; ev_cyc = ev_cycs[region];
+    snd_hz = snd_hz_tab[region];
+}
+
+void nes_set_region(int r)
+{
+    r = r == NES_PAL ? NES_PAL : NES_NTSC;
+    if (r == region) return;
+    set_timing(r);
+    nes_reset();
+}
+
+int nes_region(void) { return region; }
 
 void nes_reset(void)
 {
@@ -1259,6 +1301,13 @@ int nes_load(const uint8_t *data, size_t len, const char **why)
     else { chr = chr_ram; chr_size = 0; n_chr1 = 8; chr_is_ram = 1; }
     battery = (f6 & 2) != 0;
     hdr_mirror = (f6 & 8) ? 4 : ((f6 & 1) ? 1 : 0);
+    /* the region. NES 2.0: byte 12 (0 NTSC, 1 PAL, 2 both, 3 Dendy, run as PAL). iNES: only a byte 9 of 1 says PAL, in a
+     * header with no text in its last bytes; most European dumps leave it clear. */
+    int hreg = -1;
+    if (nes2) { const int t = data[12] & 3; hreg = (t == 1 || t == 3) ? NES_PAL : NES_NTSC; }
+    else if (data[9] == 1 && !(data[12] | data[13] | data[14] | data[15])) hreg = NES_PAL;
+    info.header_region = hreg;
+    set_timing(hreg == NES_PAL ? NES_PAL : NES_NTSC);
     memset(prg_ram, 0, sizeof prg_ram);
     sram_dirty = 0;
     info.mapper = mapper; info.prg_size = prg_size; info.chr_size = chr_size; info.battery = battery; info.sram_size = battery ? 8192u : 0u;
@@ -1295,5 +1344,5 @@ const uint8_t *nes_palette(void) { return pal; }
 int nes_test_step(void) { return step(); }
 void nes_test_set_cpu(uint16_t pc, uint8_t p, uint8_t s, uint32_t cycles)
 {
-    rPC = pc; set_p(p); rS = s; cpu_cycles = cycles; dot = (int)cycles * 3;
+    rPC = pc; set_p(p); rS = s; cpu_cycles = cycles; dot = (int)cycles * dot_cyc;
 }

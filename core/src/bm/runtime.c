@@ -2293,7 +2293,7 @@ static const luaL_Reg api[] = {
     { "snes_load", l_snes_load }, { "snes_reset", l_snes_reset }, { "snes_frame", l_snes_frame }, { "snes_draw", l_snes_draw }, { "snes_to_sheet", l_snes_to_sheet }, { "snes_tiles", l_snes_tiles },
     { "snes_info", l_snes_info }, { "snes_dsp_firmware", l_snes_dsp_firmware }, { "snes_sram", l_snes_sram }, { "snes_debug", l_snes_debug },
     { "snes_peek", l_snes_peek }, { "snes_mem", l_snes_mem }, { "snes_poke", l_snes_poke }, { "snes_regs", l_snes_regs }, { "snes_step", l_snes_step }, { "snes_break", l_snes_break }, { "snes_run", l_snes_run },
-    { "nes_load", l_nes_load }, { "nes_reset", l_nes_reset }, { "nes_frame", l_nes_frame }, { "nes_draw", l_nes_draw }, { "nes_to_sheet", l_nes_to_sheet },
+    { "nes_load", l_nes_load }, { "nes_reset", l_nes_reset }, { "nes_region", l_nes_region }, { "nes_frame", l_nes_frame }, { "nes_draw", l_nes_draw }, { "nes_to_sheet", l_nes_to_sheet },
     { "nes_info", l_nes_info }, { "nes_sram", l_nes_sram }, { "nes_debug", l_nes_debug },
     { "psx_list", l_psx_list }, { "psx_boot", l_psx_boot }, { "psx_reset", l_psx_reset }, { "psx_frame", l_psx_frame },
     { "psx_draw", l_psx_draw }, { "psx_info", l_psx_info }, { "psx_debug", l_psx_debug }, { "psx_tty", l_psx_tty }, { "psx_jit", l_psx_jit }, { "psx_selftest", l_psx_selftest },

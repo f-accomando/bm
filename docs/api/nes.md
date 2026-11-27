@@ -6,12 +6,13 @@ points in `core/src/bm/api_nes.c`); the cartridge `bm/nes` is its user interface
 
 | Function | Description |
 |---|---|
-| `nes_load(bytes)` | loads a `.nes` ROM (iNES header) and resets the machine: `true`, or `nil` and the reason (an unsupported mapper, a short file) |
+| `nes_load(bytes)` | loads a `.nes` ROM (iNES header) and resets the machine in the region of the header (NTSC when the header says nothing): `true`, or `nil` and the reason (an unsupported mapper, a short file) |
+| `nes_region([name])` | returns the region of the machine, `"ntsc"` or `"pal"`. With a name, it sets the region first; a change resets the machine (the battery RAM stays). Call `nes_frame` 60 times a second for NTSC and 50 times for PAL |
 | `nes_reset()` | a reset of the machine |
 | `nes_frame(pad1, pad2, [render])` | runs one frame with two pads. A pad is a number of bits: A 1, B 2, Select 4, Start 8, Up 16, Down 32, Left 64, Right 128. `render` false: the picture is not drawn (a frame that is skipped; the sprite 0 hit is still computed) |
 | `nes_draw(target, [w, h])` | copies the picture (256 pixels wide, 240 lines) to the top left of a render target; with `w` and `h` it is scaled to that size (nearest neighbour). Returns the lines (240) |
 | `nes_to_sheet([x, y])` | copies the picture into the cartridge's sprite sheet at `(x, y)` (multiples of 8; the sheet must hold 256 x 240 pixels there), so that `sspr` draws it with a zoom |
-| `nes_info()` | `{mapper, prg, chr, battery, mirroring, sram}` of the loaded ROM (sizes in bytes; `chr` 0 means picture RAM; `mirroring` is `"horizontal"`, `"vertical"`, `"one screen"` or `"four screens"`) |
+| `nes_info()` | `{mapper, prg, chr, battery, mirroring, sram, region}` of the loaded ROM (sizes in bytes; `chr` 0 means picture RAM; `mirroring` is `"horizontal"`, `"vertical"`, `"one screen"` or `"four screens"`; `region` is what the header says, `"ntsc"` or `"pal"`, or `nil` when it says nothing) |
 | `nes_sram([bytes])` | without an argument: the battery RAM (8 KB) as a string if it changed since the last call, else `nil`; with `bytes`: puts them in it |
 | `nes_debug()` | `{pc, a, x, y, s, p, ctrl, mask, status, frames, cycles, jammed, under, over, us, audio}`: the registers of the 6502 and of the picture unit, the averaged microseconds (`us`) and the sound counts (`audio`, `under`, `over`) |
 

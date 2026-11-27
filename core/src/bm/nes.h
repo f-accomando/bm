@@ -16,6 +16,11 @@
 #define NES_W 256
 #define NES_H_PIX 240
 
+/* the television system of the console: NTSC (262 lines, 60 frames a second, CPU 1789773 Hz) or PAL (312 lines, 50 frames
+ * a second, CPU 1662607 Hz, 3.2 picture dots to a CPU cycle, its own noise, DMC and frame counter periods) */
+#define NES_NTSC 0
+#define NES_PAL  1
+
 /* joypad bits as the machine shifts them out of $4016/$4017 (A first) */
 #define NES_PAD_A      0x01
 #define NES_PAD_B      0x02
@@ -33,11 +38,15 @@ typedef struct {
     int battery;            /* the cartridge keeps its RAM with a battery */
     int mirroring;          /* 0 horizontal, 1 vertical, 2 one screen (low), 3 one screen (high), 4 four screens */
     uint32_t sram_size;     /* bytes of battery RAM (8192 or 0) */
+    int header_region;      /* what the file's header says: NES_NTSC, NES_PAL, or -1 (it says nothing) */
 } nes_info_t;
 
-/* loads a ROM (the bytes are copied). 0, or -1 and *why */
+/* loads a ROM (the bytes are copied) in the region of its header (NTSC when the header says nothing). 0, or -1 and *why */
 int nes_load(const uint8_t *data, size_t len, const char **why);
 void nes_reset(void);
+/* the region of the machine; a change resets it. The caller runs nes_frame 60 (NTSC) or 50 (PAL) times a second */
+void nes_set_region(int region);
+int nes_region(void);
 /* one frame with the two pads; render 0: the picture is not drawn (a frame that is skipped) */
 void nes_frame(uint8_t pad1, uint8_t pad2, int render);
 /* the picture: NES_W x NES_H_PIX of RGB565 */

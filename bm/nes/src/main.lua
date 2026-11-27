@@ -22,7 +22,56 @@ local function pad_layout()
 end
 
 local frames = 0
-local esc_grace = 0           -- ignores kernel's Esc->Start fallback while Esc opens/closes the .bm menu
+-- The region of the console: NTSC runs 60 frames a second, PAL 50. A European game runs 20% too fast as NTSC. "auto" takes the
+-- header of the file, then the tags of its name; the choice of the menu is kept per ROM in /docs/nesreg.txt.
+local region, region_choice, rom_name = "ntsc", "auto", ""
+local hz, due = 60, 0         -- frames a second of the machine; the part of a frame that is due (in 60ths)
+local REGION_FILE = "nesreg.txt"
+local PAL_TAGS = { e = true, europe = true, pal = true, a = true, australia = true, f = true, france = true, g = true,
+                   germany = true, i = true, italy = true, s = true, spain = true, sw = true, sweden = true, netherlands = true }
+local NTSC_TAGS = { u = true, usa = true, j = true, japan = true, ntsc = true }
+local function name_region(name)               -- "(Europe)", "(E)", "(USA, Europe)": a name that also says USA or Japan is NTSC
+  local pal = false
+  for tag in name:lower():gmatch("[%(%[]([^%)%]]*)[%)%]]") do
+    for word in tag:gmatch("%a+") do
+      if NTSC_TAGS[word] then return "ntsc" end
+      if PAL_TAGS[word] then pal = true end
+    end
+  end
+  return pal and "pal" or "ntsc"
+end
+local function saved_regions()
+  local t = {}
+  for name, r in (doc_read(REGION_FILE) or ""):gmatch("([^\r\n]+)=(%a+)") do
+    if r == "pal" or r == "ntsc" then t[name] = r end
+  end
+  return t
+end
+local function save_region()
+  local t, lines = saved_regions(), {}
+  t[rom_name] = region_choice ~= "auto" and region_choice or nil
+  for name, r in pairs(t) do lines[#lines + 1] = name .. "=" .. r end
+  table.sort(lines)
+  doc_write(REGION_FILE, table.concat(lines, "\n") .. "\n")
+end
+-- Sets the machine to the chosen region. A change of region resets it: true then. A kernel with no nes_region runs NTSC.
+local function apply_region()
+  if not nes_region then return false end
+  local want = region_choice
+  if want == "auto" then want = nes_info().region or name_region(rom_name) end
+  local changed = want ~= region
+  region = nes_region(want)
+  hz = region == "pal" and 50 or 60
+  return changed
+end
+function region_label()
+  if not nes_region then return "Region: NTSC only" end
+  local r = region == "pal" and "PAL" or "NTSC"
+  if region_choice == "auto" then return "Region: Auto (" .. r .. ")" end
+  return "Region: " .. r
+end
+
+local esc_grace = 0          -- ignores kernel's Esc->Start fallback while Esc opens/closes the .bm menu
 
 -- the bridge build plays by itself: Start now and then, to pass a title screen
 local function auto_pad(f)
@@ -74,7 +123,7 @@ local launched = false        -- opened from the NES or SNES tab of the menu wit
 local state = "browse"           -- browse, run, menu
 local files, sel, msg = {}, 1, nil
 local top = 1                                -- the first ROM of the list that shows (the list scrolls with the selector)
-local function rom_rows() return math.max(1, (SCREEN_H - 40 - 90) // 18 + 1) end
+local function rom_rows() return math.max(1, (SCREEN_H - 60 - 90) // 18 + 1) end
 local function rom_scroll()
   local rows = rom_rows()
   if sel < top then top = sel end
@@ -87,8 +136,8 @@ local show_fps = false
 local draw_ms = { 0, 0 }
 local toast = nil
 
--- How often a picture is made: every `every` emulated frames (1 = 60 pictures a second). The machine runs 60 frames a second whatever the picture costs
--- (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed. Same rules as bm SNES:
+-- How often a picture is made: every `every` emulated frames (1 = a picture each frame). The machine runs 60 frames a second (PAL: 50) whatever the picture
+-- costs (frameskip), so the cart makes more pictures when the console keeps up and fewer when it does not. A window of 90 updates is timed. Same rules as bm SNES:
 -- - overloaded: under 57 updates a second, or under 50 draws a second: a picture less often, and no step back for 15 seconds;
 -- - three good windows in a row (58.8 updates and 55 draws a second or more), and the step back is allowed only when the cost measured now leaves room.
 local every, win_n, win_t, win_last, cooldown, good = 1, 0, 0, nil, 0, 0
@@ -143,8 +192,8 @@ local function log_draw(dm)
   if now - lg.t0 >= 1 then
     local n = math.max(1, frames - lg.f0)
     local d2 = dbg
-    log(string.format("nes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s | %s | %s",
-      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode,
+    log(string.format("nes t=%.1f upd=%d drw=%d fps=%d pic=1/%d umax=%.1f uavg=%.1f dmax=%.1f davg=%.1f gap=%.0f late=%d lua=%.0f mode=%s hz=%d | %s | %s",
+      now, frames - lg.f0, lg.drw, stat(2), every, lg.umax, lg.usum / n, lg.dmax, lg.dsum / math.max(1, lg.drw), lg.gap, lg.late, stat(1), mode, hz,
       d2 and d2.us or "-", d2 and d2.audio or "-"))
     log_reset(now)
   end
@@ -174,6 +223,11 @@ local function open_rom(d)
   if not data then msg = why or "cannot read the file"; return end
   local ok, err = nes_load(data)
   if not ok then msg = err; return end
+  rom_name = d.name
+  region = nes_region and nes_region() or "ntsc"       -- the load set the region of the header
+  region_choice = saved_regions()[rom_name] or "auto"
+  apply_region()
+  due = 0
   local info = nes_info()
   local base = d.name:gsub("%.[^.]*$", ""):gsub("[^%w_%-]", ""):sub(1, 8)
   if base == "" then base = "rom" end
@@ -283,27 +337,39 @@ function _update()
     local esc_edge = kedge(0x29)
     if btn("l2") and btn("r2") then holdmenu = holdmenu + 1 else holdmenu = 0 end
     if holdmenu > 30 or esc_edge then state = "menu"; menusel = 1; holdmenu = 0; toast = nil; save_sram(); kscan(); return end
-    local tf = time()
     adapt()
-    local render = frames % every == 0
-    nes_frame(readpad(1), readpad(2), render)           -- a picture every `every` frames
-    local u = (time() - tf) * 1000
-    win_u = win_u + u
-    if log_on then lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end
-    if render then pic_new = true end
-    frames = frames + 1
-    if frames % 120 == 0 then pad_layout() end
-    if frames % 600 == 0 then save_sram() end
+    due = due + hz                                      -- 60 updates a second: NTSC runs a frame in each, PAL in five of six
+    if due >= 60 then
+      due = due - 60
+      local tf = time()
+      local render = frames % every == 0
+      nes_frame(readpad(1), readpad(2), render)         -- a picture every `every` frames
+      local u = (time() - tf) * 1000
+      win_u = win_u + u
+      if log_on then lg.usum = lg.usum + u; if u > lg.umax then lg.umax = u end end
+      if render then pic_new = true end
+      frames = frames + 1
+      if frames % 120 == 0 then pad_layout() end
+      if frames % 600 == 0 then save_sram() end
+    end
   elseif state == "menu" then
     if nav_up() then menusel = math.max(1, menusel - 1) end
-    if nav_down() then menusel = math.min(7, menusel + 1) end
+    if nav_down() then menusel = math.min(8, menusel + 1) end
     if nav_ok() then
       if menusel == 1 then state = "run"
       elseif menusel == 2 then save_sram(); nes_reset(); frames = 0; lg.last = nil; lg.t0 = nil; state = "run"
       elseif menusel == 3 then show_fps = not show_fps
       elseif menusel == 4 then next_mode()
-      elseif menusel == 5 then kb_player = not kb_player; pad_layout()
-      elseif menusel == 6 then log_on = not log_on; log("nes log " .. (log_on and "on" or "off"))
+      elseif menusel == 5 then
+        if nes_region then                              -- Auto, NTSC, PAL
+          save_sram()
+          region_choice = region_choice == "auto" and "ntsc" or region_choice == "ntsc" and "pal" or "auto"
+          toast = nil
+          if apply_region() then frames = 0; due = 0; lg.last = nil; lg.t0 = nil; toast = "the game starts again" end
+          save_region()
+        else toast = "update the kernel" end
+      elseif menusel == 6 then kb_player = not kb_player; pad_layout()
+      elseif menusel == 7 then log_on = not log_on; log("nes log " .. (log_on and "on" or "off"))
       elseif launched then save_sram(); quit() else save_sram(); state = "browse"; list_roms() end
     end
     if btnp("b") or kedge(0x29) or kedge(0x12) then state = "run"; holdmenu = 0 end
@@ -311,11 +377,30 @@ function _update()
   kscan()
 end
 
+-- The keys of the list as chips (prompt()): the keyboard's when it was used last, else the pad's.
+function list_footer()
+  local x, y = 8, SCREEN_H - 40
+  local function item(key, text)
+    x = prompt(key, x, y) + 4
+    print(text, x, y, 0x9090A0)
+    x = x + #text * 8 + 10
+  end
+  if lastinput() == "keyboard" then
+    item("enter", "play"); item("r", "refresh"); item("esc", "menu")
+    print("WASD O=B P=A ,=Sel .=Start", 8, y + 20, 0x9090A0)
+  else
+    item("A", "play"); item("X", "refresh")
+    x, y = 8, y + 20
+    item("L2", "+"); item("R2", "held: menu")
+  end
+end
+
 function _draw()
   if state == "browse" then
     cls(0x201014)
     print("bm NES", 16, 12, 0xFF6060, 2)
-    print("Put .nes files in the /nes folder of the SD card.", 16, 56, 0x9090A0)
+    print("Put .nes files in the /nes", 16, 48, 0x9090A0)       -- two lines: the native screen is 256 wide
+    print("folder of the SD card.", 16, 66, 0x9090A0)
     if #files == 0 then print("No ROM found.", 16, 100, 0xFFFFFF) end
     local y = 90
     rom_scroll()
@@ -329,9 +414,9 @@ function _draw()
       y = y + 18
     end
     if top > 1 then print("^", SCREEN_W - 20, 72, 0x9090A0) end
-    if last < #files then print("v " .. (#files - last) .. " more", SCREEN_W - 100, SCREEN_H - 40, 0x9090A0) end
-    if msg then print(msg, 16, SCREEN_H - 56, 0xFF6060) end
-    print("Enter/P or A play  R/X refresh  keys: WASD  O=B P=A  ,=Sel .=Start  Esc=menu", 16, SCREEN_H - 24, 0x9090A0)
+    if last < #files then print("v " .. (#files - last) .. " more", SCREEN_W - 100, SCREEN_H - 60, 0x9090A0) end
+    if msg then print(msg, 16, SCREEN_H - 62, 0xFF6060) end
+    list_footer()
     return
   end
   if SCREEN_W ~= last_sw or SCREEN_H ~= last_sh then layout() end   -- screen() took effect
@@ -368,14 +453,14 @@ function _draw()
   end
   dbg_n = dbg_n + 1
   if dbg_n % 30 == 0 then dbg = nes_debug() end
-  if show_fps then print(string.format("%d fps  %.1f upd/s  pic 1/%d", stat(2), last_ups, every), 4, 4, 0x00FF00) end
+  if show_fps then print(string.format("%d fps  %.1f upd/s  pic 1/%d  %d Hz", stat(2), last_ups, every, hz), 4, 4, 0x00FF00) end
   if state == "menu" then
     rectfill(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0x201014)
     rect(SCREEN_W // 2 - 110, menu_top(), 220, 228, 0xFF6060)
     local items = { "Resume", "Reset", show_fps and "FPS: on" or "FPS: off",
-                    mode_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", log_on and "Log: on" or "Log: off", launched and "Back to the menu" or "Back to the list" }
-    for i = 1, 7 do
-      print(items[i], SCREEN_W // 2 - 90, menu_top() + 12 + (i - 1) * 24, i == menusel and 0xFFFFFF or 0x9090A0)
+                    mode_label(), region_label(), kb_player and "Keyboard as player: on" or "Keyboard as player: off", log_on and "Log: on" or "Log: off", launched and "Back to the menu" or "Back to the list" }
+    for i = 1, 8 do
+      print(items[i], SCREEN_W // 2 - 90, menu_top() + 10 + (i - 1) * 21, i == menusel and 0xFFFFFF or 0x9090A0)
     end
     local info = nes_info()
     print(string.format("mapper %d  %d KB", info.mapper, info.prg // 1024), SCREEN_W // 2 - 90, menu_top() + 188, 0x9090A0)

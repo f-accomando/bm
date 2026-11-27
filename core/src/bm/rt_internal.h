@@ -517,6 +517,7 @@ int l_snes_break(lua_State *L);
 int l_snes_run(lua_State *L);
 int l_nes_load(lua_State *L);
 int l_nes_reset(lua_State *L);
+int l_nes_region(lua_State *L);
 int l_nes_frame(lua_State *L);
 int l_nes_draw(lua_State *L);
 int l_nes_to_sheet(lua_State *L);

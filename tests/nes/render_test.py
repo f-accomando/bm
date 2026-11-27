@@ -113,6 +113,42 @@ def main():
                            "--input", tmp + "/in3.txt", "--quiet"], stdout=subprocess.DEVNULL)
     check("a held A does not play the first ROM", has(pixels(read_png(tmp + "/shots3/held_a.png")), (0x60, 0x30, 0x40)))
     check("a new press of A plays it", not has(pixels(read_png(tmp + "/shots3/after_a.png")), (0x60, 0x30, 0x40)))
+    # PAL: the same ROM under a European name runs 50 frames a second, so the sprite (one pixel a frame) goes 5/6 as far;
+    # the menu's Region row changes it and keeps the choice in /docs/nesreg.txt, which the next start reads
+    def step(name, seconds, script):
+        sd = tmp + "/" + name
+        if not os.path.isdir(sd):
+            os.makedirs(sd + "/nes"); os.makedirs(sd + "/docs")
+        os.makedirs(tmp + "/shots_" + name, exist_ok=True)
+        open(tmp + "/" + name + ".txt", "w").write(nl2.join(script) + nl2)
+        subprocess.check_call([host, cart, "--sd", sd, "--seconds", str(seconds), "--shots", tmp + "/shots_" + name,
+                               "--input", tmp + "/" + name + ".txt", "--quiet"], stdout=subprocess.DEVNULL)
+        return sd
+    def travel(name):                       # how far the red sprite goes between the updates 30 and 150
+        a, b = (centre(pixels(read_png(tmp + "/shots_%s/%s.png" % (name, s))), 0) for s in ("a", "b"))
+        return b - a
+    play = ["10 pad 1 a", "12 pad 1 none", "30 shot a", "150 shot b"]
+    moved = {}
+    for name, rom in (("ntsc", "bmtest.nes"), ("pal", "bmtest (E).nes")):
+        os.makedirs(tmp + "/" + name + "/nes"); os.makedirs(tmp + "/" + name + "/docs")
+        shutil.copy(tmp + "/sd/nes/bmtest.nes", tmp + "/" + name + "/nes/" + rom)
+        step(name, 4, play)
+        moved[name] = travel(name)
+    check("a European name runs at 50 frames a second (%.0f against %.0f pixels)" % (moved["pal"], moved["ntsc"]),
+          moved["ntsc"] > 0 and 0.80 < moved["pal"] / moved["ntsc"] < 0.87)
+    menu_keys = ["10 pad 1 a", "12 pad 1 none", "20 pad 1 l2 r2", "60 pad 1 none"]
+    t = 70
+    for key in ("down", "down", "down", "down", "a", "a"):           # Region: Auto -> NTSC -> PAL
+        menu_keys += ["%d pad 1 %s" % (t, key), "%d pad 1 none" % (t + 2)]
+        t += 6
+    menu_keys.append("%d shot region" % (t + 4))
+    os.makedirs(tmp + "/choice/nes"); os.makedirs(tmp + "/choice/docs")
+    shutil.copy(tmp + "/sd/nes/bmtest.nes", tmp + "/choice/nes/bmtest.nes")
+    sd3 = step("choice", 3, menu_keys)
+    saved = [open(sd3 + "/docs/" + f).read() for f in os.listdir(sd3 + "/docs") if f.lower() == "nesreg.txt"]
+    check("the menu's choice PAL is saved", saved == ["bmtest.nes=pal\n"])
+    step("choice", 4, play)
+    check("the saved choice runs at 50 frames a second", moved["ntsc"] > 0 and 0.80 < travel("choice") / moved["ntsc"] < 0.87)
     print("nes render test:", "ok" if not fails else "FAILED " + ", ".join(fails))
     if fails:
         shutil.copy(tmp + "/shots/f200.png", os.environ.get("NES_DBG", "build/nes_fail.png"))

@@ -93,7 +93,7 @@ static void test_cpu(void)
     CHECK(r[7] == 0x10, "CMP/BEQ: %d", r[7]);
 }
 
-static void test_picture_and_nmi(void)
+static void test_picture_and_nmi(int region)
 {
     cpos = 0;
     A(0x78, 0xA2, 0xFF, 0x9A);
@@ -112,8 +112,8 @@ static void test_picture_and_nmi(void)
     A(0x4C, (0xC000 + wait0) & 0xFF, (0xC000 + wait0) >> 8);
     const int nmi = cpos; A(0xE6, 0x10, 0x40);                                      /* INC $10; RTI */
     load(make_rom(0, 1, 1, 0, nmi, 0x3F80, 0));
+    nes_set_region(region);
     for (int i = 0; i < 6; i++) nes_frame(0, 0, 1);
-    nes_debug_t d; nes_debug(&d);
     CHECK(nes_ram()[0x10] == 6, "NMI count %d (6 frames)", nes_ram()[0x10]);
     CHECK(nes_ram()[0x20] >= 4, "sprite 0 hit seen in %d frames", nes_ram()[0x20]);
     const uint16_t *fbp = nes_picture();
@@ -255,6 +255,87 @@ static void test_bad_files(void)
     CHECK(nes_load(junk, sizeof junk, &why) == -1, "a short file is refused");
 }
 
+/* ---- PAL: the length of a frame, the region of the header, the sound's periods ---- */
+static uint32_t cycles_of(int frames)
+{
+    nes_debug_t a, b;
+    nes_debug(&a);
+    for (int i = 0; i < frames; i++) nes_frame(0, 0, 0);
+    nes_debug(&b);
+    return b.cycles - a.cycles;
+}
+
+static void test_pal_frame_and_header(void)
+{
+    cpos = 0;
+    A(0x78, 0xA2, 0xFF, 0x9A);
+    store(0x2000, 0x80);
+    const int self = cpos; A(0x4C, (0xC000 + self) & 0xFF, (0xC000 + self) >> 8);
+    const int nmi = cpos; A(0xE6, 0x10, 0x40);                                      /* INC $10; RTI */
+    const size_t n = make_rom(0, 1, 1, 0, nmi, 0x3F80, 0);
+    load(n);
+    CHECK(nes_region() == NES_NTSC && nes_info()->header_region == -1, "no region in the header: NTSC (%d %d)", nes_region(), nes_info()->header_region);
+    uint32_t c = cycles_of(100);                                                    /* 341 * 262 / 3 */
+    CHECK(c >= 2978060 && c <= 2978075, "NTSC: %u cycles in 100 frames", c);
+    nes_set_region(NES_PAL);
+    CHECK(nes_region() == NES_PAL && nes_ram()[0x10] == 0, "a change of region resets");
+    c = cycles_of(100);                                                             /* 341 * 312 / 3.2 */
+    CHECK(c >= 3324742 && c <= 3324758, "PAL: %u cycles in 100 frames", c);
+    CHECK(nes_ram()[0x10] == 100, "PAL: one NMI a frame, %d in 100", nes_ram()[0x10]);
+    image[9] = 1; load(n);
+    CHECK(nes_region() == NES_PAL && nes_info()->header_region == NES_PAL, "iNES byte 9 says PAL");
+    memcpy(image + 12, "Dude", 4); load(n);
+    CHECK(nes_region() == NES_NTSC && nes_info()->header_region == -1, "text in the header: byte 9 is not read");
+    memset(image + 9, 0, 7); image[7] |= 0x08; image[12] = 1; load(n);
+    CHECK(nes_region() == NES_PAL, "NES 2.0 byte 12 = 1 is PAL");
+    image[12] = 0; load(n);
+    CHECK(nes_region() == NES_NTSC && nes_info()->header_region == NES_NTSC, "NES 2.0 byte 12 = 0 is NTSC");
+}
+
+static void test_pal_sound(void)
+{
+    for (int pal = 0; pal < 2; pal++) {
+        /* a pulse of period $50 and the frame counter's IRQ */
+        cpos = 0;
+        A(0x78, 0xA2, 0xFF, 0x9A);
+        store(0x4015, 1); store(0x4000, 0xBF); store(0x4002, 0x50); store(0x4003, 0x08);
+        store(0x4017, 0x00);
+        A(0x58);
+        const int self = cpos; A(0x4C, (0xC000 + self) & 0xFF, (0xC000 + self) >> 8);
+        const int irq = cpos; A(0xE6, 0x30, 0xAD, 0x15, 0x40, 0x40);                /* INC $30; LDA $4015; RTI */
+        const size_t n = make_rom(0, 1, 1, 0, 0x3F00, irq, 0);
+        load(n);
+        nes_set_region(pal);
+        int steps = 0;
+        while (!nes_ram()[0x30] && steps++ < 40000) nes_test_step();
+        nes_debug_t d; nes_debug(&d);
+        const uint32_t at = pal ? 33253 : 29829;
+        CHECK(d.cycles >= at && d.cycles <= at + 60, "frame counter IRQ (pal %d) at cycle %u, about %u expected", pal, d.cycles, at);
+        load(n);
+        nes_set_region(pal);
+        nes_reset();                                                                /* an empty ring */
+        for (int i = 0; i < 3; i++) nes_frame(0, 0, 0);
+        static float buf[2 * 2048];
+        memset(buf, 0, sizeof buf);
+        nes_audio_mix(buf, 2048, 1.0f);
+        int cross = 0, first = 0, last = 0;
+        for (int i = 1; i < 2048; i++) if (buf[2 * (i - 1)] < 0.0f && buf[2 * i] >= 0.0f) { if (!cross++) first = i; last = i; }
+        const double hz = cross > 1 ? (cross - 1) * 48000.0 / (last - first) : 0;
+        /* NTSC 1789773 / (16 * 81) = 1381 Hz; PAL 1662375 / (16 * 81) = 1283 Hz */
+        const double want = pal ? 1283 : 1381;
+        CHECK(cross > 30 && hz > want - 8 && hz < want + 8, "pitch (pal %d): %.0f Hz from %d crossings (first %d last %d), %.0f expected", pal, hz, cross, first, last, want);
+        /* the samples of two frames: PAL 1920, NTSC 1597; the rest of 2048 is missing */
+        nes_reset();
+        for (int i = 0; i < 2; i++) nes_frame(0, 0, 0);
+        nes_debug_t a, b;
+        nes_debug(&a);
+        nes_audio_mix(buf, 2048, 1.0f);
+        nes_debug(&b);
+        const int under = (int)(b.audio_under - a.audio_under), exp_under = pal ? 128 : 451;
+        CHECK(under >= exp_under - 3 && under <= exp_under + 3, "samples of two frames (pal %d): %d missing, %d expected", pal, under, exp_under);
+    }
+}
+
 /* ---- nestest: the registers and the cycles after each instruction against the reference log ---- */
 static void test_nestest(const char *rom, const char *logname)
 {
@@ -294,12 +375,15 @@ int main(int argc, char **argv)
 {
     test_bad_files();
     test_cpu();
-    test_picture_and_nmi();
+    test_picture_and_nmi(NES_NTSC);
+    test_picture_and_nmi(NES_PAL);
     test_apu();
     test_mmc1();
     test_mmc3_irq();
     test_mmc2();
     test_fme7();
+    test_pal_frame_and_header();
+    test_pal_sound();
     if (argc >= 3) test_nestest(argv[1], argv[2]);
     printf("%d checks, %d failed\n", checks, fails);
     return fails ? 1 : 0;

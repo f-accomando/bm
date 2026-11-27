@@ -2,14 +2,15 @@
  * api_nes.c: the Lua side of the NES core (nes.h): what the cartridge bm/nes calls. The cartridge keeps the
  * list of ROMs, the menu and the battery RAM files; this runs the machine.
  *
- *   nes_load(bytes)            -> true, or nil and why        loads a .nes file and resets
+ *   nes_load(bytes)            -> true, or nil and why        loads a .nes file and resets, in the region of its header
+ *   nes_region([name])         -> "ntsc" or "pal"             the region; with a name, sets it (a change resets)
  *   nes_reset()                                               a reset of the machine
  *   nes_frame(pad1, pad2, [render])                           one frame; a pad is bits (NES_PAD_* in nes.h);
  *                                                             render false: the picture is not drawn
  *   nes_draw(target, [w, h])   -> lines                       copies the picture (256 x 240) to the top left of a
  *                                                             render target, or scales it to w x h
  *   nes_to_sheet([x, y])       -> lines                       the picture into the cartridge's sprite sheet (for sspr)
- *   nes_info()                 -> {mapper, prg, chr, battery, mirroring, sram}
+ *   nes_info()                 -> {mapper, prg, chr, battery, mirroring, sram, region (the header's, or nil)}
  *   nes_sram([bytes])          -> the battery RAM as a string if it changed since the last call, else nil;
  *                                 with bytes: puts them in it
  *   nes_debug()                -> {pc, a, x, y, s, p, ctrl, mask, status, frames, cycles, jammed, under, over, us, audio}
@@ -50,6 +51,15 @@ int l_nes_reset(lua_State *L)
     return 0;
 }
 
+int l_nes_region(lua_State *L)
+{
+    static const char *const names[] = { "ntsc", "pal", NULL };      /* NES_NTSC, NES_PAL */
+    if (!lua_isnoneornil(L, 1))
+        nes_set_region(luaL_checkoption(L, 1, NULL, names));
+    lua_pushstring(L, names[nes_region()]);
+    return 1;
+}
+
 int l_nes_frame(lua_State *L)
 {
     nes_frame((uint8_t)luaL_optinteger(L, 1, 0), (uint8_t)luaL_optinteger(L, 2, 0), lua_isnone(L, 3) || lua_toboolean(L, 3));
@@ -70,13 +80,14 @@ int l_nes_info(lua_State *L)
 {
     static const char *const mir[] = { "horizontal", "vertical", "one screen", "one screen", "four screens" };
     const nes_info_t *i = nes_info();
-    lua_createtable(L, 0, 6);
+    lua_createtable(L, 0, 7);
     lua_pushinteger(L, i->mapper); lua_setfield(L, -2, "mapper");
     lua_pushinteger(L, (lua_Integer)i->prg_size); lua_setfield(L, -2, "prg");
     lua_pushinteger(L, (lua_Integer)i->chr_size); lua_setfield(L, -2, "chr");
     lua_pushboolean(L, i->battery); lua_setfield(L, -2, "battery");
     lua_pushstring(L, mir[i->mirroring]); lua_setfield(L, -2, "mirroring");
     lua_pushinteger(L, (lua_Integer)i->sram_size); lua_setfield(L, -2, "sram");
+    if (i->header_region >= 0) { lua_pushstring(L, i->header_region == NES_PAL ? "pal" : "ntsc"); lua_setfield(L, -2, "region"); }
     return 1;
 }
 

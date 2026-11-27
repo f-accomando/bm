@@ -3,7 +3,7 @@ name: bm NES
 desc: A Famicom and NES emulator. It plays .nes files from the /nes folder of the SD card. The machine is in C.
 author: bm
 license: LicenseRef-BM-Community-1.0
-version: 0.1
+version: 0.2
 tags: app, emulator, nes
 resolution: 640x360
 targets: pi,rgb30
