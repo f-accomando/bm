@@ -11,10 +11,12 @@
 #include <stddef.h>
 
 /* The code the sheet is written in (the argument nes below): the assembly of the SNES, of the NES, or bm C (a
- * tiles { } block between "//@tiles" and "//@tiles-end", in "//@sprites" ... "//@end"). */
+ * tiles { } block between "//@tiles" and "//@tiles-end", in "//@sprites" ... "//@end"; 16 bytes a tile for the
+ * NES, 32 for the SNES). */
 #define SDK_CHR_SNES  0
 #define SDK_CHR_NES   1
 #define SDK_CHR_NES_C 2
+#define SDK_CHR_SNES_C 3
 
 /* The format the tiles of a project are written with (SDK_TILE_NES or SDK_TILE_SNES4). nes: a NES project. */
 int sdk_chr_format(int nes);

@@ -102,15 +102,17 @@ static int data_after(const char *s, size_t len, const char *label, long top, lo
     return n;
 }
 
-/* A colour of a call of bm C: a number or a name. -1: neither. */
-static int c_colour(const char **p, const char *end)
+/* The next argument of a call of bm C: a number, a name of a colour or, on the SNES, rgb(r, g, b). -1: none of
+ * them. A colour of the NES is its number (0 to 63), of the SNES its BGR555. */
+static long c_value(const char **p, const char *end, int snes)
 {
-    static const struct { const char *name; int value; } names[] = {
-        { "BLACK", 0x0F }, { "DARK_GRAY", 0x00 }, { "GRAY", 0x10 }, { "WHITE", 0x30 }, { "RED", 0x16 },
-        { "ORANGE", 0x27 }, { "YELLOW", 0x28 }, { "GREEN", 0x1A }, { "LIME", 0x2A }, { "CYAN", 0x2C },
-        { "SKY", 0x21 }, { "BLUE", 0x12 }, { "NAVY", 0x02 }, { "PURPLE", 0x14 }, { "PINK", 0x25 }, { "BROWN", 0x07 } };
+    static const struct { const char *name; int nes, snes; } names[] = {
+        { "BLACK", 0x0F, 0x0000 }, { "DARK_GRAY", 0x00, 0x294A }, { "GRAY", 0x10, 0x56B5 }, { "WHITE", 0x30, 0x7FFF },
+        { "RED", 0x16, 0x109F }, { "ORANGE", 0x27, 0x025F }, { "YELLOW", 0x28, 0x13BF }, { "GREEN", 0x1A, 0x12C4 },
+        { "LIME", 0x2A, 0x1BEC }, { "CYAN", 0x2C, 0x7386 }, { "SKY", 0x21, 0x7ECC }, { "BLUE", 0x12, 0x7144 },
+        { "NAVY", 0x02, 0x3840 }, { "PURPLE", 0x14, 0x60D2 }, { "PINK", 0x25, 0x5A1F }, { "BROWN", 0x07, 0x0930 } };
     const char *s = *p;
-    while (s < end && (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == ','))
+    while (s < end && (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == ',' || *s == '('))
         s++;
     const char *w = s;
     while (s < end && (*s == '_' || (*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9')))
@@ -121,29 +123,50 @@ static int c_colour(const char **p, const char *end)
         return -1;
     if (*w >= '0' && *w <= '9') {
         const int hex = n > 2 && w[0] == '0' && (w[1] == 'x' || w[1] == 'X');
-        int v = 0;
+        long v = 0;
         for (size_t i = hex ? 2 : 0; i < n; i++) {
             const char c = w[i];
             const int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 :
                           c >= 'A' && c <= 'F' ? c - 'A' + 10 : 99;
-            if (d >= (hex ? 16 : 10) || v > 63)
+            if (d >= (hex ? 16 : 10) || v > 0xFFFF)
                 return -1;
             v = v * (hex ? 16 : 10) + d;
         }
-        return v <= 63 ? v : -1;
+        return v;
+    }
+    if (snes && n == 3 && !memcmp(w, "rgb", 3)) {
+        long c[3];
+        for (int i = 0; i < 3; i++)
+            c[i] = c_value(p, end, snes);
+        while (*p < end && (**p == ' ' || **p == ')'))
+            (*p)++;
+        return c[0] >= 0 && c[1] >= 0 && c[2] >= 0 && c[0] < 32 && c[1] < 32 && c[2] < 32 ?
+                   c[0] | c[1] << 5 | c[2] << 10 : -1;
     }
     for (size_t i = 0; i < sizeof names / sizeof names[0]; i++)
         if (strlen(names[i].name) == n && !memcmp(names[i].name, w, n))
-            return names[i].value;
+            return snes ? names[i].snes : names[i].nes;
     return -1;
 }
 
-/* The palettes that the calls of a bm C source set: sprite_palette(n, a, b, c), background_palette(...), with the
- * colour behind from background(colour). Calls whose arguments are not plain colours are left out. */
-static void c_palettes(const char *src, size_t len)
+static uint32_t rgb_of(long v, int snes)
 {
-    static const char *const calls[3] = { "sprite_palette(", "background_palette(", "background(" };
-    int colour[8][4], have[8] = { 0 }, behind = 0x0F;
+    if (!snes)
+        return nes_rgb[v & 63];
+    const uint32_t r = (uint32_t)(v & 31) * 255 / 31, g = (uint32_t)(v >> 5 & 31) * 255 / 31;
+    return r << 16 | g << 8 | (uint32_t)(v >> 10 & 31) * 255 / 31;
+}
+
+/* The palettes that the calls of a bm C source set: sprite_palette(n, a, b, c), the background_palette of the
+ * NES, the palette(index, colour) of the sprites of the SNES, with the colour behind from background(colour).
+ * Calls whose arguments are not plain values are left out. The sprite palettes come first. */
+static void c_palettes(const char *src, size_t len, int snes)
+{
+    static const char *const calls[4] = { "sprite_palette(", "background_palette(", "background(", "palette(" };
+    long colour[SDK_PAL_CODE_MAX * 2][16];
+    int have[SDK_PAL_CODE_MAX * 2] = { 0 };
+    long behind = snes ? 0 : 0x0F;
+    memset(colour, 0, sizeof colour);
     const char *end = src + len;
     for (const char *p = src; p < end; p++) {
         if (p[0] == '/' && p + 1 < end && p[1] == '/') {
@@ -153,35 +176,42 @@ static void c_palettes(const char *src, size_t len)
         }
         if (p > src && (p[-1] == '_' || (p[-1] >= 'a' && p[-1] <= 'z')))
             continue;
-        for (int k = 0; k < 3; k++) {
+        for (int k = 0; k < 4; k++) {
             const size_t n = strlen(calls[k]);
             if ((size_t)(end - p) < n || memcmp(p, calls[k], n))
                 continue;
             const char *q = p + n;
             if (k == 2) {
-                const int v = c_colour(&q, end);
+                const long v = c_value(&q, end, snes);
                 if (v >= 0)
                     behind = v;
-                break;
-            }
-            int v[4];
-            for (int i = 0; i < 4; i++)
-                v[i] = c_colour(&q, end);
-            if (v[0] >= 0 && v[1] >= 0 && v[2] >= 0 && v[3] >= 0) {
-                const int at = (v[0] & 3) + (k == 0 ? 0 : 4);       /* the sprites first */
-                memcpy(&colour[at][1], &v[1], 3 * sizeof v[0]);
-                have[at] = 1;
+            } else if (k == 3) {                    /* one colour of the sprites: 128 to 255 */
+                const long i = c_value(&q, end, snes), v = c_value(&q, end, snes);
+                if (snes && i >= 128 && i < 256 && v >= 0) {
+                    colour[(i - 128) / 16][(i - 128) % 16] = v;
+                    have[(i - 128) / 16] = 1;
+                }
+            } else if (!(snes && k == 1)) {
+                long v[4];
+                for (int i = 0; i < 4; i++)
+                    v[i] = c_value(&q, end, snes);
+                if (v[0] >= 0 && v[1] >= 0 && v[2] >= 0 && v[3] >= 0) {
+                    const int at = snes ? (int)(v[0] & 7) : (int)(v[0] & 3) + (k == 0 ? 0 : 4);
+                    memcpy(&colour[at][1], &v[1], 3 * sizeof v[0]);
+                    have[at] = 1;
+                }
             }
             break;
         }
     }
-    for (int at = 0; at < 8; at++) {
+    for (int at = 0; at < SDK_PAL_CODE_MAX && code_count < SDK_PAL_CODE_MAX; at++) {
         if (!have[at])
             continue;
-        snprintf(code_name[code_count], sizeof code_name[0], "%s%d of the code", at < 4 ? "SPR" : "BG", at % 4);
+        snprintf(code_name[code_count], sizeof code_name[0], "%s%d of the code", !snes && at >= 4 ? "BG" : "SPR",
+                 snes ? at : at % 4);
         colour[at][0] = behind;
         for (int c = 0; c < 16; c++)
-            code_rgb[code_count][c] = nes_rgb[colour[at][c % 4]];
+            code_rgb[code_count][c] = rgb_of(colour[at][snes ? c : c % 4], snes);
         code_count++;
     }
 }
@@ -193,8 +223,8 @@ void sdk_pal_load(int kind, const char *src, size_t len)
     code_count = 0;
     has_set16 = kind != SDK_SPRITE_NES && kind != SDK_SPRITE_NES_C;
     long v[SDK_PAL_CODE_MAX * 16];
-    if (kind == SDK_SPRITE_NES_C)
-        c_palettes(src, len);
+    if (kind == SDK_SPRITE_NES_C || kind == SDK_SPRITE_SNES_C)
+        c_palettes(src, len, kind == SDK_SPRITE_SNES_C);
     else if (kind == SDK_SPRITE_NES) {
         const int n = data_after(src, len, "palette", 0x3F, v, 32);
         const int groups = n / 4;

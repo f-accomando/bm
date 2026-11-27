@@ -12,26 +12,37 @@
 #include <string.h>
 
 enum { B_WAIT, B_HELD, B_PRESSED, B_BACKGROUND, B_BG_PAL, B_SPR_PAL, B_SPRITE, B_STYLE, B_HIDE, B_RANDOM, B_PEEK,
-       B_POKE, B_COUNT };
+       B_POKE, B_BIG, B_PALETTE, B_RGB, B_COUNT };
 
+enum { ON_NES = 1, ON_SNES = 2, ON_BOTH = 3 };
+
+/* The library: the bytes of each argument on the NES and on the SNES (a colour and the buttons of the SNES take
+ * 16 bits). The routines have the same names in the two runtimes. */
 static const struct {
     const char *name, *args, *routine;
-    int ret, nargs, width, part;
+    int ret, nargs, nes[4], snes[4], on, part;
 } builtins[B_COUNT] = {
-    { "wait_frame", "()", "__wait_frame", CT_VOID, 0, 1, 0 },
-    { "held", "(button)", NULL, CT_U8, 1, 1, 0 },
-    { "pressed", "(button)", NULL, CT_U8, 1, 1, 0 },
-    { "background", "(colour)", "__background", CT_VOID, 1, 1, RT_PALETTE },
-    { "background_palette", "(n, c1, c2, c3)", "__background_palette", CT_VOID, 4, 1, RT_PALETTE },
-    { "sprite_palette", "(n, c1, c2, c3)", "__sprite_palette", CT_VOID, 4, 1, RT_PALETTE },
-    { "sprite", "(n, x, y, tile)", "__sprite", CT_VOID, 4, 1, RT_SPRITE },
-    { "sprite_style", "(n, style)", "__sprite_style", CT_VOID, 2, 1, RT_SPRITE },
-    { "hide_sprite", "(n)", "__hide_sprite", CT_VOID, 1, 1, RT_SPRITE },
-    { "random", "()", "__random", CT_U8, 0, 1, RT_RANDOM },
-    { "peek", "(address)", NULL, CT_U8, 1, 2, 0 },
-    { "poke", "(address, value)", NULL, CT_VOID, 2, 1, 0 } };
+    { "wait_frame", "()", "__wait_frame", CT_VOID, 0, { 0 }, { 0 }, ON_BOTH, 0 },
+    { "held", "(button)", NULL, CT_U8, 1, { 1 }, { 2 }, ON_BOTH, 0 },
+    { "pressed", "(button)", NULL, CT_U8, 1, { 1 }, { 2 }, ON_BOTH, 0 },
+    { "background", "(colour)", "__background", CT_VOID, 1, { 1 }, { 2 }, ON_BOTH, RT_PALETTE },
+    { "background_palette", "(n, c1, c2, c3)", "__background_palette", CT_VOID, 4, { 1, 1, 1, 1 }, { 0 }, ON_NES,
+      RT_PALETTE },
+    { "sprite_palette", "(n, c1, c2, c3)", "__sprite_palette", CT_VOID, 4, { 1, 1, 1, 1 }, { 1, 2, 2, 2 }, ON_BOTH,
+      RT_PALETTE },
+    { "sprite", "(n, x, y, tile)", "__sprite", CT_VOID, 4, { 1, 1, 1, 1 }, { 1, 2, 1, 2 }, ON_BOTH, RT_SPRITE },
+    { "sprite_style", "(n, style)", "__sprite_style", CT_VOID, 2, { 1, 1 }, { 1, 1 }, ON_BOTH, RT_SPRITE },
+    { "hide_sprite", "(n)", "__hide_sprite", CT_VOID, 1, { 1 }, { 1 }, ON_BOTH, RT_SPRITE },
+    { "random", "()", "__random", CT_U8, 0, { 0 }, { 0 }, ON_BOTH, RT_RANDOM },
+    { "peek", "(address)", NULL, CT_U8, 1, { 2 }, { 2 }, ON_BOTH, 0 },
+    { "poke", "(address, value)", NULL, CT_VOID, 2, { 2, 1 }, { 2, 1 }, ON_BOTH, 0 },
+    { "sprite_big", "(n, big)", "__sprite_big", CT_VOID, 2, { 0 }, { 1, 1 }, ON_SNES, RT_SPRITE },
+    { "palette", "(index, colour)", "__palette", CT_VOID, 2, { 0 }, { 1, 2 }, ON_SNES, RT_PALETTE },
+    { "rgb", "(r, g, b)", NULL, CT_U16, 3, { 0 }, { 1, 1, 1 }, ON_SNES, 0 } };
 
-static const struct { const char *name; int value; } constants[] = {
+typedef struct { const char *name; int value; } constant_t;
+
+static const constant_t nes_constants[] = {
     { "A", 0x80 }, { "B", 0x40 }, { "SELECT", 0x20 }, { "START", 0x10 }, { "UP", 0x08 }, { "DOWN", 0x04 },
     { "LEFT", 0x02 }, { "RIGHT", 0x01 },
     { "BLACK", 0x0F }, { "DARK_GRAY", 0x00 }, { "GRAY", 0x10 }, { "WHITE", 0x30 }, { "RED", 0x16 },
@@ -39,8 +50,21 @@ static const struct { const char *name; int value; } constants[] = {
     { "SKY", 0x21 }, { "BLUE", 0x12 }, { "NAVY", 0x02 }, { "PURPLE", 0x14 }, { "PINK", 0x25 }, { "BROWN", 0x07 },
     { "FLIP_X", 0x40 }, { "FLIP_Y", 0x80 }, { "BEHIND", 0x20 } };
 
+/* the buttons as the SNES reads them; the colours in BGR555 (red in the low bits) */
+static const constant_t snes_constants[] = {
+    { "B", 0x8000 }, { "Y", 0x4000 }, { "SELECT", 0x2000 }, { "START", 0x1000 }, { "UP", 0x0800 },
+    { "DOWN", 0x0400 }, { "LEFT", 0x0200 }, { "RIGHT", 0x0100 }, { "A", 0x0080 }, { "X", 0x0040 }, { "L", 0x0020 },
+    { "R", 0x0010 },
+    { "BLACK", 0x0000 }, { "DARK_GRAY", 0x294A }, { "GRAY", 0x56B5 }, { "WHITE", 0x7FFF }, { "RED", 0x109F },
+    { "ORANGE", 0x025F }, { "YELLOW", 0x13BF }, { "GREEN", 0x12C4 }, { "LIME", 0x1BEC }, { "CYAN", 0x7386 },
+    { "SKY", 0x7ECC }, { "BLUE", 0x7144 }, { "NAVY", 0x3840 }, { "PURPLE", 0x60D2 }, { "PINK", 0x5A1F },
+    { "BROWN", 0x0930 },
+    { "FLIP_X", 0x40 }, { "FLIP_Y", 0x80 }, { "BEHIND", 0x20 } };
+
 typedef struct {
     cc_t *cc;
+    int snes;                       /* the machine */
+    int ram_first, ram_end;
     cc_program_t prog;
     sym_t *globals;                 /* the names of the top */
     sym_t *locals;                  /* the names of the open blocks, the newest first */
@@ -263,15 +287,31 @@ static void place(gen_t *g, sym_t *s)
     if (!s->type.len && g->zp + n <= CC_ZP_END) {
         s->address = g->zp;
         g->zp += n;
-    } else if (g->ram + n <= CC_RAM_END) {
+    } else if (g->ram + n <= g->ram_end) {
         s->address = g->ram;
         g->ram += n;
     } else
         cc_error(g->cc, s->line, "no room for '%s': it takes %d bytes, the RAM has %d left", s->name, n,
-                 CC_RAM_END - g->ram);
+                 g->ram_end - g->ram);
 }
 
 /* ---- the constants ---- */
+
+/* rgb(r, g, b): the colour of the SNES, 0 to 31 each, worked out when the program is built. */
+static long colour_of(cc_t *cc, node_t *n)
+{
+    long v[3] = { 0, 0, 0 };
+    int count = 0;
+    for (node_t *a = n->a; a; a = a->next, count++)
+        if (count < 3) {
+            v[count] = cc_constant(cc, a);
+            if (v[count] < 0 || v[count] > 31)
+                cc_error(cc, a->line, "rgb takes 0 to 31 for red, green and blue, not %ld", v[count]);
+        }
+    if (count != 3)
+        cc_error(cc, n->line, "rgb(r, g, b) takes 3 arguments, not %d", count);
+    return v[0] | v[1] << 5 | v[2] << 10;
+}
 
 long cc_constant(cc_t *cc, node_t *n)
 {
@@ -301,6 +341,10 @@ long cc_constant(cc_t *cc, node_t *n)
         const long v = cc_constant(cc, n->a);
         return width(n->type) == 2 ? v & 0xFFFF : v & 0xFF;
     }
+    case N_CALL:
+        if (g->snes && !strcmp(n->name, "rgb"))
+            return colour_of(cc, n);
+        break;
     default:
         break;
     }
@@ -337,7 +381,7 @@ static void fits(gen_t *g, const node_t *v, ctype_t to, const char *name)
 
 static int has_effect(const node_t *n)
 {
-    if (!n)
+    if (!n || n->constant)
         return 0;
     if (n->kind == N_CALL || n->kind == N_ASSIGN || n->kind == N_PREINC || n->kind == N_POSTINC)
         return 1;
@@ -453,6 +497,8 @@ static void add_call(gen_t *g, sym_t *callee)
     f->calls[f->ncalls++] = callee;
 }
 
+static int arg_width(const gen_t *g, int b, int i) { return g->snes ? builtins[b].snes[i] : builtins[b].nes[i]; }
+
 static ctype_t call_type(gen_t *g, node_t *n)
 {
     sym_t *s = find(g, n->name);
@@ -461,6 +507,15 @@ static ctype_t call_type(gen_t *g, node_t *n)
     if (s->kind != SY_FUNC && s->kind != SY_BUILTIN)
         cc_error(g->cc, n->line, "'%s' is %s, not a function", n->name, what(s));
     n->sym = s;
+    if (s->kind == SY_BUILTIN && !(builtins[s->builtin].on & (g->snes ? ON_SNES : ON_NES))) {
+        if (s->builtin == B_BG_PAL)
+            cc_error(g->cc, n->line, "background_palette is for the NES: on the SNES use palette(index, colour)");
+        cc_error(g->cc, n->line, "'%s' is for the %s only", n->name, g->snes ? "NES" : "SNES");
+    }
+    if (s->kind == SY_BUILTIN && s->builtin == B_RGB) {
+        make_constant(g, n, colour_of(g->cc, n));
+        return n->type;
+    }
     int count = 0;
     for (const node_t *a = n->a; a; a = a->next)
         count++;
@@ -476,11 +531,11 @@ static ctype_t call_type(gen_t *g, node_t *n)
     for (node_t *a = n->a; a; a = a->next, i++) {
         const ctype_t t = value_of(g, a);
         if (s->kind == SY_BUILTIN) {
-            if (builtins[s->builtin].width == 1 && !(s->builtin == B_POKE && i == 0)) {
-                if (t.ptr)
-                    cc_error(g->cc, a->line, "%s needs a number here, not an address", n->name);
+            const int address = (s->builtin == B_PEEK || s->builtin == B_POKE) && i == 0;
+            if (t.ptr && !address)
+                cc_error(g->cc, a->line, "%s needs a number here, not an address", n->name);
+            if (arg_width(g, s->builtin, i) == 1)
                 fits(g, a, (ctype_t){ CT_U8, 0, 0 }, n->name);
-            }
         } else {
             const sym_t *p = s->params[i];
             if (p->type.ptr && !t.ptr && !(a->constant && !a->value))
@@ -653,6 +708,8 @@ static ctype_t expr(gen_t *g, node_t *n)
         break;
     case N_CALL:
         t = call_type(g, n);
+        if (n->constant)
+            return n->type;
         break;
     default:
         cc_error(g->cc, n->line, "this cannot be a value");
@@ -1604,10 +1661,21 @@ static void call(gen_t *g, node_t *n)
         g->parts |= builtins[b].part;
         switch (b) {
         case B_HELD:
-        case B_PRESSED:
-            gen(g, a, 1);
-            I("and %s", b == B_HELD ? "__pad" : "__new");
+        case B_PRESSED: {
+            const char *from = b == B_HELD ? "__pad" : "__new";
+            if (!g->snes) {
+                gen(g, a, 1);
+                I("and %s", from);
+                return;
+            }
+            gen(g, a, 2);                       /* the 12 buttons: not 0 in A when one of them is */
+            I("and %s", from);
+            I("sta __a");
+            I("txa");
+            I("and %s+1", from);
+            I("ora __a");
             return;
+        }
         case B_PEEK:
             gen(g, a, 2);
             I("sta __p");
@@ -1638,10 +1706,11 @@ static void call(gen_t *g, node_t *n)
         inner |= has_effect(v);
     char slot[CC_PARAMS][112];
     int w[CC_PARAMS];
-    for (int i = 0; i < count; i++) {
+    for (int i = 0, at = 0; i < count; i++) {
         if (s->kind == SY_BUILTIN) {
-            snprintf(slot[i], sizeof slot[i], "__arg+%d", i);
-            w[i] = 1;
+            snprintf(slot[i], sizeof slot[i], "__arg+%d", at);
+            w[i] = arg_width(g, s->builtin, i);
+            at += w[i];
         } else {
             snprintf(slot[i], sizeof slot[i], "%s", s->params[i]->label);
             w[i] = width(s->params[i]->type);
@@ -1773,7 +1842,7 @@ static void effect(gen_t *g, node_t *n)
         assign(g, n, 0, width(n->a->type));
     else if (n->kind == N_PREINC || n->kind == N_POSTINC)
         step(g, n, 0, width(n->a->type));
-    else if (n->kind == N_CALL)
+    else if (n->kind == N_CALL && !n->constant)
         call(g, n);
     else if (!n->constant)
         gen(g, n, width(n->type));
@@ -1976,13 +2045,20 @@ static void data_lines(gen_t *g, const sym_t *s, const char *name)
     }
 }
 
+/* The sheet: NES, the CHR ROM; SNES, bytes of the ROM that the start sends to the video memory. */
 static void tiles(gen_t *g)
 {
+    const int bytes = g->snes ? 32 : 16;
     if (!g->prog.tiles)
         return;
     g->line = g->prog.tiles->line;
-    emit(g, "; ---- the tiles: the CHR ROM, 16 bytes a tile --------------------------------");
-    emit(g, ".chr");
+    if (g->snes) {
+        emit(g, "; ---- the tiles: 32 bytes a tile, sent to the video memory at the start -----");
+        emit(g, "__tiles:");
+    } else {
+        emit(g, "; ---- the tiles: the CHR ROM, 16 bytes a tile --------------------------------");
+        emit(g, ".chr");
+    }
     long total = 0;
     char line[200];
     size_t k = 0;
@@ -1998,11 +2074,11 @@ static void tiles(gen_t *g)
         if (v->kind == N_BLANK) {
             if (v->value < 0 || v->value > 512)
                 cc_error(g->cc, v->line, "blank(n): n tiles, 0 to 512");
-            if (total % 16)
-                cc_error(g->cc, v->line, "blank() starts after %ld bytes: each tile before it needs 16", total);
+            if (total % bytes)
+                cc_error(g->cc, v->line, "blank() starts after %ld bytes: each tile before it needs %d", total, bytes);
             if (v->value)
-                emit(g, "    .res %ld,0", v->value * 16);
-            total += v->value * 16;
+                emit(g, "    .res %ld,0", v->value * bytes);
+            total += v->value * bytes;
         } else {
             if (v->value < 0 || v->value > 255)
                 cc_error(g->cc, v->line, "a byte of a tile is 0 to 255, not %ld", v->value);
@@ -2016,21 +2092,56 @@ static void tiles(gen_t *g)
         if (total > 65536)
             cc_error(g->cc, v->line, "too many tiles");
     }
-    if (total % 16)
-        cc_error(g->cc, g->prog.tiles->line, "tiles has %ld bytes: a tile is 16", total);
-    emit(g, ".endchr");
+    if (total % bytes)
+        cc_error(g->cc, g->prog.tiles->line, "tiles has %ld bytes: a tile is %d", total, bytes);
+    if (g->snes && total > 512 * 32)
+        cc_error(g->cc, g->prog.tiles->line, "the sprites reach 512 tiles: tiles has %ld", total / 32);
+    if (!g->snes)
+        emit(g, ".endchr");
+}
+
+/* The bytes that the tiles { } block gives. */
+static long tile_bytes(const gen_t *g)
+{
+    long total = 0;
+    for (const node_t *v = g->prog.tiles ? g->prog.tiles->a : NULL; v; v = v->next)
+        total += v->kind == N_BLANK ? v->value * (g->snes ? 32 : 16) : 1;
+    return total;
+}
+
+/* SNES: the routine of the start that copies the tiles to the video memory at $0000. */
+static void upload_tiles(gen_t *g)
+{
+    const long total = tile_bytes(g);
+    g->line = 0;
+    emit(g, "%s", "");
+    emit(g, "__upload_tiles:");
+    if (total > 0 && total <= 512 * 32) {
+        static const char *const code[] = { "lda #$80", "sta $2115", "stz $2116", "stz $2117", "lda #$01",
+            "sta $4300", "lda #$18", "sta $4301", "lda #<__tiles", "sta $4302", "lda #>__tiles", "sta $4303",
+            "stz $4304" };
+        for (size_t i = 0; i < sizeof code / sizeof code[0]; i++)
+            I("%s", code[i]);
+        I("lda #$%02X", (unsigned)(total & 0xFF));
+        I("sta $4305");
+        I("lda #$%02X", (unsigned)(total >> 8 & 0xFF));
+        I("sta $4306");
+        I("lda #1");
+        I("sta $420B");
+    }
+    I("rts");
 }
 
 static void write_program(gen_t *g)
 {
-    const int ram = (g->zp - CC_ZP_FIRST) + (g->ram - CC_RAM_FIRST);
+    const int ram = (g->zp - CC_ZP_FIRST) + (g->ram - g->ram_first);
     g->line = 0;
     emit(g, "; Written by bm C from main.c. Do not edit: change main.c.");
-    emit(g, "; RAM of the program: %d bytes (%d in the zero page, %d from $0320).", ram, g->zp - CC_ZP_FIRST,
-         g->ram - CC_RAM_FIRST);
+    emit(g, "; RAM of the program: %d bytes (%d in the zero page, %d from $%04X).", ram, g->zp - CC_ZP_FIRST,
+         g->ram - g->ram_first, (unsigned)g->ram_first);
     emit(g, "; A byte is in A; 16 bits are in A (low) and X (high).");
     emit(g, "%s", "");
-    put(g, cc_runtime_head(), strlen(cc_runtime_head()));
+    put(g, cc_runtime_head(g->snes), strlen(cc_runtime_head(g->snes)));
     emit(g, "%s", "");
     emit(g, "; ---- the variables of the program -------------------------------------------");
     for (const sym_t *s = g->all; s; s = s->all)
@@ -2043,7 +2154,9 @@ static void write_program(gen_t *g)
     emit(g, "%s", "");
     emit(g, ".org $8000");
     emit(g, "%s", "");
-    put(g, cc_runtime_part(RT_BASE), strlen(cc_runtime_part(RT_BASE)));
+    put(g, cc_runtime_part(g->snes, RT_BASE), strlen(cc_runtime_part(g->snes, RT_BASE)));
+    if (g->snes)
+        upload_tiles(g);
 
     emit(g, "%s", "");
     emit(g, "; ---- the program ------------------------------------------------------------");
@@ -2113,7 +2226,7 @@ static void write_program(gen_t *g)
     for (int part = RT_MUL; part <= RT_RANDOM; part <<= 1)
         if (g->parts & part) {
             emit(g, "%s", "");
-            put(g, cc_runtime_part(part), strlen(cc_runtime_part(part)));
+            put(g, cc_runtime_part(g->snes, part), strlen(cc_runtime_part(g->snes, part)));
         }
 
     int first = 1;
@@ -2139,9 +2252,12 @@ static void write_program(gen_t *g)
 
 static void builtin_names(gen_t *g)
 {
-    for (size_t i = 0; i < sizeof constants / sizeof constants[0]; i++) {
-        sym_t *s = new_sym(g, constants[i].name, SY_CONST, 0);
-        s->value = constants[i].value;
+    const constant_t *c = g->snes ? snes_constants : nes_constants;
+    const size_t count = g->snes ? sizeof snes_constants / sizeof snes_constants[0] :
+                                   sizeof nes_constants / sizeof nes_constants[0];
+    for (size_t i = 0; i < count; i++) {
+        sym_t *s = new_sym(g, c[i].name, SY_CONST, 0);
+        s->value = c[i].value;
         declare_global(g, s);
     }
     for (int i = 0; i < B_COUNT; i++) {
@@ -2152,14 +2268,14 @@ static void builtin_names(gen_t *g)
     static const char *const vars[3][2] = { { "frame", "__frame" }, { "pad", "__pad" }, { "pad_new", "__new" } };
     for (int i = 0; i < 3; i++) {
         sym_t *s = new_sym(g, vars[i][0], SY_VAR, 0);
-        s->type = (ctype_t){ CT_U8, 0, 0 };
+        s->type = (ctype_t){ (uint8_t)(g->snes && i ? CT_U16 : CT_U8), 0, 0 };     /* the SNES pad: a word */
         s->is_const = 1;                        /* the runtime writes them */
         snprintf(s->label, sizeof s->label, "%s", vars[i][1]);
         declare_global(g, s);
     }
 }
 
-int sdk_cc_compile(const char *src, size_t len, sdk_cc_out_t *out, char *err, size_t en)
+int sdk_cc_compile(const char *src, size_t len, int snes, sdk_cc_out_t *out, char *err, size_t en)
 {
     cc_t *cc = calloc(1, sizeof *cc);
     gen_t *g = calloc(1, sizeof *g);
@@ -2177,8 +2293,11 @@ int sdk_cc_compile(const char *src, size_t len, sdk_cc_out_t *out, char *err, si
     cc->user = g;
     g->cc = cc;
     g->all_tail = &g->all;
+    g->snes = snes != 0;
+    g->ram_first = snes ? CC_SNES_FIRST : CC_RAM_FIRST;
+    g->ram_end = snes ? CC_SNES_END : CC_RAM_END;
     g->zp = CC_ZP_FIRST;
-    g->ram = CC_RAM_FIRST;
+    g->ram = g->ram_first;
     if (!setjmp(cc->fail)) {
         builtin_names(g);
         cc_parse(cc, &g->prog, define);
@@ -2188,7 +2307,8 @@ int sdk_cc_compile(const char *src, size_t len, sdk_cc_out_t *out, char *err, si
         out->len = g->len;
         out->line_of = g->line_of;
         out->lines = g->lines;
-        out->ram = (g->zp - CC_ZP_FIRST) + (g->ram - CC_RAM_FIRST);
+        out->ram = (g->zp - CC_ZP_FIRST) + (g->ram - g->ram_first);
+        out->ram_size = g->snes ? 8192 : 2048;
         g->text = NULL;
         g->line_of = NULL;
         rc = 0;

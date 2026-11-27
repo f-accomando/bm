@@ -114,7 +114,7 @@ The reference is split by area. **Read only the file you need** (and grep inside
 | [api/system.md](api/system.md) | Time and system · Network (UDP) · Saves · Documents |
 | [api/snes.md](api/snes.md) | The SNES machine (bm SNES) |
 | [api/nes.md](api/nes.md) | The Famicom / NES machine (bm NES) |
-| [BM-C.md](BM-C.md) | bm C: C for NES projects in the Shell SDK |
+| [BM-C.md](BM-C.md) | bm C: C for NES and SNES projects in the Shell SDK |
 | [api/psx.md](api/psx.md) | The PlayStation 1 machine (bm PSX) |
 | [api/sound.md](api/sound.md) | Sound effects and music · Notes · Instruments, tone, room · The bank |
 | [api/tools.md](api/tools.md) | Keyboard and files · Assistant (M30) |

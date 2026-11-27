@@ -31,7 +31,8 @@ static const char c_types[] = "void byte sbyte word int char bool unsigned signe
 static const char c_names[] =
     "start update main wait_frame held pressed background background_palette sprite_palette sprite sprite_style "
     "hide_sprite random peek poke frame pad pad_new blank A B SELECT START UP DOWN LEFT RIGHT BLACK DARK_GRAY GRAY "
-    "WHITE RED ORANGE YELLOW GREEN LIME CYAN SKY BLUE NAVY PURPLE PINK BROWN FLIP_X FLIP_Y BEHIND";
+    "WHITE RED ORANGE YELLOW GREEN LIME CYAN SKY BLUE NAVY PURPLE PINK BROWN FLIP_X FLIP_Y BEHIND "
+    "sprite_big palette rgb X Y L R";
 static const char mnemonics[] =
     "adc and asl bcc bcs beq bit bmi bne bpl brk bvc bvs clc cld cli clv cmp cpx cpy dec dex dey eor inc inx iny "
     "jmp jsr lda ldx ldy lsr nop ora pha php pla plp rol ror rti rts sbc sec sed sei sta stx sty tax tay tsx txa "

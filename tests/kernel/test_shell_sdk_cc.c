@@ -1,7 +1,7 @@
 /*
- * Host test for bm C, the C of the NES projects of the Shell SDK (core/src/kernel/shell_sdk_cc*.c): each program
- * is compiled, assembled by core/src/script/snes_asm.lua and run in the NES core; the checks read its variables
- * in the RAM, the sprites and the palettes. Also the messages of the mistakes.
+ * Host test for bm C, the C of the NES and SNES projects of the Shell SDK (core/src/kernel/shell_sdk_cc*.c):
+ * each program is compiled, assembled by core/src/script/snes_asm.lua and run in the NES or the SNES core; the
+ * checks read its variables in the RAM, the sprites and the colours. Also the messages of the mistakes.
  *   make test-sdk-cc      (run from the top of the repository)
  */
 #include <stdio.h>
@@ -13,19 +13,23 @@
 #include "lua.h"
 #include "lualib.h"
 #include "nes.h"
+#include "snes_int.h"
 
 static int fails;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); fails++; } } while (0)
 
 static lua_State *L;
 static sdk_cc_out_t out;
+static int snes;                        /* the machine of the test */
 
 static const char driver[] =
     "local A = assert(loadfile('core/src/script/snes_asm.lua'))()\n"
-    "return function(src)\n"
-    "  local res = A.assemble(src, { cpu = '6502', name = 'main.s' })\n"
+    "return function(src, snes)\n"
+    "  local res = A.assemble(src, { cpu = not snes and '6502' or nil, map = snes and 'lorom' or nil, name = 'main.s' })\n"
     "  if not res.ok then return nil, A.format_errors(res) end\n"
-    "  local rom, info = A.build_nes(res, { prg_kb = 32, chr_kb = 8, mapper = 0 })\n"
+    "  local rom, info\n"
+    "  if snes then rom, info = A.build_rom(res, { title = 'TEST', map = 'lorom', min_kb = 32, chipset = 0 })\n"
+    "  else rom, info = A.build_nes(res, { prg_kb = 32, chr_kb = 8, mapper = 0 }) end\n"
     "  if not rom then return nil, info end\n"
     "  return rom\n"
     "end\n";
@@ -35,7 +39,7 @@ static int run(const char *src, int frames)
 {
     char err[256];
     sdk_cc_free(&out);
-    if (sdk_cc_compile(src, strlen(src), &out, err, sizeof err) != 0) {
+    if (sdk_cc_compile(src, strlen(src), snes, &out, err, sizeof err) != 0) {
         printf("compile: %s\n%s\n", err, src);
         fails++;
         return -1;
@@ -43,7 +47,8 @@ static int run(const char *src, int frames)
     lua_settop(L, 1);
     lua_pushvalue(L, 1);
     lua_pushlstring(L, out.text, out.len);
-    if (lua_pcall(L, 1, 2, 0) != LUA_OK || !lua_isstring(L, 2)) {
+    lua_pushboolean(L, snes);
+    if (lua_pcall(L, 2, 2, 0) != LUA_OK || !lua_isstring(L, 2)) {
         const char *why = lua_tostring(L, -1);
         printf("assemble: %.600s\n%s\n", why ? why : "?", src);
         const int line = why ? atoi(strchr(why, ':') ? strchr(why, ':') + 1 : "0") : 0;
@@ -57,21 +62,28 @@ static int run(const char *src, int frames)
     size_t len;
     const uint8_t *rom = (const uint8_t *)lua_tolstring(L, 2, &len);
     const char *why = NULL;
-    if (nes_load(rom, len, &why)) {
+    if (snes ? snes_load(rom, len, &why) : nes_load(rom, len, &why)) {
         printf("load: %s\n", why ? why : "?");
         fails++;
         return -1;
     }
-    nes_reset();
+    if (!snes)
+        nes_reset();
     for (int i = 0; i < frames; i++)
-        nes_frame(0, 0, 1);
+        if (snes)
+            snes_frame(0, 0, 1);
+        else
+            nes_frame(0, 0, 1);
     return 0;
 }
 
-static void frames(int n, uint8_t pad)
+static void frames(int n, uint16_t pad)
 {
     for (int i = 0; i < n; i++)
-        nes_frame(pad, 0, 1);
+        if (snes)
+            snes_frame(pad, 0, 1);
+        else
+            nes_frame((uint8_t)pad, 0, 1);
 }
 
 /* The address the assembly gives to a label ("v_x"). */
@@ -87,7 +99,7 @@ static int address(const char *label)
 static int byte(const char *label, int i)
 {
     const int a = address(label);
-    return a < 0 || !nes_ram() ? -999999 : nes_ram()[(a + i) & 0x7FF];
+    return a < 0 ? -999999 : snes ? S.wram[(a + i) & 0x1FFF] : nes_ram()[(a + i) & 0x7FF];
 }
 
 static int word(const char *label, int i)
@@ -224,23 +236,12 @@ static void test_machine(void)
     CHECK(out.ram >= 8 && out.lines > 100 && out.line_of);
 }
 
-static void test_tiles(void)
-{
-    char err[200];
-    const char *src = "void update(void) { }\n"
-                      "tiles {\n  blank(1),\n  0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, 0,0,0,0,0,0,0,0,\n"
-                      "  blank(2),\n}\n";
-    CHECK(run(src, 2) == 0 && strstr(out.text, ".chr") && strstr(out.text, ".res 32,0"));
-    const char *bad = "void update(void) { }\ntiles { 1, 2, 3 }\n";
-    CHECK(sdk_cc_compile(bad, strlen(bad), &out, err, sizeof err) == -1 && strstr(err, "a tile is 16"));
-}
-
 /* A source with a mistake: the message has the line and says what to do. */
 static void mistake(int line, const char *src, const char *want)
 {
     char err[256] = "";
     sdk_cc_out_t o;
-    if (sdk_cc_compile(src, strlen(src), &o, err, sizeof err) == 0) {
+    if (sdk_cc_compile(src, strlen(src), snes, &o, err, sizeof err) == 0) {
         printf("FAIL line %d: compiled\n", line);
         fails++;
         sdk_cc_free(&o);
@@ -250,6 +251,73 @@ static void mistake(int line, const char *src, const char *want)
     }
 }
 #define MISTAKE(src, want) mistake(__LINE__, src, want)
+
+/* The same names on the SNES: colours of 16 bits, 128 sprites, a pad of 12 buttons. */
+static void test_machine_snes(void)
+{
+    if (run("#define PINKISH rgb(31, 16, 20)\n"
+            "word x = 300; byte beats; byte press; byte held_a; byte seen[4]; byte code = 3; word buttons;\n"
+            "void start(void) {\n"
+            "  background(rgb(0, 0, 31));\n"
+            "  sprite_palette(1, WHITE, RED, BLACK);\n"
+            "  palette(200, PINKISH); palette(5, 0x1234);\n"
+            "  sprite(0, x, 80, 0x105); sprite_style(0, 3 | FLIP_X);\n"
+            "  sprite(70, 10, 20, 2); sprite_big(70, 1);\n"
+            "  sprite(3, 10, 20, 2); hide_sprite(3);\n"
+            "  sprite(127, 5, 6, 7); sprite_style(127, BEHIND | 2);\n"
+            "  poke(0x1000, 42); seen[0] = peek(0x1000);\n"
+            "  seen[1] = random(); seen[2] = random();\n"
+            "  asm(\"lda {code}\", \"asl a\\n sta {seen}+3\");\n"
+            "}\n"
+            "void update(void) {\n"
+            "  beats++;\n"
+            "  if (held(RIGHT)) x++;\n"
+            "  held_a = held(A | START);\n"
+            "  if (pressed(A)) press++;\n"
+            "  buttons = pad;\n"
+            "  sprite(0, x, 80, 0x105);\n"
+            "}\n", 20) != 0)
+        return;
+    const uint8_t *c = S.cgram, *o = S.oam;
+    CHECK(c[0] == 0x00 && c[1] == 0x7C && c[290] == 0xFF && c[291] == 0x7F && c[292] == 0x9F && c[293] == 0x10);
+    CHECK(c[400] == 0x1F && c[401] == 0x52 && c[10] == 0x34 && c[11] == 0x12);
+    CHECK(o[0] == 44 && o[1] == 79 && o[2] == 0x05 && o[3] == 0x77 && (o[512] & 3) == 1);
+    CHECK(o[280] == 10 && o[281] == 19 && o[282] == 2 && (o[512 + 17] & 0x30) == 0x20);
+    CHECK(o[13] == 0xF0 && o[5] == 0xF0 && o[508] == 5 && o[509] == 5 && o[511] == 0x04);
+    CHECK(byte("v_beats", 0) >= 14 && byte("v_beats", 0) <= 20);
+    CHECK(byte("v_seen", 0) == 42 && byte("v_seen", 1) != byte("v_seen", 2) && byte("v_seen", 3) == 6);
+    CHECK(byte("v_held_a", 0) == 0);
+    frames(10, SNES_PAD_RIGHT);
+    CHECK(word("v_x", 0) >= 308 && word("v_x", 0) <= 311 && (word("v_x", 0) & 0xFF) - o[0] <= 1);
+    frames(5, SNES_PAD_A);
+    CHECK(byte("v_press", 0) == 1 && byte("v_held_a", 0) != 0 && word("v_buttons", 0) == SNES_PAD_A);
+    frames(3, SNES_PAD_START);
+    CHECK(byte("v_held_a", 0) != 0 && byte("v_press", 0) == 1);
+    frames(3, SNES_PAD_A);
+    CHECK(byte("v_press", 0) == 2);
+    CHECK(out.ram_size == 8192 && strstr(out.text, "__upload_tiles:") && strstr(out.text, "; main.c:4  background"));
+
+    if (run("void update(void) { }\n"
+            "tiles {\n  blank(1),\n  0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, 1,2,3,4,5,6,7,8,\n"
+            "  0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,9,\n  blank(2),\n}\n", 4) == 0)
+        CHECK(S.vram[31] == 0 && S.vram[32] == 0xFF && S.vram[40] == 1 && S.vram[63] == 9 && S.vram[64] == 0);
+    mistake(__LINE__, "void update(void) { }\ntiles { 1, 2, 3 }\n", "a tile is 32");
+    MISTAKE("void update(void) { background_palette(0, 1, 2, 3); }", "use palette(index, colour)");
+    MISTAKE("void update(void) { background(rgb(40, 0, 0)); }", "0 to 31");
+    MISTAKE("void update(void) { background(rgb(pad, 0, 0)); }", "known when the program is built");
+    MISTAKE("byte big[7000];\nvoid update(void) { }", "1 to 2048");
+}
+
+static void test_tiles(void)
+{
+    char err[200];
+    const char *src = "void update(void) { }\n"
+                      "tiles {\n  blank(1),\n  0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, 0,0,0,0,0,0,0,0,\n"
+                      "  blank(2),\n}\n";
+    CHECK(run(src, 2) == 0 && strstr(out.text, ".chr") && strstr(out.text, ".res 32,0"));
+    const char *bad = "void update(void) { }\ntiles { 1, 2, 3 }\n";
+    CHECK(sdk_cc_compile(bad, strlen(bad), 0, &out, err, sizeof err) == -1 && strstr(err, "a tile is 16"));
+}
 
 static void test_mistakes(void)
 {
@@ -283,7 +351,7 @@ static void test_mistakes(void)
 static void test_template(void)
 {
     static char src[16384];
-    FILE *f = fopen("core/src/script/sdk_tpl_nes_c.txt", "rb");
+    FILE *f = fopen(snes ? "core/src/script/sdk_tpl_snes_c.txt" : "core/src/script/sdk_tpl_nes_c.txt", "rb");
     const size_t n = f ? fread(src, 1, sizeof src - 1, f) : 0;
     if (f)
         fclose(f);
@@ -291,6 +359,17 @@ static void test_template(void)
     CHECK(n > 500 && strstr(src, "//@sprites") && strstr(src, "//@music") && strstr(src, "//@map"));
     if (run(src, 10) != 0)
         return;
+    if (snes) {
+        CHECK(S.cgram[0] == 0x44 && S.cgram[1] == 0x71 && S.cgram[258] == 0xFF && S.cgram[259] == 0x7F);
+        CHECK(S.oam[0] == 124 && S.oam[1] == 107 && S.oam[2] == 1);
+        frames(10, SNES_PAD_RIGHT);
+        CHECK(S.oam[0] >= 140);
+        int lines = 0;
+        const uint16_t *now = snes_picture(&lines);
+        CHECK(now && lines > 200 && now[256 * 111 + S.oam[0] + 4] != now[256 * 30 + 30] &&
+              (now[256 * 30 + 30] & 0x1F) > (now[256 * 30 + 30] >> 11));
+        return;
+    }
     CHECK(nes_palette()[0] == 0x12 && nes_palette()[17] == 0x30);
     CHECK(nes_oam()[0] == 111 && nes_oam()[1] == 1 && nes_oam()[3] == 124);
     frames(10, NES_PAD_RIGHT);
@@ -308,14 +387,21 @@ int main(void)
         printf("driver: %s\n", lua_tostring(L, -1));
         return 1;
     }
-    test_arithmetic();
-    test_compare();
-    test_flow();
-    test_pointers();
+    for (snes = 0; snes < 2; snes++) {          /* the same programs on the 6502 and on the 65C816 */
+        test_arithmetic();
+        test_compare();
+        test_flow();
+        test_pointers();
+        test_template();
+    }
+    snes = 0;
     test_machine();
     test_tiles();
-    test_template();
     test_mistakes();
+    MISTAKE("void update(void) { sprite_big(0, 1); }", "for the SNES only");
+    MISTAKE("void update(void) { background(rgb(1, 2, 3)); }", "for the SNES only");
+    snes = 1;
+    test_machine_snes();
     sdk_cc_free(&out);
     lua_close(L);
     if (fails) {

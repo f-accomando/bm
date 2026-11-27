@@ -719,6 +719,27 @@ static void test_c(void)
     sdk_pal_next();
     CHECK(!strcmp(sdk_pal_name(), "BG1 of the code") && sdk_pal_rgb(1, 4) == 0xB53120);
 
+    /* the SNES: 32 bytes a tile, two lines of C numbers, colours of 16 bits */
+    sdk_sheet_reset();
+    sdk_edit_set(src, strlen(src));
+    t.fmt = SDK_TILE_SNES4;
+    t.pix[0] = 9;
+    sdk_sheet_set(0, 1, &t);
+    CHECK(sdk_chr_format(SDK_CHR_SNES_C) == SDK_TILE_SNES4 && sdk_chr_commit(SDK_CHR_SNES_C, 0, err, sizeof err) == 0);
+    snprintf(got, sizeof got, "%.*s", (int)sdk_edit_length(), sdk_edit_text());
+    CHECK(strstr(got, "4bpp, 32 bytes a tile\ntiles {\n    blank(1), // $000\n    0x80,0x00,") && strstr(got, "// $001\n    0x00,"));
+    sdk_sheet_reset();
+    CHECK(sdk_chr_read(SDK_CHR_SNES_C, sdk_edit_text(), sdk_edit_length(), err, sizeof err) == 0);
+    CHECK(sdk_sheet_tile(0, 1)->used && sdk_sheet_tile(0, 1)->pix[0] == 9 && !sdk_sheet_tile(0, 0)->used);
+    const char *snes_calls = "background(rgb(0,0,31));\nsprite_palette(2, WHITE, rgb(31, 0, 0), 0x7C00);\n"
+                             "palette(165, GREEN);\npalette(3, RED);\nbackground_palette(0,1,2,3);\n";
+    sdk_pal_reset();
+    sdk_pal_load(SDK_SPRITE_SNES_C, snes_calls, strlen(snes_calls));
+    CHECK(sdk_pal_count() == 3);                        /* greys, palette 2 of the sprites, 16 colours */
+    sdk_pal_next();
+    CHECK(!strcmp(sdk_pal_name(), "SPR2 of the code") && sdk_pal_rgb(1, 16) == 0xFFFFFF && sdk_pal_rgb(2, 16) == 0xFF0000);
+    CHECK(sdk_pal_rgb(3, 16) == 0x0000FF && sdk_pal_rgb(5, 16) != 0);
+
     uint8_t cls[80];
     const char *c = "if (held(LEFT)) x -= 12; // go";
     CHECK(sdk_hl_line(SDK_HL_C, c, (int)strlen(c), 0, cls, sizeof cls) == 0);

@@ -65,27 +65,31 @@ static void c_line(const sdk_cc_out_t *c, char *err, size_t en)
 static int assemble(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom,
                     size_t *rom_len, unsigned *used, char *err, size_t en);
 
-int sdk_build_is_c(const sdk_proj_t *p) { return p->target == SDK_NES && p->nes_lang; }
+int sdk_build_is_c(const sdk_proj_t *p) { return p->target != SDK_BM && p->cart_c; }
 
 int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t len, uint8_t **rom, size_t *rom_len,
               sdk_build_info_t *info, char *err, size_t en)
 {
     unsigned used = 0;
-    int rc, ram = -1;
+    int rc, ram = -1, ram_size = 0;
     if (sdk_build_is_c(p)) {
         sdk_cc_out_t c;
-        if (sdk_cc_compile(source, len, &c, err, en) != 0)
+        if (sdk_cc_compile(source, len, p->target == SDK_SNES, &c, err, en) != 0)
             return -1;
         rc = assemble(p, name, c.text, c.len, rom, rom_len, &used, err, en);
         if (rc != 0)
             c_line(&c, err, en);
         ram = c.ram;
+        ram_size = c.ram_size;
         sdk_cc_free(&c);
     } else
         rc = assemble(p, name, source, len, rom, rom_len, &used, err, en);
     if (rc == 0 && info) {
         info->rom = used;
         info->rom_size = (unsigned)(p->target == SDK_NES ? p->nes_prg_kb : p->snes_rom_kb) * 1024u;
+        if (ram >= 0 && p->target == SDK_SNES)
+            info->rom_size = 32768;             /* bm C keeps to the bank 0 */
+        info->ram_size = ram_size;
         info->ram = ram;
     }
     return rc;

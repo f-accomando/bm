@@ -1,7 +1,8 @@
 /*
  * Shell SDK, Sprite tab: the colours the colour numbers of the tiles show with. Greys, the palettes written in
  * the code of the project (NES: the label "palette", 4 colours each; bm C: the calls sprite_palette and
- * background_palette; SNES: the label "sprites_pal", 16 colours of BGR555 each) and, for tiles of more than 4 colours, a set of 16. Pure model: the tests run on the PC.
+ * background_palette; SNES: the label "sprites_pal", 16 colours of BGR555 each, or the calls sprite_palette
+ * and palette of bm C) and, for tiles of more than 4 colours, a set of 16. Pure model: the tests run on the PC.
  */
 #ifndef SHELL_SDK_PAL_H
 #define SHELL_SDK_PAL_H

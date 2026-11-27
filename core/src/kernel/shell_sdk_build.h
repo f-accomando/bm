@@ -16,6 +16,7 @@ typedef struct {
     unsigned rom;           /* bytes of program and data in the ROM */
     unsigned rom_size;      /* of the ROM of the board that hold the program (NES: the PRG) */
     int ram;                /* bm C: bytes of RAM of the variables; -1 for assembly */
+    int ram_size;           /* of the RAM that bm C uses on the machine */
 } sdk_build_info_t;
 
 /* 1 when the source of the project is bm C (main.c). */

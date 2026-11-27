@@ -13,7 +13,10 @@
 
 #define TILES (SDK_SHEET_W * SDK_SHEET_H)
 
-int sdk_chr_format(int nes) { return nes ? SDK_TILE_NES : SDK_TILE_SNES4; }
+int sdk_chr_format(int nes)
+{
+    return nes == SDK_CHR_NES || nes == SDK_CHR_NES_C ? SDK_TILE_NES : SDK_TILE_SNES4;
+}
 
 /* ---- writing ---- */
 
@@ -44,8 +47,9 @@ long sdk_chr_text(int nes, char *out, size_t max)
         return 0;
 
     text_t t = { out, max, 0, 0 };
-    const int c = nes == SDK_CHR_NES_C;
-    add(&t, c ? "//@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\ntiles {\n"
+    const int c = nes == SDK_CHR_NES_C || nes == SDK_CHR_SNES_C;
+    add(&t, nes == SDK_CHR_SNES_C ? "//@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\ntiles {\n"
+          : c ? "//@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\ntiles {\n"
               : nes ? ";@tiles  from the Sprite tab: 2bpp, 16 bytes a tile, the CHR ROM\n.chr\n"
                     : ";@tiles  from the Sprite tab: 4bpp, 32 bytes a tile\nsprites_chr:\n");
     for (int i = 0; i <= last; i++) {
@@ -67,20 +71,25 @@ long sdk_chr_text(int nes, char *out, size_t max)
         }
         uint8_t data[64];
         sdk_tile_encode(tile->pix, fmt, data);
-        if (c) {                                        /* one line a tile, in C numbers */
+        if (c) {                                        /* C numbers, 16 a line: one line a NES tile */
             static const char hexc[] = "0123456789ABCDEF";
-            char row[128];
-            size_t k = 4;
-            memcpy(row, "    ", k);
-            for (int b = 0; b < bytes; b++) {
-                row[k++] = '0';
-                row[k++] = 'x';
-                row[k++] = hexc[data[b] >> 4];
-                row[k++] = hexc[data[b] & 15];
-                row[k++] = ',';
+            for (int from = 0; from < bytes; from += 16) {
+                char row[128];
+                size_t k = 4;
+                memcpy(row, "    ", k);
+                for (int b = from; b < from + 16; b++) {
+                    row[k++] = '0';
+                    row[k++] = 'x';
+                    row[k++] = hexc[data[b] >> 4];
+                    row[k++] = hexc[data[b] & 15];
+                    row[k++] = ',';
+                }
+                if (from == 0)
+                    snprintf(row + k, sizeof row - k, " // $%03X\n", i);
+                else
+                    snprintf(row + k, sizeof row - k, "\n");
+                add(&t, row);
             }
-            snprintf(row + k, sizeof row - k, " // $%03X\n", i);
-            add(&t, row);
             continue;
         }
         for (int row = 0; row < bytes; row += 16) {
@@ -259,7 +268,8 @@ static int read_line(const char *p, const char *end, uint8_t *data, uint8_t *set
 }
 
 /* One line of a tiles { } block of C: numbers and blank(n), between commas. Returns 0, or -1. */
-static int read_c_line(const char *p, const char *end, uint8_t *data, uint8_t *set, size_t *n, size_t max)
+static int read_c_line(const char *p, const char *end, uint8_t *data, uint8_t *set, size_t *n, size_t max,
+                       size_t bytes)
 {
     for (const char *q = p; q + 1 < end; q++)
         if (q[0] == '/' && q[1] == '/')
@@ -285,11 +295,11 @@ static int read_c_line(const char *p, const char *end, uint8_t *data, uint8_t *s
             if (number(&p, end, &v) != 0)
                 return -1;
             spaces(&p, end);
-            if (p == end || *p++ != ')' || v < 0 || (size_t)v * 16 > max - *n)
+            if (p == end || *p++ != ')' || v < 0 || (size_t)v > (max - *n) / bytes)
                 return -1;
-            memset(data + *n, 0, (size_t)v * 16);
-            memset(set + *n, 0, (size_t)v * 16);
-            *n += (size_t)v * 16;
+            memset(data + *n, 0, (size_t)v * bytes);
+            memset(set + *n, 0, (size_t)v * bytes);
+            *n += (size_t)v * bytes;
             continue;
         }
         if (end - p > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X' || p[1] == 'b' || p[1] == 'B')) {
@@ -319,7 +329,7 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
     const int fmt = sdk_chr_format(nes);
     const size_t bytes = (size_t)sdk_tile_bytes(fmt), max = TILES * bytes;
     size_t from = 0, to = 0;
-    const int c = nes == SDK_CHR_NES_C;
+    const int c = nes == SDK_CHR_NES_C || nes == SDK_CHR_SNES_C;
     const int found = find_block(c, src, len, &from, &to);
     if (found < 0) {
         snprintf(err, en, "line %d: no %s@tiles-end", line_number(src, from), c ? "//" : ";");
@@ -344,7 +354,8 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
                 stop--;
             if (find_marker(src + p, stop - p, 0, c ? "//@tiles-end" : ";@tiles-end") < stop - p)
                 continue;
-            if ((c ? read_c_line : read_line)(src + p, src + stop, data, set, &n, max) != 0) {
+            if ((c ? read_c_line(src + p, src + stop, data, set, &n, max, bytes)
+                   : read_line(src + p, src + stop, data, set, &n, max)) != 0) {
                 snprintf(err, en, "line %d of the tiles block", line_number(src, p));
                 free(data);
                 return -1;
@@ -372,7 +383,7 @@ int sdk_chr_commit(int nes, int run, char *err, size_t en)
     const char *src = sdk_edit_text();
     const size_t len = sdk_edit_length();
     size_t from = 0, to = 0;
-    const int c = nes == SDK_CHR_NES_C;
+    const int c = nes == SDK_CHR_NES_C || nes == SDK_CHR_SNES_C;
     const int found = find_block(c, src, len, &from, &to);
     if (found < 0) {
         snprintf(err, en, "line %d: no %s@tiles-end", line_number(src, from), c ? "//" : ";");

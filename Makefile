@@ -1788,12 +1788,12 @@ test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/
 
 # bm C, the C of the NES projects: compiled, assembled and run in the NES core
 SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c
-test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt
+test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt core/src/script/sdk_tpl_snes_c.txt
 	$(BUILD)/host/test_shell_sdk_cc
 
-$(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_cc.h core/src/kernel/shell_sdk_cc_int.h core/src/bm/nes.c core/src/bm/nes.h $(LUA_SRCS)
+$(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_cc.h core/src/kernel/shell_sdk_cc_int.h core/src/bm/nes.c core/src/bm/nes.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
 	@mkdir -p $(dir $@)
-	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(LUA_SRCS) -lm
+	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
 test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code
 	$(BUILD)/host/test_shell_sdk_proj

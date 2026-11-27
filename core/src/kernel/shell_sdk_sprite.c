@@ -71,7 +71,8 @@ void sdk_sprite_reset(void)
 
 static int chr_kind(void)
 {
-    return code_kind == SDK_SPRITE_NES_C ? SDK_CHR_NES_C : code_kind == SDK_SPRITE_NES ? SDK_CHR_NES : SDK_CHR_SNES;
+    return code_kind == SDK_SPRITE_NES_C ? SDK_CHR_NES_C : code_kind == SDK_SPRITE_NES ? SDK_CHR_NES :
+           code_kind == SDK_SPRITE_SNES_C ? SDK_CHR_SNES_C : SDK_CHR_SNES;
 }
 
 /* The sheet and the palettes as the code has them. */
@@ -87,12 +88,12 @@ static void read_code(void)
 
 void sdk_sprite_sync(const sdk_proj_t *p)
 {
-    const int code = p->target == SDK_NES ? (p->nes_lang ? SDK_SPRITE_NES_C : SDK_SPRITE_NES) :
-                     p->target == SDK_SNES ? SDK_SPRITE_SNES : SDK_SPRITE_NONE;
+    const int code = p->target == SDK_NES ? (p->cart_c ? SDK_SPRITE_NES_C : SDK_SPRITE_NES) :
+                     p->target == SDK_SNES ? (p->cart_c ? SDK_SPRITE_SNES_C : SDK_SPRITE_SNES) : SDK_SPRITE_NONE;
     const int changed = code != code_kind || sdk_edit_revision() != code_rev;
     code_kind = code;
     sdk_proj_sheet(p, info);
-    sdk_canvas_format(code == SDK_SPRITE_NONE ? -1 : sdk_chr_format(code != SDK_SPRITE_SNES));
+    sdk_canvas_format(code == SDK_SPRITE_NONE ? -1 : sdk_chr_format(code == SDK_SPRITE_NES || code == SDK_SPRITE_NES_C));
     if (changed)
         read_code();
 }
@@ -405,7 +406,7 @@ static int colours_lost(void)
     int w, h;
     if (code_kind == SDK_SPRITE_NONE || !sdk_clip_size(&w, &h))
         return 0;
-    const int colours = sdk_tile_colors(sdk_chr_format(chr_kind()));
+    const int colours = sdk_tile_colors(sdk_chr_format(chr_kind() == SDK_CHR_NES || chr_kind() == SDK_CHR_NES_C));
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
             const sdk_tile_t *t = sdk_clip_cell(y, x);
@@ -421,7 +422,7 @@ static void say_palette(void)
     if (sdk_pal_count() > 1)
         snprintf(sdk_note, sizeof sdk_note, "Palette: %s", sdk_pal_name());
     else
-        snprintf(sdk_note, sizeof sdk_note, code_kind == SDK_SPRITE_NES_C ?
+        snprintf(sdk_note, sizeof sdk_note, code_kind == SDK_SPRITE_NES_C || code_kind == SDK_SPRITE_SNES_C ?
                  "No palette: call sprite_palette()" : "No palette: add the label palette");
 }
 
@@ -841,7 +842,7 @@ static void import_sheet(int armed)
     sheet_top = 0;
     const int whole = (int)(chr_len / (size_t)tile);
     if (code_kind != SDK_SPRITE_NONE &&
-        sdk_tile_colors(view_fmt) > sdk_tile_colors(sdk_chr_format(chr_kind())))
+        sdk_tile_colors(view_fmt) > sdk_tile_colors(sdk_chr_format(chr_kind() == SDK_CHR_NES || chr_kind() == SDK_CHR_NES_C)))
         snprintf(sdk_note, sizeof sdk_note, "Imported %d tiles, colours cut", count);
     else if (whole > count)
         snprintf(sdk_note, sizeof sdk_note, "Imported %d/%d tiles at %06X", count, whole, (unsigned)from);

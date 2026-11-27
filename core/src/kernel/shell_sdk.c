@@ -76,7 +76,7 @@ static void draw_project(int cols, int rows)
     for (int i = 0; i < n && P_MENU + i < rows; i++) {
         char line[96];
         snprintf(line, sizeof line, " %-13s %.*s%s", menu[i].label, room > 0 ? room : 0, menu[i].value,
-                 (menu[i].id == SDK_ROW_PLATFORM || menu[i].id == SDK_ROW_NES_LANG) && platform_locked() ? "  (fixed)" : "");
+                 (menu[i].id == SDK_ROW_PLATFORM || menu[i].id == SDK_ROW_CART_LANG) && platform_locked() ? "  (fixed)" : "");
         at(P_MENU + i, 2);
         console_write(i == proj_sel ? "\x1b[7m" : "\x1b[0m");
         console_write(line);
@@ -343,7 +343,7 @@ static unsigned seen_rev;               /* the revision of the text when the pro
 static void load_template(void)
 {
     size_t n;
-    const char *t = sdk_template(proj.target, proj.nes_lang, &n);
+    const char *t = sdk_template(proj.target, proj.cart_c, &n);
     sdk_edit_set(t, n);
     seen_rev = sdk_edit_revision();
 }
@@ -353,7 +353,7 @@ static void load_template(void)
 static int text_is_template(void)
 {
     size_t n;
-    const char *t = sdk_template(proj.target, proj.nes_lang, &n);
+    const char *t = sdk_template(proj.target, proj.cart_c, &n);
     return sdk_edit_length() == n && !memcmp(sdk_edit_text(), t, n);
 }
 
@@ -488,7 +488,7 @@ static void show_mistake(const char *err)
 static void used_text(const sdk_build_info_t *info, char *out, size_t n)
 {
     if (info->ram >= 0)
-        snprintf(out, n, "ROM %u/%u, RAM %d/2048", info->rom, info->rom_size, info->ram);
+        snprintf(out, n, "ROM %u/%u, RAM %d/%d", info->rom, info->rom_size, info->ram, info->ram_size);
     else
         snprintf(out, n, "ROM %u/%u", info->rom, info->rom_size);
 }
@@ -525,7 +525,7 @@ static void do_listing(void)
     }
     char err[160];
     sdk_cc_out_t c;
-    if (sdk_cc_compile(sdk_edit_text(), sdk_edit_length(), &c, err, sizeof err) != 0) {
+    if (sdk_cc_compile(sdk_edit_text(), sdk_edit_length(), proj.target == SDK_SNES, &c, err, sizeof err) != 0) {
         show_mistake(err);
         return;
     }
@@ -535,7 +535,7 @@ static void do_listing(void)
     if (sdk_code_show_generated(c.text, c.len, line + 1) != 0)
         say("%s", "not enough memory for the assembly");
     else
-        snprintf(msg, sizeof msg, "bm C: RAM %d/2048 bytes", c.ram);
+        snprintf(msg, sizeof msg, "bm C: RAM %d/%d bytes", c.ram, c.ram_size);
     c.text = NULL;                          /* the Code tab has it now */
     sdk_cc_free(&c);
 }
@@ -632,7 +632,7 @@ static void project_key(int c)
     sdk_row_t menu[12];
     const int n = sdk_proj_rows(&proj, menu, 12);
     const sdk_proj_t before = proj;
-    const int on_language = menu[proj_sel].id == SDK_ROW_NES_LANG;
+    const int on_language = menu[proj_sel].id == SDK_ROW_CART_LANG;
     const int on_platform = menu[proj_sel].id == SDK_ROW_PLATFORM || on_language;
     const int change = c == HID_KEY_LEFT || c == HID_KEY_RIGHT || is_enter(c);
     if (on_platform && change && platform_locked()) {
@@ -648,7 +648,7 @@ static void project_key(int c)
         sdk_proj_step(&proj, menu[proj_sel].id, -1);
     else if (c == HID_KEY_RIGHT || is_enter(c))
         sdk_proj_step(&proj, menu[proj_sel].id, 1);
-    if (on_platform && (proj.target != before.target || proj.nes_lang != before.nes_lang))
+    if (on_platform && (proj.target != before.target || proj.cart_c != before.cart_c))
         load_template();                 /* the project was untouched: the start file follows */
     if (memcmp(&before, &proj, sizeof proj))
         dirty = 1;

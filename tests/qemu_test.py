@@ -5368,6 +5368,33 @@ def test_shell_sdk_c(b, opts):
         q.send("cgame\r")
         time.sleep(3.0)
         has("built /nes/cgame.nes", "RAM 2/2048", "ROM: cgame.nes")
+        # the same on the SNES: New, the platform, the language, check, the assembly, the sheet, Build
+        q.send("\x0e")                              # Ctrl+N: a new project
+        time.sleep(0.5)
+        q.send(bytes([0xF9]) + SDK_RIGHT)           # Project: SNES
+        has("SNES cartridge", "Assembly (65C816)")
+        q.send(SDK_DOWN + SDK_RIGHT)
+        has("C (bm C)")
+        q.send(bytes([0xFA]))
+        has("SNES game in bm C")
+        q.send(bytes([0xE6]))
+        has("no mistakes: ROM", "/32768, RAM 3/8192")
+        q.send(bytes([0xE7]))
+        has("Assembly of main.c", "Written by bm C")
+        sendkeys(q, "ctrl-w")
+        q.send(bytes([0xFB]))                       # F3: 4 bits a pixel, the ball in tile 001
+        time.sleep(0.5)
+        has("Spritesheet", "4bpp 16 KB")
+        pic = q.screendump()
+        sx = (pic[0] // 8 - 34) * 8
+        assert sum(sum(pixel(pic, sx + 16 + x, 64 + 8)) for x in (4, 8, 12)) > 150, pixel(pic, sx + 24, 72)
+        q.send(bytes([0xF4]) + SDK_RIGHT * 2 + b"\r ")    # Home, tile 2; the palette chosen before stays
+        has("Canvas 8x8  tile 002", "Colour 1/15", "palette: SPR0 of the code")
+        q.send("\x02")                              # Ctrl+B
+        time.sleep(0.5)
+        q.send("sgame\r")
+        time.sleep(4.0)
+        has("built /snes/sgame.sfc", "ROM: sgame.sfc")
         q.send("\x11")                              # Ctrl+Q: all is saved
         q.expect("> ", timeout=10)
     finally:

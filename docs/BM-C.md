@@ -1,6 +1,6 @@
-# bm C: C for NES projects (Shell SDK)
+# bm C: C for NES and SNES projects (Shell SDK)
 
-bm C is the C compiler of the Shell SDK. It runs on the console. It turns `main.c` into 6502 assembly, and the assembler builds the `.nes` ROM. The code is original: `core/src/kernel/shell_sdk_cc*.c`. The test is `make test-sdk-cc`.
+bm C is the C compiler of the Shell SDK. It runs on the console. It turns `main.c` into assembly, and the assembler builds the `.nes` or the `.sfc` ROM. For the SNES it writes the same instructions as for the 6502: the 65C816 runs them in native mode with registers of 8 bits. The code is original: `core/src/kernel/shell_sdk_cc*.c`. The test is `make test-sdk-cc`.
 
 ## Use it
 
@@ -8,7 +8,7 @@ bm C is the C compiler of the Shell SDK. It runs on the console. It turns `main.
 2. Press F2. The start file shows a blue screen and a ball that the pad moves.
 3. Press F6 to check the code. It writes no file. A mistake moves the cursor to its line.
 4. Press F7 to see the assembly beside the code. Each part says its line of C. Ctrl+W closes it.
-5. Press Ctrl+B to build `/nes/NAME.nes`. Press Ctrl+R to build and run.
+5. Press Ctrl+B to build `/nes/NAME.nes` or `/snes/NAME.sfc`. Press Ctrl+R to build and run.
 
 The message after F6 and Ctrl+B gives the ROM bytes and the RAM bytes of the program.
 
@@ -63,6 +63,8 @@ Not in bm C: `float`, `long`, `struct`, `union`, `enum`, `typedef`, `switch`, `g
 
 ## The library
 
+This table is the NES. The next section says what changes on the SNES.
+
 | Call | What it does |
 |---|---|
 | `wait_frame()` | waits for the next frame and reads the pad (only with `main()`) |
@@ -97,7 +99,24 @@ tiles {
 
 The Sprite tab writes the `tiles` block between `//@tiles` and `//@tiles-end`. Keep these two lines. The sprites take the tiles `$000` to `$0FF`. The background takes the tiles `$100` to `$1FF`, and the whole background shows the tile `$100`.
 
-## Memory
+## On the SNES
+
+| Item | NES | SNES |
+|---|---|---|
+| `pad`, `pad_new`, a button | `byte` | `word` |
+| Buttons | `A B SELECT START UP DOWN LEFT RIGHT` | the same, and `X Y L R` |
+| A colour | a number, 0 to 63 | a `word`: a name, or `rgb(r, g, b)` with 0 to 31 (known when the program is built) |
+| Sprites | 64, 4 palettes, `x` is a `byte` | 128, 8 palettes, `x` is a `word` (0 to 511; 512 - n is n pixels left of the screen) |
+| Screen | 256 x 240 | 256 x 224 |
+| Tiles | 16 bytes, 3 colours | 32 bytes, 15 colours, 512 tiles at most |
+| RAM report | of 2048 | of 8192 |
+
+- `sprite_big(n, 1)` shows sprite n as 16x16: the tiles `t`, `t+1`, `t+16`, `t+17`.
+- `palette(index, colour)` sets one colour of the 256. The sprites use 128 to 255.
+- `background_palette` does not exist: the screen has the colour behind and the sprites, no background layer.
+- The program, its data and its tiles stay in bank 0: 32 KB.
+
+## Memory (NES)
 
 | Place | Use |
 |---|---|
@@ -106,3 +125,14 @@ The Sprite tab writes the `tiles` block between `//@tiles` and `//@tiles-end`. K
 | `$0200-$02FF` | sprites |
 | `$0300-$031F` | palettes |
 | `$0320-$07FF` | arrays and the variables that do not fit above |
+
+## Memory (SNES)
+
+| Place | Use |
+|---|---|
+| `$0000-$001F` | the runtime |
+| `$0020-$00FF` | single variables of the program |
+| `$0200-$041F` | the sprite table |
+| `$0420-$061F` | the colours |
+| `$0620-$1DFF` | arrays and the variables that do not fit above |
+| `$1E00-$1FFF` | the stack |

@@ -170,7 +170,7 @@ int sdk_proj_rows(const sdk_proj_t *p, sdk_row_t *rows, int max)
         p->target == SDK_NES ? "NES cartridge" : "SNES cartridge", target_cpu[p->target]);
     if (p->target == SDK_NES) {
         const nes_board_t *b = &boards[p->nes_board];
-        ROW(SDK_ROW_NES_LANG, "Language", "%s", p->nes_lang ? "C (bm C)" : "Assembly (6502)");
+        ROW(SDK_ROW_CART_LANG, "Language", "%s", p->cart_c ? "C (bm C)" : "Assembly (6502)");
         ROW(SDK_ROW_BOARD, "Board", "%s (mapper %d)", b->name, b->mapper);
         size_text(sz, sizeof sz, p->nes_prg_kb);
         ROW(SDK_ROW_PRG, "PRG ROM", "%s", sz);
@@ -188,6 +188,7 @@ int sdk_proj_rows(const sdk_proj_t *p, sdk_row_t *rows, int max)
         ROW(SDK_ROW_NES_BATTERY, "Battery", "%s", p->nes_battery ? "yes (the save stays)" : "no");
         ROW(SDK_ROW_MIRROR, "Mirroring", "%s", b->one_screen ? "one screen" : p->nes_vertical ? "vertical" : "horizontal");
     } else if (p->target == SDK_SNES) {
+        ROW(SDK_ROW_CART_LANG, "Language", "%s", p->cart_c ? "C (bm C)" : "Assembly (65C816)");
         size_text(sz, sizeof sz, p->snes_rom_kb);
         ROW(SDK_ROW_MAP, "Map", "%s", p->snes_hirom ? "HiROM (64 KB banks)" : "LoROM (32 KB banks at $8000)");
         ROW(SDK_ROW_SPEED, "ROM speed", "%s", p->snes_fast ? "FastROM (120 ns, 3.58 MHz)" : "SlowROM (200 ns, 2.68 MHz)");
@@ -239,7 +240,7 @@ void sdk_proj_step(sdk_proj_t *p, int row, int step)
     case SDK_ROW_CHIP: p->snes_chip = (p->snes_chip + step + N(chips)) % N(chips); break;
     case SDK_ROW_LANG: p->bm_lang = (p->bm_lang + step + N(langs)) % N(langs); break;
     case SDK_ROW_KERNELS: p->bm_kernels = (p->bm_kernels + step + N(kernels)) % N(kernels); break;
-    case SDK_ROW_NES_LANG: p->nes_lang = !p->nes_lang; break;
+    case SDK_ROW_CART_LANG: p->cart_c = !p->cart_c; break;
     default: break;
     }
     nes_fix(p);
@@ -251,7 +252,7 @@ const char *sdk_proj_note(const sdk_proj_t *p, int row)
     switch (row) {
     case SDK_ROW_PLATFORM: return "Platform: NES cartridge (6502), SNES cartridge (65C816) or a bm project on the SD card (ARM).";
     case SDK_ROW_BOARD: return boards[p->nes_board].note;
-    case SDK_ROW_NES_LANG: return "Language: 6502 assembly, or bm C that the SDK turns into it (F6 checks, F7 shows it).";
+    case SDK_ROW_CART_LANG: return "Language: assembly, or bm C that the SDK turns into it (F6 checks, F7 shows it).";
     case SDK_ROW_PRG: return "PRG ROM: the program, in 16 KB banks.";
     case SDK_ROW_CHR: return "CHR: the tiles of the sprites and the background; ROM on the board, or 8 KB of RAM.";
     case SDK_ROW_WRAM: return "Work RAM: 8 KB at $6000 on boards that wire it (a save needs it and a battery).";
@@ -408,7 +409,7 @@ int sdk_proj_text(const sdk_proj_t *p, char *out, size_t n)
         "--sdk v=1 t=%d b=%d prg=%d chr=%d wram=%d nbat=%d vert=%d hirom=%d fast=%d rom=%d sram=%d sbat=%d chip=%d lang=%d kern=%d nlang=%d\n",
         p->target, p->nes_board, p->nes_prg_kb, p->nes_chr_kb, p->nes_wram_kb, p->nes_battery, p->nes_vertical,
         p->snes_hirom, p->snes_fast, p->snes_rom_kb, p->snes_sram_kb, p->snes_battery, p->snes_chip, p->bm_lang,
-        p->bm_kernels, p->nes_lang);
+        p->bm_kernels, p->cart_c);
     return len < 0 || (size_t)len >= n ? -1 : len;
 }
 
@@ -478,7 +479,7 @@ int sdk_proj_parse(const char *text, size_t len, sdk_proj_t *p)
     int *field[16] = { &p->target, &p->nes_board, &p->nes_prg_kb, &p->nes_chr_kb, &p->nes_wram_kb, &p->nes_battery,
                        &p->nes_vertical, &p->snes_hirom, &p->snes_fast, &p->snes_rom_kb, &p->snes_sram_kb,
                        &p->snes_battery, &p->snes_chip, &p->bm_lang, &p->bm_kernels,
-                       &p->nes_lang };
+                       &p->cart_c };
     while (line < end) {
         while (line < end && *line == ' ')
             line++;
@@ -513,7 +514,7 @@ int sdk_proj_parse(const char *text, size_t len, sdk_proj_t *p)
     p->nes_wram_kb = p->nes_wram_kb ? 8 : 0;
     p->nes_battery = !!p->nes_battery;
     p->nes_vertical = !!p->nes_vertical;
-    p->nes_lang = !!p->nes_lang;
+    p->cart_c = !!p->cart_c;
     p->snes_hirom = !!p->snes_hirom;
     p->snes_fast = !!p->snes_fast;
     p->snes_battery = !!p->snes_battery;

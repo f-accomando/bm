@@ -121,12 +121,14 @@ enum {
     RT_RANDOM = 128
 };
 
-const char *cc_runtime_head(void);                  /* the registers and the places of the runtime */
-const char *cc_runtime_part(int part);              /* the routines of one RT_* */
+const char *cc_runtime_head(int snes);              /* the places of the runtime */
+const char *cc_runtime_part(int snes, int part);    /* the routines of one RT_* */
 
 #define CC_ZP_FIRST   0x20                          /* the zero page of the program */
 #define CC_ZP_END     0x100
-#define CC_RAM_FIRST  0x320                         /* after the shadow of the palette */
+#define CC_RAM_FIRST  0x320                         /* NES: after the shadow of the palettes */
 #define CC_RAM_END    0x800
+#define CC_SNES_FIRST 0x620                         /* SNES: after the sprite table and the colours */
+#define CC_SNES_END   0x1E00                        /* the stack comes down from $1FFF */
 
 #endif /* SHELL_SDK_CC_INT_H */

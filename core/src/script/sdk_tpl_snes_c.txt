@@ -1,0 +1,50 @@
+// ===========================================================================
+// SNES game in bm C (LoROM). It builds as it is: a blue screen and a ball that
+// the pad moves. Ctrl+B builds, Ctrl+R runs, F6 checks, F7 shows the assembly.
+// Sections marked //@name ... //@end are where the Sprite, Sounds and Map tabs
+// read and write their data. Keep the markers.
+// ===========================================================================
+
+word x = 124;              // where the ball is on the screen (256 x 224)
+byte y = 108;
+
+void start(void)           // once, when the game starts
+{
+    background(BLUE);      // a colour: a name, or rgb(r, g, b) with 0 to 31
+    sprite_palette(0, WHITE, SKY, NAVY);
+}
+
+void update(void)          // once every frame (60 times a second)
+{
+    // held(button): the button is down. pressed(button): it went down now.
+    // The buttons: A B X Y L R SELECT START UP DOWN LEFT RIGHT
+    if (held(LEFT))  x -= 2;
+    if (held(RIGHT)) x += 2;
+    if (held(UP))    y -= 2;
+    if (held(DOWN))  y += 2;
+    if (pressed(A)) {
+        // something that happens when A goes down
+    }
+    sprite(0, x, y, 1);    // sprite 0 shows the tile 1 of the sheet
+}
+
+//@sprites
+// Sprite sheet: the Sprite tab writes its tiles here, a tiles { } block between
+// //@tiles and //@tiles-end (8x8 tiles, 4 bits a pixel, 32 bytes a tile, 16
+// tiles in a row, 512 at most). sprite_big(n, 1) shows 16x16 sprites.
+//@tiles  from the Sprite tab: 4bpp, 32 bytes a tile
+tiles {
+    blank(1), // $000
+    0x3C,0x3C,0x72,0x4E,0xE1,0x9F,0xC1,0xBF,0x81,0xFF,0x83,0xFF,0x46,0x7E,0x3C,0x3C, // $001
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+}
+//@tiles-end
+//@end
+
+//@music
+// Music: the Sounds tab will write the songs here.
+//@end
+
+//@map
+// Levels: the Map tab will write each level here, as const arrays.
+//@end
