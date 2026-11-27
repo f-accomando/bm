@@ -6,7 +6,8 @@
  *
  * It reads: byte, sbyte, word, int (and char, unsigned, signed), pointers, arrays, const data in ROM, functions
  * (no recursion: the locals have fixed places), if, while, do, for, break, continue, return, the operators of C,
- * #define of a number, asm("...") and tiles { ... } (the CHR ROM). The assembly says in its comments which line
+ * #define of a number, asm("...") and tiles { ... } (the CHR ROM); on the NES the music block (shell_sdk_music.h)
+ * with play_song, play_sfx and stop_music. The assembly says in its comments which line
  * of C each part comes from. The messages say what is wrong and how to put it right.
  */
 #ifndef SHELL_SDK_CC_H

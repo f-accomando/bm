@@ -92,6 +92,7 @@ reset:
     lda #0                 ; no scroll
     sta PPUSCROLL
     sta PPUSCROLL
+    jsr snd_init           ; the sound driver (see ;@music)
     lda #%10000000         ; NMI on
     sta PPUCTRL
     lda #%00011110         ; picture on: background and sprites
@@ -110,12 +111,12 @@ main:
 
 ; ---- your game: called once per frame, after the pad was read --------------
 update:
-    ; Example: do something when A goes down.
-    ;   lda pad_new
-    ;   and #BTN_A
-    ;   beq @no_a
-    ;   ...
-    ; @no_a:
+    lda pad_new            ; when A goes down: the effect sfx_jump of ;@music
+    and #BTN_A
+    beq @done
+    lda #sfx_jump
+    jsr play_sfx
+@done:
     rts
 
 ; ---- pad 1 -> pad, pad_old, pad_new ----------------------------------------
@@ -145,6 +146,7 @@ nmi:
     sta OAMADDR
     lda #>oam
     sta OAMDMA             ; copies page 2 to the sprite memory
+    jsr snd_frame          ; the sound, once a frame (keeps A, X and Y)
     inc frame
     pla
     rti
@@ -175,10 +177,12 @@ palette:
 ;   sta oam+3              ; x
 ;@end
 
-;@music
-; Music: the Sounds tab will write the songs here, one block for each song:
-;   song_title:  .byte ...   (one stream for pulse 1, pulse 2, triangle and noise)
-; Play it from the NMI. Until then the sound chip is off (APUSTATUS = 0).
+;@music  from the Sounds tab: C1..B7 (CS4 sharp), __ nothing, OFF release
+sfx_jump:                    ; sound effect
+    .byte 2, PU1, DUTY50                     ; frames a step, channel, wave
+    .byte C4,15,__,  E4,14,__,  G4,13,__,  C5,12,UP+3
+    .byte C5,8,UP+3,  C5,4,UP+3
+    .byte END
 ;@end
 
 ;@map

@@ -49,7 +49,7 @@ local function round_trip(name, text, prg, base)
 end
 
 -- the NES start file: 32 KB of PRG
-local res = A.assemble(read("core/src/script/sdk_tpl_nes.s"), { cpu = "6502" })
+local res = A.assemble(read("build/host/sdk_tpl_nes_full.s"), { cpu = "6502" })    -- with the sound driver
 check("nes template assembles", res.ok)
 local rom = assert(A.build_nes(res, { prg_kb = 32, chr_kb = 8, mapper = 0 }))
 local text, why = D.listing(A, R, rom)
@@ -60,7 +60,7 @@ if text then
     check("nes: the first instruction", text:find("%x%x%x%x  sei%s+78\n") ~= nil, text:sub(1, 200))
     check("nes: the empty end is one line", text:find("\n%x%x%x%x  ; %d+ bytes of %$FF\n") ~= nil)
     check("nes: the vectors", text:find("\nFFFC  %.dw %$%x%x%x%x%s+reset\n") ~= nil, text:sub(-200))
-    check("nes: short", select(2, text:gsub("\n", "")) < 600)
+    check("nes: short", select(2, text:gsub("\n", "")) < 1200, select(2, text:gsub("\n", "")))
     check("nes: many instructions come back", round_trip("nes template", text, rom:sub(17, 16 + 32768), 0x8000) > 30)
 end
 

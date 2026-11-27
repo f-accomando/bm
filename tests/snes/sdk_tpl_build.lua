@@ -25,7 +25,7 @@ end
 
 -- NES: NROM, 32 KB PRG, 8 KB CHR (the header sdk_proj_header makes for the default project)
 local src = read("core/src/script/sdk_tpl_nes.s")
-local res = A.assemble(src, { cpu = "6502" })
+local res = A.assemble(read(out .. "/sdk_tpl_nes_full.s"), { cpu = "6502" })    -- with the sound driver
 check("nes template assembles", res.ok, A.format_errors(res))
 if res.ok then
     local rom, info = A.build_nes(res, { prg_kb = 32, chr_kb = 8, mapper = 0 })

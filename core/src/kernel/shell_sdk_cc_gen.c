@@ -5,6 +5,7 @@
  * the stack of the machine, then in __b. Every variable has a fixed place (no recursion): the zero page first.
  */
 #include "shell_sdk_cc_int.h"
+#include "shell_sdk_music.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,7 +13,7 @@
 #include <string.h>
 
 enum { B_WAIT, B_HELD, B_PRESSED, B_BACKGROUND, B_BG_PAL, B_SPR_PAL, B_SPRITE, B_STYLE, B_HIDE, B_RANDOM, B_PEEK,
-       B_POKE, B_BIG, B_PALETTE, B_RGB, B_COUNT };
+       B_POKE, B_BIG, B_PALETTE, B_RGB, B_SONG, B_SFX, B_STOP, B_COUNT };
 
 enum { ON_NES = 1, ON_SNES = 2, ON_BOTH = 3 };
 
@@ -38,7 +39,11 @@ static const struct {
     { "poke", "(address, value)", NULL, CT_VOID, 2, { 2, 1 }, { 2, 1 }, ON_BOTH, 0 },
     { "sprite_big", "(n, big)", "__sprite_big", CT_VOID, 2, { 0 }, { 1, 1 }, ON_SNES, RT_SPRITE },
     { "palette", "(index, colour)", "__palette", CT_VOID, 2, { 0 }, { 1, 2 }, ON_SNES, RT_PALETTE },
-    { "rgb", "(r, g, b)", NULL, CT_U16, 3, { 0 }, { 1, 1, 1 }, ON_SNES, 0 } };
+    { "rgb", "(r, g, b)", NULL, CT_U16, 3, { 0 }, { 1, 1, 1 }, ON_SNES, 0 },
+    /* the sound driver (shell_sdk_snd.c) takes the number in A */
+    { "play_song", "(song)", "play_song", CT_VOID, 1, { 1 }, { 0 }, ON_NES, 0 },
+    { "play_sfx", "(effect)", "play_sfx", CT_VOID, 1, { 1 }, { 0 }, ON_NES, 0 },
+    { "stop_music", "()", "stop_music", CT_VOID, 0, { 0 }, { 0 }, ON_NES, 0 } };
 
 typedef struct { const char *name; int value; } constant_t;
 
@@ -71,6 +76,8 @@ typedef struct {
     sym_t *all, **all_tail;         /* every symbol that needs a place or a line of the output */
     sym_t *fn;                      /* the function being read or written */
     int zp, ram;                    /* the next free place */
+    int zp_end;
+    char *sound;                    /* the driver and its data, when the program has sound */
     int loops;                      /* how many loops are open (analysis) */
     int labels, brk, cont;
     int parts;                      /* RT_* that the program uses */
@@ -284,7 +291,7 @@ static int bytes_of(const sym_t *s)
 static void place(gen_t *g, sym_t *s)
 {
     const int n = bytes_of(s);
-    if (!s->type.len && g->zp + n <= CC_ZP_END) {
+    if (!s->type.len && g->zp + n <= g->zp_end) {
         s->address = g->zp;
         g->zp += n;
     } else if (g->ram + n <= g->ram_end) {
@@ -1696,6 +1703,11 @@ static void call(gen_t *g, node_t *n)
             I("ldy #0");
             I("sta (__p),y");
             return;
+        case B_SONG:
+        case B_SFX:
+            gen(g, a, 1);
+            I("jsr %s", builtins[b].routine);
+            return;
         default:
             break;
         }
@@ -2132,6 +2144,24 @@ static void upload_tiles(gen_t *g)
     I("rts");
 }
 
+/* The start and the vertical blank: with sound, the NES calls the driver in them. */
+static void base_runtime(gen_t *g)
+{
+    const char *at = cc_runtime_part(g->snes, RT_BASE);
+    static const char *const hooks[2][2] = { { "@@snd_init\n", "    jsr snd_init\n" },
+                                             { "@@snd_frame\n", "    jsr snd_frame\n" } };
+    for (int i = 0; i < 2; i++) {
+        const char *mark = strstr(at, hooks[i][0]);
+        if (!mark)
+            break;
+        put(g, at, (size_t)(mark - at));
+        if (g->sound)
+            put(g, hooks[i][1], strlen(hooks[i][1]));
+        at = mark + strlen(hooks[i][0]);
+    }
+    put(g, at, strlen(at));
+}
+
 static void write_program(gen_t *g)
 {
     const int ram = (g->zp - CC_ZP_FIRST) + (g->ram - g->ram_first);
@@ -2154,7 +2184,7 @@ static void write_program(gen_t *g)
     emit(g, "%s", "");
     emit(g, ".org $8000");
     emit(g, "%s", "");
-    put(g, cc_runtime_part(g->snes, RT_BASE), strlen(cc_runtime_part(g->snes, RT_BASE)));
+    base_runtime(g);
     if (g->snes)
         upload_tiles(g);
 
@@ -2229,6 +2259,11 @@ static void write_program(gen_t *g)
             put(g, cc_runtime_part(g->snes, part), strlen(cc_runtime_part(g->snes, part)));
         }
 
+    if (g->sound) {
+        emit(g, "%s", "");
+        put(g, g->sound, strlen(g->sound));
+    }
+
     int first = 1;
     for (const sym_t *s = g->all; s; s = s->all) {
         const int copy = s->kind == SY_VAR && s->init && s->init->kind == N_LIST && !strncmp(s->label, "v_", 2);
@@ -2275,13 +2310,66 @@ static void builtin_names(gen_t *g)
     }
 }
 
+/* The sound of a NES program: reads the music block, gives its numbers their names, and hands the reader a source
+ * where the block is empty lines. Returns the source to read (from malloc), or NULL with the message in err. */
+static char *sound(gen_t *g, const char *src, size_t len, sdk_music_t *m)
+{
+    char why[128];
+    if (!g->snes && sdk_music_parse(src, len, 1, m, why, sizeof why) != 0) {
+        int line = 1, used = 0;
+        if (sscanf(why, "line %d: %n", &line, &used) != 1)
+            used = 0;
+        snprintf(g->cc->err, g->cc->en, "main.c:%d: music: %s", line, why + used);
+        return NULL;
+    }
+    char *copy = malloc(len + 1);
+    if (!copy) {
+        snprintf(g->cc->err, g->cc->en, "main.c:1: not enough memory to compile");
+        return NULL;
+    }
+    memcpy(copy, src, len);
+    copy[len] = 0;
+    size_t from, to;
+    if (!g->snes && sdk_music_find(src, len, 1, &from, &to) > 0)
+        for (size_t i = from; i < to; i++)
+            if (copy[i] != '\n')
+                copy[i] = ' ';
+    if (!g->snes && (!sdk_music_empty(m) || sdk_music_called(copy, len, 1))) {
+        g->sound = sdk_music_asm(m);
+        if (!g->sound) {
+            snprintf(g->cc->err, g->cc->en, "main.c:1: not enough memory for the music");
+            free(copy);
+            return NULL;
+        }
+        g->zp_end = 0xFC;                       /* the driver's places */
+        g->ram_end = 0x700;
+    }
+    return copy;
+}
+
+/* song_NAME and sfx_NAME: the numbers that play_song and play_sfx take. */
+static void sound_names(gen_t *g, const sdk_music_t *m)
+{
+    for (int i = 0; i < m->songs + m->sfxs; i++) {
+        const int song = i < m->songs;
+        char name[24];
+        snprintf(name, sizeof name, "%s_%s", song ? "song" : "sfx",
+                 song ? m->song[i].name : m->sfx[i - m->songs].name);
+        sym_t *s = new_sym(g, cc_strdup(g->cc, name, strlen(name)), SY_CONST, 0);
+        s->value = song ? i : i - m->songs;
+        declare_global(g, s);
+    }
+}
+
 int sdk_cc_compile(const char *src, size_t len, int snes, sdk_cc_out_t *out, char *err, size_t en)
 {
     cc_t *cc = calloc(1, sizeof *cc);
     gen_t *g = calloc(1, sizeof *g);
+    sdk_music_t *music = calloc(1, sizeof *music);
+    char *volatile read = NULL;                 /* volatile: set after setjmp could come back */
     memset(out, 0, sizeof *out);
     int rc = -1;
-    if (!cc || !g) {
+    if (!cc || !g || !music) {
         snprintf(err, en, "main.c:1: not enough memory to compile");
         goto done;
     }
@@ -2297,9 +2385,15 @@ int sdk_cc_compile(const char *src, size_t len, int snes, sdk_cc_out_t *out, cha
     g->ram_first = snes ? CC_SNES_FIRST : CC_RAM_FIRST;
     g->ram_end = snes ? CC_SNES_END : CC_RAM_END;
     g->zp = CC_ZP_FIRST;
+    g->zp_end = CC_ZP_END;
     g->ram = g->ram_first;
+    read = sound(g, src, len, music);
+    if (!read)
+        goto done;
+    cc->src = read;
     if (!setjmp(cc->fail)) {
         builtin_names(g);
+        sound_names(g, music);
         cc_parse(cc, &g->prog, define);
         analyse(g);
         write_program(g);
@@ -2322,7 +2416,10 @@ done:
     if (g) {
         free(g->text);
         free(g->line_of);
+        free(g->sound);
     }
+    free(music);
+    free(read);
     free(g);
     free(cc);
     return rc;

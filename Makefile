@@ -1778,7 +1778,9 @@ $(BUILD)/host/test_shell_code: tests/kernel/test_shell_code.c core/src/kernel/sh
 # The Shell SDK Project tab model (core/src/kernel/shell_sdk_proj.c)
 # The start files of the Shell SDK (core/src/script/sdk_tpl_nes.s, sdk_tpl_snes.s): they assemble and build with the default
 # settings, and the NES core and the SNES core run them (blue screen, frame counter, pad bits).
-test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/script/sdk_dis.lua core/lua/snesrom.lua tests/snes/sdk_dis_test.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_snes.s tests/snes/sdk_tpl_build.lua tests/snes/sdk_tpl_run.c tests/nes/sdk_tpl_run.c core/src/bm/nes.c $(wildcard core/src/bm/snes*.h)
+test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/script/sdk_dis.lua core/lua/snesrom.lua tests/snes/sdk_dis_test.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_snes.s tests/snes/sdk_tpl_build.lua tests/snes/sdk_tpl_run.c tests/nes/sdk_tpl_run.c core/src/bm/nes.c $(wildcard core/src/bm/snes*.h) tests/kernel/sdk_music_expand.c $(SDK_MUS_SRCS) core/src/kernel/shell_sdk_music.h
+	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src -o $(BUILD)/host/sdk_music_expand tests/kernel/sdk_music_expand.c $(SDK_MUS_SRCS)
+	$(BUILD)/host/sdk_music_expand core/src/script/sdk_tpl_nes.s $(BUILD)/host/sdk_tpl_nes_full.s
 	$(BUILD)/host/luahost tests/snes/sdk_tpl_build.lua $(BUILD)/host
 	$(BUILD)/host/luahost tests/snes/sdk_dis_test.lua
 	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src/bm -o $(BUILD)/host/snes_sdk_tpl_run tests/snes/sdk_tpl_run.c $(SNES_CORE_SRCS)
@@ -1787,21 +1789,30 @@ test-sdk-templates: $(BUILD)/host/luahost core/src/script/snes_asm.lua core/src/
 	$(BUILD)/host/nes_sdk_tpl_run $(BUILD)/host/sdk_tpl.nes
 
 # bm C, the C of the NES projects: compiled, assembled and run in the NES core
-SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c
+SDK_MUS_SRCS := core/src/kernel/shell_sdk_music.c core/src/kernel/shell_sdk_snd.c core/src/kernel/shell_sdk_edit.c
+SDK_CC_SRCS := core/src/kernel/shell_sdk_cc_parse.c core/src/kernel/shell_sdk_cc_gen.c core/src/kernel/shell_sdk_cc_rt.c $(SDK_MUS_SRCS)
 test-sdk-cc: $(BUILD)/host/test_shell_sdk_cc core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes_c.txt core/src/script/sdk_tpl_snes_c.txt
 	$(BUILD)/host/test_shell_sdk_cc
 
-$(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_cc.h core/src/kernel/shell_sdk_cc_int.h core/src/bm/nes.c core/src/bm/nes.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
+$(BUILD)/host/test_shell_sdk_cc: tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_cc.h core/src/kernel/shell_sdk_cc_int.h core/src/kernel/shell_sdk_music.h core/src/bm/nes.c core/src/bm/nes.h $(SNES_CORE_SRCS) $(wildcard core/src/bm/snes*.h) $(LUA_SRCS)
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -g -w -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_cc.c $(SDK_CC_SRCS) core/src/bm/nes.c $(SNES_CORE_SRCS) $(LUA_SRCS) -lm
 
-test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code
+test-shell-sdk: $(BUILD)/host/test_shell_sdk_proj $(BUILD)/host/test_shell_sdk_code test-sdk-music
 	$(BUILD)/host/test_shell_sdk_proj
 	$(BUILD)/host/test_shell_sdk_code
 
 $(BUILD)/host/test_shell_sdk_code: tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_edit.h core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_rom.h core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_tiles.h core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_view.h core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_sheet.h core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_chr.h core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_canvas.h core/src/kernel/shell_sdk_pal.c core/src/kernel/shell_sdk_pal.h core/src/kernel/shell_sdk_hl.c core/src/kernel/shell_sdk_hl.h
 	@mkdir -p $(dir $@)
 	$(HOSTCC) -O1 -Wall -Wextra -Icore/src -o $@ tests/kernel/test_shell_sdk_code.c core/src/kernel/shell_sdk_edit.c core/src/kernel/shell_sdk_rom.c core/src/kernel/shell_sdk_tiles.c core/src/kernel/shell_sdk_view.c core/src/kernel/shell_sdk_sheet.c core/src/kernel/shell_sdk_chr.c core/src/kernel/shell_sdk_canvas.c core/src/kernel/shell_sdk_pal.c core/src/kernel/shell_sdk_hl.c
+
+# the music of the Sounds tab: the block, the driver in the NES core
+test-sdk-music: $(BUILD)/host/test_shell_sdk_music core/src/script/snes_asm.lua core/src/script/sdk_tpl_nes.s core/src/script/sdk_tpl_nes_c.txt
+	$(BUILD)/host/test_shell_sdk_music
+
+$(BUILD)/host/test_shell_sdk_music: tests/kernel/test_shell_sdk_music.c $(SDK_CC_SRCS) core/src/kernel/shell_sdk_music.h core/src/bm/nes.c core/src/bm/nes.h $(LUA_SRCS)
+	@mkdir -p $(dir $@)
+	$(HOSTCC) -O1 -g -Wall -Wextra -Icore/src -Icore/src/bm -Icore/third_party/lua -o $@ tests/kernel/test_shell_sdk_music.c $(SDK_CC_SRCS) core/src/bm/nes.c $(LUA_SRCS) -lm
 
 $(BUILD)/host/test_shell_sdk_proj: tests/kernel/test_shell_sdk_proj.c core/src/kernel/shell_sdk_proj.c core/src/kernel/shell_sdk_proj.h
 	@mkdir -p $(dir $@)

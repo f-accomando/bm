@@ -12,6 +12,7 @@
 #include "lua.h"
 #include "script/luavm.h"
 #include "shell_sdk_cc.h"
+#include "shell_sdk_music.h"
 
 extern const uint8_t bm_lib_snes_asm[], bm_lib_snes_asm_end[];
 
@@ -82,8 +83,15 @@ int sdk_build(const sdk_proj_t *p, const char *name, const char *source, size_t 
         ram = c.ram;
         ram_size = c.ram_size;
         sdk_cc_free(&c);
-    } else
-        rc = assemble(p, name, source, len, rom, rom_len, &used, err, en);
+    } else {
+        sdk_music_src_t s = { 0 };
+        if (p->target == SDK_NES && sdk_music_expand(source, len, &s, err, en) != 0)
+            return -1;
+        rc = assemble(p, name, s.text ? s.text : source, s.text ? s.len : len, rom, rom_len, &used, err, en);
+        if (rc != 0 && s.text)
+            sdk_music_error_line(&s, err, en);
+        free(s.text);
+    }
     if (rc == 0 && info) {
         info->rom = used;
         info->rom_size = (unsigned)(p->target == SDK_NES ? p->nes_prg_kb : p->snes_rom_kb) * 1024u;
