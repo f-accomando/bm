@@ -376,6 +376,41 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en)
     return 0;
 }
 
+int sdk_chr_lines(int nes, const char *src, size_t len, int tile, int *first, int *last)
+{
+    const size_t bytes = (size_t)sdk_tile_bytes(sdk_chr_format(nes)), max = TILES * bytes;
+    const int c = nes == SDK_CHR_NES_C || nes == SDK_CHR_SNES_C;
+    size_t from = 0, to = 0;
+    if (tile < 0 || tile >= TILES || find_block(c, src, len, &from, &to) <= 0)
+        return 0;
+    uint8_t *data = calloc(2, max);
+    if (!data)
+        return 0;
+    const size_t at = (size_t)tile * bytes;
+    size_t n = 0;
+    int found = 0, line = line_number(src, from) + 1;
+    for (size_t p = next_line(src, len, from), e; p < to && n < at + bytes; p = e, line++) {
+        e = next_line(src, len, p);
+        size_t stop = e;
+        while (stop > p && src[stop - 1] == '\n')
+            stop--;
+        if (find_marker(src + p, stop - p, 0, c ? "//@tiles-end" : ";@tiles-end") < stop - p)
+            continue;
+        const size_t before = n;
+        if ((c ? read_c_line(src + p, src + stop, data, data + max, &n, max, bytes)
+               : read_line(src + p, src + stop, data, data + max, &n, max)) != 0)
+            break;
+        if (n > before && before < at + bytes && n > at) {     /* bytes of the tile are on this line */
+            if (!found)
+                *first = line;
+            *last = line;
+            found = 1;
+        }
+    }
+    free(data);
+    return found;
+}
+
 /* ---- into the editor ---- */
 
 int sdk_chr_commit(int nes, int run, char *err, size_t en)

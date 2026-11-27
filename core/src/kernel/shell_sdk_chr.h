@@ -36,4 +36,9 @@ int sdk_chr_read(int nes, const char *src, size_t len, char *err, size_t en);
  * one tile are one step). Returns 0, or -1 with the reason in err. */
 int sdk_chr_commit(int nes, int run, char *err, size_t en);
 
+/* Where the block of a source writes a tile (0 to 511): the lines *first to *last, from 1. A run of empty tiles
+ * is one line for all of them. Returns 1, or 0 when there is no block, it does not read, or it ends before the
+ * tile. */
+int sdk_chr_lines(int nes, const char *src, size_t len, int tile, int *first, int *last);
+
 #endif /* SHELL_SDK_CHR_H */

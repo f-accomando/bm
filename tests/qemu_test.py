@@ -5141,7 +5141,12 @@ def test_shell_sdk_canvas_code(b, opts):
         q.expect("> ", timeout=10)
         q.send("\r")
         time.sleep(0.5)
-        q.send(bytes([0xFB]))                       # F3: the Sprite tab
+        q.send(bytes([0xFB]))                       # F3: the Sprite tab, the code under its panes
+        rows = screen()
+        assert any("main.s  ;@tiles  tile 000  empty: not in the code yet" in r for r in rows), rows
+        q.send("v")                                 # v: the panes take the whole screen again
+        rows = screen()
+        assert any("Code hidden" in r for r in rows) and not any(";@tiles  tile" in r for r in rows), rows
         q.send("\x1b")
         q.send(SDK_DOWN * 3 + b"\r")                # Open ROM
         time.sleep(0.5)
@@ -5359,7 +5364,7 @@ def test_shell_sdk_c(b, opts):
         q.send("p")
         has("Palette: SPR0 of the code")
         q.send(SDK_RIGHT * 2 + b"\r ")              # tile 2 in the canvas, one pixel
-        has("Canvas 8x8  tile 002")
+        has("Canvas 8x8  tile 002", "main.c  //@tiles  tile 002  line", "0x80,0x00")    # its code below
         q.send(bytes([0xFA]))                       # F2: the tiles block has it
         sendkeys(q, "ctrl-alt-down")
         for _ in range(5):

@@ -511,6 +511,20 @@ static void test_chr(void)
     CHECK(sdk_chr_commit(1, 0, err, sizeof err) == -1);
     CHECK(sdk_chr_read(1, "rts\n", 4, err, sizeof err) == 0 && sdk_sheet_empty());
 
+    /* where the code writes a tile: tile 1 on its own line, the empty run on one line for all of its tiles */
+    const char *two = "a\n;@tiles\n.chr\n    .res 16,0\n    .db 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16\n"
+                      "    .res 224,0\n    .db 1,2,3,4,5,6,7,8\n    .db 9,10,11,12,13,14,15,16\n.endchr\n;@tiles-end\n";
+    int first = 0, last = 0;
+    CHECK(sdk_chr_lines(1, two, strlen(two), 1, &first, &last) == 1 && first == 5 && last == 5);
+    CHECK(sdk_chr_lines(1, two, strlen(two), 0, &first, &last) == 1 && first == 4 && last == 4);
+    CHECK(sdk_chr_lines(1, two, strlen(two), 9, &first, &last) == 1 && first == 6 && last == 6);
+    CHECK(sdk_chr_lines(1, two, strlen(two), 16, &first, &last) == 1 && first == 7 && last == 8);
+    CHECK(sdk_chr_lines(1, two, strlen(two), 17, &first, &last) == 0);        /* past the end of the block */
+    CHECK(sdk_chr_lines(1, "rts\n", 4, 0, &first, &last) == 0);
+    const char *in_c = "//@tiles\ntiles {\n    blank(2),\n    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,\n}\n//@tiles-end\n";
+    CHECK(sdk_chr_lines(SDK_CHR_NES_C, in_c, strlen(in_c), 2, &first, &last) == 1 && first == 4 && last == 4);
+    CHECK(sdk_chr_lines(SDK_CHR_NES_C, in_c, strlen(in_c), 1, &first, &last) == 1 && first == 3);
+
     /* the whole canvas fits in the code */
     sdk_edit_set("x\n", 2);
     for (int i = 0; i < 512; i++)

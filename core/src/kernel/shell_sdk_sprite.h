@@ -41,7 +41,8 @@ void sdk_sprite_draw(int cols, int rows, const char *msg);
  * Ctrl+C copy, Ctrl+X cut, Ctrl+V paste, Del empties, i imports the sprite sheet of the ROM (sdk_sheet_part;
  * twice when the sheet has tiles). Canvas: the arrows move (Shift selects), Space paints, Backspace makes
  * transparent (both also while held and moving: SDK_MOD_PAINT, SDK_MOD_ERASE), [ ] the colour, Ctrl+C, X, V,
- * Enter back to the sheet. Sheet and canvas: p the palette, s 8x8 or 16x16. ROM: sdk_tiles_key, and i. */
+ * Enter back to the sheet. Sheet and canvas: p the palette, s 8x8 or 16x16. ROM: sdk_tiles_key, and i. Everywhere
+ * in a NES or SNES project: v hides or shows the code under the panes. */
 int sdk_sprite_key(int key, int mods);
 
 #endif /* SHELL_SDK_SPRITE_H */

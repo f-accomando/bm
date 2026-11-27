@@ -23,6 +23,7 @@
 #define SHEET_GUTTER  4                 /* "010 ": the number of the first tile of a row */
 #define FIRST         3                 /* the ANSI row of the first row of tiles of the ROM */
 #define SHEET_FIRST   4                 /* and of the sheet and of the canvas, under two lines */
+#define CODE_ROWS     6                 /* the code under the panes: its head and five lines */
 
 enum { ON_LEFT, ON_SHEET };
 
@@ -52,6 +53,7 @@ static unsigned code_rev;               /* the revision of the code the sheet wa
 static char code_err[48];               /* why its tiles block cannot be read ("": it can) */
 static char info[2][48];                /* the head of the sheet: its size, for this project */
 static int import_armed;                /* i was pressed on a sheet with tiles: again replaces them */
+static int show_code = 1;               /* the code under the panes (v) */
 
 void sdk_sprite_reset(void)
 {
@@ -67,6 +69,7 @@ void sdk_sprite_reset(void)
     code_err[0] = 0;
     info[0][0] = info[1][0] = 0;
     import_armed = 0;
+    show_code = 1;
 }
 
 static int chr_kind(void)
@@ -476,23 +479,21 @@ static void canvas_draw(int col, int width, int rows)
         static const char *const help[] = {
             "Enter on a tile of the sprite sheet",
             "opens it here.",
-            "",
             "Space        paint (hold and move)",
             "Backspace    transparent",
-            "[ ]          colour",
-            "p            palette",
-            "s            8x8 or 16x16",
+            "[ ]  p  s    colour, palette, 8/16",
             "Shift+arrows select",
             "Ctrl+C X V   copy, cut, paste",
             "Enter        back to the sheet",
             "Ctrl+T       the other side",
-            "Ctrl+E       ROM or canvas",
-            "i            import (on the sheet)",
+            "v            hide or show the code",
         };
-        for (int i = 0; i < (int)(sizeof help / sizeof help[0]) && FIRST + i < rows; i++)
+        const int n = (int)(sizeof help / sizeof help[0]);
+        for (int i = 0; i < n && FIRST + i < rows; i++)
             text_row(FIRST + i, col + 1, width - 1, "\x1b[0m", help[i]);
-        if (!rom && FIRST + 15 < rows)
-            text_row(FIRST + 15, col + 1, width - 1, "\x1b[90m", "Esc > Open ROM shows a ROM here");
+        if (FIRST + n < rows)                   /* the ROM: what opens it, or how to see it */
+            text_row(FIRST + n, col + 1, width - 1, "\x1b[90m",
+                     rom ? "Ctrl+E ROM view  i import to sheet" : "Esc > Open ROM shows a ROM here");
         sdk_pane_status(col, width, rows, "", active);
         return;
     }
@@ -851,6 +852,48 @@ static void import_sheet(int armed)
     changed_sheet(0);
 }
 
+/* ---- the code under the panes ---- */
+
+/* The lines of the tiles block round the tile under the cursor (the pixel of the canvas, or the cell of the
+ * sheet), with that tile's own lines in the swapped colours. */
+static void code_draw(int top, int rows, int cols)
+{
+    const sdk_canvas_t *cv = sdk_canvas();
+    const int on_canvas = focus == ON_LEFT && cv->open && !(rom && !hidden);
+    const int tile = on_canvas ? (cv->row + cv->y / 8) * SDK_SHEET_W + cv->col + cv->x / 8
+                               : pick.row * SDK_SHEET_W + pick.col;
+    const int c = code_kind == SDK_SPRITE_NES_C || code_kind == SDK_SPRITE_SNES_C;
+    const char *file = c ? "main.c  //@tiles" : "main.s  ;@tiles";
+    int first = 0, last = 0;
+    const int found = !code_err[0] &&
+                      sdk_chr_lines(chr_kind(), sdk_edit_text(), sdk_edit_length(), tile, &first, &last);
+    char head[96];
+    if (found && first == last)
+        snprintf(head, sizeof head, "%s  tile %03X  line %d   v hides", file, (unsigned)tile, first);
+    else if (found)
+        snprintf(head, sizeof head, "%s  tile %03X  lines %d-%d   v hides", file, (unsigned)tile, first, last);
+    else
+        snprintf(head, sizeof head, "%s  tile %03X  %s   v hides", file, (unsigned)tile,
+                 code_err[0] ? "the block cannot be read" : "empty: not in the code yet");
+    sdk_title_bar(top, 1, cols, head, 0);
+    const int room = rows - 1;
+    int from = 0;                                       /* the first line shown, from 1 */
+    if (found)
+        from = first - (room - (last - first + 1)) / 2;
+    for (int i = 0; i < room; i++) {
+        const int line = from + i;
+        const char *s = NULL;
+        int n = 0;
+        if (found && line >= 1 && line <= sdk_edit_line_count())
+            n = sdk_edit_line(line - 1, &s);
+        for (int cut = 0; cut < 4 && n && *s == ' '; cut++)     /* the indent: 16 bytes of C fill the row */
+            s++, n--;
+        console_write(found && line >= first && line <= last ? "\x1b[0;30;47m" : "\x1b[0m");
+        sdk_put_row(top + 1 + i, 1, cols - 1, s ? s : "", n);   /* the last cell stays: no scroll */
+        console_write("\x1b[0m");
+    }
+}
+
 /* ---- the Sprite tab ---- */
 
 void sdk_sprite_draw(int cols, int rows, const char *msg)
@@ -865,6 +908,10 @@ void sdk_sprite_draw(int cols, int rows, const char *msg)
     const int left = split ? cols - wide - 1 : focus == ON_LEFT ? cols : 0;
     const int right = split ? cols - wide : focus == ON_SHEET ? 1 : 0;          /* the column of the sheet */
     const int right_width = split ? wide : cols;
+    const int code = show_code && code_kind != SDK_SPRITE_NONE ? CODE_ROWS : 0;
+    rows -= code;                               /* the panes */
+    if (code)
+        code_draw(rows + 1, code, cols);
     if (left) {
         if (show_rom) {
             char head[80];
@@ -924,6 +971,11 @@ int sdk_sprite_key(int key, int mods)
     }
     const int on_rom = focus == ON_LEFT && rom && !hidden;
     const int on_canvas = focus == ON_LEFT && !on_rom;
+    if (key == 'v' && code_kind != SDK_SPRITE_NONE) {
+        show_code = !show_code;
+        snprintf(sdk_note, sizeof sdk_note, show_code ? "The code below" : "Code hidden: v shows it");
+        return 1;
+    }
     if (key == 'i') {
         if (on_canvas)
             snprintf(sdk_note, sizeof sdk_note, "i imports into the sheet (Ctrl+T)");
